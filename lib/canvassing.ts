@@ -254,7 +254,6 @@ export async function assignSuppliers(
     rfq_id:                 rfqId,
     supplier_id:            id,
     supplier_name_snapshot: nameMap[id] ?? '',
-    supplier_name:          nameMap[id] ?? '',
     status:                 'invited',
     invited_at:             new Date().toISOString(),
   }));
