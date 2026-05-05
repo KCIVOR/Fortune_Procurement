@@ -35,7 +35,8 @@ export interface PR2ApprovalDetail {
   generated_at:                string;
   remarks:                     string | null;
   pr1_priority?:               'normal' | 'medium' | 'high';
-  items: PR2ApprovalItem[];
+  /** Intersection ensures `pr1_item_id` for canvass lookups even if tooling resolves an older PR2ApprovalItem shape */
+  items: Array<PR2ApprovalItem & { pr1_item_id: string | null }>;
   // Phase 1 instance (always present once submitted)
   phase1_instance_id:     string;
   phase1_workflow_id:     string;
