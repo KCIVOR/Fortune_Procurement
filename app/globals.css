@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Brand color tokens */
+    --brand-primary: #1E4BFF;
+    --brand-navy: #0F1F3A;
+    --brand-dark-bg: #0B1426;
+    --brand-canvas: #FFFFFF;
+    --brand-muted-bg: #F7F9FC;
+    --brand-text-dark-primary: #FFFFFF;
+    --brand-text-dark-secondary: #BFC7D5;
+    --brand-text-light-primary: #0F1F3A;
+    --brand-text-light-secondary: #40527A;
+    --brand-border-light: #D8E2FF;
+    --brand-border-dark: #22304A;
+
+    /* shadcn/ui semantic tokens mapped to brand */
+    --background: 0 0% 100%;
+    --foreground: 222 64% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 64% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 64% 14%;
+    --primary: 226 100% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 213 100% 97%;
+    --secondary-foreground: 222 64% 14%;
+    --muted: 213 60% 97%;
+    --muted-foreground: 222 32% 36%;
+    --accent: 213 60% 97%;
+    --accent-foreground: 222 64% 14%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 226 100% 87%;
+    --input: 226 100% 87%;
+    --ring: 226 100% 56%;
+
+    /* Radius tokens — allowed: 0px, 2px, 4px */
+    --radius-none: 0px;
+    --radius-xs: 2px;
+    --radius-sm: 4px;
+    --radius: 4px;
+
+    /* Chart tokens */
+    --chart-1: 226 100% 56%;
+    --chart-2: 222 64% 14%;
+    --chart-3: 200 80% 50%;
+    --chart-4: 160 60% 45%;
+    --chart-5: 30 90% 55%;
+  }
+
+  .dark {
+    --background: 222 64% 10%;
+    --foreground: 0 0% 100%;
+    --card: 222 52% 13%;
+    --card-foreground: 0 0% 100%;
+    --popover: 222 52% 13%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 226 100% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 45% 20%;
+    --secondary-foreground: 216 22% 84%;
+    --muted: 222 45% 18%;
+    --muted-foreground: 216 22% 72%;
+    --accent: 222 45% 20%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 218 37% 28%;
+    --input: 218 37% 28%;
+    --ring: 226 100% 56%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* Reusable label utility */
+  .label-caps {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+  }
+}

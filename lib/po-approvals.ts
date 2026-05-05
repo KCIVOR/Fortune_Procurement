@@ -1,0 +1,537 @@
+import { supabase } from '@/lib/supabase';
+import type { UserProfile } from '@/types/auth';
+import type {
+  POApprovalQueueRow,
+  POApprovalDetail,
+  POApprovalAction,
+  POReceipt,
+  SupplierPORow,
+} from '@/types/po';
+import { createDeliveryForPO } from '@/lib/delivery';
+
+const db = supabase as any;
+
+// ─── Authority check ──────────────────────────────────────────────────────────
+
+export function canActOnPOStep(
+  profile: UserProfile,
+  stepRoleRequired: string,
+  stepPositionRequired: string
+): boolean {
+  return profile.role === stepRoleRequired && profile.position === stepPositionRequired;
+}
+
+// ─── Submit PO for approval (Buyer initiates) ─────────────────────────────────
+
+export async function submitPOForApproval(
+  poId: string,
+  profile: UserProfile
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  const { data: po, error: poErr } = await db
+    .from('po_requests')
+    .select('id, status, po_number')
+    .eq('id', poId)
+    .maybeSingle();
+  if (poErr) throw poErr;
+  if (!po) throw new Error('PO not found.');
+  if (po.status !== 'draft') throw new Error('Only draft POs can be submitted for approval.');
+
+  const { data: existing } = await db
+    .from('approval_instances')
+    .select('id')
+    .eq('document_type', 'PO')
+    .eq('document_id', poId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (existing?.id) throw new Error('An active approval instance already exists for this PO.');
+
+  const { data: wf, error: wfErr } = await db
+    .from('approval_workflows')
+    .select('id')
+    .eq('code', 'PO_APPROVAL')
+    .maybeSingle();
+  if (wfErr) throw wfErr;
+  if (!wf) throw new Error('PO_APPROVAL workflow not configured.');
+
+  const { data: inst, error: instErr } = await db
+    .from('approval_instances')
+    .insert({
+      workflow_id:   wf.id,
+      document_type: 'PO',
+      document_id:   poId,
+      current_step:  1,
+      status:        'active',
+      started_by:    profile.id,
+      started_at:    now,
+    })
+    .select('id')
+    .single();
+  if (instErr) throw instErr;
+
+  await db
+    .from('po_requests')
+    .update({ status: 'for_approval', approval_instance_id: inst.id, updated_at: now })
+    .eq('id', poId);
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'PO_SUBMITTED_FOR_APPROVAL',
+    document_type: 'PO',
+    document_id:   poId,
+    payload:       { po_number: po.po_number, submitted_by: profile.full_name },
+  });
+}
+
+// ─── Fetch PO approval queue ──────────────────────────────────────────────────
+
+export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
+  const { data: instances, error } = await db
+    .from('approval_instances')
+    .select('id, workflow_id, document_id, current_step, status, started_at')
+    .eq('document_type', 'PO')
+    .eq('status', 'active')
+    .order('started_at', { ascending: true });
+
+  if (error) throw error;
+  if (!instances || instances.length === 0) return [];
+
+  const poIds       = Array.from(new Set(instances.map((r: any) => r.document_id as string)));
+  const workflowIds = Array.from(new Set(instances.map((r: any) => r.workflow_id as string)));
+
+  const [poRes, stepsRes] = await Promise.all([
+    db.from('po_requests')
+      .select('id, po_number, pr2_id, supplier_name_snapshot, department_name_snapshot, purpose, date_required, status')
+      .in('id', poIds),
+    db.from('approval_steps')
+      .select('workflow_id, step_order, role_required, position_required, action_label, is_final')
+      .in('workflow_id', workflowIds),
+  ]);
+
+  if (poRes.error) throw poRes.error;
+
+  const poMap:  Record<string, any> = Object.fromEntries((poRes.data ?? []).map((r: any) => [r.id, r]));
+  const steps:  any[] = stepsRes.data ?? [];
+
+  // Fetch PR2 IDs and PR1 priorities through PR2
+  const pr2Ids = Array.from(new Set(
+    (poRes.data ?? []).map((po: any) => po.pr2_id).filter(Boolean)
+  ));
+  const { data: pr2s } = pr2Ids.length > 0
+    ? await db.from('pr2_requests').select('id, pr1_id').in('id', pr2Ids)
+    : { data: [] };
+  const pr2Map: Record<string, any> = Object.fromEntries(
+    ((pr2s ?? []) as any[]).map((pr2: any) => [pr2.id, pr2])
+  );
+
+  // Fetch PR1 priorities
+  const pr1Ids = Array.from(new Set(
+    Object.values(pr2Map).map((pr2: any) => pr2.pr1_id).filter(Boolean)
+  ));
+  const { data: pr1s } = pr1Ids.length > 0
+    ? await db.from('pr1_requests').select('id, priority').in('id', pr1Ids)
+    : { data: [] };
+  const pr1PriorityMap: Record<string, string> = Object.fromEntries(
+    ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.priority])
+  );
+
+  return instances.flatMap((inst: any) => {
+    const po   = poMap[inst.document_id];
+    const step = steps.find(
+      (s: any) => s.workflow_id === inst.workflow_id && s.step_order === inst.current_step
+    );
+    if (!po || !step) return [];
+
+    // Resolve priority through PO → PR2 → PR1 chain
+    const pr1Priority = po.pr2_id && pr2Map[po.pr2_id]?.pr1_id
+      ? pr1PriorityMap[pr2Map[po.pr2_id].pr1_id]
+      : undefined;
+
+    return [{
+      po_id:                    po.id,
+      po_number:                po.po_number,
+      supplier_name_snapshot:   po.supplier_name_snapshot,
+      department_name_snapshot: po.department_name_snapshot,
+      purpose:                  po.purpose,
+      date_required:            po.date_required,
+      po_status:                po.status,
+      instance_id:              inst.id,
+      current_step:             inst.current_step,
+      instance_status:          inst.status,
+      started_at:               inst.started_at,
+      step_role_required:       step.role_required,
+      step_position_required:   step.position_required,
+      step_action_label:        step.action_label,
+      step_is_final:            step.is_final,
+      pr1_priority:             pr1Priority as 'normal' | 'medium' | 'high' | undefined,
+    }] as POApprovalQueueRow[];
+  });
+}
+
+// ─── Fetch PO approval detail ─────────────────────────────────────────────────
+
+export async function fetchPOApprovalDetail(
+  instanceId: string
+): Promise<POApprovalDetail | null> {
+  const { data: inst, error: instErr } = await db
+    .from('approval_instances')
+    .select('id, workflow_id, document_id, current_step, status, started_at')
+    .eq('id', instanceId)
+    .maybeSingle();
+  if (instErr) throw instErr;
+  if (!inst) return null;
+
+  const [poRes, itemsRes, stepsRes, actionsRes, receiptRes] = await Promise.all([
+    db.from('po_requests').select('*').eq('id', inst.document_id).maybeSingle(),
+    db.from('po_items')
+      .select('*')
+      .eq('po_id', inst.document_id)
+      .order('item_order', { ascending: true }),
+    db.from('approval_steps')
+      .select('step_order, role_required, position_required, action_label, is_final')
+      .eq('workflow_id', inst.workflow_id)
+      .order('step_order', { ascending: true }),
+    db.from('approval_actions')
+      .select('id, instance_id, step_order, action, actor_id, actor_name_snapshot, actor_position_snapshot, actor_department_snapshot, remarks, acted_at')
+      .eq('instance_id', instanceId)
+      .order('acted_at', { ascending: true }),
+    db.from('po_receipts')
+      .select('*')
+      .eq('po_id', inst.document_id)
+      .maybeSingle(),
+  ]);
+
+  if (poRes.error) throw poRes.error;
+  if (!poRes.data) return null;
+
+  const po = poRes.data;
+
+  // Fetch PR1 priority from related PR1 record through PR2
+  let pr1Priority: 'normal' | 'medium' | 'high' | undefined;
+  if (po.pr2_id) {
+    const { data: pr2Data } = await db
+      .from('pr2_requests')
+      .select('pr1_id')
+      .eq('id', po.pr2_id)
+      .maybeSingle();
+    if (pr2Data?.pr1_id) {
+      const { data: pr1Data } = await db
+        .from('pr1_requests')
+        .select('priority')
+        .eq('id', pr2Data.pr1_id)
+        .maybeSingle();
+      if (pr1Data?.priority) {
+        pr1Priority = pr1Data.priority as 'normal' | 'medium' | 'high';
+      }
+    }
+  }
+
+  return {
+    po_id:                       po.id,
+    po_number:                   po.po_number,
+    pr2_number_snapshot:         po.pr2_number_snapshot,
+    pr1_number_snapshot:         po.pr1_number_snapshot,
+    rfq_number_snapshot:         po.rfq_number_snapshot,
+    supplier_name_snapshot:      po.supplier_name_snapshot,
+    requisitioner_name_snapshot: po.requisitioner_name_snapshot,
+    department_name_snapshot:    po.department_name_snapshot,
+    purpose:                     po.purpose,
+    date_required:               po.date_required,
+    po_date:                     po.po_date,
+    warehouse:                   po.warehouse,
+    delivery_address:            po.delivery_address,
+    payment_terms:               po.payment_terms,
+    packing:                     po.packing,
+    remarks:                     po.remarks,
+    po_status:                   po.status,
+    pr1_priority:                pr1Priority,
+    items: (itemsRes.data ?? []).map((i: any) => ({
+      id:                   i.id,
+      po_id:                i.po_id,
+      pr2_item_id:          i.pr2_item_id,
+      item_order:           i.item_order,
+      item_code:            i.item_code,
+      description:          i.description,
+      unit_of_measure:      i.unit_of_measure,
+      quantity_to_purchase: Number(i.quantity_to_purchase),
+      unit_price:           Number(i.unit_price),
+      total_price:          Number(i.total_price),
+      supplier_name_snapshot: i.supplier_name_snapshot,
+      remarks:              i.remarks,
+      created_at:           i.created_at,
+    })),
+    instance_id:     inst.id,
+    current_step:    inst.current_step,
+    instance_status: inst.status,
+    started_at:      inst.started_at,
+    steps:           stepsRes.data ?? [],
+    actions:         actionsRes.data ?? [],
+    receipt:         receiptRes.data ? normalizeReceipt(receiptRes.data) : null,
+  };
+}
+
+// ─── Fetch PO approval detail by PO ID ───────────────────────────────────────
+
+export async function fetchPOApprovalDetailByPOId(
+  poId: string
+): Promise<POApprovalDetail | null> {
+  const { data: inst } = await db
+    .from('approval_instances')
+    .select('id')
+    .eq('document_type', 'PO')
+    .eq('document_id', poId)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!inst?.id) return null;
+  return fetchPOApprovalDetail(inst.id);
+}
+
+// ─── Submit PO approval action (internal steps 1-3) ──────────────────────────
+
+export async function submitPOApprovalAction(
+  instanceId:  string,
+  poId:        string,
+  stepOrder:   number,
+  isFinalStep: boolean,
+  action:      'approved' | 'rejected' | 'revision_requested',
+  remarks:     string,
+  profile:     UserProfile
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  const { error: actionErr } = await db
+    .from('approval_actions')
+    .insert({
+      instance_id:               instanceId,
+      step_order:                stepOrder,
+      action,
+      actor_id:                  profile.id,
+      actor_name_snapshot:       profile.full_name,
+      actor_position_snapshot:   profile.position,
+      actor_department_snapshot: profile.department,
+      remarks:                   remarks.trim() || null,
+      acted_at:                  now,
+    });
+  if (actionErr) throw actionErr;
+
+  if (action === 'approved') {
+    if (isFinalStep) {
+      // Step 4 (supplier) is the final step; internal approval ends at step 3
+      await db
+        .from('approval_instances')
+        .update({ status: 'approved', completed_at: now })
+        .eq('id', instanceId);
+      await db
+        .from('po_requests')
+        .update({ status: 'approved', updated_at: now })
+        .eq('id', poId);
+    } else {
+      await db
+        .from('approval_instances')
+        .update({ current_step: stepOrder + 1 })
+        .eq('id', instanceId);
+    }
+  } else if (action === 'rejected') {
+    await db
+      .from('approval_instances')
+      .update({ status: 'rejected', completed_at: now })
+      .eq('id', instanceId);
+    await db
+      .from('po_requests')
+      .update({ status: 'draft', updated_at: now, approval_instance_id: null })
+      .eq('id', poId);
+  } else {
+    // revision_requested — back to draft
+    await db
+      .from('approval_instances')
+      .update({ status: 'cancelled', completed_at: now })
+      .eq('id', instanceId);
+    await db
+      .from('po_requests')
+      .update({ status: 'draft', updated_at: now, approval_instance_id: null })
+      .eq('id', poId);
+  }
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        action === 'approved'
+      ? isFinalStep ? 'PO_APPROVAL_FINAL_APPROVED' : 'PO_APPROVAL_STEP_APPROVED'
+      : action === 'rejected' ? 'PO_APPROVAL_REJECTED' : 'PO_APPROVAL_REVISION_REQUESTED',
+    document_type: 'PO',
+    document_id:   poId,
+    payload: { instance_id: instanceId, step_order: stepOrder, action, remarks: remarks.trim() || null },
+  });
+}
+
+// ─── Supplier: fetch POs available for acknowledgment ────────────────────────
+// Queries po_requests directly by supplier_id = auth.uid().
+// RLS enforces the same constraint — no cross-table joins needed.
+
+export async function fetchSupplierPOs(supplierId: string): Promise<SupplierPORow[]> {
+  const { data: pos, error } = await db
+    .from('po_requests')
+    .select('id, po_number, purpose, date_required, po_date, warehouse, payment_terms, status, supplier_name_snapshot')
+    .eq('supplier_id', supplierId)
+    .in('status', ['approved', 'sent'])
+    .order('po_date', { ascending: false });
+
+  if (error) throw error;
+  if (!pos || pos.length === 0) return [];
+
+  const poIds = pos.map((p: any) => p.id);
+  const { data: receipts } = await db
+    .from('po_receipts')
+    .select('*')
+    .in('po_id', poIds);
+
+  const receiptMap: Record<string, any> = Object.fromEntries(
+    (receipts ?? []).map((r: any) => [r.po_id, r])
+  );
+
+  return pos.map((po: any) => ({
+    po_id:                  po.id,
+    po_number:              po.po_number,
+    purpose:                po.purpose,
+    date_required:          po.date_required,
+    po_date:                po.po_date,
+    warehouse:              po.warehouse,
+    payment_terms:          po.payment_terms,
+    po_status:              po.status,
+    receipt:                receiptMap[po.id] ? normalizeReceipt(receiptMap[po.id]) : null,
+  }));
+}
+
+// ─── Supplier: acknowledge PO receipt ────────────────────────────────────────
+
+export async function acknowledgeSupplierPO(
+  poId:            string,
+  commitmentDate:  string,
+  deliveryRemarks: string,
+  profile:         UserProfile
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  // Guard: PO must be 'approved' — fetch all columns needed for delivery creation
+  const { data: po } = await db
+    .from('po_requests')
+    .select('id, status, po_number, approval_instance_id, pr2_id, pr2_number_snapshot, pr1_number_snapshot, rfq_number_snapshot, supplier_id, supplier_name_snapshot, requisitioner_name_snapshot, department_name_snapshot, purpose, delivery_address, warehouse')
+    .eq('id', poId)
+    .maybeSingle();
+  if (!po) throw new Error('PO not found.');
+  if (po.status !== 'approved') throw new Error('PO must be fully approved before acknowledgment.');
+
+  // Upsert receipt
+  const { data: existing } = await db
+    .from('po_receipts')
+    .select('id')
+    .eq('po_id', poId)
+    .maybeSingle();
+
+  if (existing?.id) {
+    await db
+      .from('po_receipts')
+      .update({
+        commitment_date:  commitmentDate || null,
+        delivery_remarks: deliveryRemarks.trim() || null,
+        acknowledged_at:  now,
+        updated_at:       now,
+      })
+      .eq('id', existing.id);
+  } else {
+    await db.from('po_receipts').insert({
+      po_id:                poId,
+      acknowledged_by:      profile.id,
+      acknowledged_by_name: profile.full_name,
+      commitment_date:      commitmentDate || null,
+      delivery_remarks:     deliveryRemarks.trim() || null,
+      acknowledged_at:      now,
+    });
+  }
+
+  // Advance the approval instance to mark supplier step done
+  if (po.approval_instance_id) {
+    // Record supplier approval action at step 4
+    const { data: inst } = await db
+      .from('approval_instances')
+      .select('id, workflow_id, current_step, status')
+      .eq('id', po.approval_instance_id)
+      .maybeSingle();
+
+    if (inst && inst.status === 'approved') {
+      // Internal approval already closed; record supplementary action
+      await db.from('approval_actions').insert({
+        instance_id:               inst.id,
+        step_order:                4,
+        action:                    'approved',
+        actor_id:                  profile.id,
+        actor_name_snapshot:       profile.full_name,
+        actor_position_snapshot:   profile.position,
+        actor_department_snapshot: profile.department,
+        remarks:                   deliveryRemarks.trim() || null,
+        acted_at:                  now,
+      });
+    }
+  }
+
+  // Mark PO as sent
+  await db
+    .from('po_requests')
+    .update({ status: 'sent', updated_at: now })
+    .eq('id', poId);
+
+  // Create delivery tracking record (idempotent — safe to call again).
+  // Pass all data directly; requisitioner_id is unknown under supplier context so
+  // we pass null here — it will have been set correctly if procurement generated
+  // the delivery earlier. If missing, the UPDATE below will not overwrite it.
+  await createDeliveryForPO({
+    poId,
+    po_number:                   po.po_number,
+    pr2_number_snapshot:         po.pr2_number_snapshot,
+    pr1_number_snapshot:         po.pr1_number_snapshot,
+    rfq_number_snapshot:         po.rfq_number_snapshot,
+    supplier_id:                 po.supplier_id,
+    supplier_name_snapshot:      po.supplier_name_snapshot,
+    requisitioner_id:            null,
+    requisitioner_name_snapshot: po.requisitioner_name_snapshot,
+    department_name_snapshot:    po.department_name_snapshot,
+    purpose:                     po.purpose,
+    delivery_address:            po.delivery_address,
+    warehouse:                   po.warehouse,
+    commitment_date:             commitmentDate || null,
+  }).catch(() => null);
+
+  // Sync commitment_date on existing delivery (covers re-acknowledgment)
+  await db
+    .from('deliveries')
+    .update({ commitment_date: commitmentDate || null, updated_at: now })
+    .eq('po_id', poId)
+    .neq('status', 'delivered');
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'PO_ACKNOWLEDGED_BY_SUPPLIER',
+    document_type: 'PO',
+    document_id:   poId,
+    payload: {
+      po_number:       po.po_number,
+      commitment_date: commitmentDate,
+      supplier:        profile.full_name,
+    },
+  });
+}
+
+// ─── Normalize ────────────────────────────────────────────────────────────────
+
+function normalizeReceipt(row: any): POReceipt {
+  return {
+    id:                   row.id,
+    po_id:                row.po_id,
+    acknowledged_by:      row.acknowledged_by,
+    acknowledged_by_name: row.acknowledged_by_name,
+    commitment_date:      row.commitment_date,
+    delivery_remarks:     row.delivery_remarks,
+    acknowledged_at:      row.acknowledged_at,
+  };
+}
