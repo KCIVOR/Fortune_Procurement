@@ -78,7 +78,7 @@ export async function fetchPR1ById(id: string): Promise<PR1WithItems | null> {
     (validationItems ?? []).forEach((vi: any) => {
       validatedSohMap[vi.pr1_item_id] = {
         validated_soh: vi.validated_soh,
-        warehouse_decision: warehouseValidation ? 'validated' : null,
+        warehouse_decision: 'validated',
       };
     });
   }

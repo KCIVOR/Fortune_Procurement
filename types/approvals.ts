@@ -60,6 +60,8 @@ export interface PR2ApprovalDetail {
 
 export interface PR2ApprovalItem {
   id:                      string;
+  /** Links PR2 line to PR1 item for canvass / rfq_item_quotes lookups */
+  pr1_item_id:             string | null;
   item_order:              number;
   item_code:               string;
   description:             string;
