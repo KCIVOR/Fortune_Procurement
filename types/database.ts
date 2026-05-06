@@ -281,6 +281,7 @@ export interface Database {
           type: NotificationType;
           document_type: string | null;
           document_id: string | null;
+          action_url: string | null;
           read: boolean;
           created_at: string;
         };
@@ -292,6 +293,7 @@ export interface Database {
           type?: NotificationType;
           document_type?: string | null;
           document_id?: string | null;
+          action_url?: string | null;
           read?: boolean;
           created_at?: string;
         };
@@ -303,6 +305,7 @@ export interface Database {
           type?: NotificationType;
           document_type?: string | null;
           document_id?: string | null;
+          action_url?: string | null;
           read?: boolean;
           created_at?: string;
         };

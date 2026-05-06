@@ -1,0 +1,323 @@
+Scan the entire `app/`, `components/`, `lib/`, and `types/` directories for UI patterns related to: badges/status chips, priority badges, step badges, approval timeline blocks, empty states, loading states, skeletons/spinners.
+
+Constraints:
+- AUDIT ONLY. Do not modify files.
+- Cover all pages; do not sample.
+
+What to return:
+1) Inventory of badge/chip components and any status-to-style mapping logic (paths).
+2) For each repeated pattern:
+   - Pattern name
+   - Exact files where it appears
+   - Inconsistencies (colors, text casing, icon usage, enum mapping, variants, accessibility)
+   - Existing reusable component if any
+   - Should normalize?
+   - Recommended shared component name
+   - Risk level
+   - Suggested implementation phase
+3) Specifically call out any duplicated empty/loading implementations (EmptyState components, inline "No results" blocks, spinners, skeleton cards) with paths.
+
+Search hints: Badge, Chip, Status, Priority, Step, Timeline, Approval, Empty, No results, Skeleton, Spinner, Loading.
+
+Got it. I’ll do an audit-only sweep of app/, components/, lib/, and types/ by keyword and pattern, then drill into every matching file to catalog (a) badge/chip components + status→style mapping and (b) duplicated empty/loading/skeleton/spinner implementations, including inconsistencies and normalization recommendations.
+
+Next I’ll (1) read the shared UI primitives (components/ui/badge.tsx, components/shared/StatusChip.tsx, components/shared/EmptyState.tsx, components/ui/skeleton.tsx) to capture the canonical patterns and any mapping logic, then (2) open every matching page/component to list exact repeated inline implementations and inconsistencies.
+
+Now I’ll enumerate every place the app uses these patterns (or reimplements them inline), then group them into “repeated patterns” with inconsistencies and recommended normalization targets. Next step is reading each matching page/component and pulling exact badge/empty/loading blocks.
+
+I found canonical shared primitives for status chips, empty state, and skeleton, plus many pages that implement loading/empty inline. Next I’ll read components/shared/LoadingState.tsx and then systematically open every matching app/**/page.tsx to extract the exact badge/empty/loading blocks and group duplicates + inconsistencies.
+
+1) Inventory: badge/chip components + status→style mapping logic
+Badge primitive (variant-based): c:\Users\Rovick\Desktop\project\components\ui\badge.tsx
+
+Variants: default | secondary | destructive | outline via badgeVariants (CVA). No domain status mapping.
+StatusChip (domain-ish status chip + dot): c:\Users\Rovick\Desktop\project\components\shared\StatusChip.tsx
+
+StatusVariant union (draft/pending/in_review/approved/…)
+VARIANT_LABELS (status → display label)
+VARIANT_COLORS (status → { bg, text, border, dot })
+Status pill mapping (inline, separate mapping set): c:\Users\Rovick\Desktop\project\components\shared\RelatedRecords.tsx
+
+STATUS_COLORS: Record<string,string> (many doc statuses → Tailwind/hex classes)
+humanStatus(...) (status → label, includes PR1/PR2/PO/Delivery/etc)
+Status badge mappings embedded in pages (inline):
+
+PR2: c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx (PR2StatusBadge map)
+PO: c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx (POStatusBadge map)
+Approval instance status (active/approved/rejected/else): c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx (InstanceStatusBadge)
+Priority-to-style mapping (central, referenced repeatedly):
+
+Used via getPriorityColors(...) in:
+c:\Users\Rovick\Desktop\project\app\approvals\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr1\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\components\dashboards\EmployeeDashboard.tsx
+c:\Users\Rovick\Desktop\project\components\dashboards\ApproverDashboard.tsx
+2) Repeated patterns (files, inconsistencies, reuse target, normalize?)
+Approval “PriorityBadge” pill (PR priority chip)
+Files
+c:\Users\Rovick\Desktop\project\app\approvals\page.tsx (PriorityBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\pr1\page.tsx (PriorityBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\page.tsx (PriorityBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\po\page.tsx (PriorityBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx (PriorityBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx (PriorityBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx (PriorityBadge)
+c:\Users\Rovick\Desktop\project\components\dashboards\EmployeeDashboard.tsx (PriorityBadge)
+c:\Users\Rovick\Desktop\project\components\dashboards\ApproverDashboard.tsx (PriorityBadge)
+Inconsistencies
+Element type: sometimes <span>, sometimes <div>
+Optionality: priority?: string vs priority: string
+Shape: mostly rounded-full, but elsewhere UI uses rounded-[4px] for other chips
+Existing reusable component?
+No (only getPriorityColors helper is shared)
+Should normalize? Yes.
+Recommended shared name: components/shared/PriorityChip.tsx
+Risk level: Low (pure presentational)
+Suggested phase: Phase 1 (safe refactor + dedupe)
+“StepBadge” / “current step” chip (active vs locked)
+Files
+c:\Users\Rovick\Desktop\project\app\approvals\page.tsx (StepBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\pr1\page.tsx (StepBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\page.tsx (StepBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\po\page.tsx (StepBadge)
+Similar “step” chips also appear inline in c:\Users\Rovick\Desktop\project\components\dashboards\ApproverDashboard.tsx
+Inconsistencies
+Shape: step chips are rounded-full in approvals tables but rounded-[4px] in dashboard step chip
+Icon usage: locked state uses Lock icon in approvals tables; dashboard uses Lock too but with different container styling
+Animation: active dot uses animate-pulse (consistent), but sizing differs
+Existing reusable component? No.
+Should normalize? Yes.
+Recommended shared name: components/shared/StepChip.tsx
+Risk level: Low–Medium (used in core approval UX)
+Suggested phase: Phase 1–2 (after PriorityChip)
+Approval timeline block (vertical stepper with icons + action pill)
+Files
+PR1 approval detail timeline: c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx (WorkflowTimeline, ActionPill, connector/step UI)
+PR2 approval detail timeline(s): c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx (WorkflowTimeline, PhaseTimeline, ActionPill)
+PO approval detail timeline: c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx (ApprovalTimeline, ActionPill)
+Inconsistencies
+Component duplication: same stepper layout repeated 3 times with minor variations (labels, “final” text, phase wrapper, etc.)
+Status/action mapping: approved/rejected/revision_requested labels/colors duplicated as ActionPill in multiple files
+Accessibility: relies on color + icon; no explicit aria-current/aria-label for current step, and the animated dot has no screen-reader text
+Existing reusable component? No.
+Should normalize? Yes (large repeated UX block).
+Recommended shared name
+components/shared/ApprovalTimeline.tsx (generic stepper)
+plus components/shared/ActionPill.tsx (approved/rejected/revision)
+Risk level: Medium–High (approval logic context differs; easy to regress if props aren’t designed well)
+Suggested phase: Phase 3 (after chips + empty/loading consistency)
+Status chips: StatusChip vs inline status badges
+Files / implementations
+Canonical: c:\Users\Rovick\Desktop\project\components\shared\StatusChip.tsx
+Employee dashboard uses StatusChip with local mapping: c:\Users\Rovick\Desktop\project\components\dashboards\EmployeeDashboard.tsx (STATUS_MAP)
+Inline status badge in traceability block: c:\Users\Rovick\Desktop\project\components\shared\RelatedRecords.tsx (own STATUS_COLORS + humanStatus)
+Page-level status badges:
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx (PR2StatusBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx (POStatusBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx (InstanceStatusBadge)
+Inconsistencies
+Multiple sources of truth for status → label/color (StatusChip vs RelatedRecords vs per-page maps)
+Shapes: StatusChip is rounded-full with dot; other status badges are rounded-full but sometimes rounded-[4px]
+Casing: StatusChip labels title-case; other badges vary (Sent to Supplier, Pending Phase 1, etc.)
+Dot indicator: StatusChip always has a dot; others don’t
+Existing reusable component?
+StatusChip exists, but it does not cover all domain statuses currently shown elsewhere.
+Should normalize? Yes.
+Recommended shared name
+Expand StatusChip into a document-status chip or add DocumentStatusChip:
+components/shared/DocumentStatusChip.tsx
+and a shared mapping module, e.g. lib/status-ui.ts (status→label→colors)
+Risk level: Medium (needs careful mapping across PR1/PR2/PO/Delivery/etc)
+Suggested phase: Phase 2 (after Priority/Step chips; before timeline refactor)
+3) Duplicated empty/loading/skeleton/spinner implementations (callouts with paths)
+Canonical shared components
+Empty: c:\Users\Rovick\Desktop\project\components\shared\EmptyState.tsx
+Loading spinner: c:\Users\Rovick\Desktop\project\components\shared\LoadingState.tsx
+Skeleton primitive: c:\Users\Rovick\Desktop\project\components\ui\skeleton.tsx
+EmptyState usage (good reuse)
+Approvals queue pages:
+c:\Users\Rovick\Desktop\project\app\approvals\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr1\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\page.tsx
+Dashboards:
+c:\Users\Rovick\Desktop\project\components\dashboards\EmployeeDashboard.tsx
+c:\Users\Rovick\Desktop\project\components\dashboards\ApproverDashboard.tsx
+Empty blocks duplicated inline (not using EmptyState)
+Admin tables use “No X found” blocks:
+c:\Users\Rovick\Desktop\project\components\admin\UserTable.tsx (“No users found”)
+c:\Users\Rovick\Desktop\project\components\admin\RoleTable.tsx (“No roles found”)
+c:\Users\Rovick\Desktop\project\components\admin\PositionTable.tsx (“No positions found”)
+c:\Users\Rovick\Desktop\project\components\admin\DepartmentTable.tsx (“No departments found”)
+c:\Users\Rovick\Desktop\project\components\admin\AuditLogTable.tsx (“No audit logs found”)
+Admin dashboard “no recent activity” is inline:
+c:\Users\Rovick\Desktop\project\components\dashboards\AdminDashboard.tsx (“No recent activity”)
+Loading spinners duplicated inline (not using LoadingState)
+Admin table loading spinners (same pattern repeated):
+c:\Users\Rovick\Desktop\project\components\admin\UserTable.tsx
+c:\Users\Rovick\Desktop\project\components\admin\RoleTable.tsx
+c:\Users\Rovick\Desktop\project\components\admin\PositionTable.tsx
+c:\Users\Rovick\Desktop\project\components\admin\DepartmentTable.tsx
+c:\Users\Rovick\Desktop\project\components\admin\AuditLogTable.tsx
+Traceability/RelatedRecords loading spinner is inline (different size/colors/text):
+c:\Users\Rovick\Desktop\project\components\shared\RelatedRecords.tsx (“Loading chain...”)
+Skeletons duplicated inline (not using Skeleton)
+Admin dashboard uses custom animate-pulse blocks:
+c:\Users\Rovick\Desktop\project\components\dashboards\AdminDashboard.tsx
+If you want, I can follow up with a complete “normalize plan” that proposes a single set of shared components (chips + timelines + empty/loading) and a status-mapping module, keyed off your actual enums in types/ (audit-only, no edits).
+
+Return your findings now with file lists and normalization recs.
+
+1) Inventory of badge/chip components + status→style mapping (with paths)
+Reusable UI primitives (canonical)
+Badge (generic variant badge): c:\Users\Rovick\Desktop\project\components\ui\badge.tsx
+Styling via badgeVariants (CVA). No domain mapping.
+StatusChip (status chip with dot + border): c:\Users\Rovick\Desktop\project\components\shared\StatusChip.tsx
+StatusVariant union
+VARIANT_LABELS: status → label
+VARIANT_COLORS: status → { bg, text, border, dot }
+EmptyState (canonical empty state): c:\Users\Rovick\Desktop\project\components\shared\EmptyState.tsx
+LoadingState (canonical spinner + optional message): c:\Users\Rovick\Desktop\project\components\shared\LoadingState.tsx
+Skeleton (canonical skeleton primitive): c:\Users\Rovick\Desktop\project\components\ui\skeleton.tsx
+Domain status mapping logic (non-canonical / duplicated sources of truth)
+Document-chain status badge mapping (inline): c:\Users\Rovick\Desktop\project\components\shared\RelatedRecords.tsx
+STATUS_COLORS: Record<string,string>
+humanStatus(...) label mapping
+PR2 status badge mapping (inline): c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx (PR2StatusBadge)
+PO status badge mapping (inline): c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx (POStatusBadge)
+Approval instance status mapping (inline): c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx (InstanceStatusBadge)
+PR1 → StatusChip variant mapping (inline): c:\Users\Rovick\Desktop\project\components\dashboards\EmployeeDashboard.tsx (STATUS_MAP)
+Priority-to-style mapping (shared helper)
+getPriorityColors(...) is in: c:\Users\Rovick\Desktop\project\lib\utils.ts
+Used in many places (priority chips are duplicated, but they all call getPriorityColors):
+c:\Users\Rovick\Desktop\project\app\approvals\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr1\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\components\dashboards\EmployeeDashboard.tsx
+c:\Users\Rovick\Desktop\project\components\dashboards\ApproverDashboard.tsx
+2) Repeated patterns (exact files, inconsistencies, normalize?, recommended component, risk, phase)
+Pattern: Priority pill (“PriorityBadge”)
+Files where it appears
+c:\Users\Rovick\Desktop\project\app\approvals\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr1\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\components\dashboards\EmployeeDashboard.tsx
+c:\Users\Rovick\Desktop\project\components\dashboards\ApproverDashboard.tsx
+Inconsistencies
+Element: <span> vs <div>
+Prop typing: priority: string vs priority?: string
+Existing reusable component? No (only shared helper getPriorityColors)
+Should normalize? Yes
+Recommended shared component name: PriorityChip
+Risk: Low
+Phase: Phase 1
+Pattern: Step chip (“StepBadge”, active vs locked)
+Files where it appears
+c:\Users\Rovick\Desktop\project\app\approvals\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr1\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\page.tsx
+Similar-but-not-identical “Step X” chips: c:\Users\Rovick\Desktop\project\components\dashboards\ApproverDashboard.tsx
+Inconsistencies
+Shape: approvals use rounded-full; dashboard uses rounded-[4px]
+Icon usage: locked uses Lock icon in both, but container styles differ
+Existing reusable component? No
+Should normalize? Yes
+Recommended shared component name: StepChip
+Risk: Low–Medium
+Phase: Phase 1–2
+Pattern: Approval timeline / stepper block (vertical connector, icons, action pill)
+Files where it appears
+PR1 approval timeline: c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx (WorkflowTimeline, ActionPill)
+PR2 phase timelines: c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx (PhaseTimeline, WorkflowTimeline, ActionPill)
+PO internal approval chain: c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx (ApprovalTimeline, ActionPill)
+Inconsistencies
+Same stepper UI implemented 3 times with minor wording/styling differences
+Action pill mapping duplicated (approved/rejected/revision_requested)
+A11y: primarily color/icon driven; no explicit “current step” semantics exposed to screen readers
+Existing reusable component? No
+Should normalize? Yes (high duplication)
+Recommended shared component name
+ApprovalTimeline (generic stepper)
+ActionPill (approved/rejected/revision)
+Risk: Medium–High (core workflow UX; easy regressions if props aren’t right)
+Phase: Phase 3
+Pattern: Status badges / chips (multiple sources of truth)
+Files where it appears
+Canonical: c:\Users\Rovick\Desktop\project\components\shared\StatusChip.tsx
+Dashboard mapping into StatusChip: c:\Users\Rovick\Desktop\project\components\dashboards\EmployeeDashboard.tsx (STATUS_MAP)
+Inline doc-chain status chip: c:\Users\Rovick\Desktop\project\components\shared\RelatedRecords.tsx (STATUS_COLORS, humanStatus)
+Page-specific status badges:
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx (PR2StatusBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx (POStatusBadge)
+c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx (InstanceStatusBadge)
+Inconsistencies
+Separate status→label/color maps (StatusChip vs RelatedRecords vs per-page maps)
+Different semantics: some include dot + border, some are plain pills
+Existing reusable component? Partially (StatusChip exists but doesn’t cover all shown statuses)
+Should normalize? Yes
+Recommended shared component name
+DocumentStatusChip (for PR1/PR2/PO/Delivery/etc statuses)
+plus a shared mapping module (e.g., lib/status-ui.ts)
+Risk: Medium
+Phase: Phase 2
+3) Duplicated empty/loading/skeleton/spinner implementations (with paths)
+Empty states
+Canonical EmptyState used (good)
+c:\Users\Rovick\Desktop\project\app\approvals\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr1\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\page.tsx
+c:\Users\Rovick\Desktop\project\components\dashboards\EmployeeDashboard.tsx
+c:\Users\Rovick\Desktop\project\components\dashboards\ApproverDashboard.tsx
+Inline “No X found” (duplicated empty UI, not using EmptyState)
+c:\Users\Rovick\Desktop\project\components\admin\UserTable.tsx (“No users found”)
+c:\Users\Rovick\Desktop\project\components\admin\RoleTable.tsx (“No roles found”)
+c:\Users\Rovick\Desktop\project\components\admin\PositionTable.tsx (“No positions found”)
+c:\Users\Rovick\Desktop\project\components\admin\DepartmentTable.tsx (“No departments found”)
+c:\Users\Rovick\Desktop\project\components\admin\AuditLogTable.tsx (“No audit logs found”)
+c:\Users\Rovick\Desktop\project\components\dashboards\AdminDashboard.tsx (“No recent activity”)
+Loading states / spinners
+Canonical LoadingState used (good)
+c:\Users\Rovick\Desktop\project\components\layout\AppShell.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr1\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\page.tsx
+Detail pages:
+c:\Users\Rovick\Desktop\project\app\approvals\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\pr2\[id]\page.tsx
+c:\Users\Rovick\Desktop\project\app\approvals\po\[id]\page.tsx
+Dashboards:
+c:\Users\Rovick\Desktop\project\components\dashboards\EmployeeDashboard.tsx
+c:\Users\Rovick\Desktop\project\components\dashboards\ApproverDashboard.tsx
+Inline spinners (duplicated, not using LoadingState)
+Admin tables (same spinner markup repeated):
+c:\Users\Rovick\Desktop\project\components\admin\UserTable.tsx
+c:\Users\Rovick\Desktop\project\components\admin\RoleTable.tsx
+c:\Users\Rovick\Desktop\project\components\admin\PositionTable.tsx
+c:\Users\Rovick\Desktop\project\components\admin\DepartmentTable.tsx
+c:\Users\Rovick\Desktop\project\components\admin\AuditLogTable.tsx
+Related records chain loading (inline, custom):
+c:\Users\Rovick\Desktop\project\components\shared\RelatedRecords.tsx
+Skeletons
+Canonical Skeleton exists: c:\Users\Rovick\Desktop\project\components\ui\skeleton.tsx
+Inline skeleton cards (duplicated)
+c:\Users\Rovick\Desktop\project\components\dashboards\AdminDashboard.tsx (custom animate-pulse blocks)
+Normalization recommendations (high-level)
+Phase 1 (low risk, high duplication): extract PriorityChip, StepChip, and standardize admin table loading/empty to LoadingState + EmptyState.
+Phase 2 (mapping consolidation): introduce DocumentStatusChip + a shared status UI mapping module and migrate RelatedRecords + PR2/PO status badges onto it.
+Phase 3 (largest UX block): extract reusable ApprovalTimeline + shared ActionPill and replace the three duplicated steppers.

@@ -15,8 +15,14 @@ import type { PR2WithItems, PR2Item } from '@/types/pr2';
 import type { PR2ApprovalDetail, ApprovalActionRecord, WorkflowStep } from '@/types/approvals';
 import { PR2_STATUS_LABELS } from '@/types/pr2';
 import { format } from 'date-fns';
-import { ChevronLeft, FileText, Building2, CalendarDays, User, Printer, Package, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, Pencil, Save, X as XIcon, RefreshCw, Send, ArrowRight, ShoppingCart, ClipboardList, Lock, RotateCcw, Circle as XCircle, CheckCheck } from 'lucide-react';
+import { FileText, Building2, CalendarDays, User, Package, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, Pencil, Save, X as XIcon, RefreshCw, Send, ArrowRight, ShoppingCart, ClipboardList, Lock, RotateCcw, Circle as XCircle, CheckCheck } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
+import ActionPill from '@/components/shared/ActionPill';
+import DetailBackButton from '@/components/shared/DetailBackButton';
+import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
+import DetailTitleRow from '@/components/shared/DetailTitleRow';
+import DetailPrintButton from '@/components/shared/DetailPrintButton';
+import DetailTableCard from '@/components/shared/DetailTableCard';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:                   'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]',
@@ -244,77 +250,72 @@ export default function PR2DetailPage() {
 
   return (
     <AppShell title={`PR2 ${pr2.pr2_number}`}>
-      <div className="mb-2">
-        <button onClick={() => handleBack({ role: profile?.role })} className="inline-flex items-center gap-1 text-xs text-[#40527A] hover:text-[#0F1F3A] transition">
-          <ChevronLeft className="w-3.5 h-3.5" />
-          Back
-        </button>
-      </div>
+      <DetailBackButton className="mb-2" onClick={() => handleBack({ role: profile?.role })} />
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-2xl font-bold text-[#0F1F3A] font-mono">{pr2.pr2_number}</h1>
-            <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_STYLES[pr2.status] ?? STATUS_STYLES.draft}`}>
-              {PR2_STATUS_LABELS[pr2.status]}
-            </span>
+      <DetailHeaderLayout
+        left={
+          <div>
+            <DetailTitleRow mb>
+              <h1 className="text-2xl font-bold text-[#0F1F3A] font-mono">{pr2.pr2_number}</h1>
+              <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_STYLES[pr2.status] ?? STATUS_STYLES.draft}`}>
+                {PR2_STATUS_LABELS[pr2.status]}
+              </span>
+            </DetailTitleRow>
+            <p className="text-sm text-[#40527A]">
+              {pr2.department_name_snapshot} · {pr2.purpose}
+            </p>
           </div>
-          <p className="text-sm text-[#40527A]">
-            {pr2.department_name_snapshot} · {pr2.purpose}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {canEdit && !editing && (
-            <button
-              onClick={handleEditToggle}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-[#D8E2FF] text-[#0F1F3A] text-sm font-semibold rounded-[4px] hover:bg-[#F7F9FC] transition"
-            >
-              <Pencil className="w-4 h-4" />
-              Edit Inventory
-            </button>
-          )}
-          {canEdit && !editing && (
-            <button
-              onClick={handleSubmitForApproval}
-              disabled={submitting}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
-            >
-              {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              Submit for Approval
-            </button>
-          )}
-          {editing && (
-            <>
+        }
+        right={
+          <div className="flex items-center gap-2 shrink-0">
+            {canEdit && !editing && (
               <button
-                onClick={handleCancelEdit}
-                disabled={saving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-[#D8E2FF] text-[#40527A] text-sm font-semibold rounded-[4px] hover:bg-[#F7F9FC] transition"
+                onClick={handleEditToggle}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-[#D8E2FF] text-[#0F1F3A] text-sm font-semibold rounded-[4px] hover:bg-[#F7F9FC] transition"
               >
-                <XIcon className="w-4 h-4" />
-                Cancel
+                <Pencil className="w-4 h-4" />
+                Edit Inventory
               </button>
+            )}
+            {canEdit && !editing && (
               <button
-                onClick={handleSave}
-                disabled={saving}
+                onClick={handleSubmitForApproval}
+                disabled={submitting}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
               >
-                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Save
+                {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Submit for Approval
               </button>
-            </>
-          )}
-          <Link
-            href={`/pr2/${pr2.id}/print`}
-            target="_blank"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-[4px] transition"
-          >
-            <Printer className="w-4 h-4" />
-            Print
-          </Link>
-        </div>
-      </div>
+            )}
+            {editing && (
+              <>
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-[#D8E2FF] text-[#40527A] text-sm font-semibold rounded-[4px] hover:bg-[#F7F9FC] transition"
+                >
+                  <XIcon className="w-4 h-4" />
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                >
+                  {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save
+                </button>
+              </>
+            )}
+            <DetailPrintButton
+              href={`/pr2/${pr2.id}/print`}
+              label="Print"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-[4px] transition"
+            />
+          </div>
+        }
+      />
 
       {(saveError || submitError) && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-[4px] px-4 py-3 mb-4">
@@ -442,12 +443,15 @@ export default function PR2DetailPage() {
           </div>
 
         {/* Items table */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
-              <Package className="w-4 h-4 text-[#BFC7D5]" />
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Items ({pr2.items.length})</h2>
-            </div>
-
+          <DetailTableCard
+            title={
+              <div className="flex items-center gap-3">
+                <Package className="w-4 h-4 text-[#BFC7D5]" />
+                <h2 className="text-sm font-semibold text-[#0F1F3A]">Items ({pr2.items.length})</h2>
+              </div>
+            }
+            headerClassName="px-5 py-3.5"
+          >
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -544,7 +548,7 @@ export default function PR2DetailPage() {
                 </tfoot>
               </table>
             </div>
-          </div>
+          </DetailTableCard>
 
           {/* Ready for approval notice */}
           {pr2.status === 'draft' && !editing && isProcurement && (
@@ -801,25 +805,5 @@ function WorkflowTimeline({
         );
       })}
     </ol>
-  );
-}
-
-function ActionPill({ action }: { action: string }) {
-  if (action === 'approved')
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-        <CheckCircle2 className="w-3 h-3" /> Approved
-      </span>
-    );
-  if (action === 'rejected')
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
-        <XCircle className="w-3 h-3" /> Rejected
-      </span>
-    );
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
-      <RotateCcw className="w-3 h-3" /> Revision Requested
-    </span>
   );
 }

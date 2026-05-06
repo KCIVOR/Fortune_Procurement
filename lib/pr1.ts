@@ -16,27 +16,46 @@ const db = supabase as any;
 
 export async function fetchMyPR1s(
   userId: string,
-  options: { limit?: number; offset?: number } = {}
+  options: {
+    limit?:   number;
+    offset?:  number;
+    status?:  string;
+    search?:  string;
+  } = {}
 ): Promise<{ requests: PR1Request[]; total_count: number }> {
-  const limit = options.limit;
-  const offset = options.offset ?? 0;
+  const { limit, offset = 0, status, search } = options;
 
-  let query = db
-    .from('pr1_requests')
-    .select('*', { count: 'exact' })
-    .eq('requisitioner_id', userId)
-    .order('created_at', { ascending: false });
+  const buildBaseQuery = () => {
+    let q = db.from('pr1_requests').select('*').eq('requisitioner_id', userId);
 
-  if (limit) {
-    query = query.range(offset, offset + limit - 1);
+    if (status && status !== 'all') {
+      q = q.eq('status', status);
+    }
+
+    if (search && search.trim()) {
+      const t = `%${search.trim()}%`;
+      q = q.or(`pr1_number.ilike.${t},purpose.ilike.${t}`);
+    }
+
+    return q;
+  };
+
+  let dataQuery = buildBaseQuery().order('created_at', { ascending: false });
+  if (limit != null && limit > 0) {
+    dataQuery = dataQuery.range(offset, offset + limit - 1);
   }
 
-  const { data, error, count } = await query;
+  const [listRes, countRes] = await Promise.all([
+    dataQuery,
+    buildBaseQuery().select('*', { count: 'exact', head: true }),
+  ]);
 
-  if (error) throw error;
+  if (listRes.error) throw listRes.error;
+  if (countRes.error) throw countRes.error;
+
   return {
-    requests: (data ?? []) as PR1Request[],
-    total_count: count ?? 0,
+    requests:    (listRes.data ?? []) as PR1Request[],
+    total_count: countRes.count ?? 0,
   };
 }
 

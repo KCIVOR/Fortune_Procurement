@@ -8,6 +8,7 @@ import type {
   SupplierPORow,
 } from '@/types/po';
 import { createDeliveryForPO } from '@/lib/delivery';
+import { createNotification, notifyApproversForStep } from '@/lib/notifications';
 
 const db = supabase as any;
 
@@ -82,6 +83,23 @@ export async function submitPOForApproval(
     document_id:   poId,
     payload:       { po_number: po.po_number, submitted_by: profile.full_name },
   });
+
+  // Notify step 1 approvers (best-effort)
+  try {
+    await notifyApproversForStep({
+      workflowId:     wf.id,
+      stepOrder:      1,
+      documentId:     poId,
+      documentNumber: po.po_number,
+      instanceId:     inst.id,
+      title:          'PO Approval Required',
+      body:           'PO requires your approval.',
+      documentType:   'po',
+      actionUrl:      `/approvals/po/${inst.id}`,
+    });
+  } catch {
+    // Notifications are best-effort; do not fail submission
+  }
 }
 
 // ─── Fetch PO approval queue ──────────────────────────────────────────────────
@@ -363,6 +381,85 @@ export async function submitPOApprovalAction(
     document_id:   poId,
     payload: { instance_id: instanceId, step_order: stepOrder, action, remarks: remarks.trim() || null },
   });
+
+  // Notify supplier when PO is finally approved (best-effort)
+  if (action === 'approved' && isFinalStep) {
+    try {
+      const { data: po } = await db
+        .from('po_requests')
+        .select('supplier_id, po_number')
+        .eq('id', poId)
+        .maybeSingle();
+
+      if (po?.supplier_id) {
+        // Deduplicate: only notify if no info notification already exists for this PO + supplier
+        const { data: existing } = await db
+          .from('notifications')
+          .select('id')
+          .eq('user_id', po.supplier_id)
+          .eq('document_id', poId)
+          .eq('type', 'info')
+          .maybeSingle();
+
+        if (!existing) {
+          await createNotification({
+            user_id:       po.supplier_id,
+            title:         'New Purchase Order',
+            body:          `You have a new Purchase Order: ${po.po_number}.`,
+            type:          'info',
+            document_type: 'po',
+            document_id:   poId,
+            action_url:    `/supplier/po/${poId}`,
+          });
+        }
+      }
+    } catch {
+      // Notifications are best-effort; do not fail the approval action
+    }
+  }
+
+  // Notify next approvers (non-final step) or submitter (rejected / revision) — best-effort
+  try {
+    if (action === 'approved' && !isFinalStep) {
+      const [instRow, poRow] = await Promise.all([
+        db.from('approval_instances').select('workflow_id').eq('id', instanceId).maybeSingle(),
+        db.from('po_requests').select('po_number').eq('id', poId).maybeSingle(),
+      ]);
+      if (instRow.data?.workflow_id && poRow.data?.po_number) {
+        await notifyApproversForStep({
+          workflowId:     instRow.data.workflow_id,
+          stepOrder:      stepOrder + 1,
+          documentId:     poId,
+          documentNumber: poRow.data.po_number,
+          instanceId,
+          title:          'PO Approval Required',
+          body:           'PO requires your approval.',
+          documentType:   'po',
+          actionUrl:      `/approvals/po/${instanceId}`,
+        });
+      }
+    } else if (action === 'rejected' || action === 'revision_requested') {
+      const [instRow, poRow] = await Promise.all([
+        db.from('approval_instances').select('started_by').eq('id', instanceId).maybeSingle(),
+        db.from('po_requests').select('po_number').eq('id', poId).maybeSingle(),
+      ]);
+      if (instRow.data?.started_by && poRow.data?.po_number) {
+        await createNotification({
+          user_id:       instRow.data.started_by,
+          title:         action === 'rejected' ? 'PO Rejected' : 'PO Revision Requested',
+          body:          action === 'rejected'
+            ? `PO ${poRow.data.po_number} was rejected.`
+            : `Revision requested on PO ${poRow.data.po_number}.`,
+          type:          action === 'rejected' ? 'rejected' : 'action_required',
+          document_type: 'po',
+          document_id:   poId,
+          action_url:    `/po/${poId}`,
+        });
+      }
+    }
+  } catch {
+    // Notifications are best-effort; do not fail the approval action
+  }
 }
 
 // ─── Supplier: fetch POs available for acknowledgment ────────────────────────
@@ -403,6 +500,95 @@ export async function fetchSupplierPOs(supplierId: string): Promise<SupplierPORo
   }));
 }
 
+// ─── Supplier PO list: paginated ─────────────────────────────────────────────
+
+export async function fetchSupplierPOsPaged(
+  supplierId: string,
+  options: { limit: number; offset: number; search?: string; status?: string }
+): Promise<{ rows: SupplierPORow[]; total_count: number }> {
+  const { limit, offset, search, status } = options;
+
+  const applyFilters = (q: any) => {
+    q = q.eq('supplier_id', supplierId);
+    if (status && status !== 'all') {
+      q = q.eq('status', status);
+    } else {
+      q = q.in('status', ['approved', 'sent']);
+    }
+    const term = search?.trim();
+    if (term) {
+      const pattern = `%${term}%`;
+      q = q.or(`po_number.ilike.${pattern},purpose.ilike.${pattern}`);
+    }
+    return q;
+  };
+
+  const [posRes, countRes] = await Promise.all([
+    applyFilters(
+      db
+        .from('po_requests')
+        .select('id, po_number, purpose, date_required, po_date, warehouse, payment_terms, status, supplier_name_snapshot')
+    )
+      .order('po_date', { ascending: false })
+      .range(offset, offset + limit - 1),
+    applyFilters(
+      db.from('po_requests').select('id', { count: 'exact', head: true })
+    ),
+  ]);
+
+  if (posRes.error) throw posRes.error;
+  if (countRes.error) throw countRes.error;
+
+  const pos = posRes.data ?? [];
+  if (pos.length === 0) return { rows: [], total_count: countRes.count ?? 0 };
+
+  const poIds = pos.map((p: any) => p.id);
+  const { data: receipts } = await db
+    .from('po_receipts')
+    .select('*')
+    .in('po_id', poIds);
+
+  const receiptMap: Record<string, any> = Object.fromEntries(
+    (receipts ?? []).map((r: any) => [r.po_id, r])
+  );
+
+  return {
+    rows: pos.map((po: any) => ({
+      po_id:         po.id,
+      po_number:     po.po_number,
+      purpose:       po.purpose,
+      date_required: po.date_required,
+      po_date:       po.po_date,
+      warehouse:     po.warehouse,
+      payment_terms: po.payment_terms,
+      po_status:     po.status,
+      receipt:       receiptMap[po.id] ? normalizeReceipt(receiptMap[po.id]) : null,
+    })),
+    total_count: countRes.count ?? 0,
+  };
+}
+
+// ─── Supplier PO global stat counts (unfiltered by search/status) ────────────
+
+export async function fetchSupplierPOStatCounts(
+  supplierId: string
+): Promise<{ pending: number; acknowledged: number; total: number }> {
+  const applyBase = (q: any) =>
+    q.eq('supplier_id', supplierId).in('status', ['approved', 'sent']);
+
+  const [pendingRes, acknowledgedRes, totalRes] = await Promise.all([
+    applyBase(db.from('po_requests').select('id', { count: 'exact', head: true })).eq('status', 'approved'),
+    applyBase(db.from('po_requests').select('id', { count: 'exact', head: true })).eq('status', 'sent'),
+    applyBase(db.from('po_requests').select('id', { count: 'exact', head: true })),
+  ]);
+
+  return {
+    pending:      pendingRes.count      ?? 0,
+    acknowledged: acknowledgedRes.count ?? 0,
+    total:        totalRes.count        ?? 0,
+  };
+}
+
 // ─── Supplier: acknowledge PO receipt ────────────────────────────────────────
 
 export async function acknowledgeSupplierPO(
@@ -421,6 +607,24 @@ export async function acknowledgeSupplierPO(
     .maybeSingle();
   if (!po) throw new Error('PO not found.');
   if (po.status !== 'approved') throw new Error('PO must be fully approved before acknowledgment.');
+
+  // Resolve requisitioner_id for employee RLS: deliveries.employee visibility is
+  // requisitioner_id = auth.uid(). PO header stores pr1_number_snapshot; PR1 row
+  // stores requisitioner_id (same id as profiles.id for requestors).
+  let requisitionerId: string | null = null;
+  try {
+    const pr1No = String(po.pr1_number_snapshot ?? '').trim();
+    if (pr1No) {
+      const { data: pr1 } = await db
+        .from('pr1_requests')
+        .select('requisitioner_id')
+        .eq('pr1_number', pr1No)
+        .maybeSingle();
+      requisitionerId = pr1?.requisitioner_id ?? null;
+    }
+  } catch {
+    requisitionerId = null;
+  }
 
   // Upsert receipt
   const { data: existing } = await db
@@ -482,9 +686,7 @@ export async function acknowledgeSupplierPO(
     .eq('id', poId);
 
   // Create delivery tracking record (idempotent — safe to call again).
-  // Pass all data directly; requisitioner_id is unknown under supplier context so
-  // we pass null here — it will have been set correctly if procurement generated
-  // the delivery earlier. If missing, the UPDATE below will not overwrite it.
+  // requisitioner_id is set when we can resolve it from PR1 (required for employee RLS).
   await createDeliveryForPO({
     poId,
     po_number:                   po.po_number,
@@ -493,7 +695,7 @@ export async function acknowledgeSupplierPO(
     rfq_number_snapshot:         po.rfq_number_snapshot,
     supplier_id:                 po.supplier_id,
     supplier_name_snapshot:      po.supplier_name_snapshot,
-    requisitioner_id:            null,
+    requisitioner_id:            requisitionerId,
     requisitioner_name_snapshot: po.requisitioner_name_snapshot,
     department_name_snapshot:    po.department_name_snapshot,
     purpose:                     po.purpose,
@@ -501,6 +703,15 @@ export async function acknowledgeSupplierPO(
     warehouse:                   po.warehouse,
     commitment_date:             commitmentDate || null,
   }).catch(() => null);
+
+  // Heal existing deliveries that were created without requisitioner_id (supplier context).
+  if (requisitionerId) {
+    await db
+      .from('deliveries')
+      .update({ requisitioner_id: requisitionerId, updated_at: now })
+      .eq('po_id', poId)
+      .is('requisitioner_id', null);
+  }
 
   // Sync commitment_date on existing delivery (covers re-acknowledgment)
   await db

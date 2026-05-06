@@ -8,12 +8,17 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import { useAuth } from '@/context/AuthContext';
 import { fetchDeliveryById, procurementFollowUp, markDelivered } from '@/lib/delivery';
+import { getDeliveryReceiptSignedUrl } from '@/lib/delivery-receipt-storage';
 import { openGRNForDelivery, fetchGRNByDeliveryId } from '@/lib/grn';
 import type { DeliveryWithHistory, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
 import { format } from 'date-fns';
 import { ChevronLeft, Truck, Building2, Package, CalendarDays, MapPin, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban, Calendar, FileText, MessageSquare, User, Send, ShieldCheck, PackageCheck } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
+import DetailBackButton from '@/components/shared/DetailBackButton';
+import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
+import DetailTitleRow from '@/components/shared/DetailTitleRow';
+import DetailInfoField from '@/components/shared/DetailInfoField';
 
 const STATUS_CONFIG: Record<DeliveryStatus, {
   bg: string; text: string; border: string; icon: React.ElementType;
@@ -138,60 +143,62 @@ export default function DeliveryDetailPage() {
 
   return (
     <AppShell title={`Delivery — PO ${delivery.po_number_snapshot}`}>
-      <div className="mb-2">
-        <button onClick={() => handleBack({ role: profile?.role })} className="inline-flex items-center gap-1 text-xs text-[#40527A] hover:text-[#0F1F3A] transition">
-          <ChevronLeft className="w-3.5 h-3.5" />
-          Back
-        </button>
-      </div>
+      <DetailBackButton className="mb-2" onClick={() => handleBack({ role: profile?.role })} />
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap mb-1">
-            <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">{delivery.po_number_snapshot}</h1>
-            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-3 py-1 ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-              <Icon className="w-3.5 h-3.5" />
-              {DELIVERY_STATUS_LABELS[delivery.status]}
-            </span>
-          </div>
-          <p className="text-sm text-[#40527A]">{delivery.department_name_snapshot} · {delivery.purpose}</p>
-          <div className="flex items-center gap-3 mt-1 text-xs text-[#BFC7D5] flex-wrap">
-            <span className="font-mono">PR2: {delivery.pr2_number_snapshot}</span>
-            <span className="font-mono">PR1: {delivery.pr1_number_snapshot}</span>
-            <span className="font-mono">RFQ: {delivery.rfq_number_snapshot}</span>
-          </div>
-        </div>
-        {/* GRN action button for warehouse */}
-        {canOpenGRN && (
+      <DetailHeaderLayout
+        wrap={true}
+        left={
           <div>
-            {existingGrnId ? (
-              <Link
-                href={`/grn/${existingGrnId}`}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-[4px] transition"
-              >
-                <PackageCheck className="w-4 h-4" />
-                View GRN
-              </Link>
-            ) : (
-              <button
-                onClick={handleOpenGRN}
-                disabled={grnBusy}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
-              >
-                <PackageCheck className="w-4 h-4" />
-                {grnBusy ? 'Opening...' : 'Receive Goods (GRN)'}
-              </button>
-            )}
+            <DetailTitleRow wrap mb>
+              <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">{delivery.po_number_snapshot}</h1>
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-3 py-1 ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+                <Icon className="w-3.5 h-3.5" />
+                {DELIVERY_STATUS_LABELS[delivery.status]}
+              </span>
+            </DetailTitleRow>
+            <p className="text-sm text-[#40527A]">{delivery.department_name_snapshot} · {delivery.purpose}</p>
+            <div className="flex items-center gap-3 mt-1 text-xs text-[#BFC7D5] flex-wrap">
+              <span className="font-mono">PR2: {delivery.pr2_number_snapshot}</span>
+              <span className="font-mono">PR1: {delivery.pr1_number_snapshot}</span>
+              <span className="font-mono">RFQ: {delivery.rfq_number_snapshot}</span>
+            </div>
           </div>
-        )}
-        <div className="text-right">
-          <p className="text-lg font-bold text-[#0F1F3A] font-mono">
-            ₱{delivery.grand_total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-          </p>
-          <p className="text-xs text-[#BFC7D5]">Grand Total</p>
-        </div>
-      </div>
+        }
+        right={
+          <>
+            {/* GRN action button for warehouse */}
+            {canOpenGRN && (
+              <div>
+                {existingGrnId ? (
+                  <Link
+                    href={`/grn/${existingGrnId}`}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-[4px] transition"
+                  >
+                    <PackageCheck className="w-4 h-4" />
+                    View GRN
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleOpenGRN}
+                    disabled={grnBusy}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                  >
+                    <PackageCheck className="w-4 h-4" />
+                    {grnBusy ? 'Opening...' : 'Receive Goods (GRN)'}
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="text-right">
+              <p className="text-lg font-bold text-[#0F1F3A] font-mono">
+                ₱{delivery.grand_total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-xs text-[#BFC7D5]">Grand Total</p>
+            </div>
+          </>
+        }
+      />
 
       {/* Related Records */}
       {profile && (
@@ -206,26 +213,89 @@ export default function DeliveryDetailPage() {
           {/* Delivery Info */}
           <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4 order-2 lg:order-none">
             <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">Delivery Info</h2>
-            <InfoField icon={Building2}    label="Supplier"       value={delivery.supplier_name_snapshot} />
-            <InfoField icon={User}         label="Requisitioner"  value={delivery.requisitioner_name_snapshot} />
-            <InfoField icon={Package}      label="Deliver To"     value={delivery.warehouse} />
-            <InfoField icon={MapPin}       label="Address"        value={delivery.delivery_address} />
+            <DetailInfoField
+              layout="inline"
+              icon={<Building2 className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Supplier"
+              value={delivery.supplier_name_snapshot}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<User className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Requisitioner"
+              value={delivery.requisitioner_name_snapshot}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<Package className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Deliver To"
+              value={delivery.warehouse}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<MapPin className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Address"
+              value={delivery.delivery_address}
+            />
+
+            {delivery.dr_document_filename && (
+              <div className="mt-3">
+                <div className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1">
+                  Delivery Receipt
+                </div>
+                <div className="text-sm text-[#0F1F3A] flex flex-wrap items-center gap-3">
+                  <span>{delivery.dr_document_filename}</span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const path = delivery.dr_document_path;
+                        if (!path) {
+                          alert('Failed to open Delivery Receipt');
+                          return;
+                        }
+                        const url = await getDeliveryReceiptSignedUrl(path);
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                      } catch (e) {
+                        console.error(e);
+                        alert('Failed to open Delivery Receipt');
+                      }
+                    }}
+                    className="text-blue-600 hover:underline text-xs font-medium"
+                  >
+                    View
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Key Dates */}
           <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4 order-3 lg:order-none">
             <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">Key Dates</h2>
             {delivery.commitment_date && (
-              <InfoField icon={CalendarDays} label="Supplier Commitment"
-                value={format(new Date(delivery.commitment_date), 'MMMM d, yyyy')} />
+              <DetailInfoField
+                layout="inline"
+                icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+                label="Supplier Commitment"
+                value={format(new Date(delivery.commitment_date), 'MMMM d, yyyy')}
+              />
             )}
             {delivery.scheduled_date && (
-              <InfoField icon={CalendarDays} label="Scheduled Delivery"
-                value={format(new Date(delivery.scheduled_date), 'MMMM d, yyyy')} />
+              <DetailInfoField
+                layout="inline"
+                icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+                label="Scheduled Delivery"
+                value={format(new Date(delivery.scheduled_date), 'MMMM d, yyyy')}
+              />
             )}
             {delivery.actual_delivery_date && (
-              <InfoField icon={CheckCircle2} label="Actual Delivery"
-                value={format(new Date(delivery.actual_delivery_date), 'MMMM d, yyyy')} />
+              <DetailInfoField
+                layout="inline"
+                icon={<CheckCircle2 className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+                label="Actual Delivery"
+                value={format(new Date(delivery.actual_delivery_date), 'MMMM d, yyyy')}
+              />
             )}
             {!delivery.commitment_date && !delivery.scheduled_date && (
               <p className="text-xs text-[#BFC7D5]">No dates confirmed yet.</p>
@@ -383,25 +453,5 @@ export default function DeliveryDetailPage() {
         </div>
       </div>
     </AppShell>
-  );
-}
-
-function InfoField({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <Icon className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />
-      <div className="min-w-0">
-        <p className="text-xs text-[#BFC7D5] uppercase tracking-wide font-semibold">{label}</p>
-        <p className="text-sm text-[#0F1F3A] mt-0.5 font-medium">{value}</p>
-      </div>
-    </div>
   );
 }

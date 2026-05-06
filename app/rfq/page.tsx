@@ -6,11 +6,13 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
-import { fetchCanvassingQueue, createRfq } from '@/lib/canvassing';
+import PaginationControls from '@/components/shared/PaginationControls';
+import { fetchCanvassingQueuePaged, createRfq } from '@/lib/canvassing';
 import { useAuth } from '@/context/AuthContext';
 import type { CanvassingQueueRow } from '@/types/canvassing';
 import { SendHorizontal as SendHorizonal, ArrowRight, Clock, Plus, CalendarDays, Building2, CircleDot, CheckCheck, CircleAlert as AlertCircle, TriangleAlert as AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import PriorityChip from '@/components/shared/PriorityChip';
 
 const RFQ_STATUS_LABEL: Record<string, string> = {
   draft:     'Draft',
@@ -31,6 +33,9 @@ export default function RFQQueuePage() {
   const [rows, setRows]       = useState<CanvassingQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 20;
+  const [totalCount, setTotalCount] = useState(0);
 
   const [creating, setCreating]       = useState(false);
   const [selectedPr1, setSelectedPr1] = useState<CanvassingQueueRow | null>(null);
@@ -40,17 +45,22 @@ export default function RFQQueuePage() {
   const [createError, setCreateError] = useState('');
 
   const load = () => {
+    const offset = (currentPage - 1) * rowsPerPage;
     setLoading(true);
-    fetchCanvassingQueue()
-      .then(setRows)
+    fetchCanvassingQueuePaged({ limit: rowsPerPage, offset })
+      .then(result => {
+        setRows(result.rows);
+        setTotalCount(result.total_count);
+      })
       .catch(() => setError('Failed to load canvassing queue.'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  useEffect(load, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const noRfq  = rows.filter(r => !r.rfq_id);
-  const hasRfq = rows.filter(r => !!r.rfq_id);
+  const noRfq    = rows.filter(r => !r.rfq_id);
+  const hasRfq   = rows.filter(r => !!r.rfq_id);
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
 
   const handleOpenCreate = (row: CanvassingQueueRow) => {
     setSelectedPr1(row);
@@ -67,6 +77,7 @@ export default function RFQQueuePage() {
     try {
       const rfqId = await createRfq(selectedPr1.pr1_id, deadline || null, notes, profile);
       setCreating(false);
+      setCurrentPage(1);
       window.location.href = `/rfq/${rfqId}`;
     } catch (e: any) {
       setCreateError(e.message ?? 'Failed to create RFQ.');
@@ -122,6 +133,21 @@ export default function RFQQueuePage() {
                 ))}
               </div>
             </Section>
+          )}
+
+          {totalCount > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={rowsPerPage}
+              totalCount={totalCount}
+              entityLabel="items"
+              loading={loading}
+              onPageChange={(page) => {
+                if (page < currentPage) setCurrentPage(p => Math.max(1, p - 1));
+                else setCurrentPage(p => Math.min(totalPages, p + 1));
+              }}
+            />
           )}
         </div>
       )}
@@ -187,35 +213,6 @@ export default function RFQQueuePage() {
   );
 }
 
-function PriorityBadge({ priority }: { priority: string | null }) {
-  if (!priority || priority === 'normal') {
-    return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-        Normal
-      </span>
-    );
-  }
-  if (priority === 'medium') {
-    return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-        Medium
-      </span>
-    );
-  }
-  if (priority === 'high') {
-    return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-        High
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-      Normal
-    </span>
-  );
-}
-
 function QueueRow({
   row,
   onCreateRfq,
@@ -228,7 +225,7 @@ function QueueRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <span className="font-mono text-xs font-bold text-[#0F1F3A]">{row.pr1_number}</span>
-          <PriorityBadge priority={row.priority} />
+          <PriorityChip priority={row.priority || 'normal'} />
           {row.rfq_number && (
             <span className="font-mono text-xs text-[#1E4BFF] font-semibold">→ {row.rfq_number}</span>
           )}

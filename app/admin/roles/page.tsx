@@ -6,6 +6,7 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import PageHeader from '@/components/shared/PageHeader';
 import RoleTable from '@/components/admin/RoleTable';
+import PaginationControls from '@/components/shared/PaginationControls';
 import { getRolesWithUserCounts } from '@/lib/admin-masterdata';
 import type { AdminRole } from '@/lib/admin-masterdata';
 
@@ -14,6 +15,8 @@ export default function RolesPage() {
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
 
   useEffect(() => {
     if (authLoading) return;
@@ -89,8 +92,21 @@ export default function RolesPage() {
     <AppShell title="Roles">
       <div className="space-y-6">
         <PageHeader title="Roles" description="System roles and their information" />
-        <RoleTable roles={roles} isLoading={isLoading} />
-        {roles.length > 0 && <div className="text-xs text-[#40527A]">Total: {roles.length} roles</div>}
+        <RoleTable roles={roles.slice((currentPage - 1) * pageSize, currentPage * pageSize)} isLoading={isLoading} />
+        {roles.length > 0 && (
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={Math.ceil(roles.length / pageSize)}
+            pageSize={pageSize}
+            totalCount={roles.length}
+            entityLabel="roles"
+            loading={isLoading}
+            onPageChange={(page) => {
+              if (page < currentPage) setCurrentPage(p => Math.max(1, p - 1));
+              else setCurrentPage(p => Math.min(Math.ceil(roles.length / pageSize), p + 1));
+            }}
+          />
+        )}
       </div>
     </AppShell>
   );

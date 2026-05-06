@@ -74,7 +74,7 @@ export default function GRNPrintPage() {
         {/* Company header */}
         <div style={{ textAlign: 'center', marginBottom: '12px', borderBottom: '2px solid #1e293b', paddingBottom: '10px' }}>
           <div style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.05em', color: '#0f172a' }}>
-            FORTUNE CORPORATION
+            Fortune Packaging Corporation
           </div>
           <div style={{ fontSize: '9px', color: '#64748b', marginTop: '2px' }}>
             Procurement Management System

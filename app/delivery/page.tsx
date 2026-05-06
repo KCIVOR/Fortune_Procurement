@@ -5,10 +5,12 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import EmptyState from '@/components/shared/EmptyState';
+import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
+import type { DeliveryListTab } from '@/lib/delivery';
 import {
-  fetchDeliveryQueue,
-  fetchMyDeliveries,
+  fetchDeliveryQueuePaged,
+  fetchDeliveryTabCounts,
 } from '@/lib/delivery';
 import type { Delivery, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
@@ -30,48 +32,82 @@ const STATUS_CONFIG: Record<DeliveryStatus, {
   cancelled:  { label: 'Cancelled', bg: 'bg-[#F7F9FC]',  text: 'text-[#40527A]',   border: 'border-[#D8E2FF]',   icon: Ban },
 };
 
-type FilterStatus = 'all' | DeliveryStatus;
+const EMPTY_TAB_COUNTS: Record<DeliveryListTab, number> = {
+  all: 0,
+  pending: 0,
+  scheduled: 0,
+  in_transit: 0,
+  delayed: 0,
+  delivered: 0,
+};
 
 export default function DeliveryQueuePage() {
   const { profile } = useAuth();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
-  const [filter, setFilter]         = useState<FilterStatus>('all');
+  const [filter, setFilter]         = useState<DeliveryListTab>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+  const [tabCounts, setTabCounts] = useState<Record<DeliveryListTab, number> | null>(null);
 
   const isEmployee = profile?.role === 'employee';
 
   useEffect(() => {
     if (!profile) return;
-    const fetcher = isEmployee
-      ? fetchMyDeliveries(profile.id)
-      : fetchDeliveryQueue();
-    fetcher
-      .then(setDeliveries)
+    const mode = isEmployee ? 'employee' : 'procurement';
+    fetchDeliveryTabCounts({
+      mode,
+      requisitionerId: isEmployee ? profile.id : undefined,
+      requisitionerName: isEmployee ? profile.full_name : undefined,
+    })
+      .then(setTabCounts)
+      .catch(() => {});
+  }, [profile, isEmployee]);
+
+  useEffect(() => {
+    if (!profile) return;
+
+    setLoading(true);
+    setError('');
+    const offset = (currentPage - 1) * rowsPerPage;
+    const mode = isEmployee ? 'employee' : 'procurement';
+
+    fetchDeliveryQueuePaged({
+      mode,
+      requisitionerId: isEmployee ? profile.id : undefined,
+      requisitionerName: isEmployee ? profile.full_name : undefined,
+      statusTab: filter,
+      limit: rowsPerPage,
+      offset,
+    })
+      .then((page) => {
+        setDeliveries(page.deliveries);
+        setTotalCount(page.total_count);
+      })
       .catch(() => setError('Failed to load deliveries.'))
       .finally(() => setLoading(false));
-  }, [profile]);
+  }, [profile, isEmployee, filter, currentPage, rowsPerPage]);
 
-  const filtered = filter === 'all'
-    ? deliveries
-    : deliveries.filter(d => d.status === filter);
+  const counts = tabCounts ?? EMPTY_TAB_COUNTS;
 
-  const counts = {
-    all:        deliveries.length,
-    pending:    deliveries.filter(d => d.status === 'pending').length,
-    scheduled:  deliveries.filter(d => d.status === 'scheduled').length,
-    in_transit: deliveries.filter(d => d.status === 'in_transit').length,
-    delayed:    deliveries.filter(d => d.status === 'delayed').length,
-    delivered:  deliveries.filter(d => d.status === 'delivered').length,
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
+
+  const setFilterAndResetPage = (s: DeliveryListTab) => {
+    setFilter(s);
+    setCurrentPage(1);
   };
 
-  if (loading) return (
-    <AppShell title="Delivery Tracking">
-      <div className="flex items-center justify-center h-64">
-        <LoadingState message="Loading deliveries..." />
-      </div>
-    </AppShell>
-  );
+  if (!profile) {
+    return (
+      <AppShell title="Delivery Tracking">
+        <div className="flex items-center justify-center h-64">
+          <LoadingState message="Loading deliveries..." />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="Delivery Tracking">
@@ -106,7 +142,8 @@ export default function DeliveryQueuePage() {
           return (
             <button
               key={s}
-              onClick={() => setFilter(s)}
+              type="button"
+              onClick={() => setFilterAndResetPage(s)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-xs font-semibold border transition ${
                 active
                   ? 'bg-[#0F1F3A] text-white border-[#0F1F3A]'
@@ -122,18 +159,39 @@ export default function DeliveryQueuePage() {
         })}
       </div>
 
-      {/* Delivery list */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center h-40 mb-4">
+          <LoadingState message="Loading deliveries..." />
+        </div>
+      ) : totalCount === 0 ? (
         <EmptyState
           icon={Truck}
           title="No deliveries found"
           description={filter === 'all' ? 'Deliveries will appear here once POs are acknowledged by suppliers.' : `No deliveries with status "${filter}".`}
         />
       ) : (
-        <div className="space-y-3">
-          {filtered.map(d => (
-            <DeliveryCard key={d.id} delivery={d} />
-          ))}
+        <div className="space-y-4">
+          <div className="space-y-3">
+            {deliveries.map(d => (
+              <DeliveryCard key={d.id} delivery={d} />
+            ))}
+          </div>
+
+          {deliveries.length > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={rowsPerPage}
+              totalCount={totalCount}
+              entityLabel="deliveries"
+              loading={loading}
+              onPageChange={(page) => {
+                if (page < currentPage) setCurrentPage((p) => Math.max(1, p - 1));
+                else setCurrentPage((p) => p + 1);
+              }}
+              className="rounded-[4px] border border-[#D8E2FF]"
+            />
+          )}
         </div>
       )}
     </AppShell>

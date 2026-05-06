@@ -13,7 +13,7 @@ import StatusChip from '@/components/shared/StatusChip';
 import LoadingState from '@/components/shared/LoadingState';
 import { fetchPendingSubstituteCount } from '@/lib/canvassing';
 import { fetchMyPR1s } from '@/lib/pr1';
-import { getPriorityColors } from '@/lib/utils';
+import PriorityChip from '@/components/shared/PriorityChip';
 import {
   FileText,
   Clock,
@@ -137,7 +137,7 @@ export default function EmployeeDashboard({ profile }: Props) {
                       {r.submitted_at ? format(new Date(r.submitted_at), 'MMM d, yyyy') : '—'}
                     </td>
                     <td className="px-5 py-3.5">
-                      <PriorityBadge priority={r.priority} />
+                      <PriorityChip priority={r.priority} />
                     </td>
                     <td className="px-5 py-3.5">
                       <StatusChip
@@ -184,12 +184,3 @@ export default function EmployeeDashboard({ profile }: Props) {
   );
 }
 
-function PriorityBadge({ priority }: { priority: string }) {
-  const colors = getPriorityColors(priority);
-
-  return (
-    <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-      {colors.label}
-    </div>
-  );
-}

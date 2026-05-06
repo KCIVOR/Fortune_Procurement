@@ -7,15 +7,18 @@ import PageHeader from '@/components/shared/PageHeader';
 import StatusChip from '@/components/shared/StatusChip';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
+import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { fetchMyPR1s } from '@/lib/pr1';
 import type { PR1Request } from '@/types/pr1';
-import { PR1_STATUS_LABELS } from '@/types/pr1';
+import { PR1_STATUS_LABELS, type PR1Status } from '@/types/pr1';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { FileText, Plus, Eye, Clock } from 'lucide-react';
 import { format } from 'date-fns';
-import { getPriorityColors } from '@/lib/utils';
+import PriorityChip from '@/components/shared/PriorityChip';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const STATUS_MAP: Record<string, StatusVariant> = {
   draft:                'draft',
@@ -30,16 +33,6 @@ const STATUS_MAP: Record<string, StatusVariant> = {
   cancelled:            'cancelled',
 };
 
-function PriorityBadge({ priority }: { priority: string }) {
-  const colors = getPriorityColors(priority);
-
-  return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-      {colors.label}
-    </span>
-  );
-}
-
 export default function PR1ListPage() {
   const { profile } = useAuth();
   const router = useRouter();
@@ -49,6 +42,9 @@ export default function PR1ListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
 
   useEffect(() => {
     if (!profile) return;
@@ -58,14 +54,19 @@ export default function PR1ListPage() {
     }
     setLoading(true);
     const offset = (currentPage - 1) * rowsPerPage;
-    fetchMyPR1s(profile.id, { limit: rowsPerPage, offset })
+    fetchMyPR1s(profile.id, {
+      limit:  rowsPerPage,
+      offset,
+      status: selectedStatus,
+      search: appliedSearch.trim() || undefined,
+    })
       .then((result) => {
         setRequests(result.requests);
         setTotalCount(result.total_count);
       })
       .catch(() => setError('Failed to load requests.'))
       .finally(() => setLoading(false));
-  }, [profile, currentPage, rowsPerPage, router]);
+  }, [profile, currentPage, rowsPerPage, router, selectedStatus, appliedSearch]);
 
   return (
     <AppShell title="My Requests">
@@ -83,6 +84,65 @@ export default function PR1ListPage() {
         }
       />
 
+      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-1.5 md:col-span-2">
+          <Label htmlFor="pr1-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+            Search
+          </Label>
+          <div className="flex gap-2">
+            <input
+              id="pr1-search"
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
+              placeholder="PR1 number or purpose..."
+              disabled={loading}
+              className="flex-1 px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+            />
+            <button
+              onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
+              disabled={loading}
+              className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+            >
+              Apply
+            </button>
+            <button
+              onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
+              disabled={loading}
+              className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] disabled:opacity-50 transition whitespace-nowrap"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="pr1-status" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+            Status
+          </Label>
+          <Select
+            value={selectedStatus}
+            onValueChange={(s) => {
+              setSelectedStatus(s);
+              setCurrentPage(1);
+            }}
+            disabled={loading}
+          >
+            <SelectTrigger id="pr1-status" className="text-sm">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {(Object.keys(PR1_STATUS_LABELS) as PR1Status[]).map((key) => (
+                <SelectItem key={key} value={key}>
+                  {PR1_STATUS_LABELS[key]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center h-48">
           <LoadingState message="Loading requests..." />
@@ -93,98 +153,90 @@ export default function PR1ListPage() {
         <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
           <EmptyState
             title="No purchase requests yet"
-            description="Your submitted PR1s will appear here. Click 'New PR1' to get started."
+            description={
+              appliedSearch.trim() || selectedStatus !== 'all'
+                ? 'No requests match your filters. Try adjusting search or status.'
+                : "Your submitted PR1s will appear here. Click 'New PR1' to get started."
+            }
             icon={FileText}
           />
         </div>
       ) : (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-          <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR1 No.</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Purpose</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Date Required</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Submitted</th>
-                <th className="text-center px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">Priority</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Status</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#D8E2FF]">
-              {requests.map((r) => (
-                <tr key={r.id} className="hover:bg-[#F7F9FC] transition-colors">
-                  <td className="px-5 py-3.5 font-mono font-medium text-[#0F1F3A]">{r.pr1_number}</td>
-                  <td className="px-5 py-3.5 text-[#40527A] max-w-xs truncate">{r.purpose || '—'}</td>
-                  <td className="px-5 py-3.5 text-[#40527A]">
-                    {r.date_required ? format(new Date(r.date_required), 'MMM d, yyyy') : '—'}
-                  </td>
-                  <td className="px-5 py-3.5 text-[#40527A]">
-                    {r.submitted_at ? (
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        {format(new Date(r.submitted_at), 'MMM d, yyyy')}
-                      </span>
-                    ) : (
-                      <span className="text-[#BFC7D5] italic">Not yet</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3.5 text-center">
-                    <PriorityBadge priority={r.priority} />
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <StatusChip
-                      status={STATUS_MAP[r.status] || 'pending'}
-                      label={PR1_STATUS_LABELS[r.status]}
-                      size="sm"
-                    />
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <Link
-                      href={`/pr1/${r.id}`}
-                      className="inline-flex items-center gap-1.5 text-[#1E4BFF] hover:text-[#0F1F3A] text-xs font-medium transition"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      View
-                    </Link>
-                  </td>
+        <>
+          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR1 No.</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Purpose</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Date Required</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Submitted</th>
+                  <th className="text-center px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">Priority</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Status</th>
+                  <th className="px-5 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-
-        {/* Pagination Controls */}
-        {requests.length > 0 && (
-          <div className="bg-white rounded-lg border border-[#E5EAFF] p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-[#40527A]">
-                Showing {Math.min((currentPage - 1) * rowsPerPage + 1, totalCount)}–{Math.min(currentPage * rowsPerPage, totalCount)} of {totalCount} requests
-              </div>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1 || loading}
-                  className="px-3 py-1 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded hover:bg-[#E5EAFF] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Previous
-                </button>
-                <div className="text-xs text-[#40527A] font-medium">
-                  Page {currentPage} of {Math.ceil(totalCount / rowsPerPage)}
-                </div>
-                <button
-                  onClick={() => setCurrentPage(p => p + 1)}
-                  disabled={currentPage >= Math.ceil(totalCount / rowsPerPage) || loading}
-                  className="px-3 py-1 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded hover:bg-[#E5EAFF] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Next
-                </button>
-              </div>
+              </thead>
+              <tbody className="divide-y divide-[#D8E2FF]">
+                {requests.map((r) => (
+                  <tr key={r.id} className="hover:bg-[#F7F9FC] transition-colors">
+                    <td className="px-5 py-3.5 font-mono font-medium text-[#0F1F3A]">{r.pr1_number}</td>
+                    <td className="px-5 py-3.5 text-[#40527A] max-w-xs truncate">{r.purpose || '—'}</td>
+                    <td className="px-5 py-3.5 text-[#40527A]">
+                      {r.date_required ? format(new Date(r.date_required), 'MMM d, yyyy') : '—'}
+                    </td>
+                    <td className="px-5 py-3.5 text-[#40527A]">
+                      {r.submitted_at ? (
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          {format(new Date(r.submitted_at), 'MMM d, yyyy')}
+                        </span>
+                      ) : (
+                        <span className="text-[#BFC7D5] italic">Not yet</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5 text-center">
+                      <PriorityChip priority={r.priority || 'normal'} />
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <StatusChip
+                        status={STATUS_MAP[r.status] || 'pending'}
+                        label={PR1_STATUS_LABELS[r.status]}
+                        size="sm"
+                      />
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <Link
+                        href={`/pr1/${r.id}`}
+                        className="inline-flex items-center gap-1.5 text-[#1E4BFF] hover:text-[#0F1F3A] text-xs font-medium transition"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
             </div>
           </div>
-        )}
-        </div>
+
+          {totalCount > rowsPerPage && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={Math.ceil(totalCount / rowsPerPage)}
+              pageSize={rowsPerPage}
+              totalCount={totalCount}
+              entityLabel="requests"
+              loading={loading}
+              onPageChange={(page) => {
+                if (page < currentPage) setCurrentPage((p) => Math.max(1, p - 1));
+                else setCurrentPage((p) => p + 1);
+              }}
+              className="space-y-4"
+            />
+          )}
+        </>
       )}
     </AppShell>
   );

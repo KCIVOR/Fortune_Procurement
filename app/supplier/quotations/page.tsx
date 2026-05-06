@@ -6,7 +6,8 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
-import { fetchSupplierInbox } from '@/lib/canvassing';
+import PaginationControls from '@/components/shared/PaginationControls';
+import { fetchSupplierInboxPaged } from '@/lib/canvassing';
 import { useAuth } from '@/context/AuthContext';
 import type { SupplierRfqInboxRow } from '@/types/canvassing';
 import { Tag, ArrowRight, Clock, CircleCheck as CheckCircle2, CalendarDays, Building2, PackageSearch } from 'lucide-react';
@@ -34,18 +35,27 @@ export default function SupplierQuotationsPage() {
   const [inbox, setInbox]     = useState<SupplierRfqInboxRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 20;
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     if (!profile) return;
-    fetchSupplierInbox(profile.id)
-      .then(setInbox)
+    const offset = (currentPage - 1) * rowsPerPage;
+    setLoading(true);
+    fetchSupplierInboxPaged(profile.id, { limit: rowsPerPage, offset })
+      .then(result => {
+        setInbox(result.inbox);
+        setTotalCount(result.total_count);
+      })
       .catch(() => setError('Failed to load RFQ inbox.'))
       .finally(() => setLoading(false));
-  }, [profile]);
+  }, [profile, currentPage]);
 
-  const pending   = inbox.filter(r => r.supplier_status === 'invited' && r.rfq_status === 'open');
-  const submitted = inbox.filter(r => r.supplier_status === 'submitted');
-  const other     = inbox.filter(r => r.supplier_status !== 'invited' || r.rfq_status !== 'open').filter(r => r.supplier_status !== 'submitted');
+  const pending    = inbox.filter(r => r.supplier_status === 'invited' && r.rfq_status === 'open');
+  const submitted  = inbox.filter(r => r.supplier_status === 'submitted');
+  const other      = inbox.filter(r => r.supplier_status !== 'invited' || r.rfq_status !== 'open').filter(r => r.supplier_status !== 'submitted');
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
 
   return (
     <AppShell title="Quotations">
@@ -74,7 +84,7 @@ export default function SupplierQuotationsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard label="Awaiting Response" value={pending.length}   color="amber"   icon={Clock} />
             <StatCard label="Submitted"          value={submitted.length} color="emerald" icon={CheckCircle2} />
-            <StatCard label="Total RFQs"         value={inbox.length}    color="slate"   icon={PackageSearch} />
+            <StatCard label="Total RFQs"         value={totalCount}       color="slate"   icon={PackageSearch} />
           </div>
 
           {pending.length > 0 && (
@@ -93,6 +103,21 @@ export default function SupplierQuotationsPage() {
             <InboxSection title="Other" accent="slate" count={other.length}>
               {other.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
             </InboxSection>
+          )}
+
+          {totalCount > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={rowsPerPage}
+              totalCount={totalCount}
+              entityLabel="RFQs"
+              loading={loading}
+              onPageChange={(page) => {
+                if (page < currentPage) setCurrentPage(p => Math.max(1, p - 1));
+                else setCurrentPage(p => Math.min(totalPages, p + 1));
+              }}
+            />
           )}
         </div>
       )}

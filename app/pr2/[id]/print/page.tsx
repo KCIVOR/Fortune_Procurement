@@ -203,9 +203,7 @@ export default function PR2PrintPage() {
           <tbody>
             <tr>
               <td style={{ width: '18%', border: '1px solid #000', padding: '6px 8px', verticalAlign: 'middle', textAlign: 'center' }}>
-                <div style={{ fontWeight: 'bold', fontSize: 10 }}>FORTUNE</div>
-                <div style={{ fontWeight: 'bold', fontSize: 10 }}>GROUP</div>
-                <div style={{ fontSize: 8, color: '#555' }}>of Companies</div>
+                <div style={{ fontWeight: 'bold', fontSize: 8, lineHeight: 1.15 }}>Fortune Packaging Corporation</div>
               </td>
               <td style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
                 <div style={{ fontSize: 14, fontWeight: 'bold', letterSpacing: 1 }}>PURCHASE REQUEST</div>

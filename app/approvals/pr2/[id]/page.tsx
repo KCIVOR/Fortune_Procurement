@@ -14,16 +14,21 @@ import {
   canActOnPR2Step,
   submitPR2ApprovalAction,
 } from '@/lib/pr2-approvals';
-import type {
-  PR2ApprovalDetail,
-  ApprovalAction,
-  WorkflowStep,
-  ApprovalActionRecord,
-} from '@/types/approvals';
+import type { PR2ApprovalDetail, ApprovalAction, WorkflowStep, ApprovalActionRecord } from '@/types/approvals';
 import { format } from 'date-fns';
-import { getPriorityColors } from '@/lib/utils';
+import PriorityChip from '@/components/shared/PriorityChip';
+import DocumentStatusChip from '@/components/shared/DocumentStatusChip';
+import ActionPill from '@/components/shared/ActionPill';
+import DetailBackButton from '@/components/shared/DetailBackButton';
+import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
+import DetailTitleRow from '@/components/shared/DetailTitleRow';
+import DetailCard from '@/components/shared/DetailCard';
+import DetailCardHeader from '@/components/shared/DetailCardHeader';
+import DetailInfoGrid from '@/components/shared/DetailInfoGrid';
+import DetailWideInfoRow from '@/components/shared/DetailWideInfoRow';
+import DetailInfoField from '@/components/shared/DetailInfoField';
 import {
-  ChevronLeft, User, Building2, FileText, CalendarDays, Clock,
+  User, Building2, FileText, CalendarDays, Clock,
   CircleCheck as CheckCircle2, Circle as XCircle, RotateCcw,
   Package, TriangleAlert as AlertTriangle, CheckCheck, Lock,
   ClipboardList, DollarSign,
@@ -172,70 +177,93 @@ export default function PR2ApprovalDetailPage() {
 
   return (
     <AppShell title="PR2 Approval">
-      <div className="mb-2">
-        <button onClick={() => handleBack({ role: profile?.role })} className="inline-flex items-center gap-1 text-xs text-[#40527A] hover:text-[#0F1F3A] transition">
-          <ChevronLeft className="w-3.5 h-3.5" />
-          Back
-        </button>
-      </div>
+      <DetailBackButton className="mb-2" onClick={() => handleBack({ role: profile?.role })} />
 
       {/* Page header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">{detail.pr2_number}</h1>
-            <PR2StatusBadge status={detail.pr2_status} />
-            <PriorityBadge priority={detail.pr1_priority} />
+      <DetailHeaderLayout
+        wrap={true}
+        left={
+          <div>
+            <DetailTitleRow wrap>
+              <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">{detail.pr2_number}</h1>
+              <DocumentStatusChip docType="PR2" status={detail.pr2_status} />
+              <PriorityChip priority={detail.pr1_priority} />
+            </DetailTitleRow>
+            <p className="text-sm text-[#40527A] mt-1">
+              {detail.department_name_snapshot} · {detail.purpose}
+            </p>
+            <p className="text-xs text-[#BFC7D5] mt-0.5">
+              PR1: <span className="font-mono">{detail.pr1_number_snapshot}</span>
+              {' '}· RFQ: <span className="font-mono">{detail.rfq_number_snapshot}</span>
+            </p>
           </div>
-          <p className="text-sm text-[#40527A] mt-1">
-            {detail.department_name_snapshot} · {detail.purpose}
-          </p>
-          <p className="text-xs text-[#BFC7D5] mt-0.5">
-            PR1: <span className="font-mono">{detail.pr1_number_snapshot}</span>
-            {' '}· RFQ: <span className="font-mono">{detail.rfq_number_snapshot}</span>
-          </p>
-        </div>
-
-        {canAct ? (
-          <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-2 rounded-[4px]">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Your action required — Step {detail.active_current_step}: {activeStepDef?.position_required}
-          </div>
-        ) : !isFullyClosed && (profile?.role === 'approver' || profile?.role === 'procurement') ? (
-          <div className="inline-flex items-center gap-2 bg-[#F7F9FC] border border-[#D8E2FF] text-[#40527A] text-xs font-medium px-3 py-2 rounded-[4px]">
-            <Lock className="w-3.5 h-3.5" />
-            Awaiting Step {detail.active_current_step}: {activeStepDef?.position_required}
-          </div>
-        ) : null}
-      </div>
+        }
+        right={
+          <>
+            {canAct ? (
+              <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-2 rounded-[4px]">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Your action required — Step {detail.active_current_step}: {activeStepDef?.position_required}
+              </div>
+            ) : !isFullyClosed && (profile?.role === 'approver' || profile?.role === 'procurement') ? (
+              <div className="inline-flex items-center gap-2 bg-[#F7F9FC] border border-[#D8E2FF] text-[#40527A] text-xs font-medium px-3 py-2 rounded-[4px]">
+                <Lock className="w-3.5 h-3.5" />
+                Awaiting Step {detail.active_current_step}: {activeStepDef?.position_required}
+              </div>
+            ) : null}
+          </>
+        }
+      />
 
       <div className="space-y-5">
 
         {/* PR2 details */}
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC] flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR2 Details</h2>
-            <span className="text-xs text-[#BFC7D5] font-mono">{detail.pr2_number}</span>
-          </div>
-          <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-5">
-            <InfoField icon={User}         label="Requisitioner" value={detail.requisitioner_name_snapshot} />
-            <InfoField icon={Building2}    label="Department"    value={detail.department_name_snapshot} />
-            <InfoField icon={CalendarDays} label="Date Required" value={format(new Date(detail.date_required), 'MMMM d, yyyy')} />
-            <InfoField icon={FileText}     label="PR1 Ref."      value={detail.pr1_number_snapshot} mono />
-            <InfoField icon={FileText}     label="RFQ Ref."      value={detail.rfq_number_snapshot} mono />
-            <InfoField icon={Clock}        label="Generated"     value={format(new Date(detail.generated_at), 'MMMM d, yyyy')} />
-            <div className="col-span-2 md:col-span-3">
-              <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1">Purpose</p>
-              <p className="text-sm text-[#0F1F3A]">{detail.purpose}</p>
-            </div>
+        <DetailCard overflow>
+          <DetailCardHeader
+            left={<h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR2 Details</h2>}
+            right={<span className="text-xs text-[#BFC7D5] font-mono">{detail.pr2_number}</span>}
+          />
+          <DetailInfoGrid>
+            <DetailInfoField
+              icon={<User className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Requisitioner"
+              value={detail.requisitioner_name_snapshot}
+            />
+            <DetailInfoField
+              icon={<Building2 className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Department"
+              value={detail.department_name_snapshot}
+            />
+            <DetailInfoField
+              icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Date Required"
+              value={format(new Date(detail.date_required), 'MMMM d, yyyy')}
+            />
+            <DetailInfoField
+              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="PR1 Ref."
+              value={detail.pr1_number_snapshot}
+              valueClassName="font-mono font-semibold"
+            />
+            <DetailInfoField
+              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="RFQ Ref."
+              value={detail.rfq_number_snapshot}
+              valueClassName="font-mono font-semibold"
+            />
+            <DetailInfoField
+              icon={<Clock className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Generated"
+              value={format(new Date(detail.generated_at), 'MMMM d, yyyy')}
+            />
+            <DetailWideInfoRow label="Purpose">{detail.purpose}</DetailWideInfoRow>
             {detail.remarks && (
-              <div className="col-span-2 md:col-span-3">
-                <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1">Remarks</p>
-                <p className="text-sm text-[#0F1F3A] italic">"{detail.remarks}"</p>
-              </div>
+              <DetailWideInfoRow label="Remarks" valueClassName="italic">
+                {`"${detail.remarks}"`}
+              </DetailWideInfoRow>
             )}
-          </div>
-        </div>
+          </DetailInfoGrid>
+        </DetailCard>
 
         {/* Related Records */}
         {profile && (
@@ -643,62 +671,6 @@ function WorkflowTimeline({
 }
 
 // ─── Small presentational helpers ─────────────────────────────────────────────
-
-function InfoField({ icon: Icon, label, value, mono }: { icon: React.ElementType; label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-1">
-        <Icon className="w-3.5 h-3.5 text-[#BFC7D5]" />
-        <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">{label}</p>
-      </div>
-      <p className={`text-sm text-[#0F1F3A] ${mono ? 'font-mono font-semibold' : 'font-medium'}`}>{value}</p>
-    </div>
-  );
-}
-
-function ActionPill({ action }: { action: ApprovalAction }) {
-  if (action === 'approved') return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-      <CheckCircle2 className="w-3 h-3" /> Approved
-    </span>
-  );
-  if (action === 'rejected') return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
-      <XCircle className="w-3 h-3" /> Rejected
-    </span>
-  );
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
-      <RotateCcw className="w-3 h-3" /> Revision Requested
-    </span>
-  );
-}
-
-function PR2StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { cls: string; label: string }> = {
-    draft:                   { cls: 'bg-[#F7F9FC] border-[#D8E2FF] text-[#40527A]',    label: 'Draft' },
-    pending_phase1_approval: { cls: 'bg-amber-50 border-amber-200 text-amber-700',    label: 'Pending Phase 1' },
-    phase1_approved:         { cls: 'bg-blue-50 border-blue-200 text-blue-700',       label: 'Phase 1 Approved' },
-    pending_phase2_approval: { cls: 'bg-orange-50 border-orange-200 text-orange-700', label: 'Pending Phase 2' },
-    phase2_approved:         { cls: 'bg-emerald-50 border-emerald-200 text-emerald-700', label: 'Approved' },
-    cancelled:               { cls: 'bg-red-50 border-red-200 text-red-600',          label: 'Cancelled' },
-  };
-  const { cls, label } = map[status] ?? map.draft;
-  return (
-    <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${cls}`}>
-      {label}
-    </span>
-  );
-}
-
-function PriorityBadge({ priority }: { priority?: string }) {
-  const colors = getPriorityColors(priority);
-  return (
-    <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-      {colors.label}
-    </div>
-  );
-}
 
 function ActionButton({ icon: Icon, label, variant, onClick, disabled }: {
   icon: React.ElementType; label: string; variant: 'approve' | 'revise' | 'reject'; onClick: () => void; disabled: boolean;

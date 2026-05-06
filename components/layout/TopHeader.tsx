@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Building2, Briefcase, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import NotificationBell from '@/components/layout/NotificationBell';
 
 interface TopHeaderProps {
   title?: string;
@@ -40,6 +41,8 @@ export default function TopHeader({ title, onMenuToggle }: TopHeaderProps) {
             <Briefcase className="w-3.5 h-3.5 text-[#BFC7D5]" />
             <span>{profile.position}</span>
           </div>
+          <div className="hidden sm:block w-px h-4 bg-[#D8E2FF]" />
+          <NotificationBell />
           <div className="hidden sm:block w-px h-4 bg-[#D8E2FF]" />
           <Link href="/profile" className="flex items-center gap-2 group" aria-label="My Profile">
             <div className="w-7 h-7 rounded-[4px] bg-[#1E4BFF] group-hover:bg-[#0F1F3A] transition flex items-center justify-center shrink-0">

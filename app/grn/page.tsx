@@ -5,8 +5,10 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import EmptyState from '@/components/shared/EmptyState';
+import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
-import { fetchGRNQueue } from '@/lib/grn';
+import type { GRNListTab } from '@/lib/grn';
+import { fetchGRNQueuePaged, fetchGRNTabCounts } from '@/lib/grn';
 import type { GRNQueueRow, GRNStatus } from '@/types/grn';
 import { GRN_STATUS_LABELS } from '@/types/grn';
 import { format } from 'date-fns';
@@ -19,37 +21,62 @@ const STATUS_CONFIG: Record<GRNStatus, {
   closed: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: CheckCircle2 },
 };
 
-type FilterTab = 'all' | GRNStatus;
-
 export default function GRNListPage() {
   const { profile } = useAuth();
   const [grns, setGRNs]       = useState<GRNQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
-  const [filter, setFilter]   = useState<FilterTab>('all');
+  const [filter, setFilter]   = useState<GRNListTab>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+  const [tabCounts, setTabCounts] = useState<Record<GRNListTab, number> | null>(null);
 
   useEffect(() => {
     if (!profile) return;
-    fetchGRNQueue()
-      .then(setGRNs)
-      .catch(() => setError('Failed to load GRNs.'))
-      .finally(() => setLoading(false));
+    fetchGRNTabCounts()
+      .then(setTabCounts)
+      .catch(() => {});
   }, [profile]);
 
-  const filtered = filter === 'all' ? grns : grns.filter(g => g.status === filter);
-  const counts   = {
-    all:    grns.length,
-    open:   grns.filter(g => g.status === 'open').length,
-    closed: grns.filter(g => g.status === 'closed').length,
+  useEffect(() => {
+    if (!profile) return;
+
+    setLoading(true);
+    setError('');
+    const offset = (currentPage - 1) * rowsPerPage;
+
+    fetchGRNQueuePaged({
+      statusFilter: filter,
+      limit: rowsPerPage,
+      offset,
+    })
+      .then((page) => {
+        setGRNs(page.grns);
+        setTotalCount(page.total_count);
+      })
+      .catch(() => setError('Failed to load GRNs.'))
+      .finally(() => setLoading(false));
+  }, [profile, filter, currentPage, rowsPerPage]);
+
+  const counts = tabCounts ?? { all: 0, open: 0, closed: 0 };
+
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
+
+  const setFilterAndResetPage = (s: GRNListTab) => {
+    setFilter(s);
+    setCurrentPage(1);
   };
 
-  if (loading) return (
-    <AppShell title="Goods Receipt">
-      <div className="flex items-center justify-center h-64">
-        <LoadingState message="Loading GRNs..." />
-      </div>
-    </AppShell>
-  );
+  if (!profile) {
+    return (
+      <AppShell title="Goods Receipt">
+        <div className="flex items-center justify-center h-64">
+          <LoadingState message="Loading GRNs..." />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="Goods Receipt">
@@ -76,7 +103,8 @@ export default function GRNListPage() {
           return (
             <button
               key={s}
-              onClick={() => setFilter(s)}
+              type="button"
+              onClick={() => setFilterAndResetPage(s)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-xs font-semibold border transition ${
                 active
                   ? 'bg-[#0F1F3A] text-white border-[#0F1F3A]'
@@ -92,8 +120,11 @@ export default function GRNListPage() {
         })}
       </div>
 
-      {/* List */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <LoadingState message="Loading GRNs..." />
+        </div>
+      ) : totalCount === 0 ? (
         <EmptyState
           icon={PackageCheck}
           title="No goods receipts found"
@@ -102,8 +133,26 @@ export default function GRNListPage() {
             : `No ${GRN_STATUS_LABELS[filter as GRNStatus]?.toLowerCase() ?? ''} GRNs.`}
         />
       ) : (
-        <div className="space-y-3">
-          {filtered.map(g => <GRNCard key={g.id} grn={g} />)}
+        <div className="space-y-4">
+          <div className="space-y-3">
+            {grns.map(g => <GRNCard key={g.id} grn={g} />)}
+          </div>
+
+          {grns.length > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={rowsPerPage}
+              totalCount={totalCount}
+              entityLabel="GRNs"
+              loading={loading}
+              onPageChange={(page) => {
+                if (page < currentPage) setCurrentPage((p) => Math.max(1, p - 1));
+                else setCurrentPage((p) => p + 1);
+              }}
+              className="rounded-[4px] border border-[#D8E2FF]"
+            />
+          )}
         </div>
       )}
     </AppShell>

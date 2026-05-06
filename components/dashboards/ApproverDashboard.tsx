@@ -8,7 +8,7 @@ import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
 import { fetchApprovalQueue, fetchApproverStats, canActOnStep } from '@/lib/approvals';
 import type { PR1ApprovalQueueRow } from '@/types/approvals';
-import { getPriorityColors } from '@/lib/utils';
+import PriorityChip from '@/components/shared/PriorityChip';
 import {
   SquareCheck as CheckSquare,
   Clock,
@@ -94,7 +94,7 @@ export default function ApproverDashboard({ profile }: Props) {
                     </div>
                     <p className="text-xs text-[#40527A] mt-0.5 truncate">{row.purpose}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <PriorityBadge priority={row.priority} />
+                      <PriorityChip priority={row.priority} />
                       <span className="text-xs text-[#BFC7D5]">·</span>
                       <span className="text-xs text-[#BFC7D5]">
                         Required by {format(new Date(row.date_required), 'MMM d, yyyy')}
@@ -146,16 +146,6 @@ export default function ApproverDashboard({ profile }: Props) {
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: string }) {
-  const colors = getPriorityColors(priority);
-
-  return (
-    <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-      {colors.label}
     </div>
   );
 }

@@ -5,8 +5,10 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import EmptyState from '@/components/shared/EmptyState';
+import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
-import { listPOsWithCount } from '@/lib/po';
+import { listPOsWithCount, fetchPOStatusCounts } from '@/lib/po';
+import type { POStatusCounts } from '@/lib/po';
 import type { PORequest } from '@/types/po';
 import { PO_STATUS_LABELS } from '@/types/po';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -39,10 +41,24 @@ export default function POListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 25;
   const [totalCount, setTotalCount] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<POStatusCounts>({
+    total: 0,
+    draft: 0,
+    for_approval: 0,
+    approved: 0,
+  });
+
+  // Load global stat counts once on mount — independent of filters/pagination.
+  useEffect(() => {
+    fetchPOStatusCounts()
+      .then(setStatusCounts)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const offset = (currentPage - 1) * rowsPerPage;
@@ -50,7 +66,7 @@ export default function POListPage() {
     setError('');
 
     listPOsWithCount({
-      search: search || undefined,
+      search: appliedSearch || undefined,
       status: selectedStatus !== 'all' ? selectedStatus : undefined,
       limit: rowsPerPage,
       offset,
@@ -61,16 +77,9 @@ export default function POListPage() {
       })
       .catch(() => setError('Failed to load purchase orders.'))
       .finally(() => setLoading(false));
-  }, [currentPage, search, selectedStatus]);
+  }, [currentPage, appliedSearch, selectedStatus]);
 
   const isBuyer = profile?.role === 'procurement' && profile.position === 'Buyer';
-
-  const stats = {
-    total:    totalCount,
-    draft:    0,
-    pending:  0,
-    approved: 0,
-  };
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
@@ -88,6 +97,7 @@ export default function POListPage() {
 
   function handleResetFilters() {
     setSearch('');
+    setAppliedSearch('');
     setSelectedStatus('all');
     setCurrentPage(1);
   }
@@ -112,12 +122,12 @@ export default function POListPage() {
         )}
       </div>
 
-      {/* Stats */}
+      {/* Stats — global totals, independent of active filters/pagination */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total POs"    value={stats.total}    color="slate" />
-        <StatCard label="Draft"        value={pos.filter(p => p.status === 'draft').length}    color="slate" />
-        <StatCard label="For Approval" value={pos.filter(p => p.status === 'for_approval').length}  color="amber" />
-        <StatCard label="Approved"     value={pos.filter(p => p.status === 'approved' || p.status === 'sent').length} color="emerald" />
+        <StatCard label="Total POs"    value={statusCounts.total}        color="slate" />
+        <StatCard label="Draft"        value={statusCounts.draft}        color="slate" />
+        <StatCard label="For Approval" value={statusCounts.for_approval} color="amber" />
+        <StatCard label="Approved"     value={statusCounts.approved}     color="emerald" />
       </div>
 
       {/* Filter Bar */}
@@ -129,18 +139,25 @@ export default function POListPage() {
             <Label htmlFor="po-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
               Search
             </Label>
-            <input
-              id="po-search"
-              type="text"
-              value={search}
-              onChange={e => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="PO number or purpose..."
-              disabled={loading}
-              className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
-            />
+            <div className="flex gap-2">
+              <input
+                id="po-search"
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
+                placeholder="PO number or purpose..."
+                disabled={loading}
+                className="flex-1 px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+              />
+              <button
+                onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
+                disabled={loading}
+                className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+              >
+                Apply
+              </button>
+            </div>
           </div>
 
           {/* Status Filter */}
@@ -186,7 +203,7 @@ export default function POListPage() {
         <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
           <EmptyState
             title="No purchase orders found"
-            description={search || selectedStatus !== 'all' ? 'Try adjusting your filters.' : 'Generate a PO from a fully approved PR2 to get started.'}
+            description={appliedSearch || selectedStatus !== 'all' ? 'Try adjusting your filters.' : 'Generate a PO from a fully approved PR2 to get started.'}
             icon={ShoppingCart}
           />
         </div>
@@ -253,32 +270,19 @@ export default function POListPage() {
           </div>
 
           {/* Pagination Controls */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-[#40527A]">
-                Showing {Math.min((currentPage - 1) * rowsPerPage + 1, totalCount)}–{Math.min(currentPage * rowsPerPage, totalCount)} of {totalCount} POs
-              </div>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1 || loading}
-                  className="px-3 py-1 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded hover:bg-[#E5EAFF] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Previous
-                </button>
-                <div className="text-xs text-[#40527A] font-medium">
-                  Page {currentPage} of {totalPages}
-                </div>
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPage >= totalPages || loading}
-                  className="px-3 py-1 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded hover:bg-[#E5EAFF] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={rowsPerPage}
+            totalCount={totalCount}
+            entityLabel="POs"
+            loading={loading}
+            onPageChange={(page) => {
+              if (page < currentPage) handlePreviousPage();
+              else handleNextPage();
+            }}
+            className="rounded-[4px] border border-[#D8E2FF] space-y-4"
+          />
         </div>
       )}
     </AppShell>

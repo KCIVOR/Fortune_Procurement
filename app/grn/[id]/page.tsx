@@ -10,8 +10,15 @@ import { useAuth } from '@/context/AuthContext';
 import { fetchGRNById, saveGRNProgress, closeGRN } from '@/lib/grn';
 import type { GRNWithItems, GRNFormValues, GRNItemDraft } from '@/types/grn';
 import { format } from 'date-fns';
-import { ChevronLeft, PackageCheck, Building2, Package, CalendarDays, FileText, Printer, Save, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, User, MapPin, Hash, Receipt } from 'lucide-react';
+import { PackageCheck, Building2, Package, CalendarDays, FileText, Save, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, User, MapPin, Hash, Receipt } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
+import DetailBackButton from '@/components/shared/DetailBackButton';
+import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
+import DetailTitleRow from '@/components/shared/DetailTitleRow';
+import DetailPrintButton from '@/components/shared/DetailPrintButton';
+import DetailTableCard from '@/components/shared/DetailTableCard';
+import DetailInfoField from '@/components/shared/DetailInfoField';
+import { FormFieldLabel } from '@/components/shared/FormFieldLabel';
 
 export default function GRNDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -136,44 +143,41 @@ export default function GRNDetailPage() {
 
   return (
     <AppShell title={`GRN ${grn.grn_number}`}>
-      <div className="mb-2">
-        <button onClick={() => handleBack({ role: profile?.role })} className="inline-flex items-center gap-1 text-xs text-[#40527A] hover:text-[#0F1F3A] transition">
-          <ChevronLeft className="w-3.5 h-3.5" />
-          Back
-        </button>
-      </div>
+      <DetailBackButton className="mb-2" onClick={() => handleBack({ role: profile?.role })} />
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap mb-1">
-            <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">{grn.grn_number}</h1>
-            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-3 py-1 ${
-              isClosed
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : 'bg-amber-50 text-amber-700 border-amber-200'
-            }`}>
-              {isClosed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Receipt className="w-3.5 h-3.5" />}
-              {isClosed ? 'Closed' : 'Open'}
-            </span>
+      <DetailHeaderLayout
+        wrap={true}
+        left={
+          <div>
+            <DetailTitleRow wrap mb>
+              <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">{grn.grn_number}</h1>
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-3 py-1 ${
+                isClosed
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {isClosed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Receipt className="w-3.5 h-3.5" />}
+                {isClosed ? 'Closed' : 'Open'}
+              </span>
+            </DetailTitleRow>
+            <p className="text-sm text-[#40527A]">{grn.department_name_snapshot} · {grn.purpose}</p>
+            <div className="flex items-center gap-3 mt-1 text-xs text-[#BFC7D5] flex-wrap">
+              <span className="font-mono">PO: {grn.po_number_snapshot}</span>
+              <span className="font-mono">PR1: {grn.pr1_number_snapshot}</span>
+            </div>
           </div>
-          <p className="text-sm text-[#40527A]">{grn.department_name_snapshot} · {grn.purpose}</p>
-          <div className="flex items-center gap-3 mt-1 text-xs text-[#BFC7D5] flex-wrap">
-            <span className="font-mono">PO: {grn.po_number_snapshot}</span>
-            <span className="font-mono">PR1: {grn.pr1_number_snapshot}</span>
+        }
+        right={
+          <div className="flex items-center gap-2">
+            <DetailPrintButton
+              href={`/grn/${grn.id}/print`}
+              label="Print GRN"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#D8E2FF] text-[#0F1F3A] text-sm font-semibold rounded-[4px] hover:border-[#0F1F3A] transition"
+            />
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/grn/${grn.id}/print`}
-            target="_blank"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#D8E2FF] text-[#0F1F3A] text-sm font-semibold rounded-[4px] hover:border-[#0F1F3A] transition"
-          >
-            <Printer className="w-4 h-4" />
-            Print GRN
-          </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* Related Records */}
       {profile && (
@@ -202,10 +206,30 @@ export default function GRNDetailPage() {
           {/* Supplier info */}
           <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4">
             <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">Supplier</h2>
-            <InfoField icon={Building2}  label="Supplier"    value={grn.supplier_name_snapshot} />
-            <InfoField icon={Package}    label="Deliver To"  value={grn.warehouse} />
-            <InfoField icon={MapPin}     label="Address"     value={grn.delivery_address} />
-            <InfoField icon={User}       label="Received By" value={grn.received_by_name_snapshot || '—'} />
+            <DetailInfoField
+              layout="inline"
+              icon={<Building2 className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Supplier"
+              value={grn.supplier_name_snapshot}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<Package className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Deliver To"
+              value={grn.warehouse}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<MapPin className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Address"
+              value={grn.delivery_address}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<User className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Received By"
+              value={grn.received_by_name_snapshot || '—'}
+            />
           </div>
 
           {/* Header fields */}
@@ -270,19 +294,22 @@ export default function GRNDetailPage() {
         {/* Main content — items */}
         <div className="lg:col-span-3 space-y-4">
           {/* Items table */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC] flex items-center justify-between">
+          <DetailTableCard
+            title={
               <div className="flex items-center gap-2">
                 <Package className="w-3.5 h-3.5 text-[#BFC7D5]" />
                 <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
                   Items ({form.items.length})
                 </h2>
               </div>
+            }
+            right={
               <div className="text-xs font-semibold text-[#0F1F3A]">
                 Total Received: ₱{receivedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
               </div>
-            </div>
-
+            }
+            headerClassName="bg-[#F7F9FC] px-5"
+          >
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -382,7 +409,7 @@ export default function GRNDetailPage() {
                 </tfoot>
               </table>
             </div>
-          </div>
+          </DetailTableCard>
 
           {/* Actions */}
           {!isReadOnly && (
@@ -463,25 +490,10 @@ export default function GRNDetailPage() {
   );
 }
 
-function InfoField({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <Icon className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />
-      <div className="min-w-0">
-        <p className="text-xs text-[#BFC7D5] uppercase tracking-wide font-semibold">{label}</p>
-        <p className="text-sm text-[#0F1F3A] mt-0.5 font-medium">{value}</p>
-      </div>
-    </div>
-  );
-}
-
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-        {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
-      </label>
+      <FormFieldLabel label={label} required={required} className="block" />
       {children}
     </div>
   );

@@ -7,6 +7,7 @@ import LoadingState from '@/components/shared/LoadingState';
 import PageHeader from '@/components/shared/PageHeader';
 import PositionTable from '@/components/admin/PositionTable';
 import PositionForm from '@/components/admin/PositionForm';
+import PaginationControls from '@/components/shared/PaginationControls';
 import { Button } from '@/components/ui/button';
 import { Plus, X } from 'lucide-react';
 import {
@@ -40,6 +41,8 @@ export default function PositionsPage() {
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<AdminPosition | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
 
   useEffect(() => {
     if (authLoading) return;
@@ -342,14 +345,25 @@ export default function PositionsPage() {
         </Dialog>
 
         <PositionTable
-          positions={positions}
+          positions={positions.slice((currentPage - 1) * pageSize, currentPage * pageSize)}
           isLoading={isLoading}
           onEdit={handleEdit}
           onDeactivate={handleOpenDeactivateDialog}
           onReactivate={handleOpenReactivateDialog}
         />
         {positions.length > 0 && (
-          <div className="text-xs text-[#40527A]">Total: {positions.length} positions</div>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={Math.ceil(positions.length / pageSize)}
+            pageSize={pageSize}
+            totalCount={positions.length}
+            entityLabel="positions"
+            loading={isLoading}
+            onPageChange={(page) => {
+              if (page < currentPage) setCurrentPage(p => Math.max(1, p - 1));
+              else setCurrentPage(p => Math.min(Math.ceil(positions.length / pageSize), p + 1));
+            }}
+          />
         )}
 
         <PositionDeactivateDialog

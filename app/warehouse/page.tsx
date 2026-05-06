@@ -6,22 +6,64 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
-import { fetchWarehouseQueue } from '@/lib/warehouse';
+import PaginationControls from '@/components/shared/PaginationControls';
+import {
+  fetchWarehouseQueuePaged,
+  fetchWarehouseQueueStatCounts,
+} from '@/lib/warehouse';
 import type { PR1QueueRow } from '@/types/warehouse';
 import { PackageSearch, ClipboardCheck, Clock, CircleCheck as CheckCircle2, Circle as XCircle, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
+import PriorityChip from '@/components/shared/PriorityChip';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function WarehouseQueuePage() {
   const [queue, setQueue] = useState<PR1QueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [selectedPriority, setSelectedPriority] = useState('all');
+  const [statCounts, setStatCounts] = useState({
+    pendingReview: 0,
+    sufficient: 0,
+    insufficient: 0,
+  });
 
   useEffect(() => {
-    fetchWarehouseQueue()
-      .then(setQueue)
-      .catch(() => setError('Failed to load queue.'))
-      .finally(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    setError('');
+    const offset = (currentPage - 1) * rowsPerPage;
+
+    void (async () => {
+      try {
+        const stats = await fetchWarehouseQueueStatCounts();
+        const page = await fetchWarehouseQueuePaged({
+          limit:    rowsPerPage,
+          offset,
+          search:   appliedSearch.trim() || undefined,
+          priority: selectedPriority,
+        });
+        setStatCounts(stats);
+        setQueue(page.queue);
+        setTotalCount(page.total_count);
+      } catch (err) {
+        console.error('Warehouse load error:', err);
+        setError(
+          (err as { message?: string })?.message ||
+            'Failed to load queue.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [currentPage, rowsPerPage, appliedSearch, selectedPriority]);
+
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
 
   return (
     <AppShell title="Warehouse Queue">
@@ -30,17 +72,78 @@ export default function WarehouseQueuePage() {
         description="Review incoming purchase requests and validate stock availability."
       />
 
+      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="space-y-1.5 md:col-span-2">
+          <Label htmlFor="wh-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+            Search
+          </Label>
+          <div className="flex gap-2">
+            <input
+              id="wh-search"
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
+              placeholder="Search PR1, requestor, department, or purpose..."
+              disabled={loading}
+              className="flex-1 px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+            />
+            <button
+              onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
+              disabled={loading}
+              className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+            >
+              Apply
+            </button>
+            <button
+              onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
+              disabled={loading}
+              className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] disabled:opacity-50 transition whitespace-nowrap"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="wh-priority" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+            Priority
+          </Label>
+          <Select
+            value={selectedPriority}
+            onValueChange={(v) => {
+              setSelectedPriority(v);
+              setCurrentPage(1);
+            }}
+            disabled={loading}
+          >
+            <SelectTrigger id="wh-priority" className="text-sm">
+              <SelectValue placeholder="All priorities" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="normal">Normal</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center h-48">
           <LoadingState message="Loading queue..." />
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">{error}</div>
-      ) : queue.length === 0 ? (
+      ) : totalCount === 0 ? (
         <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
           <EmptyState
             title="No items pending validation"
-            description="PR1s submitted by employees will appear here once routed to the warehouse."
+            description={
+              appliedSearch.trim() || selectedPriority !== 'all'
+                ? 'No requests match your filters. Try adjusting search or priority.'
+                : 'PR1s submitted by employees will appear here once routed to the warehouse.'
+            }
             icon={PackageSearch}
           />
         </div>
@@ -50,19 +153,19 @@ export default function WarehouseQueuePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
             <StatCard
               label="Pending Review"
-              value={queue.filter(r => !r.validation_decision).length}
+              value={statCounts.pendingReview}
               color="amber"
               icon={Clock}
             />
             <StatCard
               label="Marked Sufficient"
-              value={queue.filter(r => r.validation_decision === 'sufficient').length}
+              value={statCounts.sufficient}
               color="emerald"
               icon={CheckCircle2}
             />
             <StatCard
               label="Insufficient — Pending Approval"
-              value={queue.filter(r => r.validation_decision === 'insufficient').length}
+              value={statCounts.insufficient}
               color="blue"
               icon={ArrowRight}
             />
@@ -93,7 +196,7 @@ export default function WarehouseQueuePage() {
                     <td className="px-5 py-3.5 text-[#40527A]">{row.department_name_snapshot}</td>
                     <td className="px-5 py-3.5 text-[#40527A] max-w-[180px] truncate">{row.purpose || '—'}</td>
                     <td className="px-5 py-3.5">
-                      <PriorityBadge priority={row.priority} />
+                      <PriorityChip priority={row.priority || 'normal'} />
                     </td>
                     <td className="px-5 py-3.5 text-[#40527A]">
                       {row.date_required ? format(new Date(row.date_required), 'MMM d, yyyy') : '—'}
@@ -119,6 +222,22 @@ export default function WarehouseQueuePage() {
             </table>
             </div>
           </div>
+
+          {totalCount > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={rowsPerPage}
+              totalCount={totalCount}
+              entityLabel="items"
+              loading={loading}
+              onPageChange={(page) => {
+                if (page < currentPage) setCurrentPage((p) => Math.max(1, p - 1));
+                else setCurrentPage((p) => p + 1);
+              }}
+              className="rounded-[4px] border border-[#D8E2FF]"
+            />
+          )}
         </div>
       )}
     </AppShell>
@@ -183,31 +302,3 @@ function ValidationBadge({ decision }: { decision: string | null }) {
   );
 }
 
-function PriorityBadge({ priority }: { priority: string | null }) {
-  if (!priority || priority === 'normal') {
-    return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-        Normal
-      </span>
-    );
-  }
-  if (priority === 'medium') {
-    return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-        Medium
-      </span>
-    );
-  }
-  if (priority === 'high') {
-    return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-        High
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-      Normal
-    </span>
-  );
-}

@@ -7,6 +7,8 @@ import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import RelatedRecords from '@/components/shared/RelatedRecords';
+import ApprovalInstanceStatusChip from '@/components/shared/ApprovalInstanceStatusChip';
+import ActionPill from '@/components/shared/ActionPill';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchApprovalDetail,
@@ -19,7 +21,6 @@ import {
 } from '@/lib/pr1';
 import type { PR1ApprovalDetail, ApprovalAction, WorkflowStep, ApprovalActionRecord } from '@/types/approvals';
 import {
-  ChevronLeft,
   User,
   Building2,
   FileText,
@@ -34,7 +35,6 @@ import {
   Lock,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { getPriorityColors } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -42,6 +42,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import PriorityChip from '@/components/shared/PriorityChip';
+import DetailBackButton from '@/components/shared/DetailBackButton';
+import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
+import DetailTitleRow from '@/components/shared/DetailTitleRow';
+import DetailCard from '@/components/shared/DetailCard';
+import DetailCardHeader from '@/components/shared/DetailCardHeader';
+import DetailInfoGrid from '@/components/shared/DetailInfoGrid';
+import DetailInfoField from '@/components/shared/DetailInfoField';
+import DetailWideInfoRow from '@/components/shared/DetailWideInfoRow';
+import DetailTableCard from '@/components/shared/DetailTableCard';
 
 export default function ApprovalDetailPage() {
   const { id: instanceId } = useParams<{ id: string }>();
@@ -153,121 +163,139 @@ export default function ApprovalDetailPage() {
   return (
     <AppShell title="PR1 Approval">
       {/* Back nav */}
-      <div className="mb-2">
-        <button
-          onClick={() => handleBack({ role: profile?.role })}
-          className="inline-flex items-center gap-1 text-xs text-[#40527A] hover:text-[#0F1F3A] transition"
-        >
-          <ChevronLeft className="w-3.5 h-3.5" />
-          Back
-        </button>
-      </div>
+      <DetailBackButton
+        className="mb-2"
+        onClick={() => handleBack({ role: profile?.role })}
+      />
 
       {/* Page header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-bold text-[#0F1F3A]">
-              PR1 {detail.pr1_number}
-            </h1>
-            <InstanceStatusBadge status={detail.instance_status} />
-            {canUpdatePriority ? (
-              <PrioritySelector
-                value={detail.priority}
-                onChange={handlePriorityChange}
-                isUpdating={priorityUpdating}
-              />
-            ) : (
-              <PriorityBadge priority={detail.priority} />
+      <DetailHeaderLayout
+        left={
+          <div>
+            <DetailTitleRow wrap>
+              <h1 className="text-xl font-bold text-[#0F1F3A]">
+                PR1 {detail.pr1_number}
+              </h1>
+              <ApprovalInstanceStatusChip status={detail.instance_status} />
+              {canUpdatePriority ? (
+                <PrioritySelector
+                  value={detail.priority}
+                  onChange={handlePriorityChange}
+                  isUpdating={priorityUpdating}
+                />
+              ) : (
+                <PriorityChip priority={detail.priority} />
+              )}
+            </DetailTitleRow>
+            <p className="text-sm text-[#40527A] mt-1">
+              Submitted {detail.submitted_at
+                ? format(new Date(detail.submitted_at), 'MMMM d, yyyy')
+                : '—'}
+            </p>
+            {priorityError && (
+              <div className="flex items-start gap-2 mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>{priorityError}</span>
+              </div>
             )}
           </div>
-          <p className="text-sm text-[#40527A] mt-1">
-            Submitted {detail.submitted_at
-              ? format(new Date(detail.submitted_at), 'MMMM d, yyyy')
-              : '—'}
-          </p>
-          {priorityError && (
-            <div className="flex items-start gap-2 mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              <span>{priorityError}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Authority indicator */}
-        {canAct ? (
-          <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-2 rounded-[4px]">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Your action required — Step {detail.current_step}: {currentStepDef?.position_required}
-          </div>
-        ) : !isClosed && profile?.role === 'approver' ? (
-          <div className="inline-flex items-center gap-2 bg-[#F7F9FC] border border-[#D8E2FF] text-[#40527A] text-xs font-medium px-3 py-2 rounded-[4px]">
-            <Lock className="w-3.5 h-3.5" />
-            Awaiting Step {detail.current_step}: {currentStepDef?.position_required}
-          </div>
-        ) : null}
-      </div>
+        }
+        right={
+          <>
+            {/* Authority indicator */}
+            {canAct ? (
+              <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-2 rounded-[4px]">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Your action required — Step {detail.current_step}: {currentStepDef?.position_required}
+              </div>
+            ) : !isClosed && profile?.role === 'approver' ? (
+              <div className="inline-flex items-center gap-2 bg-[#F7F9FC] border border-[#D8E2FF] text-[#40527A] text-xs font-medium px-3 py-2 rounded-[4px]">
+                <Lock className="w-3.5 h-3.5" />
+                Awaiting Step {detail.current_step}: {currentStepDef?.position_required}
+              </div>
+            ) : null}
+          </>
+        }
+      />
 
       {/* Main content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main column */}
         <div className="lg:col-span-2 space-y-5">
           {/* PR1 request details */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden order-2 lg:order-none">
-          <div className="px-6 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC] flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Request Details</h2>
-            <span className="text-xs text-[#BFC7D5] font-mono">{detail.pr1_number}</span>
-          </div>
-          <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-5">
-            <InfoField icon={User}         label="Requisitioner" value={detail.requisitioner_name_snapshot} />
-            <InfoField icon={Building2}    label="Department"    value={detail.department_name_snapshot} />
-            <InfoField icon={FileText}     label="PR1 Number"    value={detail.pr1_number} mono />
-            <InfoField icon={Clock}        label="Submitted"     value={detail.submitted_at ? format(new Date(detail.submitted_at), 'MMMM d, yyyy') : '—'} />
-            <InfoField icon={CalendarDays} label="Date Required" value={format(new Date(detail.date_required), 'MMMM d, yyyy')} />
+          <DetailCard overflow className="order-2 lg:order-none">
+            <DetailCardHeader
+              left={<h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Request Details</h2>}
+              right={<span className="text-xs text-[#BFC7D5] font-mono">{detail.pr1_number}</span>}
+            />
+            <DetailInfoGrid>
+            <DetailInfoField
+              icon={<User className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Requisitioner"
+              value={detail.requisitioner_name_snapshot}
+            />
+            <DetailInfoField
+              icon={<Building2 className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Department"
+              value={detail.department_name_snapshot}
+            />
+            <DetailInfoField
+              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="PR1 Number"
+              value={detail.pr1_number}
+              valueClassName="font-mono font-semibold"
+            />
+            <DetailInfoField
+              icon={<Clock className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Submitted"
+              value={detail.submitted_at ? format(new Date(detail.submitted_at), 'MMMM d, yyyy') : '—'}
+            />
+            <DetailInfoField
+              icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Date Required"
+              value={format(new Date(detail.date_required), 'MMMM d, yyyy')}
+            />
             <div />
-            <div className="col-span-2 md:col-span-3">
-              <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1">Purpose</p>
-              <p className="text-sm text-[#0F1F3A]">{detail.purpose}</p>
-            </div>
-          </div>
-        </div>
+            <DetailWideInfoRow label="Purpose">{detail.purpose}</DetailWideInfoRow>
+            </DetailInfoGrid>
+          </DetailCard>
 
           {/* Items */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden order-3 lg:order-none">
-          <div className="px-6 py-4 border-b border-[#D8E2FF]">
-            <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Requested Items</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
-                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-8">#</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-24">Code</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase">Description</th>
-                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-16">Unit</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-24">SOH</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-24">Qty Req.</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#D8E2FF]">
-                {detail.items.map(item => (
-                  <tr key={item.id} className="hover:bg-[#F7F9FC]">
-                    <td className="px-4 py-3 text-center text-xs text-[#BFC7D5] font-mono">{item.item_order}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-[#40527A]">{item.item_code || '—'}</td>
-                    <td className="px-4 py-3 text-[#0F1F3A] font-medium">{item.description}</td>
-                    <td className="px-4 py-3 text-center text-[#40527A] text-xs">{item.unit_of_measure}</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs text-[#40527A]">
-                      {(item as any).validated_soh !== undefined && (item as any).validated_soh !== null
-                        ? `${(item as any).validated_soh.toLocaleString()}`
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-[#0F1F3A]">{item.quantity_requested.toLocaleString()}</td>
+          <DetailTableCard
+            className="order-3 lg:order-none"
+            title={<h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Requested Items</h2>}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-8">#</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-24">Code</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase">Description</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-16">Unit</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-24">SOH</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-24">Qty Req.</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-[#D8E2FF]">
+                  {detail.items.map(item => (
+                    <tr key={item.id} className="hover:bg-[#F7F9FC]">
+                      <td className="px-4 py-3 text-center text-xs text-[#BFC7D5] font-mono">{item.item_order}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-[#40527A]">{item.item_code || '—'}</td>
+                      <td className="px-4 py-3 text-[#0F1F3A] font-medium">{item.description}</td>
+                      <td className="px-4 py-3 text-center text-[#40527A] text-xs">{item.unit_of_measure}</td>
+                      <td className="px-4 py-3 text-right font-mono text-xs text-[#40527A]">
+                        {(item as any).validated_soh !== undefined && (item as any).validated_soh !== null
+                          ? `${(item as any).validated_soh.toLocaleString()}`
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-[#0F1F3A]">{item.quantity_requested.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </DetailTableCard>
 
           {/* Related Records */}
           {profile && (
@@ -548,86 +576,6 @@ function WorkflowTimeline({
 
 // ─── Small presentational components ─────────────────────────────────────────
 
-function InfoField({
-  icon: Icon,
-  label,
-  value,
-  mono,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-1">
-        <Icon className="w-3.5 h-3.5 text-[#BFC7D5]" />
-        <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">{label}</p>
-      </div>
-      <p className={`text-sm text-[#0F1F3A] ${mono ? 'font-mono font-semibold' : 'font-medium'}`}>{value}</p>
-    </div>
-  );
-}
-
-function ActionPill({ action }: { action: ApprovalAction }) {
-  if (action === 'approved') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-        <CheckCircle2 className="w-3 h-3" />
-        Approved
-      </span>
-    );
-  }
-  if (action === 'rejected') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
-        <XCircle className="w-3 h-3" />
-        Rejected
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
-      <RotateCcw className="w-3 h-3" />
-      Revision Requested
-    </span>
-  );
-}
-
-function InstanceStatusBadge({ status }: { status: string }) {
-  if (status === 'active') {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#0F1F3A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-2.5 py-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#1E4BFF] animate-pulse" />
-        Pending Approval
-      </span>
-    );
-  }
-  if (status === 'approved') {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
-        <CheckCircle2 className="w-3 h-3" />
-        Approved
-      </span>
-    );
-  }
-  if (status === 'rejected') {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-full px-2.5 py-1">
-        <XCircle className="w-3 h-3" />
-        Rejected
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-1">
-      <RotateCcw className="w-3 h-3" />
-      Revision Requested
-    </span>
-  );
-}
-
 function ClosedBanner({ status, pr1Status }: { status: string; pr1Status: string }) {
   if (status === 'approved') {
     return (
@@ -696,16 +644,6 @@ function ActionButton({
       <Icon className="w-4 h-4" />
       {label}
     </button>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: string }) {
-  const colors = getPriorityColors(priority);
-
-  return (
-    <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-      {colors.label}
-    </div>
   );
 }
 

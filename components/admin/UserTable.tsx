@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import EmptyState from '@/components/shared/EmptyState';
+import LoadingState from '@/components/shared/LoadingState';
 import { format } from 'date-fns';
 import { Eye } from 'lucide-react';
 import type { AdminUser } from '@/lib/admin-users';
@@ -16,10 +18,7 @@ export default function UserTable({ users, isLoading = false }: UserTableProps) 
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg border border-[#E5EAFF] p-8">
-        <div className="flex items-center justify-center gap-2">
-          <div className="w-4 h-4 border-2 border-[#1E4BFF] border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-[#40527A]">Loading users...</span>
-        </div>
+        <LoadingState message="Loading users..." size="sm" className="!flex-row !gap-2" />
       </div>
     );
   }
@@ -27,7 +26,7 @@ export default function UserTable({ users, isLoading = false }: UserTableProps) 
   if (users.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-[#E5EAFF] p-8 text-center">
-        <p className="text-sm text-[#40527A]">No users found</p>
+        <EmptyState title="No users found" className="py-0 px-0" />
       </div>
     );
   }

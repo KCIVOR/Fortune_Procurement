@@ -59,6 +59,36 @@ export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: 
   };
 }
 
+// ─── Global status-breakdown counts (for stat cards, filter-independent) ─────
+
+export interface POStatusCounts {
+  total: number;
+  draft: number;
+  for_approval: number;
+  approved: number; // includes 'sent'
+}
+
+export async function fetchPOStatusCounts(): Promise<POStatusCounts> {
+  const [totalRes, draftRes, forApprovalRes, approvedRes] = await Promise.all([
+    db.from('po_requests').select('id', { count: 'exact', head: true }),
+    db.from('po_requests').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
+    db.from('po_requests').select('id', { count: 'exact', head: true }).eq('status', 'for_approval'),
+    db.from('po_requests').select('id', { count: 'exact', head: true }).in('status', ['approved', 'sent']),
+  ]);
+
+  if (totalRes.error) throw totalRes.error;
+  if (draftRes.error) throw draftRes.error;
+  if (forApprovalRes.error) throw forApprovalRes.error;
+  if (approvedRes.error) throw approvedRes.error;
+
+  return {
+    total:        totalRes.count ?? 0,
+    draft:        draftRes.count ?? 0,
+    for_approval: forApprovalRes.count ?? 0,
+    approved:     approvedRes.count ?? 0,
+  };
+}
+
 // ─── Fetch PO by ID with items ────────────────────────────────────────────────
 
 export async function fetchPOById(id: string): Promise<POWithItems | null> {
@@ -88,6 +118,31 @@ export async function fetchPOByPR2Id(pr2Id: string): Promise<PORequest | null> {
   if (error) throw error;
   if (!data) return null;
   return normalizePO(data);
+}
+
+// ─── Supplier payment terms (same resolution as generatePOFromPR2) ───────────
+
+export async function fetchSupplierPaymentTermsForPR2(pr2Id: string): Promise<string | null> {
+  const { data: items, error: itemsErr } = await db
+    .from('pr2_items')
+    .select('supplier_name_snapshot')
+    .eq('pr2_id', pr2Id)
+    .order('item_order', { ascending: true })
+    .limit(1);
+  if (itemsErr) throw itemsErr;
+  const supplierName = items?.[0]?.supplier_name_snapshot ?? '';
+  if (!String(supplierName).trim()) return null;
+
+  const { data: supplierProfile, error: profErr } = await db
+    .from('profiles')
+    .select('payment_terms')
+    .eq('full_name', supplierName)
+    .maybeSingle();
+  if (profErr) throw profErr;
+  const raw = supplierProfile?.payment_terms;
+  if (raw == null || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return trimmed || null;
 }
 
 // ─── Generate PO from approved PR2 ───────────────────────────────────────────

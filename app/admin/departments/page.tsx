@@ -14,6 +14,7 @@ import DepartmentDeactivateDialog from '@/components/admin/DepartmentDeactivateD
 import DepartmentReactivateDialog from '@/components/admin/DepartmentReactivateDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import type { AdminDepartment } from '@/lib/admin-masterdata';
+import PaginationControls from '@/components/shared/PaginationControls';
 
 export default function DepartmentsPage() {
   const { profile, loading: authLoading } = useAuth();
@@ -327,32 +328,18 @@ export default function DepartmentsPage() {
 
         {/* Pagination Controls */}
         {departments.length > 0 && (
-          <div className="bg-white rounded-lg border border-[#E5EAFF] p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-[#40527A]">
-                Showing {Math.min((currentPage - 1) * rowsPerPage + 1, totalCount)}–{Math.min(currentPage * rowsPerPage, totalCount)} of {totalCount} departments
-              </div>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1 || isLoading}
-                  className="px-3 py-1 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded hover:bg-[#E5EAFF] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Previous
-                </button>
-                <div className="text-xs text-[#40527A] font-medium">
-                  Page {currentPage} of {Math.ceil(totalCount / rowsPerPage)}
-                </div>
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPage >= Math.ceil(totalCount / rowsPerPage) || isLoading}
-                  className="px-3 py-1 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded hover:bg-[#E5EAFF] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={Math.ceil(totalCount / rowsPerPage)}
+            pageSize={rowsPerPage}
+            totalCount={totalCount}
+            entityLabel="departments"
+            loading={isLoading}
+            onPageChange={(page) => {
+              if (page < currentPage) handlePreviousPage();
+              else handleNextPage();
+            }}
+          />
         )}
 
         <DepartmentDeactivateDialog

@@ -1,19 +1,49 @@
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import type { PR2Request, PR2WithItems, PR2ItemDraft } from '@/types/pr2';
+import { createNotification } from '@/lib/notifications';
 
 const db = supabase as any;
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
-export async function fetchPR2s(): Promise<PR2Request[]> {
-  const { data, error } = await db
-    .from('pr2_requests')
-    .select('*')
-    .order('created_at', { ascending: false });
+export async function fetchPR2s(options: {
+  limit:  number;
+  offset: number;
+  status?: string;
+  search?: string;
+}): Promise<{ pr2s: PR2Request[]; total_count: number }> {
+  const { limit, offset, status, search } = options;
 
-  if (error) throw error;
-  return (data ?? []) as PR2Request[];
+  const buildBaseQuery = () => {
+    let q = db.from('pr2_requests').select('*');
+
+    if (status && status !== 'all') {
+      q = q.eq('status', status);
+    }
+
+    if (search && search.trim()) {
+      const t = `%${search.trim()}%`;
+      q = q.or(`pr2_number.ilike.${t},purpose.ilike.${t}`);
+    }
+
+    return q;
+  };
+
+  const [listRes, countRes] = await Promise.all([
+    buildBaseQuery()
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+    buildBaseQuery().select('*', { count: 'exact', head: true }),
+  ]);
+
+  if (listRes.error) throw listRes.error;
+  if (countRes.error) throw countRes.error;
+
+  return {
+    pr2s:        (listRes.data ?? []) as PR2Request[],
+    total_count: countRes.count ?? 0,
+  };
 }
 
 export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
@@ -230,6 +260,23 @@ export async function generatePR2FromRfq(
     document_id:   pr2Id,
     payload:       { pr2_number: pr2Number, rfq_id: rfqId, pr1_id: pr1.id },
   });
+
+  // Notify requisitioner (best-effort)
+  try {
+    if (pr1.requisitioner_id) {
+      await createNotification({
+        user_id:       pr1.requisitioner_id,
+        title:         'PR2 Generated',
+        body:          'Your request has progressed to PR2.',
+        type:          'info',
+        document_type: 'pr2',
+        document_id:   pr2Id,
+        action_url:    `/pr2/${pr2Id}`,
+      });
+    }
+  } catch {
+    // Notifications are best-effort; do not fail PR2 generation
+  }
 
   return pr2Id;
 }

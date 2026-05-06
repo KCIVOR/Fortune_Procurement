@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import PageHeader from '@/components/shared/PageHeader';
+import PaginationControls from '@/components/shared/PaginationControls';
 import UserSearch from '@/components/admin/UserSearch';
 import UserTable from '@/components/admin/UserTable';
 import CreateUserModal from '@/components/admin/CreateUserModal';
@@ -21,6 +22,7 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedRole, setSelectedRole] = useState('all_roles');
   const [selectedDept, setSelectedDept] = useState('all_departments');
   const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([]);
@@ -47,7 +49,7 @@ export default function UsersPage() {
     }
 
     loadData();
-  }, [authLoading, profile, currentPage, rowsPerPage, search, selectedRole, selectedDept]);
+  }, [authLoading, profile, currentPage, rowsPerPage, appliedSearch, selectedRole, selectedDept]);
 
   async function loadData() {
     try {
@@ -56,7 +58,7 @@ export default function UsersPage() {
 
       const offset = (currentPage - 1) * rowsPerPage;
       const [userData, stats, options] = await Promise.all([
-        listAdminUsersWithCount({ search: search || undefined, role_id: selectedRole, department_id: selectedDept, limit: rowsPerPage, offset }),
+        listAdminUsersWithCount({ search: appliedSearch || undefined, role_id: selectedRole, department_id: selectedDept, limit: rowsPerPage, offset }),
         getAdminUserStats(),
         getAssignmentOptions(),
       ]);
@@ -75,11 +77,13 @@ export default function UsersPage() {
   }
 
   function handleApplyFilters() {
+    setAppliedSearch(search);
     setCurrentPage(1);
   }
 
   function handleClearFilters() {
     setSearch('');
+    setAppliedSearch('');
     setSelectedRole('all_roles');
     setSelectedDept('all_departments');
     setCurrentPage(1);
@@ -231,32 +235,19 @@ export default function UsersPage() {
 
         {/* Pagination Controls */}
         {users.length > 0 && (
-          <div className="bg-white rounded-lg border border-[#E5EAFF] p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-[#40527A]">
-                Showing {Math.min((currentPage - 1) * rowsPerPage + 1, totalCount)}–{Math.min(currentPage * rowsPerPage, totalCount)} of {totalCount} users
-              </div>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1 || isLoading}
-                  className="px-3 py-1 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded hover:bg-[#E5EAFF] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Previous
-                </button>
-                <div className="text-xs text-[#40527A] font-medium">
-                  Page {currentPage} of {Math.ceil(totalCount / rowsPerPage)}
-                </div>
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPage >= Math.ceil(totalCount / rowsPerPage) || isLoading}
-                  className="px-3 py-1 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded hover:bg-[#E5EAFF] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={Math.ceil(totalCount / rowsPerPage)}
+            pageSize={rowsPerPage}
+            totalCount={totalCount}
+            entityLabel="users"
+            loading={isLoading}
+            onPageChange={(page) => {
+              if (page < currentPage) handlePreviousPage();
+              else handleNextPage();
+            }}
+            className="space-y-4"
+          />
         )}
 
         <CreateUserModal

@@ -1,6 +1,8 @@
 'use client';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import EmptyState from '@/components/shared/EmptyState';
+import LoadingState from '@/components/shared/LoadingState';
 import { format } from 'date-fns';
 import type { AdminRole } from '@/lib/admin-masterdata';
 
@@ -13,10 +15,7 @@ export default function RoleTable({ roles, isLoading = false }: RoleTableProps) 
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg border border-[#E5EAFF] p-8">
-        <div className="flex items-center justify-center gap-2">
-          <div className="w-4 h-4 border-2 border-[#1E4BFF] border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-[#40527A]">Loading roles...</span>
-        </div>
+        <LoadingState message="Loading roles..." size="sm" className="!flex-row !gap-2" />
       </div>
     );
   }
@@ -24,7 +23,7 @@ export default function RoleTable({ roles, isLoading = false }: RoleTableProps) 
   if (roles.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-[#E5EAFF] p-8 text-center">
-        <p className="text-sm text-[#40527A]">No roles found</p>
+        <EmptyState title="No roles found" className="py-0 px-0" />
       </div>
     );
   }

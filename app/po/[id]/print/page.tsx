@@ -71,7 +71,7 @@ export default function POPrintPage() {
           <tbody>
             <tr>
               <td style={{ width: '60%', verticalAlign: 'top', paddingBottom: 8 }}>
-                <div style={{ fontWeight: 'bold', fontSize: 16, letterSpacing: 1 }}>FORTUNE GENERAL TRADING</div>
+                <div style={{ fontWeight: 'bold', fontSize: 16, letterSpacing: 1 }}>Fortune Packaging Corporation</div>
                 <div style={{ fontSize: 9, color: '#444', marginTop: 2 }}>123 Commerce Street, Makati City, Philippines</div>
                 <div style={{ fontSize: 9, color: '#444' }}>Tel: (02) 8123-4567 · procurement@fortune.com.ph</div>
               </td>
@@ -259,7 +259,7 @@ export default function POPrintPage() {
 
         {/* Footer note */}
         <div style={{ marginTop: 10, fontSize: 8, color: '#999', textAlign: 'center', borderTop: '1px solid #eee', paddingTop: 6 }}>
-          This Purchase Order is subject to the terms and conditions of Fortune General Trading.
+          This Purchase Order is subject to the terms and conditions of Fortune Packaging Corporation.
           Supplier acceptance constitutes agreement to all terms stated herein.
           · PO No. {po.po_number} · Date: {format(new Date(po.po_date), 'MMMM d, yyyy')}
         </div>

@@ -43,6 +43,10 @@ export interface Delivery {
   delivery_address: string;
   warehouse: string;
   grand_total: number;
+  /** Storage path within bucket `delivery-receipts`; set when marking In Transit with DR upload */
+  dr_document_path: string | null;
+  dr_document_filename: string | null;
+  dr_document_uploaded_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +73,9 @@ export interface DeliverySupplierUpdateValues {
   new_status: DeliveryStatus;
   scheduled_date: string;
   note: string;
+  /** Required when new_status === 'in_transit'; set after uploadDeliveryReceipt succeeds */
+  dr_document_path?: string | null;
+  dr_document_filename?: string | null;
 }
 
 // Procurement follow-up note form

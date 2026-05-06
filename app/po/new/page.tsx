@@ -6,7 +6,7 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPOs, fetchPOByPR2Id, generatePOFromPR2 } from '@/lib/po';
+import { fetchPOs, fetchPOByPR2Id, fetchSupplierPaymentTermsForPR2, generatePOFromPR2 } from '@/lib/po';
 import { supabase } from '@/lib/supabase';
 import type { POFormValues } from '@/types/po';
 import { WAREHOUSE_OPTIONS, PAYMENT_TERMS_OPTIONS } from '@/types/po';
@@ -142,6 +142,29 @@ export default function PONewPage() {
   }, [preselectedPR2, router]);
 
   useEffect(() => { loadPR2Options(); }, [loadPR2Options]);
+
+  useEffect(() => {
+    const pr2Id = selectedPR2?.id;
+    if (!pr2Id) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const terms = await fetchSupplierPaymentTermsForPR2(pr2Id);
+        if (cancelled || !terms) return;
+        setForm(prev => {
+          if (prev.payment_terms.trim() !== '') return prev;
+          return { ...prev, payment_terms: terms };
+        });
+      } catch {
+        /* leave payment_terms unchanged; user can pick manually */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPR2?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

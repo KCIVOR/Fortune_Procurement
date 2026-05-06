@@ -7,6 +7,7 @@ import type {
   GRNQueueRow,
   GRNFormValues,
 } from '@/types/grn';
+import { createNotification } from '@/lib/notifications';
 
 const db = supabase as any;
 
@@ -61,13 +62,58 @@ function normalizeItem(row: any): GRNItem {
 
 // ─── Queue: all GRNs (warehouse / procurement view) ──────────────────────────
 
+const GRN_QUEUE_SELECT =
+  'id, grn_number, delivery_id, po_number_snapshot, supplier_name_snapshot, department_name_snapshot, warehouse, transaction_date, status, closed_at, received_by_name_snapshot';
+
+export type GRNListTab = 'all' | 'open' | 'closed';
+
 export async function fetchGRNQueue(): Promise<GRNQueueRow[]> {
   const { data, error } = await db
     .from('grn_receipts')
-    .select('id, grn_number, delivery_id, po_number_snapshot, supplier_name_snapshot, department_name_snapshot, warehouse, transaction_date, status, closed_at, received_by_name_snapshot')
+    .select(GRN_QUEUE_SELECT)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as GRNQueueRow[];
+}
+
+export async function fetchGRNQueuePaged(options: {
+  statusFilter: GRNListTab;
+  limit: number;
+  offset: number;
+}): Promise<{ grns: GRNQueueRow[]; total_count: number }> {
+  const { statusFilter, limit, offset } = options;
+
+  let q = db.from('grn_receipts').select(GRN_QUEUE_SELECT, { count: 'exact' });
+  if (statusFilter !== 'all') {
+    q = q.eq('status', statusFilter);
+  }
+
+  const { data, error, count } = await q
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw error;
+  return {
+    grns: (data ?? []) as GRNQueueRow[],
+    total_count: count ?? 0,
+  };
+}
+
+export async function fetchGRNTabCounts(): Promise<Record<GRNListTab, number>> {
+  const tabs: GRNListTab[] = ['all', 'open', 'closed'];
+  const result: Record<GRNListTab, number> = { all: 0, open: 0, closed: 0 };
+
+  for (const tab of tabs) {
+    let q = db.from('grn_receipts').select('id', { count: 'exact', head: true });
+    if (tab !== 'all') {
+      q = q.eq('status', tab);
+    }
+    const { count, error } = await q;
+    if (error) throw error;
+    result[tab] = count ?? 0;
+  }
+
+  return result;
 }
 
 // ─── Detail: fetch GRN with items ────────────────────────────────────────────
@@ -320,4 +366,38 @@ export async function closeGRN(
     scheduled_date: null,
     created_at:     now,
   });
+
+  // Notify requisitioner (best-effort)
+  try {
+    const { data: delivery } = await db
+      .from('deliveries')
+      .select('requisitioner_id')
+      .eq('id', deliveryId)
+      .maybeSingle();
+
+    if (delivery?.requisitioner_id) {
+      const { data: existing } = await db
+        .from('notifications')
+        .select('id')
+        .eq('user_id', delivery.requisitioner_id)
+        .eq('document_id', grnId)
+        .eq('title', 'GRN Closed')
+        .eq('read', false)
+        .maybeSingle();
+
+      if (!existing) {
+        await createNotification({
+          user_id:       delivery.requisitioner_id,
+          title:         'GRN Closed',
+          body:          'Goods receipt has been completed for your request.',
+          type:          'approved',
+          document_type: 'grn',
+          document_id:   grnId,
+          action_url:    `/grn/${grnId}`,
+        });
+      }
+    }
+  } catch {
+    // Notifications are best-effort; do not fail closeGRN
+  }
 }

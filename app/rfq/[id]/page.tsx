@@ -17,9 +17,13 @@ import {
 } from '@/lib/canvassing';
 import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
 import type { RfqDetailView, QuoteMatrixRow } from '@/types/canvassing';
-import { ChevronLeft, UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList } from 'lucide-react';
+import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import { format } from 'date-fns';
+import DetailBackButton from '@/components/shared/DetailBackButton';
+import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
+import DetailTitleRow from '@/components/shared/DetailTitleRow';
+import DetailInfoField from '@/components/shared/DetailInfoField';
 
 const STATUS_BADGE: Record<string, string> = {
   draft:     'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]',
@@ -178,67 +182,65 @@ export default function RfqDetailPage() {
 
   return (
     <AppShell title="RFQ Detail">
-      <div className="mb-2">
-        <button onClick={() => handleBack({ role: profile?.role })} className="inline-flex items-center gap-1 text-xs text-[#40527A] hover:text-[#0F1F3A] transition">
-          <ChevronLeft className="w-3.5 h-3.5" />
-          Back
-        </button>
-      </div>
+      <DetailBackButton className="mb-2" onClick={() => handleBack({ role: profile?.role })} />
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-2xl font-bold text-[#0F1F3A] font-mono">{rfq.rfq_number}</h1>
-            <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_BADGE[rfq.status]}`}>
-              {STATUS_LABEL[rfq.status]}
-            </span>
+      <DetailHeaderLayout
+        left={
+          <div>
+            <DetailTitleRow mb>
+              <h1 className="text-2xl font-bold text-[#0F1F3A] font-mono">{rfq.rfq_number}</h1>
+              <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_BADGE[rfq.status]}`}>
+                {STATUS_LABEL[rfq.status]}
+              </span>
+            </DetailTitleRow>
+            <p className="text-sm text-[#40527A]">
+              PR1 <span className="font-semibold text-[#0F1F3A]">{pr1.pr1_number}</span>
+              {' '}· {pr1.department_name_snapshot} · {pr1.purpose}
+            </p>
           </div>
-          <p className="text-sm text-[#40527A]">
-            PR1 <span className="font-semibold text-[#0F1F3A]">{pr1.pr1_number}</span>
-            {' '}· {pr1.department_name_snapshot} · {pr1.purpose}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {isClosed && (
-            <ActionButton
-              icon={ClipboardList}
-              label={existingPR2Id ? 'View PR2' : 'Generate PR2'}
-              color="emerald"
-              onClick={handleGeneratePR2}
-              disabled={working}
-            />
-          )}
-          {isDraft && suppliers.length >= 2 && (
-            <ActionButton
-              icon={Send}
-              label="Issue RFQ"
-              color="blue"
-              onClick={handleIssue}
-              disabled={working}
-            />
-          )}
-          {isOpen && allItemsSelected && (
-            <ActionButton
-              icon={CheckCheck}
-              label="Close & Finalise"
-              color="emerald"
-              onClick={handleClose}
-              disabled={working}
-            />
-          )}
-          {(isDraft || isOpen) && (
-            <ActionButton
-              icon={UserPlus}
-              label="Canvass Supplier"
-              color="slate"
-              onClick={() => setAssigning(true)}
-              disabled={working || availableSuppliers.length === 0}
-            />
-          )}
-        </div>
-      </div>
+        }
+        right={
+          <div className="flex items-center gap-2 shrink-0">
+            {isClosed && (
+              <ActionButton
+                icon={ClipboardList}
+                label={existingPR2Id ? 'View PR2' : 'Generate PR2'}
+                color="emerald"
+                onClick={handleGeneratePR2}
+                disabled={working}
+              />
+            )}
+            {isDraft && suppliers.length >= 2 && (
+              <ActionButton
+                icon={Send}
+                label="Issue RFQ"
+                color="blue"
+                onClick={handleIssue}
+                disabled={working}
+              />
+            )}
+            {isOpen && allItemsSelected && (
+              <ActionButton
+                icon={CheckCheck}
+                label="Close & Finalise"
+                color="emerald"
+                onClick={handleClose}
+                disabled={working}
+              />
+            )}
+            {(isDraft || isOpen) && (
+              <ActionButton
+                icon={UserPlus}
+                label="Canvass Supplier"
+                color="slate"
+                onClick={() => setAssigning(true)}
+                disabled={working || availableSuppliers.length === 0}
+              />
+            )}
+          </div>
+        }
+      />
 
       {actionError && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-[4px] px-4 py-3 mb-4">
@@ -299,11 +301,36 @@ export default function RfqDetailPage() {
           {/* PR1 info card */}
           <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-3">
             <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">PR1 Details</h2>
-            <InfoField icon={FileText} label="PR1 Number" value={pr1.pr1_number} mono />
-            <InfoField icon={Building2} label="Department" value={pr1.department_name_snapshot} />
-            <InfoField icon={FileText} label="Purpose" value={pr1.purpose} />
+            <DetailInfoField
+              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="PR1 Number"
+              value={pr1.pr1_number}
+              labelTone="muted"
+              labelSpacing="compact"
+              valueClassName="font-mono font-semibold"
+            />
+            <DetailInfoField
+              icon={<Building2 className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Department"
+              value={pr1.department_name_snapshot}
+              labelTone="muted"
+              labelSpacing="compact"
+            />
+            <DetailInfoField
+              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Purpose"
+              value={pr1.purpose}
+              labelTone="muted"
+              labelSpacing="compact"
+            />
             {rfq.deadline && (
-              <InfoField icon={CalendarDays} label="RFQ Deadline" value={format(new Date(rfq.deadline), 'MMM d, yyyy')} />
+              <DetailInfoField
+                icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+                label="RFQ Deadline"
+                value={format(new Date(rfq.deadline), 'MMM d, yyyy')}
+                labelTone="muted"
+                labelSpacing="compact"
+              />
             )}
             {rfq.notes && (
               <div>
@@ -586,28 +613,6 @@ function MatrixRow({
 }
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
-
-function InfoField({
-  icon: Icon,
-  label,
-  value,
-  mono,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-0.5">
-        <Icon className="w-3.5 h-3.5 text-[#BFC7D5]" />
-        <p className="text-xs font-semibold text-[#BFC7D5] uppercase tracking-wide">{label}</p>
-      </div>
-      <p className={`text-sm text-[#0F1F3A] ${mono ? 'font-mono font-semibold' : 'font-medium'}`}>{value}</p>
-    </div>
-  );
-}
 
 function ActionButton({
   icon: Icon,

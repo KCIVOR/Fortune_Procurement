@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
+import { createNotification } from '@/lib/notifications';
 import type {
   RfqBatch,
   RfqSupplier,
@@ -59,6 +60,68 @@ export async function fetchCanvassingQueue(): Promise<CanvassingQueueRow[]> {
       rfq_status:                  rfq?.status ?? null,
     };
   });
+}
+
+// ─── Canvassing queue: paginated ─────────────────────────────────────────────
+
+export async function fetchCanvassingQueuePaged(options: {
+  limit: number;
+  offset: number;
+}): Promise<{ rows: CanvassingQueueRow[]; total_count: number }> {
+  const { limit, offset } = options;
+
+  const [pr1sRes, countRes] = await Promise.all([
+    db
+      .from('pr1_requests')
+      .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, date_required, submitted_at')
+      .in('status', ['for_canvassing', 'canvassing_complete'])
+      .order('submitted_at', { ascending: true })
+      .range(offset, offset + limit - 1),
+    db
+      .from('pr1_requests')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['for_canvassing', 'canvassing_complete']),
+  ]);
+
+  if (pr1sRes.error) throw pr1sRes.error;
+  if (countRes.error) throw countRes.error;
+
+  const pr1s = pr1sRes.data ?? [];
+  if (pr1s.length === 0) return { rows: [], total_count: countRes.count ?? 0 };
+
+  const pr1Ids = (pr1s as any[]).map((r: any) => r.id);
+
+  const { data: rfqs, error: rfqErr } = await db
+    .from('rfq_batches')
+    .select('id, pr1_id, rfq_number, status')
+    .in('pr1_id', pr1Ids);
+
+  if (rfqErr) throw rfqErr;
+
+  const rfqMap: Record<string, any> = {};
+  for (const rfq of (rfqs ?? []) as any[]) {
+    rfqMap[rfq.pr1_id] = rfq;
+  }
+
+  return {
+    rows: (pr1s as any[]).map((pr1: any) => {
+      const rfq = rfqMap[pr1.id] ?? null;
+      return {
+        pr1_id:                      pr1.id,
+        pr1_number:                  pr1.pr1_number,
+        requisitioner_name_snapshot: pr1.requisitioner_name_snapshot,
+        department_name_snapshot:    pr1.department_name_snapshot,
+        purpose:                     pr1.purpose,
+        priority:                    pr1.priority ?? 'normal',
+        date_required:               pr1.date_required,
+        submitted_at:                pr1.submitted_at,
+        rfq_id:                      rfq?.id ?? null,
+        rfq_number:                  rfq?.rfq_number ?? null,
+        rfq_status:                  rfq?.status ?? null,
+      };
+    }),
+    total_count: countRes.count ?? 0,
+  };
 }
 
 // ─── RFQ detail (procurement) ─────────────────────────────────────────────────
@@ -282,6 +345,48 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
     document_id:   rfqId,
     payload:       { issued_by: profile.full_name },
   });
+
+  // Notify each invited supplier (best-effort)
+  try {
+    const { data: suppliers } = await db
+      .from('rfq_suppliers')
+      .select('id, supplier_id')
+      .eq('rfq_id', rfqId);
+
+    const supplierRows: { id: string; supplier_id: string }[] = suppliers ?? [];
+    if (supplierRows.length === 0) return;
+
+    const supplierUserIds = supplierRows.map(s => s.supplier_id);
+
+    // Deduplicate: skip users who already have an unread action_required for this RFQ
+    const { data: existing } = await db
+      .from('notifications')
+      .select('user_id')
+      .eq('document_id', rfqId)
+      .eq('type', 'action_required')
+      .eq('read', false)
+      .in('user_id', supplierUserIds);
+
+    const notifiedSet = new Set<string>((existing ?? []).map((n: any) => n.user_id as string));
+
+    await Promise.all(
+      supplierRows
+        .filter(s => !notifiedSet.has(s.supplier_id))
+        .map(s =>
+          createNotification({
+            user_id:       s.supplier_id,
+            title:         'RFQ Issued',
+            body:          'You have been invited to submit a quotation.',
+            type:          'action_required',
+            document_type: 'rfq',
+            document_id:   rfqId,
+            action_url:    `/supplier/quotations/${s.id}`,
+          })
+        )
+    );
+  } catch {
+    // Notifications are best-effort; do not fail issueRfq
+  }
 }
 
 // ─── Close RFQ ────────────────────────────────────────────────────────────────
@@ -609,6 +714,90 @@ export async function fetchSupplierInbox(supplierId: string): Promise<SupplierRf
       quotes_submitted: quotesForThis.length,
     };
   });
+}
+
+// ─── Supplier RFQ inbox: paginated ───────────────────────────────────────────
+
+export async function fetchSupplierInboxPaged(
+  supplierId: string,
+  options: { limit: number; offset: number }
+): Promise<{ inbox: SupplierRfqInboxRow[]; total_count: number }> {
+  const { limit, offset } = options;
+
+  const [assignmentsRes, countRes] = await Promise.all([
+    db
+      .from('rfq_suppliers')
+      .select('id, rfq_id, supplier_name_snapshot, status, invited_at, responded_at')
+      .eq('supplier_id', supplierId)
+      .order('invited_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+    db
+      .from('rfq_suppliers')
+      .select('id', { count: 'exact', head: true })
+      .eq('supplier_id', supplierId),
+  ]);
+
+  if (assignmentsRes.error) throw assignmentsRes.error;
+  if (countRes.error) throw countRes.error;
+
+  const assignments = assignmentsRes.data ?? [];
+  if (assignments.length === 0) return { inbox: [], total_count: countRes.count ?? 0 };
+
+  const rfqIds = (assignments as any[]).map((a: any) => a.rfq_id);
+
+  const { data: rfqs, error: rfqErr } = await db
+    .from('rfq_batches')
+    .select('id, rfq_number, status, deadline, pr1_id')
+    .in('id', rfqIds);
+
+  if (rfqErr) throw rfqErr;
+
+  const pr1Ids = Array.from(new Set(((rfqs ?? []) as any[]).map((r: any) => r.pr1_id as string)));
+
+  const [pr1Res, quotesRes, itemCountRes] = await Promise.all([
+    db.from('pr1_requests')
+      .select('id, pr1_number, department_name_snapshot, purpose')
+      .in('id', pr1Ids),
+    db.from('rfq_item_quotes')
+      .select('rfq_supplier_id, pr1_item_id, submitted_at')
+      .in('rfq_supplier_id', (assignments as any[]).map((a: any) => a.id)),
+    db.from('pr1_items')
+      .select('pr1_id')
+      .in('pr1_id', pr1Ids),
+  ]);
+
+  const rfqMap:   Record<string, any> = Object.fromEntries(((rfqs ?? []) as any[]).map((r: any) => [r.id, r]));
+  const pr1Map:   Record<string, any> = Object.fromEntries(((pr1Res.data ?? []) as any[]).map((r: any) => [r.id, r]));
+  const quotesArr: any[] = quotesRes.data ?? [];
+
+  const itemCounts: Record<string, number> = {};
+  for (const item of (itemCountRes.data ?? []) as any[]) {
+    itemCounts[item.pr1_id] = (itemCounts[item.pr1_id] ?? 0) + 1;
+  }
+
+  return {
+    inbox: (assignments as any[]).map((assignment: any) => {
+      const rfq = rfqMap[assignment.rfq_id];
+      const pr1 = rfq ? pr1Map[rfq.pr1_id] : null;
+      const quotesForThis = quotesArr.filter(
+        q => q.rfq_supplier_id === assignment.id && q.submitted_at !== null
+      );
+      return {
+        rfq_supplier_id:  assignment.id,
+        rfq_id:           assignment.rfq_id,
+        rfq_number:       rfq?.rfq_number ?? '',
+        rfq_status:       rfq?.status ?? 'open',
+        rfq_deadline:     rfq?.deadline ?? null,
+        supplier_status:  assignment.status,
+        pr1_number:       pr1?.pr1_number ?? '',
+        department_name:  pr1?.department_name_snapshot ?? '',
+        purpose:          pr1?.purpose ?? '',
+        item_count:       rfq ? (itemCounts[rfq.pr1_id] ?? 0) : 0,
+        quotes_submitted: quotesForThis.length,
+      };
+    }),
+    total_count: countRes.count ?? 0,
+  };
 }
 
 // ─── Supplier quotation detail ────────────────────────────────────────────────

@@ -7,32 +7,27 @@ import type {
   WarehouseDecision,
   PR1QueueRow,
 } from '@/types/warehouse';
+import { notifyApproversForStep } from '@/lib/notifications';
 
 const db = supabase as any;
 
 // ─── Queue ────────────────────────────────────────────────────────────────────
 
-export async function fetchWarehouseQueue(): Promise<PR1QueueRow[]> {
-  const { data, error } = await db
-    .from('pr1_requests')
-    .select(`
-      id,
-      pr1_number,
-      requisitioner_name_snapshot,
-      department_name_snapshot,
-      purpose,
-      priority,
-      date_required,
-      submitted_at,
-      status,
-      warehouse_validations ( id, decision )
-    `)
-    .eq('status', 'pending_warehouse')
-    .order('submitted_at', { ascending: true });
+const WAREHOUSE_QUEUE_SELECT = `
+  id,
+  pr1_number,
+  requisitioner_name_snapshot,
+  department_name_snapshot,
+  purpose,
+  priority,
+  date_required,
+  submitted_at,
+  status,
+  warehouse_validations ( id, decision )
+`;
 
-  if (error) throw error;
-
-  return (data ?? []).map((row: any) => ({
+function mapPr1QueueRow(row: any): PR1QueueRow {
+  return {
     id:                          row.id,
     pr1_number:                  row.pr1_number,
     requisitioner_name_snapshot: row.requisitioner_name_snapshot,
@@ -44,7 +39,92 @@ export async function fetchWarehouseQueue(): Promise<PR1QueueRow[]> {
     status:                      row.status,
     validation_id:               row.warehouse_validations?.[0]?.id ?? null,
     validation_decision:         row.warehouse_validations?.[0]?.decision ?? null,
-  }));
+  };
+}
+
+export async function fetchWarehouseQueue(): Promise<PR1QueueRow[]> {
+  const { data, error } = await db
+    .from('pr1_requests')
+    .select(WAREHOUSE_QUEUE_SELECT)
+    .eq('status', 'pending_warehouse')
+    .order('submitted_at', { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []).map(mapPr1QueueRow);
+}
+
+/** Paged queue for /warehouse list. Sort: oldest submitted first (unchanged). */
+export async function fetchWarehouseQueuePaged(options: {
+  limit:    number;
+  offset:   number;
+  search?:  string;
+  priority?: string;
+}): Promise<{ queue: PR1QueueRow[]; total_count: number }> {
+  const { limit, offset, search, priority } = options;
+
+  const applyFilters = (q: any) => {
+    q = q.eq('status', 'pending_warehouse');
+
+    if (priority && priority !== 'all') {
+      q = q.eq('priority', priority);
+    }
+
+    const term = search?.trim();
+    if (term) {
+      const pattern = `%${term}%`;
+      q = q.or(
+        `pr1_number.ilike.${pattern},requisitioner_name_snapshot.ilike.${pattern},department_name_snapshot.ilike.${pattern},purpose.ilike.${pattern}`
+      );
+    }
+
+    return q;
+  };
+
+  const listQuery = applyFilters(
+    db.from('pr1_requests').select(WAREHOUSE_QUEUE_SELECT)
+  )
+    .order('submitted_at', { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  const countQuery = applyFilters(
+    db.from('pr1_requests').select('id', { count: 'exact', head: true })
+  );
+
+  const [listRes, countRes] = await Promise.all([listQuery, countQuery]);
+
+  if (listRes.error) throw listRes.error;
+  if (countRes.error) throw countRes.error;
+
+  return {
+    queue:       (listRes.data ?? []).map(mapPr1QueueRow),
+    total_count: countRes.count ?? 0,
+  };
+}
+
+/** Full-queue validation breakdown for stat cards (not limited to current page). */
+export async function fetchWarehouseQueueStatCounts(): Promise<{
+  pendingReview: number;
+  sufficient: number;
+  insufficient: number;
+}> {
+  const { data, error } = await db
+    .from('pr1_requests')
+    .select('warehouse_validations(decision)')
+    .eq('status', 'pending_warehouse');
+
+  if (error) throw error;
+
+  let pendingReview = 0;
+  let sufficient = 0;
+  let insufficient = 0;
+  for (const row of data ?? []) {
+    const d = row.warehouse_validations?.[0]?.decision ?? null;
+    if (d === 'sufficient') sufficient++;
+    else if (d === 'insufficient') insufficient++;
+    else pendingReview++;
+  }
+  return { pendingReview, sufficient, insufficient };
 }
 
 // ─── Fetch validation record ──────────────────────────────────────────────────
@@ -247,7 +327,7 @@ export async function submitValidationDecision(
     if (wfErr) throw wfErr;
     if (!workflow) throw new Error('PR1_APPROVAL workflow not found. Cannot route for approval.');
 
-    const { error: instanceErr } = await db
+    const { data: newInst, error: instanceErr } = await db
       .from('approval_instances')
       .insert({
         workflow_id:   workflow.id,
@@ -257,9 +337,34 @@ export async function submitValidationDecision(
         status:        'active',
         started_by:    profile.id,
         started_at:    now,
-      });
+      })
+      .select('id')
+      .single();
 
     if (instanceErr) throw instanceErr;
+
+    // Notify step-1 approvers (best-effort — must not fail the validation)
+    if (newInst?.id) {
+      try {
+        const { data: pr1Row } = await db
+          .from('pr1_requests')
+          .select('pr1_number')
+          .eq('id', pr1Id)
+          .maybeSingle();
+
+        if (pr1Row?.pr1_number) {
+          await notifyApproversForStep({
+            workflowId:     workflow.id,
+            stepOrder:      1,
+            documentId:     pr1Id,
+            documentNumber: pr1Row.pr1_number,
+            instanceId:     newInst.id,
+          });
+        }
+      } catch {
+        // Notifications are best-effort; do not fail the validation
+      }
+    }
   }
 
   // Audit log

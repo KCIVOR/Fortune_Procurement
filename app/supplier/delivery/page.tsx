@@ -6,11 +6,13 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import EmptyState from '@/components/shared/EmptyState';
 import { useAuth } from '@/context/AuthContext';
-import { fetchSupplierDeliveries } from '@/lib/delivery';
+import PaginationControls from '@/components/shared/PaginationControls';
+import { fetchSupplierDeliveriesPaged, fetchSupplierDeliveryStatCounts } from '@/lib/delivery';
 import type { Delivery, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
 import { format } from 'date-fns';
-import { Truck, Building2, Package, Calendar, ChevronRight, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban } from 'lucide-react';
+import { Truck, Building2, Package, Calendar, ChevronRight, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban, Search } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const STATUS_CONFIG: Record<DeliveryStatus, {
   bg: string; text: string; border: string; icon: React.ElementType; actionLabel: string;
@@ -28,17 +30,47 @@ export default function SupplierDeliveryQueuePage() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 20;
+  const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch]               = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [statCounts, setStatCounts] = useState({ active: 0, completed: 0, total: 0 });
+
+  // Fetch global stat counts once on mount (not affected by filters or page changes)
+  useEffect(() => {
+    if (!profile) return;
+    fetchSupplierDeliveryStatCounts(profile.id)
+      .then(setStatCounts)
+      .catch((err) => console.error('Supplier delivery stat counts error:', err));
+  }, [profile]);
 
   useEffect(() => {
     if (!profile) return;
-    fetchSupplierDeliveries(profile.id)
-      .then(setDeliveries)
-      .catch(() => setError('Failed to load deliveries.'))
+    const offset = (currentPage - 1) * rowsPerPage;
+    setLoading(true);
+    setError('');
+    fetchSupplierDeliveriesPaged(profile.id, {
+      limit:  rowsPerPage,
+      offset,
+      search: appliedSearch.trim() || undefined,
+      status: selectedStatus,
+    })
+      .then(result => {
+        setDeliveries(result.deliveries);
+        setTotalCount(result.total_count);
+      })
+      .catch((err) => {
+        console.error('Supplier delivery load error:', err);
+        setError(err?.message || 'Failed to load deliveries.');
+      })
       .finally(() => setLoading(false));
-  }, [profile]);
+  }, [profile, currentPage, appliedSearch, selectedStatus]);
 
   const active    = deliveries.filter(d => d.status !== 'delivered' && d.status !== 'cancelled');
   const completed = deliveries.filter(d => d.status === 'delivered' || d.status === 'cancelled');
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
 
   if (loading) return (
     <AppShell title="My Deliveries">
@@ -59,10 +91,61 @@ export default function SupplierDeliveryQueuePage() {
           <p className="text-sm text-[#40527A]">Update delivery status for your purchase orders.</p>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-[#40527A]">{active.length} active</span>
+          <span className="text-[#40527A]">{statCounts.active} active</span>
           <span className="text-[#BFC7D5]">·</span>
-          <span className="text-[#BFC7D5]">{completed.length} completed</span>
+          <span className="text-[#BFC7D5]">{statCounts.completed} completed</span>
+          {statCounts.total > 0 && (
+            <>
+              <span className="text-[#BFC7D5]">·</span>
+              <span className="text-[#BFC7D5]">{statCounts.total} total</span>
+            </>
+          )}
         </div>
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        <div className="relative flex-1 flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BFC7D5]" />
+            <input
+              type="text"
+              placeholder="Search PO number or purpose..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+            />
+          </div>
+          <button
+            onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
+            className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition whitespace-nowrap"
+          >
+            Apply
+          </button>
+          <button
+            onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
+            className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition whitespace-nowrap"
+          >
+            Clear
+          </button>
+        </div>
+        <Select
+          value={selectedStatus}
+          onValueChange={(v) => { setSelectedStatus(v); setCurrentPage(1); }}
+        >
+          <SelectTrigger className="w-full sm:w-44 text-sm border-[#D8E2FF]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="in_transit">In Transit</SelectItem>
+            <SelectItem value="delayed">Delayed</SelectItem>
+            <SelectItem value="delivered">Delivered</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {error && (
@@ -92,6 +175,21 @@ export default function SupplierDeliveryQueuePage() {
                 {completed.map(d => <SupplierDeliveryCard key={d.id} delivery={d} />)}
               </div>
             </section>
+          )}
+
+          {totalCount > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={rowsPerPage}
+              totalCount={totalCount}
+              entityLabel="deliveries"
+              loading={loading}
+              onPageChange={(page) => {
+                if (page < currentPage) setCurrentPage(p => Math.max(1, p - 1));
+                else setCurrentPage(p => Math.min(totalPages, p + 1));
+              }}
+            />
           )}
         </div>
       )}

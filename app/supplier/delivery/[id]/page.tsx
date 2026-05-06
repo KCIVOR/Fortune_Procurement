@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import { useAuth } from '@/context/AuthContext';
 import { fetchDeliveryById, supplierUpdateDelivery } from '@/lib/delivery';
+import { uploadDeliveryReceipt } from '@/lib/delivery-receipt-storage';
 import type { DeliveryWithHistory, DeliveryStatus, DeliverySupplierUpdateValues } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
 import { format } from 'date-fns';
@@ -39,6 +40,20 @@ const ROLE_ACTOR_STYLE: Record<string, string> = {
   warehouse:   'bg-violet-50 text-violet-600 border-violet-200',
 };
 
+const DR_ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+const DR_MAX_BYTES = 10 * 1024 * 1024;
+
+function validateDrFileLocal(file: File): string | null {
+  const t = file.type || '';
+  if (!DR_ALLOWED_TYPES.has(t)) {
+    return 'Please choose a PDF, JPG, or PNG file.';
+  }
+  if (file.size > DR_MAX_BYTES) {
+    return 'File must be 10 MB or smaller.';
+  }
+  return null;
+}
+
 export default function SupplierDeliveryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
@@ -54,6 +69,8 @@ export default function SupplierDeliveryDetailPage() {
   });
   const [busy, setBusy]       = useState(false);
   const [formError, setFormError] = useState('');
+  const [drFile, setDrFile]   = useState<File | null>(null);
+  const drInputRef            = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -70,13 +87,44 @@ export default function SupplierDeliveryDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (form.new_status !== 'in_transit') {
+      setDrFile(null);
+      if (drInputRef.current) drInputRef.current.value = '';
+    }
+  }, [form.new_status]);
+
   const handleUpdate = async () => {
     if (!delivery || !profile) return;
     setBusy(true);
     setFormError('');
     try {
-      await supplierUpdateDelivery(delivery.id, form, profile);
+      if (form.new_status === 'in_transit') {
+        if (!drFile) {
+          setFormError('A delivery receipt file is required for In Transit.');
+          return;
+        }
+        const bad = validateDrFileLocal(drFile);
+        if (bad) {
+          setFormError(bad);
+          return;
+        }
+        const { path, filename } = await uploadDeliveryReceipt(delivery.id, drFile);
+        await supplierUpdateDelivery(
+          delivery.id,
+          {
+            ...form,
+            dr_document_path: path,
+            dr_document_filename: filename,
+          },
+          profile
+        );
+      } else {
+        await supplierUpdateDelivery(delivery.id, form, profile);
+      }
       setForm(f => ({ ...f, note: '', scheduled_date: '' }));
+      setDrFile(null);
+      if (drInputRef.current) drInputRef.current.value = '';
       load();
     } catch (e: any) {
       setFormError(e.message ?? 'Failed to update delivery.');
@@ -146,6 +194,17 @@ export default function SupplierDeliveryDetailPage() {
             <InfoField icon={Building2}    label="Department"    value={delivery.department_name_snapshot} />
             <InfoField icon={Package}      label="Deliver To"    value={delivery.warehouse} />
             <InfoField icon={MapPin}       label="Address"       value={delivery.delivery_address} />
+            {delivery.dr_document_filename && (
+              <div className="flex items-start gap-2.5 pt-1">
+                <FileText className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Delivery receipt</p>
+                  <p className="text-sm text-slate-800 mt-0.5 font-medium">
+                    Attached DR: {delivery.dr_document_filename}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Key Dates */}
@@ -216,7 +275,10 @@ export default function SupplierDeliveryDetailPage() {
                         <button
                           key={s}
                           type="button"
-                          onClick={() => setForm(f => ({ ...f, new_status: s }))}
+                          onClick={() => {
+                            setForm(f => ({ ...f, new_status: s }));
+                            setFormError('');
+                          }}
                           className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition ${
                             sel
                               ? `${scfg.bg} ${scfg.text} ${scfg.border} ring-2 ring-offset-1 ring-current`
@@ -230,6 +292,31 @@ export default function SupplierDeliveryDetailPage() {
                     })}
                   </div>
                 </div>
+
+                {form.new_status === 'in_transit' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+                      Delivery receipt (DR) <span className="text-red-600">*</span>
+                    </label>
+                    <input
+                      ref={drInputRef}
+                      type="file"
+                      accept="application/pdf,image/jpeg,image/png"
+                      disabled={busy}
+                      onChange={(e) => {
+                        setFormError('');
+                        const f = e.target.files?.[0] ?? null;
+                        setDrFile(f);
+                        if (f) {
+                          const msg = validateDrFileLocal(f);
+                          if (msg) setFormError(msg);
+                        }
+                      }}
+                      className="block w-full max-w-md text-sm text-[#40527A] file:mr-3 file:rounded-[4px] file:border file:border-[#D8E2FF] file:bg-[#F7F9FC] file:px-3 file:py-2 file:text-xs file:font-semibold disabled:opacity-50"
+                    />
+                    <p className="text-xs text-[#BFC7D5] mt-1">PDF, JPG, or PNG — max 10 MB.</p>
+                  </div>
+                )}
 
                 {/* Scheduled date — show when scheduling or moving to in_transit */}
                 {(form.new_status === 'scheduled' || form.new_status === 'in_transit') && (
@@ -282,7 +369,11 @@ export default function SupplierDeliveryDetailPage() {
                 <div className="flex justify-end pt-2 border-t border-[#D8E2FF]">
                   <button
                     onClick={handleUpdate}
-                    disabled={busy || (form.new_status === 'delayed' && !form.note.trim())}
+                    disabled={
+                      busy ||
+                      (form.new_status === 'delayed' && !form.note.trim()) ||
+                      (form.new_status === 'in_transit' && (!drFile || !!validateDrFileLocal(drFile)))
+                    }
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
                   >
                     <Send className="w-4 h-4" />

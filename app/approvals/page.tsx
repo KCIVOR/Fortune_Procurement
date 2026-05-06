@@ -6,6 +6,7 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
+import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
 import { fetchApprovalQueue, canActOnStep } from '@/lib/approvals';
 import { fetchPR2ApprovalQueue, canActOnPR2Step } from '@/lib/pr2-approvals';
@@ -23,7 +24,10 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { getPriorityColors } from '@/lib/utils';
+import PriorityChip from '@/components/shared/PriorityChip';
+import StepChip from '@/components/shared/StepChip';
+import ApprovalQueueTableShell from '@/components/shared/ApprovalQueueTableShell';
+import { ApprovalQueueHeaderRow, ApprovalQueueHeadCell } from '@/components/shared/ApprovalQueueTableHeader';
 
 export default function ApprovalsPage() {
   const { profile } = useAuth();
@@ -32,6 +36,12 @@ export default function ApprovalsPage() {
   const [poQueue,  setPOQueue]  = useState<POApprovalQueueRow[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
+  const [pr1ActPage, setPR1ActPage] = useState(1);
+  const [pr2ActPage, setPR2ActPage] = useState(1);
+  const [poActPage,  setPOActPage]  = useState(1);
+  const [pr1ReadPage, setPR1ReadPage] = useState(1);
+  const [pr2ReadPage, setPR2ReadPage] = useState(1);
+  const [poReadPage,  setPOReadPage]  = useState(1);
 
   useEffect(() => {
     Promise.all([
@@ -48,6 +58,8 @@ export default function ApprovalsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const PAGE_SIZE = 20;
+
   const canActPR1 = (row: PR1ApprovalQueueRow) =>
     profile ? canActOnStep(profile, row.step_position_required) : false;
 
@@ -57,12 +69,23 @@ export default function ApprovalsPage() {
   const canActPO = (row: POApprovalQueueRow) =>
     profile ? canActOnPOStep(profile, row.step_role_required, row.step_position_required) : false;
 
-  const totalQueue = pr1Queue.length + pr2Queue.length + poQueue.length;
-  const actionablePR1 = pr1Queue.filter(canActPR1);
-  const actionablePR2 = pr2Queue.filter(canActPR2);
-  const actionablePO  = poQueue.filter(canActPO);
+  const totalQueue      = pr1Queue.length + pr2Queue.length + poQueue.length;
+  const actionablePR1   = pr1Queue.filter(canActPR1);
+  const actionablePR2   = pr2Queue.filter(canActPR2);
+  const actionablePO    = poQueue.filter(canActPO);
   const totalActionable = actionablePR1.length + actionablePR2.length + actionablePO.length;
-  const totalReadonly = totalQueue - totalActionable;
+  const totalReadonly   = totalQueue - totalActionable;
+
+  const readonlyPR1Rows  = pr1Queue.filter(r => !canActPR1(r));
+  const readonlyPR2Rows  = pr2Queue.filter(r => !canActPR2(r));
+  const readonlyPORows   = poQueue.filter(r => !canActPO(r));
+
+  const pr1ActSlice = actionablePR1.slice((pr1ActPage - 1) * PAGE_SIZE, pr1ActPage * PAGE_SIZE);
+  const pr2ActSlice = actionablePR2.slice((pr2ActPage - 1) * PAGE_SIZE, pr2ActPage * PAGE_SIZE);
+  const poActSlice  = actionablePO.slice((poActPage - 1) * PAGE_SIZE, poActPage * PAGE_SIZE);
+  const pr1ReadSlice = readonlyPR1Rows.slice((pr1ReadPage - 1) * PAGE_SIZE, pr1ReadPage * PAGE_SIZE);
+  const pr2ReadSlice = readonlyPR2Rows.slice((pr2ReadPage - 1) * PAGE_SIZE, pr2ReadPage * PAGE_SIZE);
+  const poReadSlice  = readonlyPORows.slice((poReadPage - 1) * PAGE_SIZE, poReadPage * PAGE_SIZE);
 
   return (
     <AppShell title="Approval Queue">
@@ -98,13 +121,64 @@ export default function ApprovalsPage() {
           {totalActionable > 0 && (
             <Section title="Awaiting My Action" accent="amber">
               {actionablePR1.length > 0 && (
-                <PR1QueueTable rows={actionablePR1} canAct={() => true} />
+                <>
+                  <PR1QueueTable rows={pr1ActSlice} canAct={() => true} />
+                  <div className="w-full pt-2 pb-4">
+                    <PaginationControls
+                      className="border-[#D8E2FF] rounded-[4px]"
+                      currentPage={pr1ActPage}
+                      totalPages={Math.max(1, Math.ceil(actionablePR1.length / PAGE_SIZE))}
+                      pageSize={PAGE_SIZE}
+                      totalCount={actionablePR1.length}
+                      entityLabel="PR1 items"
+                      onPageChange={(page) => {
+                        const maxP = Math.ceil(actionablePR1.length / PAGE_SIZE);
+                        if (page < pr1ActPage) setPR1ActPage(p => Math.max(1, p - 1));
+                        else setPR1ActPage(p => Math.min(maxP, p + 1));
+                      }}
+                    />
+                  </div>
+                </>
               )}
               {actionablePR2.length > 0 && (
-                <PR2QueueTable rows={actionablePR2} canAct={() => true} />
+                <>
+                  <PR2QueueTable rows={pr2ActSlice} canAct={() => true} />
+                  <div className="w-full pt-2 pb-4">
+                    <PaginationControls
+                      className="border-[#D8E2FF] rounded-[4px]"
+                      currentPage={pr2ActPage}
+                      totalPages={Math.max(1, Math.ceil(actionablePR2.length / PAGE_SIZE))}
+                      pageSize={PAGE_SIZE}
+                      totalCount={actionablePR2.length}
+                      entityLabel="PR2 items"
+                      onPageChange={(page) => {
+                        const maxP = Math.ceil(actionablePR2.length / PAGE_SIZE);
+                        if (page < pr2ActPage) setPR2ActPage(p => Math.max(1, p - 1));
+                        else setPR2ActPage(p => Math.min(maxP, p + 1));
+                      }}
+                    />
+                  </div>
+                </>
               )}
               {actionablePO.length > 0 && (
-                <POQueueTable rows={actionablePO} canAct={() => true} />
+                <>
+                  <POQueueTable rows={poActSlice} canAct={() => true} />
+                  <div className="w-full pt-2 pb-4">
+                    <PaginationControls
+                      className="border-[#D8E2FF] rounded-[4px]"
+                      currentPage={poActPage}
+                      totalPages={Math.max(1, Math.ceil(actionablePO.length / PAGE_SIZE))}
+                      pageSize={PAGE_SIZE}
+                      totalCount={actionablePO.length}
+                      entityLabel="PO items"
+                      onPageChange={(page) => {
+                        const maxP = Math.ceil(actionablePO.length / PAGE_SIZE);
+                        if (page < poActPage) setPOActPage(p => Math.max(1, p - 1));
+                        else setPOActPage(p => Math.min(maxP, p + 1));
+                      }}
+                    />
+                  </div>
+                </>
               )}
             </Section>
           )}
@@ -116,14 +190,65 @@ export default function ApprovalsPage() {
               accent="slate"
               subtitle="These are awaiting a different signatory before you can act."
             >
-              {pr1Queue.filter(r => !canActPR1(r)).length > 0 && (
-                <PR1QueueTable rows={pr1Queue.filter(r => !canActPR1(r))} canAct={() => false} />
+              {readonlyPR1Rows.length > 0 && (
+                <>
+                  <PR1QueueTable rows={pr1ReadSlice} canAct={() => false} />
+                  <div className="w-full pt-2 pb-4">
+                    <PaginationControls
+                      className="border-[#D8E2FF] rounded-[4px]"
+                      currentPage={pr1ReadPage}
+                      totalPages={Math.max(1, Math.ceil(readonlyPR1Rows.length / PAGE_SIZE))}
+                      pageSize={PAGE_SIZE}
+                      totalCount={readonlyPR1Rows.length}
+                      entityLabel="PR1 items"
+                      onPageChange={(page) => {
+                        const maxP = Math.ceil(readonlyPR1Rows.length / PAGE_SIZE);
+                        if (page < pr1ReadPage) setPR1ReadPage(p => Math.max(1, p - 1));
+                        else setPR1ReadPage(p => Math.min(maxP, p + 1));
+                      }}
+                    />
+                  </div>
+                </>
               )}
-              {pr2Queue.filter(r => !canActPR2(r)).length > 0 && (
-                <PR2QueueTable rows={pr2Queue.filter(r => !canActPR2(r))} canAct={() => false} />
+              {readonlyPR2Rows.length > 0 && (
+                <>
+                  <PR2QueueTable rows={pr2ReadSlice} canAct={() => false} />
+                  <div className="w-full pt-2 pb-4">
+                    <PaginationControls
+                      className="border-[#D8E2FF] rounded-[4px]"
+                      currentPage={pr2ReadPage}
+                      totalPages={Math.max(1, Math.ceil(readonlyPR2Rows.length / PAGE_SIZE))}
+                      pageSize={PAGE_SIZE}
+                      totalCount={readonlyPR2Rows.length}
+                      entityLabel="PR2 items"
+                      onPageChange={(page) => {
+                        const maxP = Math.ceil(readonlyPR2Rows.length / PAGE_SIZE);
+                        if (page < pr2ReadPage) setPR2ReadPage(p => Math.max(1, p - 1));
+                        else setPR2ReadPage(p => Math.min(maxP, p + 1));
+                      }}
+                    />
+                  </div>
+                </>
               )}
-              {poQueue.filter(r => !canActPO(r)).length > 0 && (
-                <POQueueTable rows={poQueue.filter(r => !canActPO(r))} canAct={() => false} />
+              {readonlyPORows.length > 0 && (
+                <>
+                  <POQueueTable rows={poReadSlice} canAct={() => false} />
+                  <div className="w-full pt-2 pb-4">
+                    <PaginationControls
+                      className="border-[#D8E2FF] rounded-[4px]"
+                      currentPage={poReadPage}
+                      totalPages={Math.max(1, Math.ceil(readonlyPORows.length / PAGE_SIZE))}
+                      pageSize={PAGE_SIZE}
+                      totalCount={readonlyPORows.length}
+                      entityLabel="PO items"
+                      onPageChange={(page) => {
+                        const maxP = Math.ceil(readonlyPORows.length / PAGE_SIZE);
+                        if (page < poReadPage) setPOReadPage(p => Math.max(1, p - 1));
+                        else setPOReadPage(p => Math.min(maxP, p + 1));
+                      }}
+                    />
+                  </div>
+                </>
               )}
             </Section>
           )}
@@ -143,24 +268,23 @@ function PR1QueueTable({
   canAct: (row: PR1ApprovalQueueRow) => boolean;
 }) {
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden mb-3">
-      <div className="px-5 py-2.5 border-b border-[#D8E2FF] bg-[#F7F9FC] flex items-center gap-2">
-        <FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />
-        <span className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR1 — Purchase Requests</span>
-      </div>
+    <ApprovalQueueTableShell
+      title="PR1 — Purchase Requests"
+      icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+    >
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]/50">
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR1 No.</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Requestor</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Department</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Purpose</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Date Required</th>
-            <th className="text-center px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">Priority</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Current Step</th>
-            <th className="px-5 py-3" />
-          </tr>
+          <ApprovalQueueHeaderRow>
+            <ApprovalQueueHeadCell>PR1 No.</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Requestor</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Department</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Purpose</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Date Required</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell align="center" className="w-24">Priority</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Current Step</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell className="px-5 py-3" />
+          </ApprovalQueueHeaderRow>
         </thead>
         <tbody className="divide-y divide-[#D8E2FF]">
           {rows.map((row) => {
@@ -173,10 +297,10 @@ function PR1QueueTable({
                 <td className="px-5 py-3.5 text-[#40527A] max-w-[180px] truncate">{row.purpose}</td>
                 <td className="px-5 py-3.5 text-[#40527A] text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                 <td className="px-5 py-3.5 text-center">
-                  <PriorityBadge priority={row.priority} />
+                  <PriorityChip priority={row.priority} />
                 </td>
                 <td className="px-5 py-3.5">
-                  <StepBadge label={`Step ${row.current_step}: ${row.step_position_required}`} active={active} />
+                  <StepChip stepName={`Step ${row.current_step}: ${row.step_position_required}`} canAct={active} />
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   {active ? (
@@ -195,7 +319,7 @@ function PR1QueueTable({
         </tbody>
       </table>
       </div>
-    </div>
+    </ApprovalQueueTableShell>
   );
 }
 
@@ -214,24 +338,23 @@ function PR2QueueTable({
   };
 
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden mb-3">
-      <div className="px-5 py-2.5 border-b border-[#D8E2FF] bg-[#F7F9FC] flex items-center gap-2">
-        <ClipboardList className="w-3.5 h-3.5 text-[#BFC7D5]" />
-        <span className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR2 — Procurement Purchase Requests</span>
-      </div>
+    <ApprovalQueueTableShell
+      title="PR2 — Procurement Purchase Requests"
+      icon={<ClipboardList className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+    >
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]/50">
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR2 No.</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Requestor</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Department</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Purpose</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Date Required</th>
-            <th className="text-center px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">Priority</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Current Step</th>
-            <th className="px-5 py-3" />
-          </tr>
+          <ApprovalQueueHeaderRow>
+            <ApprovalQueueHeadCell>PR2 No.</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Requestor</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Department</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Purpose</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Date Required</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell align="center" className="w-24">Priority</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Current Step</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell className="px-5 py-3" />
+          </ApprovalQueueHeaderRow>
         </thead>
         <tbody className="divide-y divide-[#D8E2FF]">
           {rows.map((row) => {
@@ -248,10 +371,10 @@ function PR2QueueTable({
                 <td className="px-5 py-3.5 text-[#40527A] max-w-[180px] truncate">{row.purpose}</td>
                 <td className="px-5 py-3.5 text-[#40527A] text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                 <td className="px-5 py-3.5 text-center">
-                  <PriorityBadge priority={row.pr1_priority} />
+                  <PriorityChip priority={row.pr1_priority} />
                 </td>
                 <td className="px-5 py-3.5">
-                  <StepBadge label={`Step ${row.current_step}: ${row.step_position_required}`} active={active} />
+                  <StepChip stepName={`Step ${row.current_step}: ${row.step_position_required}`} canAct={active} />
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   {active ? (
@@ -270,7 +393,7 @@ function PR2QueueTable({
         </tbody>
       </table>
       </div>
-    </div>
+    </ApprovalQueueTableShell>
   );
 }
 
@@ -284,24 +407,23 @@ function POQueueTable({
   canAct: (row: POApprovalQueueRow) => boolean;
 }) {
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden mb-3">
-      <div className="px-5 py-2.5 border-b border-[#D8E2FF] bg-[#F7F9FC] flex items-center gap-2">
-        <ShoppingCart className="w-3.5 h-3.5 text-[#BFC7D5]" />
-        <span className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">PO — Purchase Orders</span>
-      </div>
+    <ApprovalQueueTableShell
+      title="PO — Purchase Orders"
+      icon={<ShoppingCart className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+    >
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]/50">
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">PO No.</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Supplier</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Department</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Purpose</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Date Required</th>
-            <th className="text-center px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">Priority</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Current Step</th>
-            <th className="px-5 py-3" />
-          </tr>
+          <ApprovalQueueHeaderRow>
+            <ApprovalQueueHeadCell>PO No.</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Supplier</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Department</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Purpose</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Date Required</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell align="center" className="w-24">Priority</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell>Current Step</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell className="px-5 py-3" />
+          </ApprovalQueueHeaderRow>
         </thead>
         <tbody className="divide-y divide-[#D8E2FF]">
           {rows.map((row) => {
@@ -314,10 +436,10 @@ function POQueueTable({
                 <td className="px-5 py-3.5 text-[#40527A] max-w-[180px] truncate">{row.purpose}</td>
                 <td className="px-5 py-3.5 text-[#40527A] text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                 <td className="px-5 py-3.5 text-center">
-                  <PriorityBadge priority={row.pr1_priority} />
+                  <PriorityChip priority={row.pr1_priority} />
                 </td>
                 <td className="px-5 py-3.5">
-                  <StepBadge label={`Step ${row.current_step}: ${row.step_position_required}`} active={active} />
+                  <StepChip stepName={`Step ${row.current_step}: ${row.step_position_required}`} canAct={active} />
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   {active ? (
@@ -336,7 +458,7 @@ function POQueueTable({
         </tbody>
       </table>
       </div>
-    </div>
+    </ApprovalQueueTableShell>
   );
 }
 
@@ -359,32 +481,6 @@ function Section({
       </div>
       {children}
     </div>
-  );
-}
-
-function PriorityBadge({ priority }: { priority?: string }) {
-  const colors = getPriorityColors(priority);
-  return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-      {colors.label}
-    </span>
-  );
-}
-
-function StepBadge({ label, active }: { label: string; active: boolean }) {
-  if (active) {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#0F1F3A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-full px-2.5 py-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#1E4BFF] animate-pulse" />
-        {label}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-full px-2.5 py-1">
-      <Lock className="w-3 h-3" />
-      {label}
-    </span>
   );
 }
 

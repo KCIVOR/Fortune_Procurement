@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import PageHeader from '@/components/shared/PageHeader';
+import PaginationControls from '@/components/shared/PaginationControls';
 import AuditFilterPanel from '@/components/admin/AuditFilterPanel';
 import AuditLogTable from '@/components/admin/AuditLogTable';
 import AuditLogDetail from '@/components/admin/AuditLogDetail';
@@ -133,8 +134,6 @@ export default function AuditPage() {
   }
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
-  const startIndex = logs.length > 0 ? (currentPage - 1) * rowsPerPage + 1 : 0;
-  const endIndex = startIndex + logs.length - 1;
 
   return (
     <AppShell title="Audit Logs">
@@ -154,32 +153,19 @@ export default function AuditPage() {
 
         {/* Pagination Controls */}
         {logs.length > 0 && (
-          <div className="bg-white rounded-lg border border-[#E5EAFF] p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-[#40527A]">
-                Showing {startIndex}–{endIndex} of {totalCount} log entries
-              </div>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1 || isLoading}
-                  className="px-3 py-1 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded hover:bg-[#E5EAFF] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Previous
-                </button>
-                <div className="text-xs text-[#40527A] font-medium">
-                  Page {currentPage} of {totalPages}
-                </div>
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPage >= totalPages || isLoading}
-                  className="px-3 py-1 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded hover:bg-[#E5EAFF] disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={rowsPerPage}
+            totalCount={totalCount}
+            entityLabel="log entries"
+            loading={isLoading}
+            onPageChange={(page) => {
+              if (page < currentPage) handlePreviousPage();
+              else handleNextPage();
+            }}
+            className="space-y-4"
+          />
         )}
 
         <AuditLogDetail log={selectedLog} isOpen={showDetail} onClose={() => setShowDetail(false)} />

@@ -6,6 +6,7 @@ import type {
   ApprovalAction,
   ApprovalInstanceStatus,
 } from '@/types/approvals';
+import { createNotification, notifyApproversForStep } from '@/lib/notifications';
 
 const db = supabase as any;
 
@@ -60,7 +61,7 @@ export async function submitPR2ForApproval(
   if (!wf) throw new Error('PR2_PHASE1 workflow not configured.');
 
   // Create Phase 1 instance starting at step 1
-  const { error: instErr } = await db
+  const { data: newInst, error: instErr } = await db
     .from('approval_instances')
     .insert({
       workflow_id:   wf.id,
@@ -70,7 +71,9 @@ export async function submitPR2ForApproval(
       status:        'active',
       started_by:    profile.id,
       started_at:    now,
-    });
+    })
+    .select('id')
+    .single();
   if (instErr) throw instErr;
 
   // Transition PR2 status
@@ -88,6 +91,25 @@ export async function submitPR2ForApproval(
     document_id:   pr2Id,
     payload:       { pr2_number: pr2.pr2_number, submitted_by: profile.full_name },
   });
+
+  // Notify phase1 step 1 approvers (best-effort)
+  if (newInst?.id) {
+    try {
+      await notifyApproversForStep({
+        workflowId:     wf.id,
+        stepOrder:      1,
+        documentId:     pr2Id,
+        documentNumber: pr2.pr2_number,
+        instanceId:     newInst.id,
+        title:          'PR2 Approval Required',
+        body:           'PR2 requires your approval.',
+        documentType:   'pr2',
+        actionUrl:      `/approvals/pr2/${newInst.id}`,
+      });
+    } catch {
+      // Notifications are best-effort; do not fail submission
+    }
+  }
 }
 
 // ─── Fetch PR2 approval queue ─────────────────────────────────────────────────
@@ -382,7 +404,31 @@ export async function submitPR2ApprovalAction(
           .update({ status: 'phase1_approved', updated_at: now })
           .eq('id', pr2Id);
 
-        await startPhase2(pr2Id, profile, now);
+        const phase2 = await startPhase2(pr2Id, profile, now);
+
+        // Notify phase2 step 1 approvers (best-effort)
+        try {
+          const { data: pr2Row } = await db
+            .from('pr2_requests')
+            .select('pr2_number')
+            .eq('id', pr2Id)
+            .maybeSingle();
+          if (pr2Row?.pr2_number) {
+            await notifyApproversForStep({
+              workflowId:     phase2.workflowId,
+              stepOrder:      1,
+              documentId:     pr2Id,
+              documentNumber: pr2Row.pr2_number,
+              instanceId:     phase2.instanceId,
+              title:          'PR2 Approval Required',
+              body:           'PR2 requires your approval.',
+              documentType:   'pr2',
+              actionUrl:      `/approvals/pr2/${phase2.instanceId}`,
+            });
+          }
+        } catch {
+          // Notifications are best-effort
+        }
       } else {
         // Phase 2 fully approved → PR2 is done
         await db
@@ -441,6 +487,29 @@ export async function submitPR2ApprovalAction(
               position:      profile.position,
             },
           });
+
+          // Notify step 3 approvers (best-effort — dept head skipped, step 3 now active)
+          try {
+            const [instData, pr2Data] = await Promise.all([
+              db.from('approval_instances').select('workflow_id').eq('id', instanceId).maybeSingle(),
+              db.from('pr2_requests').select('pr2_number').eq('id', pr2Id).maybeSingle(),
+            ]);
+            if (instData.data?.workflow_id && pr2Data.data?.pr2_number) {
+              await notifyApproversForStep({
+                workflowId:     instData.data.workflow_id,
+                stepOrder:      3,
+                documentId:     pr2Id,
+                documentNumber: pr2Data.data.pr2_number,
+                instanceId,
+                title:          'PR2 Approval Required',
+                body:           'PR2 requires your approval.',
+                documentType:   'pr2',
+                actionUrl:      `/approvals/pr2/${instanceId}`,
+              });
+            }
+          } catch {
+            // Notifications are best-effort
+          }
 
           // Early return to prevent normal advancement
           return;
@@ -505,11 +574,83 @@ export async function submitPR2ApprovalAction(
       position:      profile.position,
     },
   });
+
+  // Notifications (best-effort — must not fail the approval action)
+  try {
+    if (action === 'approved') {
+      if (isFinalStep) {
+        if (workflowCode !== 'PR2_PHASE1') {
+          // Phase 2 final approved → notify requisitioner
+          const { data: pr2Row } = await db
+            .from('pr2_requests')
+            .select('pr2_number, requisitioner_id')
+            .eq('id', pr2Id)
+            .maybeSingle();
+          if (pr2Row?.requisitioner_id) {
+            await createNotification({
+              user_id:       pr2Row.requisitioner_id,
+              title:         'PR2 Approved',
+              body:          'Your request has been fully approved.',
+              type:          'approved',
+              document_type: 'pr2',
+              document_id:   pr2Id,
+              action_url:    `/pr2/${pr2Id}`,
+            });
+          }
+        }
+        // Phase 1 final approved: phase2 step 1 approvers already notified in startPhase2 block above
+      } else {
+        // Normal step advance (auto dept-head already returned early)
+        const [instData, pr2Data] = await Promise.all([
+          db.from('approval_instances').select('workflow_id').eq('id', instanceId).maybeSingle(),
+          db.from('pr2_requests').select('pr2_number').eq('id', pr2Id).maybeSingle(),
+        ]);
+        if (instData.data?.workflow_id && pr2Data.data?.pr2_number) {
+          await notifyApproversForStep({
+            workflowId:     instData.data.workflow_id,
+            stepOrder:      stepOrder + 1,
+            documentId:     pr2Id,
+            documentNumber: pr2Data.data.pr2_number,
+            instanceId,
+            title:          'PR2 Approval Required',
+            body:           'PR2 requires your approval.',
+            documentType:   'pr2',
+            actionUrl:      `/approvals/pr2/${instanceId}`,
+          });
+        }
+      }
+    } else {
+      // rejected or revision_requested → notify the person who submitted PR2 for approval
+      const [instData, pr2Data] = await Promise.all([
+        db.from('approval_instances').select('started_by').eq('id', instanceId).maybeSingle(),
+        db.from('pr2_requests').select('pr2_number').eq('id', pr2Id).maybeSingle(),
+      ]);
+      if (instData.data?.started_by && pr2Data.data?.pr2_number) {
+        await createNotification({
+          user_id:       instData.data.started_by,
+          title:         action === 'rejected' ? 'PR2 Rejected' : 'PR2 Revision Requested',
+          body:          action === 'rejected'
+            ? `PR2 ${pr2Data.data.pr2_number} was rejected.`
+            : `Revision requested on PR2 ${pr2Data.data.pr2_number}.`,
+          type:          action === 'rejected' ? 'rejected' : 'action_required',
+          document_type: 'pr2',
+          document_id:   pr2Id,
+          action_url:    `/pr2/${pr2Id}`,
+        });
+      }
+    }
+  } catch {
+    // Notifications are best-effort; do not fail the approval action
+  }
 }
 
 // ─── Internal: start Phase 2 immediately after Phase 1 completes ─────────────
 
-async function startPhase2(pr2Id: string, profile: UserProfile, now: string): Promise<void> {
+async function startPhase2(
+  pr2Id: string,
+  profile: UserProfile,
+  now: string
+): Promise<{ instanceId: string; workflowId: string }> {
   const { data: wf, error: wfErr } = await db
     .from('approval_workflows')
     .select('id')
@@ -518,7 +659,7 @@ async function startPhase2(pr2Id: string, profile: UserProfile, now: string): Pr
   if (wfErr) throw wfErr;
   if (!wf) throw new Error('PR2_PHASE2 workflow not configured.');
 
-  const { error: instErr } = await db
+  const { data: newInst, error: instErr } = await db
     .from('approval_instances')
     .insert({
       workflow_id:   wf.id,
@@ -528,11 +669,15 @@ async function startPhase2(pr2Id: string, profile: UserProfile, now: string): Pr
       status:        'active',
       started_by:    profile.id,
       started_at:    now,
-    });
+    })
+    .select('id')
+    .single();
   if (instErr) throw instErr;
 
   await db
     .from('pr2_requests')
     .update({ status: 'pending_phase2_approval', updated_at: now })
     .eq('id', pr2Id);
+
+  return { instanceId: newInst.id, workflowId: wf.id };
 }

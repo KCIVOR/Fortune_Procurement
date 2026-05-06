@@ -87,9 +87,9 @@ export default function PR1PrintPage() {
           <tbody>
             <tr>
               <td style={{ width: '20%', border: '1px solid #000', padding: '6px 8px', verticalAlign: 'middle' }}>
-                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 9 }}>FORTUNE</div>
-                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 9 }}>GROUP</div>
-                <div style={{ textAlign: 'center', fontSize: 8, color: '#555' }}>of Companies</div>
+                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 8, lineHeight: 1.15 }}>
+                  Fortune Packaging Corporation
+                </div>
               </td>
               <td style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
                 <div style={{ fontSize: 15, fontWeight: 'bold', letterSpacing: 1 }}>PURCHASE REQUEST</div>

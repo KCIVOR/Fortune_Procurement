@@ -16,9 +16,20 @@ import {
 import type { POApprovalDetail, POApprovalStep, POApprovalAction } from '@/types/po';
 import type { ApprovalAction } from '@/types/approvals';
 import { format } from 'date-fns';
-import { getPriorityColors } from '@/lib/utils';
+import PriorityChip from '@/components/shared/PriorityChip';
+import DocumentStatusChip from '@/components/shared/DocumentStatusChip';
+import ActionPill from '@/components/shared/ActionPill';
+import DetailBackButton from '@/components/shared/DetailBackButton';
+import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
+import DetailTitleRow from '@/components/shared/DetailTitleRow';
+import DetailCard from '@/components/shared/DetailCard';
+import DetailCardHeader from '@/components/shared/DetailCardHeader';
+import DetailInfoGrid from '@/components/shared/DetailInfoGrid';
+import DetailInfoField from '@/components/shared/DetailInfoField';
+import DetailWideInfoRow from '@/components/shared/DetailWideInfoRow';
+import DetailTableCard from '@/components/shared/DetailTableCard';
 import {
-  ChevronLeft, User, Building2, FileText, CalendarDays, Clock,
+  User, Building2, FileText, CalendarDays, Clock,
   CircleCheck as CheckCircle2, Circle as XCircle, RotateCcw,
   Package, TriangleAlert as AlertTriangle, CheckCheck, Lock,
   ClipboardList, ShoppingCart, Truck, CreditCard, MapPin,
@@ -119,76 +130,111 @@ export default function POApprovalDetailPage() {
 
   return (
     <AppShell title="PO Approval">
-      <div className="mb-2">
-        <button onClick={() => handleBack({ role: profile?.role })} className="inline-flex items-center gap-1 text-xs text-[#40527A] hover:text-[#0F1F3A] transition">
-          <ChevronLeft className="w-3.5 h-3.5" />
-          Back
-        </button>
-      </div>
+      <DetailBackButton className="mb-2" onClick={() => handleBack({ role: profile?.role })} />
 
       {/* Page header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">{detail.po_number}</h1>
-            <POStatusBadge status={detail.po_status} />
-            <PriorityBadge priority={detail.pr1_priority} />
+      <DetailHeaderLayout
+        wrap={true}
+        left={
+          <div>
+            <DetailTitleRow wrap>
+              <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">{detail.po_number}</h1>
+              <DocumentStatusChip docType="PO" status={detail.po_status} />
+              <PriorityChip priority={detail.pr1_priority} />
+            </DetailTitleRow>
+            <p className="text-sm text-[#40527A] mt-1">
+              {detail.department_name_snapshot} · {detail.purpose}
+            </p>
+            <p className="text-xs text-[#BFC7D5] mt-0.5">
+              PR2: <span className="font-mono">{detail.pr2_number_snapshot}</span>
+              {' '}· PR1: <span className="font-mono">{detail.pr1_number_snapshot}</span>
+              {' '}· RFQ: <span className="font-mono">{detail.rfq_number_snapshot}</span>
+            </p>
           </div>
-          <p className="text-sm text-[#40527A] mt-1">
-            {detail.department_name_snapshot} · {detail.purpose}
-          </p>
-          <p className="text-xs text-[#BFC7D5] mt-0.5">
-            PR2: <span className="font-mono">{detail.pr2_number_snapshot}</span>
-            {' '}· PR1: <span className="font-mono">{detail.pr1_number_snapshot}</span>
-            {' '}· RFQ: <span className="font-mono">{detail.rfq_number_snapshot}</span>
-          </p>
-        </div>
-
-        {canAct ? (
-          <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-2 rounded-[4px]">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Your action required — Step {detail.current_step}: {currentStepDef?.position_required}
-          </div>
-        ) : !isClosed ? (
-          <div className="inline-flex items-center gap-2 bg-[#F7F9FC] border border-[#D8E2FF] text-[#40527A] text-xs font-medium px-3 py-2 rounded-[4px]">
-            <Lock className="w-3.5 h-3.5" />
-            Awaiting Step {detail.current_step}: {currentStepDef?.position_required}
-          </div>
-        ) : null}
-      </div>
+        }
+        right={
+          <>
+            {canAct ? (
+              <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-2 rounded-[4px]">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Your action required — Step {detail.current_step}: {currentStepDef?.position_required}
+              </div>
+            ) : !isClosed ? (
+              <div className="inline-flex items-center gap-2 bg-[#F7F9FC] border border-[#D8E2FF] text-[#40527A] text-xs font-medium px-3 py-2 rounded-[4px]">
+                <Lock className="w-3.5 h-3.5" />
+                Awaiting Step {detail.current_step}: {currentStepDef?.position_required}
+              </div>
+            ) : null}
+          </>
+        }
+      />
 
       <div className="space-y-5">
 
         {/* PO header details */}
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC] flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Purchase Order Details</h2>
-            <Link href={`/po/${detail.po_id}`} className="text-xs text-blue-600 hover:text-blue-800 font-medium transition">
-              View Full PO
-            </Link>
-          </div>
-          <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-5">
-            <InfoField icon={User}         label="Requisitioner" value={detail.requisitioner_name_snapshot} />
-            <InfoField icon={Building2}    label="Department"    value={detail.department_name_snapshot} />
-            <InfoField icon={Package}      label="Supplier"      value={detail.supplier_name_snapshot} />
-            <InfoField icon={CalendarDays} label="PO Date"       value={format(new Date(detail.po_date), 'MMMM d, yyyy')} />
-            <InfoField icon={CalendarDays} label="Date Required" value={format(new Date(detail.date_required), 'MMMM d, yyyy')} />
-            <InfoField icon={Truck}        label="Warehouse"     value={detail.warehouse} />
-            <InfoField icon={MapPin}       label="Delivery Address" value={detail.delivery_address} />
-            <InfoField icon={CreditCard}   label="Payment Terms" value={detail.payment_terms} />
-            <InfoField icon={FileText}     label="Packing"       value={detail.packing} />
-            <div className="col-span-2 md:col-span-3">
-              <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1">Purpose</p>
-              <p className="text-sm text-[#0F1F3A]">{detail.purpose}</p>
-            </div>
-            {detail.remarks && (
-              <div className="col-span-2 md:col-span-3">
-                <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1">Remarks</p>
-                <p className="text-sm text-[#0F1F3A] italic">"{detail.remarks}"</p>
-              </div>
+        <DetailCard overflow>
+          <DetailCardHeader
+            left={<h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Purchase Order Details</h2>}
+            right={(
+              <Link href={`/po/${detail.po_id}`} className="text-xs text-blue-600 hover:text-blue-800 font-medium transition">
+                View Full PO
+              </Link>
             )}
-          </div>
-        </div>
+          />
+          <DetailInfoGrid>
+            <DetailInfoField
+              icon={<User className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Requisitioner"
+              value={detail.requisitioner_name_snapshot}
+            />
+            <DetailInfoField
+              icon={<Building2 className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Department"
+              value={detail.department_name_snapshot}
+            />
+            <DetailInfoField
+              icon={<Package className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Supplier"
+              value={detail.supplier_name_snapshot}
+            />
+            <DetailInfoField
+              icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="PO Date"
+              value={format(new Date(detail.po_date), 'MMMM d, yyyy')}
+            />
+            <DetailInfoField
+              icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Date Required"
+              value={format(new Date(detail.date_required), 'MMMM d, yyyy')}
+            />
+            <DetailInfoField
+              icon={<Truck className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Warehouse"
+              value={detail.warehouse}
+            />
+            <DetailInfoField
+              icon={<MapPin className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Delivery Address"
+              value={detail.delivery_address}
+            />
+            <DetailInfoField
+              icon={<CreditCard className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Payment Terms"
+              value={detail.payment_terms}
+            />
+            <DetailInfoField
+              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              label="Packing"
+              value={detail.packing}
+            />
+            <DetailWideInfoRow label="Purpose">{detail.purpose}</DetailWideInfoRow>
+            {detail.remarks && (
+              <DetailWideInfoRow label="Remarks" valueClassName="italic">
+                {`"${detail.remarks}"`}
+              </DetailWideInfoRow>
+            )}
+          </DetailInfoGrid>
+        </DetailCard>
 
         {/* Related Records */}
         {profile && (
@@ -196,16 +242,19 @@ export default function POApprovalDetailPage() {
         )}
 
         {/* Items */}
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#D8E2FF] flex items-center justify-between">
+        <DetailTableCard
+          title={
             <div className="flex items-center gap-2">
               <Package className="w-3.5 h-3.5 text-[#BFC7D5]" />
               <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Items ({detail.items.length})</h2>
             </div>
+          }
+          right={
             <div className="text-xs font-semibold text-[#0F1F3A]">
               Grand Total: ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
             </div>
-          </div>
+          }
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -242,7 +291,7 @@ export default function POApprovalDetailPage() {
               </tfoot>
             </table>
           </div>
-        </div>
+        </DetailTableCard>
 
         {/* Approval timeline */}
         <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
@@ -297,10 +346,22 @@ export default function POApprovalDetailPage() {
             <div className="p-6">
               {detail.receipt ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-                  <InfoField icon={User}         label="Acknowledged By"    value={detail.receipt.acknowledged_by_name} />
-                  <InfoField icon={Clock}        label="Acknowledged At"    value={format(new Date(detail.receipt.acknowledged_at), 'MMM d, yyyy h:mm a')} />
+                  <DetailInfoField
+                    icon={<User className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+                    label="Acknowledged By"
+                    value={detail.receipt.acknowledged_by_name}
+                  />
+                  <DetailInfoField
+                    icon={<Clock className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+                    label="Acknowledged At"
+                    value={format(new Date(detail.receipt.acknowledged_at), 'MMM d, yyyy h:mm a')}
+                  />
                   {detail.receipt.commitment_date && (
-                    <InfoField icon={CalendarDays} label="Commitment Date"  value={format(new Date(detail.receipt.commitment_date), 'MMMM d, yyyy')} />
+                    <DetailInfoField
+                      icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+                      label="Commitment Date"
+                      value={format(new Date(detail.receipt.commitment_date), 'MMMM d, yyyy')}
+                    />
                   )}
                   {detail.receipt.delivery_remarks && (
                     <div className="col-span-2 md:col-span-3">
@@ -524,61 +585,6 @@ function ApprovalTimeline({
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function InfoField({ icon: Icon, label, value, mono }: { icon: React.ElementType; label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-1">
-        <Icon className="w-3.5 h-3.5 text-[#BFC7D5]" />
-        <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">{label}</p>
-      </div>
-      <p className={`text-sm text-[#0F1F3A] ${mono ? 'font-mono font-semibold' : 'font-medium'}`}>{value}</p>
-    </div>
-  );
-}
-
-function ActionPill({ action }: { action: string }) {
-  if (action === 'approved') return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-      <CheckCircle2 className="w-3 h-3" /> Approved
-    </span>
-  );
-  if (action === 'rejected') return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
-      <XCircle className="w-3 h-3" /> Rejected
-    </span>
-  );
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
-      <RotateCcw className="w-3 h-3" /> Revision Requested
-    </span>
-  );
-}
-
-function PriorityBadge({ priority }: { priority?: string }) {
-  const colors = getPriorityColors(priority);
-  return (
-    <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-      {colors.label}
-    </div>
-  );
-}
-
-function POStatusBadge({ status }: { status: string }) {
-  const map: Record<string, { cls: string; label: string }> = {
-    draft:        { cls: 'bg-[#F7F9FC] border-[#D8E2FF] text-[#40527A]',       label: 'Draft' },
-    for_approval: { cls: 'bg-amber-50 border-amber-200 text-amber-700',       label: 'For Approval' },
-    approved:     { cls: 'bg-emerald-50 border-emerald-200 text-emerald-700', label: 'Approved' },
-    sent:         { cls: 'bg-blue-50 border-blue-200 text-blue-700',          label: 'Sent to Supplier' },
-    cancelled:    { cls: 'bg-red-50 border-red-200 text-red-600',             label: 'Cancelled' },
-  };
-  const { cls, label } = map[status] ?? map.draft;
-  return (
-    <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${cls}`}>
-      {label}
-    </span>
-  );
-}
 
 function ActionButton({ icon: Icon, label, variant, onClick, disabled }: {
   icon: React.ElementType; label: string; variant: 'approve' | 'revise' | 'reject'; onClick: () => void; disabled: boolean;

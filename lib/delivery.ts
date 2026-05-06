@@ -8,6 +8,7 @@ import type {
   DeliverySupplierUpdateValues,
   DeliveryFollowUpValues,
 } from '@/types/delivery';
+import { createNotification } from '@/lib/notifications';
 
 const db = supabase as any;
 
@@ -34,6 +35,9 @@ function normalizeDelivery(row: any): Delivery {
     delivery_address:             row.delivery_address,
     warehouse:                    row.warehouse,
     grand_total:                  Number(row.grand_total),
+    dr_document_path:             row.dr_document_path ?? null,
+    dr_document_filename:         row.dr_document_filename ?? null,
+    dr_document_uploaded_at:      row.dr_document_uploaded_at ?? null,
     created_at:                   row.created_at,
     updated_at:                   row.updated_at,
   };
@@ -56,6 +60,14 @@ function normalizeHistoryEntry(row: any): DeliveryHistoryEntry {
 
 // ─── Queue: all active deliveries (procurement / warehouse) ──────────────────
 
+export type DeliveryListTab =
+  | 'all'
+  | 'pending'
+  | 'scheduled'
+  | 'in_transit'
+  | 'delayed'
+  | 'delivered';
+
 export async function fetchDeliveryQueue(): Promise<Delivery[]> {
   const { data, error } = await db
     .from('deliveries')
@@ -64,6 +76,96 @@ export async function fetchDeliveryQueue(): Promise<Delivery[]> {
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(normalizeDelivery);
+}
+
+/** Paged list for /delivery; preserves procurement vs employee scope and per-tab status. */
+export async function fetchDeliveryQueuePaged(params: {
+  mode: 'procurement' | 'employee';
+  requisitionerId?: string;
+  requisitionerName?: string;
+  statusTab: DeliveryListTab;
+  limit: number;
+  offset: number;
+}): Promise<{ deliveries: Delivery[]; total_count: number }> {
+  const { mode, requisitionerId, requisitionerName, statusTab, limit, offset } = params;
+
+  let q = db.from('deliveries').select('*', { count: 'exact' });
+
+  if (mode === 'employee') {
+    // Some deliveries are created under supplier context with requisitioner_id unavailable,
+    // but still include requisitioner_name_snapshot. Employee view should match both.
+    if (!requisitionerId && !requisitionerName) {
+      throw new Error('requisitionerId or requisitionerName required for employee mode');
+    }
+    const orParts: string[] = [];
+    if (requisitionerId) orParts.push(`requisitioner_id.eq.${requisitionerId}`);
+    if (requisitionerName) orParts.push(`requisitioner_name_snapshot.eq.${JSON.stringify(requisitionerName)}`);
+    q = q.or(orParts.join(','));
+  } else {
+    q = q.not('status', 'eq', 'cancelled');
+  }
+
+  if (statusTab !== 'all') {
+    q = q.eq('status', statusTab);
+  }
+
+  const { data, error, count } = await q
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw error;
+  return {
+    deliveries: (data ?? []).map(normalizeDelivery),
+    total_count: count ?? 0,
+  };
+}
+
+/** Tab badge counts (DB exact counts, same scoping rules as the paged list). */
+export async function fetchDeliveryTabCounts(params: {
+  mode: 'procurement' | 'employee';
+  requisitionerId?: string;
+  requisitionerName?: string;
+}): Promise<Record<DeliveryListTab, number>> {
+  const tabs: DeliveryListTab[] = [
+    'all',
+    'pending',
+    'scheduled',
+    'in_transit',
+    'delayed',
+    'delivered',
+  ];
+
+  const counts: Record<DeliveryListTab, number> = {
+    all: 0,
+    pending: 0,
+    scheduled: 0,
+    in_transit: 0,
+    delayed: 0,
+    delivered: 0,
+  };
+
+  for (const tab of tabs) {
+    let q = db.from('deliveries').select('id', { count: 'exact', head: true });
+    if (params.mode === 'employee') {
+      if (!params.requisitionerId && !params.requisitionerName) {
+        throw new Error('requisitionerId or requisitionerName required for employee mode');
+      }
+      const orParts: string[] = [];
+      if (params.requisitionerId) orParts.push(`requisitioner_id.eq.${params.requisitionerId}`);
+      if (params.requisitionerName) orParts.push(`requisitioner_name_snapshot.eq.${JSON.stringify(params.requisitionerName)}`);
+      q = q.or(orParts.join(','));
+    } else {
+      q = q.not('status', 'eq', 'cancelled');
+    }
+    if (tab !== 'all') {
+      q = q.eq('status', tab);
+    }
+    const { count, error } = await q;
+    if (error) throw error;
+    counts[tab] = count ?? 0;
+  }
+
+  return counts;
 }
 
 // ─── Queue: supplier's own deliveries ────────────────────────────────────────
@@ -77,6 +179,64 @@ export async function fetchSupplierDeliveries(supplierId: string): Promise<Deliv
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(normalizeDelivery);
+}
+
+// ─── Queue: supplier's deliveries (paginated) ────────────────────────────────
+
+export async function fetchSupplierDeliveriesPaged(
+  supplierId: string,
+  options: { limit: number; offset: number; search?: string; status?: string }
+): Promise<{ deliveries: Delivery[]; total_count: number }> {
+  const { limit, offset, search, status } = options;
+
+  const applyFilters = (q: any) => {
+    q = q.eq('supplier_id', supplierId).not('status', 'eq', 'cancelled');
+    if (status && status !== 'all') {
+      q = q.eq('status', status);
+    }
+    const term = search?.trim();
+    if (term) {
+      const pattern = `%${term}%`;
+      q = q.or(`po_number_snapshot.ilike.${pattern},purpose.ilike.${pattern}`);
+    }
+    return q;
+  };
+
+  const [dataRes, countRes] = await Promise.all([
+    applyFilters(db.from('deliveries').select('*'))
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+    applyFilters(db.from('deliveries').select('id', { count: 'exact', head: true })),
+  ]);
+
+  if (dataRes.error) throw dataRes.error;
+  if (countRes.error) throw countRes.error;
+
+  return {
+    deliveries: (dataRes.data ?? []).map(normalizeDelivery),
+    total_count: countRes.count ?? 0,
+  };
+}
+
+// ─── Supplier delivery global stat counts (unfiltered by search/status) ──────
+
+export async function fetchSupplierDeliveryStatCounts(
+  supplierId: string
+): Promise<{ active: number; completed: number; total: number }> {
+  const applyBase = (q: any) =>
+    q.eq('supplier_id', supplierId).not('status', 'eq', 'cancelled');
+
+  const [activeRes, completedRes, totalRes] = await Promise.all([
+    applyBase(db.from('deliveries').select('id', { count: 'exact', head: true })).not('status', 'eq', 'delivered'),
+    applyBase(db.from('deliveries').select('id', { count: 'exact', head: true })).eq('status', 'delivered'),
+    applyBase(db.from('deliveries').select('id', { count: 'exact', head: true })),
+  ]);
+
+  return {
+    active:    activeRes.count    ?? 0,
+    completed: completedRes.count ?? 0,
+    total:     totalRes.count     ?? 0,
+  };
 }
 
 // ─── Queue: employee's own requisition deliveries ────────────────────────────
@@ -180,7 +340,7 @@ export async function supplierUpdateDelivery(
 ): Promise<void> {
   const { data: delivery } = await db
     .from('deliveries')
-    .select('id, status, supplier_id')
+    .select('id, status, supplier_id, requisitioner_id')
     .eq('id', deliveryId)
     .maybeSingle();
   if (!delivery) throw new Error('Delivery not found.');
@@ -190,10 +350,22 @@ export async function supplierUpdateDelivery(
   const statusFrom = delivery.status as DeliveryStatus;
   const statusTo   = values.new_status;
 
+  if (
+    statusTo === 'in_transit' &&
+    (!values.dr_document_path?.trim() || !values.dr_document_filename?.trim())
+  ) {
+    throw new Error('Delivery receipt file is required for In Transit.');
+  }
+
   const updates: Record<string, any> = { updated_at: now };
   if (statusTo !== statusFrom) updates.status = statusTo;
   if (values.scheduled_date)   updates.scheduled_date = values.scheduled_date;
   if (statusTo === 'delivered') updates.actual_delivery_date = now.slice(0, 10);
+  if (statusTo === 'in_transit') {
+    updates.dr_document_path = values.dr_document_path!.trim();
+    updates.dr_document_filename = values.dr_document_filename!.trim();
+    updates.dr_document_uploaded_at = now;
+  }
 
   await db.from('deliveries').update(updates).eq('id', deliveryId);
 
@@ -208,6 +380,42 @@ export async function supplierUpdateDelivery(
     scheduled_date: values.scheduled_date || null,
     created_at:     now,
   });
+
+  // Notify requisitioner on meaningful status changes (best-effort)
+  const notifiableStatuses: DeliveryStatus[] = ['in_transit', 'delayed', 'delivered'];
+  if (
+    statusTo !== statusFrom &&
+    notifiableStatuses.includes(statusTo) &&
+    delivery.requisitioner_id
+  ) {
+    try {
+      const statusLabel = statusTo === 'in_transit' ? 'in transit' : statusTo;
+
+      // Deduplicate: skip if an unread 'Delivery Update' already exists for this delivery + user
+      const { data: existing } = await db
+        .from('notifications')
+        .select('id')
+        .eq('user_id', delivery.requisitioner_id)
+        .eq('document_id', deliveryId)
+        .eq('title', 'Delivery Update')
+        .eq('read', false)
+        .maybeSingle();
+
+      if (!existing) {
+        await createNotification({
+          user_id:       delivery.requisitioner_id,
+          title:         'Delivery Update',
+          body:          `Delivery status has been updated to ${statusLabel}.`,
+          type:          'info',
+          document_type: 'delivery',
+          document_id:   deliveryId,
+          action_url:    `/delivery/${deliveryId}`,
+        });
+      }
+    } catch {
+      // Notifications are best-effort; do not fail the status update
+    }
+  }
 }
 
 // ─── Procurement: add follow-up note ─────────────────────────────────────────
@@ -243,7 +451,7 @@ export async function markDelivered(
   const now = new Date().toISOString();
   const { data: delivery } = await db
     .from('deliveries')
-    .select('id, status')
+    .select('id, status, requisitioner_id')
     .eq('id', deliveryId)
     .maybeSingle();
   if (!delivery) throw new Error('Delivery not found.');
@@ -265,4 +473,32 @@ export async function markDelivered(
     scheduled_date: null,
     created_at:     now,
   });
+
+  // Notify requisitioner (best-effort)
+  if (delivery.requisitioner_id) {
+    try {
+      const { data: existing } = await db
+        .from('notifications')
+        .select('id')
+        .eq('user_id', delivery.requisitioner_id)
+        .eq('document_id', deliveryId)
+        .eq('title', 'Delivery Completed')
+        .eq('read', false)
+        .maybeSingle();
+
+      if (!existing) {
+        await createNotification({
+          user_id:       delivery.requisitioner_id,
+          title:         'Delivery Completed',
+          body:          'Your delivery has been marked as delivered.',
+          type:          'info',
+          document_type: 'delivery',
+          document_id:   deliveryId,
+          action_url:    `/delivery/${deliveryId}`,
+        });
+      }
+    } catch {
+      // Notifications are best-effort; do not fail markDelivered
+    }
+  }
 }

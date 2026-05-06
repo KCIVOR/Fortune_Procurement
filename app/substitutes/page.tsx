@@ -6,6 +6,7 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
+import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
 import { fetchSubstitutesForRequestor } from '@/lib/canvassing';
 import type { SubstituteReviewBundle } from '@/types/canvassing';
@@ -15,6 +16,8 @@ export default function SubstitutesIndexPage() {
   const { profile } = useAuth();
   const [bundles, setBundles] = useState<SubstituteReviewBundle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
 
   useEffect(() => {
     if (!profile) return;
@@ -28,6 +31,9 @@ export default function SubstitutesIndexPage() {
     (sum, b) => sum + b.substitutes.filter(s => s.decision === null).length,
     0
   );
+
+  const totalPages = Math.ceil(bundles.length / pageSize);
+  const bundlePage = bundles.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <AppShell title="Substitute Review">
@@ -72,7 +78,7 @@ export default function SubstitutesIndexPage() {
           </div>
 
           <div className="space-y-3">
-            {bundles.map(bundle => {
+            {bundlePage.map(bundle => {
               const pending = bundle.substitutes.filter(s => s.decision === null).length;
               const total   = bundle.substitutes.length;
 
@@ -112,6 +118,21 @@ export default function SubstitutesIndexPage() {
               );
             })}
           </div>
+
+          {bundles.length > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={Math.max(1, totalPages)}
+              pageSize={pageSize}
+              totalCount={bundles.length}
+              entityLabel="PR1 bundles"
+              loading={loading}
+              onPageChange={(page) => {
+                if (page < currentPage) setCurrentPage(p => Math.max(1, p - 1));
+                else setCurrentPage(p => Math.min(Math.max(1, totalPages), p + 1));
+              }}
+            />
+          )}
         </div>
       )}
     </AppShell>

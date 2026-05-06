@@ -17,12 +17,18 @@ import type { POWithItems, POApprovalDetail, POApprovalStep, POApprovalAction } 
 import { PO_STATUS_LABELS } from '@/types/po';
 import { format } from 'date-fns';
 import {
-  ChevronLeft, FileText, Building2, User, CalendarDays,
-  Package, Printer, Truck, CreditCard, MapPin,
+  FileText, Building2, User, CalendarDays,
+  Package, Truck, CreditCard, MapPin,
   DollarSign, ClipboardList, Send, CircleCheck as CheckCircle2,
   Circle as XCircle, RotateCcw, Lock, TriangleAlert as AlertTriangle,
 } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
+import DetailBackButton from '@/components/shared/DetailBackButton';
+import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
+import DetailTitleRow from '@/components/shared/DetailTitleRow';
+import DetailPrintButton from '@/components/shared/DetailPrintButton';
+import DetailTableCard from '@/components/shared/DetailTableCard';
+import DetailInfoField from '@/components/shared/DetailInfoField';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:        'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]',
@@ -96,59 +102,56 @@ export default function PODetailPage() {
 
   return (
     <AppShell title={`PO ${po.po_number}`}>
-      <div className="mb-3">
-        <button onClick={() => handleBack({ role: profile?.role })} className="inline-flex items-center gap-1 text-xs text-[#40527A] hover:text-[#0F1F3A] transition">
-          <ChevronLeft className="w-3.5 h-3.5" />
-          Back
-        </button>
-      </div>
+      <DetailBackButton className="mb-3" onClick={() => handleBack({ role: profile?.role })} />
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-3 flex-wrap mb-1">
-            <h1 className="text-2xl font-bold text-[#0F1F3A] font-mono">{po.po_number}</h1>
-            <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_STYLES[po.status] ?? STATUS_STYLES.draft}`}>
-              {PO_STATUS_LABELS[po.status] ?? po.status}
-            </span>
+      <DetailHeaderLayout
+        wrap={true}
+        left={
+          <div>
+            <DetailTitleRow wrap mb>
+              <h1 className="text-2xl font-bold text-[#0F1F3A] font-mono">{po.po_number}</h1>
+              <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_STYLES[po.status] ?? STATUS_STYLES.draft}`}>
+                {PO_STATUS_LABELS[po.status] ?? po.status}
+              </span>
+            </DetailTitleRow>
+            <p className="text-sm text-[#40527A]">{po.department_name_snapshot} · {po.purpose}</p>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              <span className="text-xs text-[#BFC7D5] font-mono">PR2: {po.pr2_number_snapshot}</span>
+              <span className="text-xs text-[#BFC7D5] font-mono">PR1: {po.pr1_number_snapshot}</span>
+              <span className="text-xs text-[#BFC7D5] font-mono">RFQ: {po.rfq_number_snapshot}</span>
+            </div>
           </div>
-          <p className="text-sm text-[#40527A]">{po.department_name_snapshot} · {po.purpose}</p>
-          <div className="flex items-center gap-3 mt-1 flex-wrap">
-            <span className="text-xs text-[#BFC7D5] font-mono">PR2: {po.pr2_number_snapshot}</span>
-            <span className="text-xs text-[#BFC7D5] font-mono">PR1: {po.pr1_number_snapshot}</span>
-            <span className="text-xs text-[#BFC7D5] font-mono">RFQ: {po.rfq_number_snapshot}</span>
+        }
+        right={
+          <div className="flex items-center gap-2 shrink-0">
+            {po.status === 'draft' && profile?.position === 'Buyer' && (
+              <button
+                onClick={handleSubmitForApproval}
+                disabled={submitting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                {submitting ? 'Submitting...' : 'Submit for Approval'}
+              </button>
+            )}
+            {approvalDetail && approvalDetail.instance_status === 'active' && (
+              <Link
+                href={`/approvals/po/${approvalDetail.instance_id}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-700 text-sm font-semibold rounded-[4px] transition"
+              >
+                <ClipboardList className="w-4 h-4" />
+                View Approval
+              </Link>
+            )}
+            <DetailPrintButton
+              href={`/po/${po.id}/print`}
+              label="Print PO"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-[4px] transition"
+            />
           </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {po.status === 'draft' && profile?.position === 'Buyer' && (
-            <button
-              onClick={handleSubmitForApproval}
-              disabled={submitting}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
-            >
-              <Send className="w-4 h-4" />
-              {submitting ? 'Submitting...' : 'Submit for Approval'}
-            </button>
-          )}
-          {approvalDetail && approvalDetail.instance_status === 'active' && (
-            <Link
-              href={`/approvals/po/${approvalDetail.instance_id}`}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-700 text-sm font-semibold rounded-[4px] transition"
-            >
-              <ClipboardList className="w-4 h-4" />
-              View Approval
-            </Link>
-          )}
-          <Link
-            href={`/po/${po.id}/print`}
-            target="_blank"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-[4px] transition"
-          >
-            <Printer className="w-4 h-4" />
-            Print PO
-          </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* Related Records */}
       {profile && (
@@ -165,27 +168,106 @@ export default function PODetailPage() {
           {/* PO Details */}
           <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4">
             <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">PO Details</h2>
-            <Field icon={FileText}     label="PO Number"      value={po.po_number} mono />
-            <Field icon={FileText}     label="PR2 Reference"  value={po.pr2_number_snapshot} mono />
-            <Field icon={FileText}     label="PR1 Reference"  value={po.pr1_number_snapshot} mono />
-            <Field icon={FileText}     label="RFQ Reference"  value={po.rfq_number_snapshot} mono />
-            <Field icon={CalendarDays} label="PO Date"        value={format(new Date(po.po_date), 'MMMM d, yyyy')} />
-            <Field icon={CalendarDays} label="Date Required"  value={format(new Date(po.date_required), 'MMMM d, yyyy')} />
-            <Field icon={CalendarDays} label="Generated"      value={format(new Date(po.generated_at), 'MMMM d, yyyy')} />
-            <Field icon={User}         label="Requisitioner"  value={po.requisitioner_name_snapshot} />
-            <Field icon={Building2}    label="Department"     value={po.department_name_snapshot} />
-            <Field icon={Package}      label="Supplier"       value={po.supplier_name_snapshot} />
+            <DetailInfoField
+              layout="inline"
+              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="PO Number"
+              value={po.po_number}
+              valueClassName="font-mono font-semibold"
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="PR2 Reference"
+              value={po.pr2_number_snapshot}
+              valueClassName="font-mono font-semibold"
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="PR1 Reference"
+              value={po.pr1_number_snapshot}
+              valueClassName="font-mono font-semibold"
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="RFQ Reference"
+              value={po.rfq_number_snapshot}
+              valueClassName="font-mono font-semibold"
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="PO Date"
+              value={format(new Date(po.po_date), 'MMMM d, yyyy')}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Date Required"
+              value={format(new Date(po.date_required), 'MMMM d, yyyy')}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Generated"
+              value={format(new Date(po.generated_at), 'MMMM d, yyyy')}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<User className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Requisitioner"
+              value={po.requisitioner_name_snapshot}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<Building2 className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Department"
+              value={po.department_name_snapshot}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<Package className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Supplier"
+              value={po.supplier_name_snapshot}
+            />
           </div>
 
           {/* Delivery & Terms */}
           <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4">
             <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">Delivery & Terms</h2>
-            <Field icon={Truck}      label="Warehouse"      value={po.warehouse || '—'} />
-            <Field icon={MapPin}     label="Delivery Address" value={po.delivery_address || '—'} />
-            <Field icon={CreditCard} label="Payment Terms"  value={po.payment_terms || '—'} />
-            <Field icon={ClipboardList} label="Packing"     value={po.packing || '—'} />
+            <DetailInfoField
+              layout="inline"
+              icon={<Truck className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Warehouse"
+              value={po.warehouse || '—'}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<MapPin className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Delivery Address"
+              value={po.delivery_address || '—'}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<CreditCard className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Payment Terms"
+              value={po.payment_terms || '—'}
+            />
+            <DetailInfoField
+              layout="inline"
+              icon={<ClipboardList className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+              label="Packing"
+              value={po.packing || '—'}
+            />
             {po.remarks && (
-              <Field icon={FileText} label="Remarks" value={po.remarks} />
+              <DetailInfoField
+                layout="inline"
+                icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />}
+                label="Remarks"
+                value={po.remarks}
+              />
             )}
           </div>
 
@@ -206,13 +288,17 @@ export default function PODetailPage() {
           </div>
 
           {/* Items table */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC] flex items-center gap-2">
-              <Package className="w-3.5 h-3.5 text-[#BFC7D5]" />
-              <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
-                Items ({po.items.length})
-              </h2>
-            </div>
+          <DetailTableCard
+            title={
+              <div className="flex items-center gap-2">
+                <Package className="w-3.5 h-3.5 text-[#BFC7D5]" />
+                <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                  Items ({po.items.length})
+                </h2>
+              </div>
+            }
+            headerClassName="bg-[#F7F9FC]"
+          >
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -253,7 +339,7 @@ export default function PODetailPage() {
                 </tfoot>
               </table>
             </div>
-          </div>
+          </DetailTableCard>
 
           {/* Submit error */}
           {submitError && (
@@ -370,30 +456,6 @@ function ApprovalTimeline({ approvalDetail }: { approvalDetail: POApprovalDetail
             View full approval detail
           </Link>
         )}
-      </div>
-    </div>
-  );
-}
-
-function Field({
-  icon: Icon,
-  label,
-  value,
-  mono,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <Icon className="w-3.5 h-3.5 text-[#BFC7D5] mt-0.5 shrink-0" />
-      <div className="min-w-0">
-        <p className="text-xs text-[#BFC7D5] uppercase tracking-wide font-semibold">{label}</p>
-        <p className={`text-sm text-[#0F1F3A] mt-0.5 ${mono ? 'font-mono font-semibold' : 'font-medium'}`}>
-          {value}
-        </p>
       </div>
     </div>
   );

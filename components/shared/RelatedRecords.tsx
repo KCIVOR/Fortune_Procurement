@@ -6,6 +6,7 @@ import { ChevronRight, FileText, Search, ShoppingCart, Truck, PackageCheck, Clip
 import { fetchDocumentChain } from '@/lib/traceability';
 import type { ChainDoc, ChainDocType, DocumentChain } from '@/lib/traceability';
 import type { AppRole } from '@/types/auth';
+import DocumentStatusChip from '@/components/shared/DocumentStatusChip';
 
 // ── Role visibility rules ─────────────────────────────────────────────────────
 
@@ -23,72 +24,6 @@ function isDocVisibleForRole(type: ChainDocType, role: AppRole): boolean {
 }
 
 // ── Status display helpers ────────────────────────────────────────────────────
-
-const STATUS_COLORS: Record<string, string> = {
-  // PR1
-  draft:                   'bg-[#F7F9FC] text-[#40527A]',
-  pending_warehouse:        'bg-amber-50 text-amber-700',
-  pending_approval:         'bg-amber-50 text-amber-700',
-  resolved_internal:        'bg-teal-50 text-teal-700',
-  revision_requested:       'bg-orange-50 text-orange-700',
-  for_canvassing:           'bg-sky-50 text-sky-700',
-  canvassing_complete:      'bg-sky-50 text-sky-700',
-  approved:                 'bg-emerald-50 text-emerald-700',
-  rejected:                 'bg-red-50 text-red-600',
-  cancelled:                'bg-[#F7F9FC] text-[#BFC7D5]',
-  // RFQ / GRN shared
-  open:                     'bg-amber-50 text-amber-700',
-  closed:                   'bg-emerald-50 text-emerald-700',
-  // PR2
-  pending_phase1_approval:  'bg-amber-50 text-amber-700',
-  phase1_approved:          'bg-sky-50 text-sky-700',
-  pending_phase2_approval:  'bg-orange-50 text-orange-700',
-  phase2_approved:          'bg-emerald-50 text-emerald-700',
-  // PO
-  for_approval:             'bg-amber-50 text-amber-700',
-  sent:                     'bg-sky-50 text-sky-700',
-  // Delivery
-  pending:                  'bg-[#F7F9FC] text-[#40527A]',
-  scheduled:                'bg-sky-50 text-sky-700',
-  in_transit:               'bg-amber-50 text-amber-700',
-  delayed:                  'bg-red-50 text-red-600',
-  delivered:                'bg-emerald-50 text-emerald-700',
-};
-
-function statusColor(status: string | null): string {
-  if (!status) return 'bg-[#F7F9FC] text-[#BFC7D5]';
-  return STATUS_COLORS[status] ?? 'bg-[#F7F9FC] text-[#40527A]';
-}
-
-function humanStatus(type: ChainDocType, status: string | null): string {
-  if (!status) return '—';
-  const map: Record<string, string> = {
-    draft:                    'Draft',
-    pending_warehouse:        'Pending Warehouse',
-    pending_approval:         'Pending Approval',
-    resolved_internal:        'Resolved Internally',
-    revision_requested:       'Revision Requested',
-    for_canvassing:           'For Canvassing',
-    canvassing_complete:      'Canvassing Complete',
-    approved:                 'Approved',
-    rejected:                 'Rejected',
-    cancelled:                'Cancelled',
-    open:                     'Open',
-    closed:                   'Closed',
-    pending_phase1_approval:  'Pending Phase 1',
-    phase1_approved:          'Phase 1 Approved',
-    pending_phase2_approval:  'Pending Phase 2',
-    phase2_approved:          'Approved',
-    for_approval:             'For Approval',
-    sent:                     'Sent to Supplier',
-    pending:                  'Pending',
-    scheduled:                'Scheduled',
-    in_transit:               'In Transit',
-    delayed:                  'Delayed',
-    delivered:                'Delivered',
-  };
-  return map[status] ?? status;
-}
 
 const TYPE_ICONS: Record<ChainDocType, React.ElementType> = {
   PR1:      ClipboardList,
@@ -201,9 +136,7 @@ function ChainRow({ doc, isCurrent, isLast, compact = false }: { doc: ChainDoc; 
       {/* Status badge */}
       <div className="shrink-0">
         {doc.exists && doc.status ? (
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor(doc.status)}`}>
-            {humanStatus(doc.type, doc.status)}
-          </span>
+          <DocumentStatusChip docType={doc.type} status={doc.status} />
         ) : doc.exists ? (
           <span className="text-[10px] text-[#BFC7D5]">—</span>
         ) : null}
