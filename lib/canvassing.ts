@@ -360,6 +360,7 @@ export async function assignSuppliers(
 export async function issueRfq(rfqId: string, profile: UserProfile): Promise<void> {
   const now = new Date().toISOString();
 
+  // 1. Update status
   const { error } = await db
     .from('rfq_batches')
     .update({ status: 'open', issued_at: now, updated_at: now })
@@ -368,6 +369,7 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
 
   if (error) throw error;
 
+  // 2. Audit log
   await db.from('audit_logs').insert({
     actor_id:      profile.id,
     action:        'RFQ_ISSUED',
@@ -376,8 +378,26 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
     payload:       { issued_by: profile.full_name },
   });
 
-  // Notify each invited supplier (best-effort)
+  // 3. Notify each invited supplier (best-effort)
   try {
+    // Fetch RFQ + PR1 details for the email
+    const { data: rfq } = await db
+      .from('rfq_batches')
+      .select('rfq_number, deadline, notes, pr1_id')
+      .eq('id', rfqId)
+      .single();
+    
+    if (!rfq) return;
+
+    const { data: pr1 } = await db
+      .from('pr1_requests')
+      .select('department_name_snapshot, purpose')
+      .eq('id', rfq.pr1_id)
+      .single();
+
+    if (!pr1) return;
+
+    // Fetch assigned suppliers
     const { data: suppliers } = await db
       .from('rfq_suppliers')
       .select('id, supplier_id')
@@ -388,7 +408,15 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
 
     const supplierUserIds = supplierRows.map(s => s.supplier_id);
 
-    // Deduplicate: skip users who already have an unread action_required for this RFQ
+    // Fetch supplier emails
+    const { data: profiles } = await db
+      .from('profiles')
+      .select('id, email')
+      .in('id', supplierUserIds);
+    
+    const emailMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p.email]));
+
+    // Internal Notifications
     const { data: existing } = await db
       .from('notifications')
       .select('user_id')
@@ -414,10 +442,36 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
           })
         )
     );
-  } catch {
+
+    // External Email via Resend API Route
+    const emailTargets = supplierRows
+      .filter(s => emailMap[s.supplier_id])
+      .map(s => ({
+        email: emailMap[s.supplier_id],
+        actionUrl: `/supplier/quotations/${s.id}`
+      }));
+
+    if (emailTargets.length > 0) {
+      await fetch('/api/rfq/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rfqId,
+          rfqNumber: rfq.rfq_number,
+          department: pr1.department_name_snapshot,
+          purpose: pr1.purpose,
+          deadline: rfq.deadline,
+          supplierEmails: emailTargets.map(t => t.email),
+          actionUrls: emailTargets.map(t => t.actionUrl),
+        }),
+      });
+    }
+  } catch (err) {
+    console.error('IssueRfq notifications error:', err);
     // Notifications are best-effort; do not fail issueRfq
   }
 }
+
 
 // ─── Close RFQ ────────────────────────────────────────────────────────────────
 

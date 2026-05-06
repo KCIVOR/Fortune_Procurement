@@ -17,13 +17,18 @@ import {
 } from '@/lib/canvassing';
 import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
 import type { RfqDetailView, QuoteMatrixRow } from '@/types/canvassing';
-import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList } from 'lucide-react';
+import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import { format } from 'date-fns';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
 import DetailInfoField from '@/components/shared/DetailInfoField';
+import { toast } from 'sonner';
+import { formatRfqForViber } from '@/lib/viber-utils';
+import { db } from '@/lib/supabase';
+
+
 
 const STATUS_BADGE: Record<string, string> = {
   draft:     'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]',
@@ -168,6 +173,72 @@ export default function RfqDetailPage() {
     }
   };
 
+  const handleCopyForViber = (supplierAssignmentId?: string) => {
+    if (!detail) return;
+    const text = formatRfqForViber(detail.rfq, detail.pr1, detail.items, supplierAssignmentId);
+    navigator.clipboard.writeText(text)
+      .then(() => toast.success('RFQ summary copied for Viber!'))
+      .catch(() => toast.error('Failed to copy to clipboard.'));
+  };
+
+  const handleSendEmail = async (supplierAssignmentId?: string) => {
+    if (!detail) return;
+    setWorking(true);
+    try {
+      const targets = supplierAssignmentId 
+        ? detail.suppliers.filter(s => s.id === supplierAssignmentId)
+        : detail.suppliers;
+      
+      const supplierUserIds = targets.map(s => s.supplier_id);
+      const { data: profiles } = await db
+        .from('profiles')
+        .select('id, email')
+        .in('id', supplierUserIds);
+      
+      const emailMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p.email]));
+      const emailTargets = targets
+        .filter(s => emailMap[s.supplier_id])
+        .map(s => ({
+          email: emailMap[s.supplier_id],
+          actionUrl: `/supplier/quotations/${s.id}`
+        }));
+
+      if (emailTargets.length === 0) {
+        toast.error('No email addresses found for selected supplier(s).');
+        return;
+      }
+
+      const res = await fetch('/api/rfq/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rfqId: detail.rfq.id,
+          rfqNumber: detail.rfq.rfq_number,
+          department: detail.pr1.department_name_snapshot,
+          purpose: detail.pr1.purpose,
+          deadline: detail.rfq.deadline,
+          supplierEmails: emailTargets.map(t => t.email),
+          actionUrls: emailTargets.map(t => t.actionUrl),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        const firstError = data.results?.find((r: any) => r.error)?.error?.message;
+        throw new Error(firstError || 'Failed to send email.');
+      }
+
+      toast.success(supplierAssignmentId ? 'Email sent to supplier!' : 'Emails sent to all suppliers!');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send email.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+
+
+
   const handleSelectWinner = async (pr1ItemId: string, rfqSupplierId: string) => {
     if (!profile || isClosed) return;
     setActionError('');
@@ -231,6 +302,24 @@ export default function RfqDetailPage() {
             )}
             {(isDraft || isOpen) && (
               <ActionButton
+                icon={Mail}
+                label="Send Email"
+                color="slate"
+                onClick={() => handleSendEmail()}
+                disabled={working}
+              />
+            )}
+            {(isDraft || isOpen) && (
+              <ActionButton
+                icon={MessageSquare}
+                label="Copy for Viber"
+                color="slate"
+                onClick={() => handleCopyForViber()}
+                disabled={working}
+              />
+            )}
+            {(isDraft || isOpen) && (
+              <ActionButton
                 icon={UserPlus}
                 label="Canvass Supplier"
                 color="slate"
@@ -238,6 +327,7 @@ export default function RfqDetailPage() {
                 disabled={working || availableSuppliers.length === 0}
               />
             )}
+
           </div>
         }
       />
@@ -374,12 +464,33 @@ export default function RfqDetailPage() {
             ) : (
               <div className="divide-y divide-[#D8E2FF]">
                 {suppliers.map(s => (
-                  <div key={s.id} className="px-5 py-3 flex items-center justify-between">
-                    <p className="text-sm font-medium text-[#0F1F3A]">{s.supplier_name_snapshot}</p>
-                    <span className={`text-xs font-medium border rounded-full px-2 py-0.5 ${SUPPLIER_STATUS_COLOR[s.status]}`}>
-                      {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-                    </span>
+                  <div key={s.id} className="px-5 py-3 flex items-center justify-between hover:bg-[#F7F9FC] group transition">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[#0F1F3A]">{s.supplier_name_snapshot}</p>
+                      <span className={`inline-block mt-1 text-[10px] font-medium border rounded-full px-2 py-0.5 ${SUPPLIER_STATUS_COLOR[s.status]}`}>
+                        {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleSendEmail(s.id)}
+                        className="p-2 text-[#BFC7D5] hover:text-[#1E4BFF] hover:bg-[#E5EAFF] rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        title="Resend email to this supplier"
+                        disabled={working}
+                      >
+                        <Mail className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleCopyForViber(s.id)}
+                        className="p-2 text-[#BFC7D5] hover:text-[#1E4BFF] hover:bg-[#E5EAFF] rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        title="Copy personal link for Viber"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
+
+
                 ))}
               </div>
             )}
