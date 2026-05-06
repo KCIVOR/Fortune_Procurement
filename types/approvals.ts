@@ -165,3 +165,21 @@ export interface ApprovalActionRecord {
   remarks: string | null;
   acted_at: string;
 }
+
+// ─── Approver signing history (/approvals/history) ─────────────────────────────
+
+export type ApprovalHistoryDocumentFilter = 'all' | 'PR1' | 'PR2' | 'PO';
+
+export interface ApprovalHistoryRow {
+  approval_action_id: string;
+  instance_id: string;
+  document_type: 'PR1' | 'PR2' | 'PO';
+  document_id: string;
+  document_number: string;
+  action: ApprovalAction;
+  step_order: number;
+  remarks: string | null;
+  acted_at: string;
+  instance_status: ApprovalInstanceStatus;
+  action_url: string;
+}

@@ -51,12 +51,14 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
   warehouse: [
     ALL_NAV.dashboard,
     ALL_NAV.warehouseQueue,
+    { label: 'Warehouse History', href: '/warehouse/history', icon: 'ClipboardList' },
     ALL_NAV.deliveryTracking,
     ALL_NAV.grn,
   ],
   procurement: [
     ALL_NAV.dashboard,
     ALL_NAV.approvalQueue,
+    { label: 'Approval History', href: '/approvals/history', icon: 'CheckSquare' },
     ALL_NAV.pr2,
     ALL_NAV.rfq,
     ALL_NAV.purchaseOrders,
@@ -68,6 +70,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { label: 'PR1 Requests', href: '/approvals/pr1', icon: 'FileText' },
     { label: 'PR2 Requests', href: '/approvals/pr2', icon: 'ClipboardList' },
     { label: 'Purchase Orders', href: '/approvals/po', icon: 'ShoppingCart' },
+    { label: 'Approval History', href: '/approvals/history', icon: 'CheckSquare' },
   ],
   supplier: [
     ALL_NAV.dashboard,

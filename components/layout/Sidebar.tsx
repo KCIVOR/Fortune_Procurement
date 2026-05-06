@@ -38,6 +38,20 @@ interface SidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void;
 }
 
+/** List roots that have sibling URLs under the same prefix (e.g. `/approvals/history`). */
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  if (href === '/dashboard') return false;
+
+  if (href === '/approvals') return false;
+
+  if (href === '/warehouse') {
+    return pathname.startsWith('/warehouse/') && !pathname.startsWith('/warehouse/history');
+  }
+
+  return pathname.startsWith(`${href}/`);
+}
+
 export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedChange }: SidebarProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
@@ -85,7 +99,7 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
       )}>
         {navItems.map((item) => {
           const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
-          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          const isActive = isNavItemActive(pathname, item.href);
 
           return (
             <Link

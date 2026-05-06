@@ -55,6 +55,20 @@ export interface ValidationFormValues {
   decision: WarehouseDecision | null;
 }
 
+/** Completed validation rows for `/warehouse/history` (PR1 columns from `pr1_requests`). */
+export interface WarehouseValidationHistoryRow {
+  validation_id: string;
+  pr1_id: string;
+  pr1_number: string;
+  purpose: string;
+  department: string;
+  pr1_status: string;
+  decision: WarehouseDecision;
+  notes: string;
+  validated_at: string;
+  action_url: string;
+}
+
 // PR1 summary shown on the warehouse queue
 export interface PR1QueueRow {
   id: string;
