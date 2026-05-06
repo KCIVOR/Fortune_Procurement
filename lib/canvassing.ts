@@ -13,6 +13,8 @@ import type {
   SubstituteDecision,
   SubstituteReviewItem,
   SubstituteReviewBundle,
+  CatalogProductSummary,
+  CanvassSupplierCandidate,
 } from '@/types/canvassing';
 
 const db = supabase as any;
@@ -208,17 +210,123 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
     .eq('pr1_id', rfq.pr1_id);
   substituteDecisions = (decisionData ?? []) as SubstituteDecisionRow[];
 
-  // All supplier profiles for assignment dropdown — two separate queries, no subquery
+  // All supplier profiles for canvassing + assign name snapshots — enrichment for modal
   const { data: roles } = await db.from('roles').select('id').eq('name', 'supplier');
   const supplierRoleId = (roles ?? [])[0]?.id ?? null;
-  let allSuppliers: any[] = [];
+  let allSuppliers: CanvassSupplierCandidate[] = [];
   if (supplierRoleId) {
-    const { data } = await db
+    const { data: profileRows } = await db
       .from('profiles')
-      .select('id, full_name')
+      .select('id, full_name, email')
       .eq('role_id', supplierRoleId)
       .order('full_name', { ascending: true });
-    allSuppliers = data ?? [];
+
+    const profiles = (profileRows ?? []) as {
+      id: string;
+      full_name: string;
+      email: string | null;
+    }[];
+
+    const candidateUserIds = profiles.map(p => p.id);
+    const latestAccBySupplier: Record<string, string | null> = {};
+    const countsBySupplier: Record<
+      string,
+      { v: number; p: number; r: number; w: number }
+    > = {};
+
+    for (const id of candidateUserIds) {
+      latestAccBySupplier[id] = null;
+      countsBySupplier[id] = { v: 0, p: 0, r: 0, w: 0 };
+    }
+
+    if (candidateUserIds.length > 0) {
+      const [accRes, prodRes] = await Promise.all([
+        db
+          .from('supplier_accreditations')
+          .select('supplier_id, status, created_at')
+          .in('supplier_id', candidateUserIds),
+        db
+          .from('supplier_products')
+          .select('supplier_id, status')
+          .in('supplier_id', candidateUserIds),
+      ]);
+
+      const accRows = (accRes.data ?? []) as {
+        supplier_id: string;
+        status: string;
+        created_at: string;
+      }[];
+      const bySupplierAcc: Record<string, typeof accRows> = {};
+      for (const row of accRows) {
+        if (!bySupplierAcc[row.supplier_id]) bySupplierAcc[row.supplier_id] = [];
+        bySupplierAcc[row.supplier_id].push(row);
+      }
+
+      for (const sid of candidateUserIds) {
+        const rows = bySupplierAcc[sid];
+        if (!rows?.length) {
+          latestAccBySupplier[sid] = null;
+        } else {
+          rows.sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          latestAccBySupplier[sid] = rows[0].status;
+        }
+      }
+
+      for (const row of (prodRes.data ?? []) as {
+        supplier_id: string;
+        status: string;
+      }[]) {
+        const bucket = countsBySupplier[row.supplier_id];
+        if (!bucket) continue;
+        const st = row.status;
+        if (st === 'verified') bucket.v++;
+        else if (
+          st === 'submitted' ||
+          st === 'under_review' ||
+          st === 'pending_tsqa'
+        ) {
+          bucket.p++;
+        } else if (st === 'rejected') bucket.r++;
+        else if (st === 'withdrawn') bucket.w++;
+      }
+    }
+
+    allSuppliers = profiles.map(p => ({
+      id:                      p.id,
+      full_name:               p.full_name,
+      email:                   p.email ?? null,
+      accreditation_status:    latestAccBySupplier[p.id] ?? null,
+      verified_product_count:  countsBySupplier[p.id]?.v ?? 0,
+      pending_product_count:   countsBySupplier[p.id]?.p ?? 0,
+      rejected_product_count:  countsBySupplier[p.id]?.r ?? 0,
+      withdrawn_product_count: countsBySupplier[p.id]?.w ?? 0,
+    }));
+  }
+
+  // Phase 7: build a product lookup map for quotes that carry a supplier_product_id
+  const productLookup: Record<string, CatalogProductSummary> = {};
+  const linkedProductIds = Array.from(
+    new Set(
+      (quotes as any[])
+        .map((q: any) => q.supplier_product_id as string | null)
+        .filter((id): id is string => !!id)
+    )
+  );
+  if (linkedProductIds.length > 0) {
+    const { data: products } = await db
+      .from('supplier_products')
+      .select('id, product_name, product_code, status')
+      .in('id', linkedProductIds);
+    for (const p of (products ?? []) as any[]) {
+      productLookup[p.id as string] = {
+        product_name: p.product_name as string,
+        product_code: p.product_code as string | null,
+        status:       p.status as string,
+      };
+    }
   }
 
   return {
@@ -230,6 +338,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
     selections,
     substituteDecisions,
     allSuppliers,
+    productLookup,
   };
 }
 
@@ -248,18 +357,27 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
       const quote = detail.quotes.find(
         q => q.rfq_supplier_id === supplier.id && q.pr1_item_id === item.id
       );
+
+      // Phase 7: enrich with catalog product data from the lookup map
+      const productId   = quote?.supplier_product_id ?? null;
+      const productInfo = productId ? (detail.productLookup[productId] ?? null) : null;
+
       return {
-        rfq_supplier_id:    supplier.id,
-        quote_id:           quote?.id ?? null,
-        supplier_name:      supplier.supplier_name_snapshot,
-        quoted_description: quote?.quoted_description ?? '',
-        is_alternative:     quote?.is_alternative ?? false,
-        unit_price:         quote ? Number(quote.unit_price) : 0,
-        lead_time_days:     quote?.lead_time_days ?? 0,
-        remarks:            quote?.remarks ?? null,
-        total_price:        quote ? Number(quote.unit_price) * item.quantity_requested : 0,
-        is_selected:        selection?.selected_rfq_supplier_id === supplier.id,
-        substitute_decision: quote ? decisionByQuoteId[quote.id] ?? null : null,
+        rfq_supplier_id:         supplier.id,
+        quote_id:                quote?.id ?? null,
+        supplier_name:           supplier.supplier_name_snapshot,
+        quoted_description:      quote?.quoted_description ?? '',
+        is_alternative:          quote?.is_alternative ?? false,
+        unit_price:              quote ? Number(quote.unit_price) : 0,
+        lead_time_days:          quote?.lead_time_days ?? 0,
+        remarks:                 quote?.remarks ?? null,
+        total_price:             quote ? Number(quote.unit_price) * item.quantity_requested : 0,
+        is_selected:             selection?.selected_rfq_supplier_id === supplier.id,
+        substitute_decision:     quote ? decisionByQuoteId[quote.id] ?? null : null,
+        supplier_product_id:     productId,
+        supplier_product_name:   productInfo?.product_name   ?? null,
+        supplier_product_code:   productInfo?.product_code   ?? null,
+        supplier_product_status: productInfo?.status         ?? null,
       };
     });
 
@@ -339,7 +457,7 @@ export async function createRfq(
 export async function assignSuppliers(
   rfqId: string,
   supplierIds: string[],
-  allSuppliers: { id: string; full_name: string }[]
+  allSuppliers: Pick<CanvassSupplierCandidate, 'id' | 'full_name'>[]
 ): Promise<void> {
   const nameMap = Object.fromEntries(allSuppliers.map(s => [s.id, s.full_name]));
 
@@ -414,7 +532,9 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
       .select('id, email')
       .in('id', supplierUserIds);
     
-    const emailMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p.email]));
+    const emailMap = Object.fromEntries(
+      ((profiles ?? []) as { id: string; email: string | null }[]).map(p => [p.id, p.email])
+    );
 
     // Internal Notifications
     const { data: existing } = await db
@@ -513,14 +633,16 @@ export async function saveItemSelection(
 ): Promise<void> {
   const now = new Date().toISOString();
 
-  // Guard: if this quote is an alternative, requestor must have accepted it
+  // Fetch the quote row — used for both the substitute guard and the Phase 7.1
+  // catalog-product guard below.
   const { data: quote } = await db
     .from('rfq_item_quotes')
-    .select('id, is_alternative')
+    .select('id, is_alternative, supplier_product_id')
     .eq('rfq_supplier_id', selectedRfqSupplierId)
     .eq('pr1_item_id', pr1ItemId)
     .maybeSingle();
 
+  // Guard 1 (existing): if this quote is an alternative, requestor must have accepted it
   if (quote?.is_alternative) {
     const { data: decision } = await db
       .from('substitute_decisions')
@@ -534,6 +656,34 @@ export async function saveItemSelection(
     if (decision.decision === 'rejected') {
       throw new Error('Requestor rejected this substitute. Choose a different supplier.');
     }
+  }
+
+  // Guard 2 (Phase 7.1): catalog product must be linked and verified
+  if (!quote?.supplier_product_id) {
+    throw new Error(
+      'Cannot select quote: no verified catalog product is linked. ' +
+      'Ask the supplier to resubmit their quotation with a product from their verified catalog.'
+    );
+  }
+
+  const { data: product, error: productErr } = await db
+    .from('supplier_products')
+    .select('status')
+    .eq('id', quote.supplier_product_id)
+    .maybeSingle();
+
+  if (productErr) throw productErr;
+
+  if (!product) {
+    throw new Error(
+      'Cannot select quote: the linked catalog product could not be found.'
+    );
+  }
+
+  if (product.status !== 'verified') {
+    throw new Error(
+      `Cannot select quote: linked supplier product is not verified (current status: ${product.status}).`
+    );
   }
 
   const { error } = await db
@@ -969,12 +1119,14 @@ export async function fetchSupplierQuoteDetail(
 // ─── Submit supplier quotation ────────────────────────────────────────────────
 
 export interface QuoteDraft {
-  pr1_item_id:        string;
-  quoted_description: string;
-  is_alternative:     boolean;
-  unit_price:         number;
-  lead_time_days:     number;
-  remarks:            string;
+  pr1_item_id:          string;
+  quoted_description:   string;
+  is_alternative:       boolean;
+  unit_price:           number;
+  lead_time_days:       number;
+  remarks:              string;
+  /** Phase 7: optional link to a verified catalog product. */
+  supplier_product_id?: string | null;
 }
 
 export async function submitSupplierQuotation(
@@ -984,15 +1136,17 @@ export async function submitSupplierQuotation(
   const now = new Date().toISOString();
 
   const rows = quotes.map(q => ({
-    rfq_supplier_id:    rfqSupplierId,
-    pr1_item_id:        q.pr1_item_id,
-    quoted_description: q.quoted_description.trim(),
-    is_alternative:     q.is_alternative,
-    unit_price:         q.unit_price,
-    lead_time_days:     q.lead_time_days,
-    remarks:            q.remarks.trim() || null,
-    submitted_at:       now,
-    updated_at:         now,
+    rfq_supplier_id:     rfqSupplierId,
+    pr1_item_id:         q.pr1_item_id,
+    quoted_description:  q.quoted_description.trim(),
+    is_alternative:      q.is_alternative,
+    unit_price:          q.unit_price,
+    lead_time_days:      q.lead_time_days,
+    remarks:             q.remarks.trim() || null,
+    submitted_at:        now,
+    updated_at:          now,
+    // Phase 7: persist the catalog product link; undefined → leave null in DB
+    supplier_product_id: q.supplier_product_id ?? null,
   }));
 
   const { error: upsertErr } = await db

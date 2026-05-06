@@ -5,15 +5,48 @@ import Link from 'next/link';
 import type { UserProfile } from '@/types/auth';
 import PageHeader from '@/components/shared/PageHeader';
 import { fetchProcurementStats } from '@/lib/canvassing';
-import { SendHorizontal as SendHorizonal, ShoppingCart, ArrowRight, PackageSearch, CheckCheck, CircleAlert as AlertCircle, TriangleAlert as AlertTriangle } from 'lucide-react';
+import { fetchProcurementComplianceDashboardStats } from '@/lib/compliance-dashboard';
+import {
+  SendHorizontal as SendHorizonal,
+  ShoppingCart,
+  ArrowRight,
+  PackageSearch,
+  CheckCheck,
+  CircleAlert as AlertCircle,
+  TriangleAlert as AlertTriangle,
+  BadgeCheck,
+  Package,
+  FlaskConical,
+  CheckCircle2,
+  XCircle,
+  ClipboardList,
+} from 'lucide-react';
 
 interface Props { profile: UserProfile; }
 
 export default function ProcurementDashboard({ profile }: Props) {
-  const [stats, setStats] = useState({ forCanvassing: 0, openRfqs: 0, canvassingComplete: 0, high_priority_count: 0, medium_priority_count: 0 });
+  const [stats, setStats] = useState({
+    forCanvassing:         0,
+    openRfqs:               0,
+    canvassingComplete:     0,
+    high_priority_count:    0,
+    medium_priority_count:  0,
+  });
+  const [cStats, setCStats] = useState({
+    accreditationPendingReview: 0,
+    productsPendingReview:      0,
+    productsPendingTsqa:       0,
+    verifiedProducts:           0,
+    rejectedProducts:           0,
+    rsePendingTsqa:            0,
+  });
 
   useEffect(() => {
     fetchProcurementStats().then(setStats).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchProcurementComplianceDashboardStats().then(setCStats).catch(() => {});
   }, []);
 
   const cards = [
@@ -23,6 +56,15 @@ export default function ProcurementDashboard({ profile }: Props) {
     { label: 'High Priority',   value: stats.high_priority_count,   icon: AlertCircle,   href: '/rfq' },
     { label: 'Medium Priority', value: stats.medium_priority_count, icon: AlertTriangle, href: '/rfq' },
     { label: 'Purchase Orders', value: 0,                        icon: ShoppingCart,  href: '/po'  },
+  ];
+
+  const complianceCards = [
+    { label: 'Accreditation queue', value: cStats.accreditationPendingReview, href: '/accreditation',           icon: BadgeCheck },
+    { label: 'Product review',      value: cStats.productsPendingReview,      href: '/accreditation/products',  icon: ClipboardList },
+    { label: 'Pending TSQA',        value: cStats.productsPendingTsqa,        href: '/accreditation/products',  icon: Package },
+    { label: 'RSE pending TSQA',    value: cStats.rsePendingTsqa,             href: '/accreditation/products',  icon: FlaskConical },
+    { label: 'Verified products',   value: cStats.verifiedProducts,           href: '/accreditation/products',  icon: CheckCircle2 },
+    { label: 'Rejected products',   value: cStats.rejectedProducts,           href: '/accreditation/products',  icon: XCircle },
   ];
 
   return (
@@ -73,6 +115,30 @@ export default function ProcurementDashboard({ profile }: Props) {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Supplier validation snapshot */}
+      <div className="mb-4">
+        <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-2">Supplier accreditation &amp; products</h2>
+        <p className="text-[10px] text-[#BFC7D5] mb-2">
+          Counts from live data. TSQA evaluates products only; accreditation approval stays with Procurement.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {complianceCards.map(card => {
+            const Icon = card.icon;
+            return (
+              <Link
+                key={card.label}
+                href={card.href}
+                className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex flex-col gap-1 transition hover:border-[#0F1F3A]"
+              >
+                <Icon className="w-4 h-4 text-[#40527A]" />
+                <p className="text-lg font-bold text-[#0F1F3A] leading-tight">{card.value}</p>
+                <p className="text-[10px] text-[#40527A] leading-tight">{card.label}</p>
+              </Link>
+            );
+          })}
         </div>
       </div>
 

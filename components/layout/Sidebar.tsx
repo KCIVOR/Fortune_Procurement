@@ -30,6 +30,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
   procurement: 'Procurement',
   approver: 'Approver',
   supplier: 'Supplier',
+  tsqa: 'TSQA',
 };
 
 interface SidebarProps {

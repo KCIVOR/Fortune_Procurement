@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/context/AuthContext';
 import EmployeeDashboard from '@/components/dashboards/EmployeeDashboard';
@@ -12,12 +14,27 @@ import LoadingState from '@/components/shared/LoadingState';
 
 export default function DashboardPage() {
   const { profile, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && profile?.role === 'tsqa') {
+      router.replace('/tsqa');
+    }
+  }, [loading, profile, router]);
 
   const renderDashboard = () => {
     if (loading || !profile) {
       return (
         <div className="flex items-center justify-center h-64">
           <LoadingState message="Loading dashboard..." />
+        </div>
+      );
+    }
+
+    if (profile.role === 'tsqa') {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <LoadingState message="Opening TSQA dashboard…" />
         </div>
       );
     }

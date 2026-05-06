@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useBackNavigation } from '@/hooks/use-back-navigation';
@@ -16,8 +16,8 @@ import {
   saveItemSelection,
 } from '@/lib/canvassing';
 import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
-import type { RfqDetailView, QuoteMatrixRow } from '@/types/canvassing';
-import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail } from 'lucide-react';
+import type { RfqDetailView, QuoteMatrixRow, CanvassSupplierCandidate } from '@/types/canvassing';
+import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail, Info, BadgeCheck } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import { format } from 'date-fns';
 import DetailBackButton from '@/components/shared/DetailBackButton';
@@ -195,7 +195,9 @@ export default function RfqDetailPage() {
         .select('id, email')
         .in('id', supplierUserIds);
       
-      const emailMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p.email]));
+      const emailMap = Object.fromEntries(
+        ((profiles ?? []) as { id: string; email: string | null }[]).map(p => [p.id, p.email])
+      );
       const emailTargets = targets
         .filter(s => emailMap[s.supplier_id])
         .map(s => ({
@@ -364,7 +366,7 @@ export default function RfqDetailPage() {
       {isDraft && suppliers.length >= 2 && (
         <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-[4px] px-5 py-4 mb-6">
           <CircleDot className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-blue-800">Ready to issue. Click "Issue RFQ" to open it to suppliers.</p>
+          <p className="text-sm text-blue-800">Ready to issue. Click &ldquo;Issue RFQ&rdquo; to open it to suppliers.</p>
         </div>
       )}
       {isOpen && !allItemsSelected && submittedSuppliers > 0 && (
@@ -508,10 +510,15 @@ export default function RfqDetailPage() {
         {/* Right column: quotation comparison matrix */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF] flex-wrap">
               <Trophy className="w-4 h-4 text-[#BFC7D5]" />
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Quotation Comparison</h2>
-              <span className="text-xs text-[#BFC7D5] ml-auto">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-semibold text-[#0F1F3A]">Quotation Comparison</h2>
+                <p className="text-[10px] text-[#BFC7D5] mt-0.5">
+                  Verified catalog product on the quote line = Can Award (after substitute approval if applicable). Pending / missing link = not awardable.
+                </p>
+              </div>
+              <span className="text-xs text-[#BFC7D5] ml-auto shrink-0">
                 {submittedSuppliers}/{suppliers.length} suppliers responded
               </span>
             </div>
@@ -562,41 +569,142 @@ export default function RfqDetailPage() {
 
       {/* Assign suppliers panel */}
       {assigning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[4px] w-full max-w-sm mx-4 overflow-hidden">
-            <div className="px-6 py-5 border-b border-[#D8E2FF]">
-              <h2 className="text-base font-semibold text-[#0F1F3A]">Canvass Supplier</h2>
-              <p className="text-xs text-[#40527A] mt-0.5">Select 2–3 suppliers for this RFQ</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[4px] w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-[#D8E2FF] shadow-lg">
+            <div className="px-6 py-4 border-b border-[#D8E2FF] shrink-0">
+              <h2 className="text-lg font-semibold text-[#0F1F3A]">Canvass Suppliers</h2>
+              <p className="text-xs text-[#40527A] mt-1">
+                Select suppliers to invite. Review accreditation and product readiness before assigning.
+              </p>
             </div>
-            <div className="p-4 max-h-72 overflow-y-auto space-y-1">
+            <div className="px-6 py-3 bg-amber-50/80 border-b border-amber-100 shrink-0">
+              <div className="flex gap-2 text-xs text-amber-900">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold">Warnings are informational only.</p>
+                  <p>
+                    Supplier quote awardability is enforced later when winners are chosen: linked catalog
+                    products must be verified. Suppliers without verified products may still be invited.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-2 border-b border-[#D8E2FF] shrink-0 flex gap-2 text-[11px] text-[#40527A]">
+              <Info className="w-3.5 h-3.5 shrink-0 text-[#BFC7D5]" />
+              <p>
+                Suppliers without verified products may still be invited, but their quote items cannot be
+                awarded until a verified product is linked on the quotation.
+              </p>
+            </div>
+            <div className="flex-1 min-h-0 overflow-auto">
               {availableSuppliers.length === 0 ? (
-                <p className="text-sm text-[#BFC7D5] text-center py-4">All suppliers already assigned.</p>
+                <p className="text-sm text-[#BFC7D5] text-center py-10 px-6">
+                  {allSuppliers.length === 0
+                    ? 'No supplier users are registered in the system.'
+                    : 'All suppliers are already assigned to this RFQ.'}
+                </p>
               ) : (
-                availableSuppliers.map(s => {
-                  const checked = selectedIds.has(s.id);
-                  return (
-                    <label key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#F7F9FC] cursor-pointer transition">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          const next = new Set(selectedIds);
-                          checked ? next.delete(s.id) : next.add(s.id);
-                          setSelectedIds(next);
-                        }}
-                        className="w-4 h-4 rounded border-[#D8E2FF] text-[#1E4BFF]"
-                      />
-                      <span className="text-sm font-medium text-[#0F1F3A]">{s.full_name}</span>
-                    </label>
-                  );
-                })
+                <table className="w-full text-sm text-left">
+                  <thead className="sticky top-0 bg-[#F7F9FC] border-b border-[#D8E2FF] z-10">
+                    <tr className="text-[10px] font-semibold text-[#40527A] uppercase tracking-wide">
+                      <th className="w-10 px-3 py-2.5" aria-label="Select" />
+                      <th className="px-3 py-2.5">Supplier</th>
+                      <th className="px-3 py-2.5 hidden md:table-cell">Email</th>
+                      <th className="px-3 py-2.5 min-w-[120px]">Accreditation</th>
+                      <th className="px-3 py-2.5 text-center min-w-[6rem]">Verified products</th>
+                      <th className="px-3 py-2.5 text-center min-w-[7rem] hidden sm:table-cell">
+                        Pending validation
+                      </th>
+                      <th className="px-3 py-2.5 text-center min-w-[4.5rem] hidden sm:table-cell">
+                        Rejected
+                      </th>
+                      <th className="px-3 py-2.5 text-center min-w-[5rem] hidden lg:table-cell">
+                        Withdrawn
+                      </th>
+                      <th className="px-3 py-2.5 min-w-[160px]">Readiness</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#D8E2FF]">
+                    {availableSuppliers.map(c => {
+                      const checked = selectedIds.has(c.id);
+                      const acc = accreditationLabelForCandidate(c);
+                      const readiness = readinessForCandidate(c);
+                      return (
+                        <tr
+                          key={c.id}
+                          className={`hover:bg-[#F7F9FC]/80 ${checked ? 'bg-blue-50/50' : ''}`}
+                        >
+                          <td className="px-3 py-2.5 align-top">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              aria-label={`Select ${c.full_name}`}
+                              onChange={() => {
+                                const next = new Set(selectedIds);
+                                checked ? next.delete(c.id) : next.add(c.id);
+                                setSelectedIds(next);
+                              }}
+                              className="w-4 h-4 rounded border-[#D8E2FF] text-[#1E4BFF] mt-1"
+                            />
+                          </td>
+                          <td className="px-3 py-2.5 align-top font-medium text-[#0F1F3A]">
+                            {c.full_name}
+                          </td>
+                          <td className="px-3 py-2.5 align-top text-xs text-[#40527A] hidden md:table-cell">
+                            {c.email && c.email.trim() !== '' ? c.email : '—'}
+                          </td>
+                          <td className="px-3 py-2.5 align-top">
+                            <div className="flex flex-wrap gap-1">
+                              <span
+                                className={`inline-flex items-center gap-0.5 text-[10px] font-medium border rounded px-1.5 py-0.5 ${acc.className}`}
+                              >
+                                {acc.icon}
+                                {acc.label}
+                              </span>
+                              {productInventoryBadges(c)}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5 align-top text-center tabular-nums">
+                            {c.verified_product_count}
+                          </td>
+                          <td className="px-3 py-2.5 align-top text-center tabular-nums hidden sm:table-cell">
+                            {c.pending_product_count}
+                          </td>
+                          <td className="px-3 py-2.5 align-top text-center tabular-nums hidden sm:table-cell">
+                            {c.rejected_product_count}
+                          </td>
+                          <td className="px-3 py-2.5 align-top text-center tabular-nums hidden lg:table-cell">
+                            {c.withdrawn_product_count}
+                          </td>
+                          <td className="px-3 py-2.5 align-top text-xs">
+                            <div className="space-y-1">
+                              {readiness.lines.map((line, i) => (
+                                <p
+                                  key={i}
+                                  className={
+                                    readiness.level === 'ok'
+                                      ? 'text-emerald-700 font-medium'
+                                      : 'text-amber-800'
+                                  }
+                                >
+                                  {line}
+                                </p>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               )}
             </div>
             {actionError && (
-              <p className="text-sm text-red-600 px-6 pb-2">{actionError}</p>
+              <p className="text-sm text-red-600 px-6 py-2 border-t border-[#D8E2FF]">{actionError}</p>
             )}
-            <div className="px-6 pb-5 flex items-center justify-end gap-3 border-t border-[#D8E2FF] pt-4">
+            <div className="px-6 py-4 flex items-center justify-end gap-3 border-t border-[#D8E2FF] shrink-0 bg-white">
               <button
+                type="button"
                 onClick={() => { setAssigning(false); setSelectedIds(new Set()); }}
                 disabled={working}
                 className="px-4 py-2 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
@@ -604,6 +712,7 @@ export default function RfqDetailPage() {
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAssign}
                 disabled={working || selectedIds.size === 0}
                 className="px-5 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50 flex items-center gap-2"
@@ -617,6 +726,125 @@ export default function RfqDetailPage() {
       )}
     </AppShell>
   );
+}
+
+function accreditationLabelForCandidate(c: CanvassSupplierCandidate): {
+  label: string;
+  className: string;
+  icon: ReactNode;
+} {
+  const st = c.accreditation_status;
+  if (!st) {
+    return {
+      label: 'No Accreditation',
+      className: 'text-[#40527A] bg-[#F7F9FC] border-[#D8E2FF]',
+      icon: null,
+    };
+  }
+  switch (st) {
+    case 'approved':
+      return {
+        label: 'Accredited',
+        className: 'text-emerald-800 bg-emerald-50 border-emerald-200',
+        icon: <BadgeCheck className="w-3 h-3 shrink-0" aria-hidden />,
+      };
+    case 'submitted':
+    case 'under_review':
+    case 'draft':
+      return {
+        label: 'Pending Accreditation',
+        className: 'text-amber-800 bg-amber-50 border-amber-200',
+        icon: null,
+      };
+    case 'missing_documents':
+      return {
+        label: 'Missing Documents',
+        className: 'text-amber-900 bg-amber-50 border-amber-200',
+        icon: null,
+      };
+    case 'rejected':
+      return {
+        label: 'Rejected',
+        className: 'text-red-800 bg-red-50 border-red-200',
+        icon: null,
+      };
+    case 'withdrawn':
+      return {
+        label: 'Withdrawn',
+        className: 'text-slate-700 bg-slate-100 border-slate-200',
+        icon: null,
+      };
+    default:
+      return {
+        label: st.replace(/_/g, ' '),
+        className: 'text-[#40527A] bg-[#F7F9FC] border-[#D8E2FF]',
+        icon: null,
+      };
+  }
+}
+
+function productInventoryBadges(c: CanvassSupplierCandidate) {
+  const chip =
+    'inline-flex items-center text-[10px] font-medium border rounded px-1.5 py-0.5';
+  const nodes: ReactNode[] = [];
+  if (c.verified_product_count > 0) {
+    nodes.push(
+      <span
+        key="verified"
+        className={`${chip} text-emerald-800 bg-white border-emerald-200`}
+      >
+        Has Verified Products
+      </span>,
+    );
+  } else {
+    nodes.push(
+      <span
+        key="no-verified"
+        className={`${chip} text-[#40527A] bg-white border-[#D8E2FF]`}
+      >
+        No Verified Products
+      </span>,
+    );
+  }
+  if (c.pending_product_count > 0) {
+    nodes.push(
+      <span
+        key="pending-val"
+        className={`${chip} text-amber-900 bg-white border-amber-200`}
+      >
+        Pending Validation
+      </span>,
+    );
+  }
+  return nodes;
+}
+
+function readinessForCandidate(c: CanvassSupplierCandidate): {
+  level: 'ok' | 'warn';
+  lines: string[];
+} {
+  const approved = c.accreditation_status === 'approved';
+  if (approved && c.verified_product_count > 0) {
+    return { level: 'ok', lines: ['Ready'] };
+  }
+  const lines: string[] = [];
+  if (!c.accreditation_status) {
+    lines.push('Not accredited');
+  } else if (!approved) {
+    if (c.accreditation_status === 'rejected') lines.push('Accreditation rejected');
+    else if (c.accreditation_status === 'withdrawn') lines.push('Accreditation withdrawn');
+    else lines.push('Not accredited');
+  }
+  if (c.verified_product_count === 0) {
+    lines.push('No verified products');
+  }
+  if (c.pending_product_count > 0) {
+    lines.push('Pending validation');
+  }
+  if (lines.length === 0) {
+    lines.push('Review accreditation and catalog');
+  }
+  return { level: 'warn', lines };
 }
 
 // ─── Matrix row ───────────────────────────────────────────────────────────────
@@ -641,15 +869,25 @@ function MatrixRow({
         </p>
       </td>
       {suppliers.map(supplier => {
-        const quote = row.quotes.find(q => q.rfq_supplier_id === supplier.id);
+        const quote      = row.quotes.find(q => q.rfq_supplier_id === supplier.id);
         const isSelected = row.selected_rfq_supplier_id === supplier.id;
 
+        // Phase 7: catalog product state
+        const hasProduct    = !!quote?.supplier_product_id;
+        const isVerified    = quote?.supplier_product_status === 'verified';
+        const isWithdrawn   = quote?.supplier_product_status === 'withdrawn';
+        const canAward      = hasProduct && isVerified;
+
         return (
-          <td key={supplier.id} className={`px-4 py-3 align-top border-l border-[#D8E2FF] ${isSelected ? 'bg-emerald-50' : ''}`}>
+          <td
+            key={supplier.id}
+            className={`px-4 py-3 align-top border-l border-[#D8E2FF] ${isSelected ? 'bg-emerald-50' : ''}`}
+          >
             {!quote || quote.unit_price === 0 ? (
               <p className="text-xs text-[#BFC7D5] italic">No quote</p>
             ) : (
               <div className="space-y-1">
+                {/* Alternative item badges */}
                 {quote.is_alternative && (
                   <div className="flex flex-wrap items-center gap-1">
                     <span className="inline-block text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
@@ -672,26 +910,107 @@ function MatrixRow({
                     )}
                   </div>
                 )}
+
+                {/* Phase 7/8: catalog product line */}
+                {hasProduct && isVerified ? (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="inline-flex items-center gap-0.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                      <CheckCircle2 className="w-2.5 h-2.5" />
+                      {quote.supplier_product_name ?? 'Verified product'}
+                    </span>
+                    {quote.supplier_product_code && (
+                      <span className="text-xs font-mono text-[#BFC7D5]">
+                        {quote.supplier_product_code}
+                      </span>
+                    )}
+                  </div>
+                ) : hasProduct && !isVerified ? (
+                  // Phase 8: proposed product pending validation
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 flex-wrap">
+                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                      <span className="font-medium">
+                        {quote.supplier_product_name ?? 'Proposed product'}
+                        {quote.supplier_product_code ? ` (${quote.supplier_product_code})` : ''}
+                      </span>
+                      {isWithdrawn ? (
+                        <span className="text-amber-800 font-semibold">— Withdrawn — Cannot Award</span>
+                      ) : (
+                        <span className="text-amber-600 capitalize">
+                          — {(quote.supplier_product_status ?? 'pending').replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-amber-600">
+                      <span>
+                        {isWithdrawn
+                          ? 'Supplier withdrew this catalog product — quote stays visible; cannot award.'
+                          : 'Pending validation — cannot award yet.'}
+                      </span>
+                      {quote.supplier_product_id && (
+                        <Link
+                          href={`/accreditation/products/${quote.supplier_product_id}`}
+                          className="underline font-medium hover:text-[#0F1F3A] transition"
+                        >
+                          Review →
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  // No catalog product at all (old/legacy quote)
+                  <div className="flex items-center gap-1 text-xs text-amber-600">
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    <span className="font-medium">No catalog product — Cannot Award</span>
+                  </div>
+                )}
+
                 <p className="text-xs text-[#40527A] leading-snug">{quote.quoted_description || '—'}</p>
-                <p className={`text-sm font-bold ${quote.substitute_decision === 'rejected' ? 'text-[#BFC7D5] line-through' : 'text-[#0F1F3A]'}`}>
+                <p
+                  className={`text-sm font-bold ${
+                    quote.substitute_decision === 'rejected'
+                      ? 'text-[#BFC7D5] line-through'
+                      : 'text-[#0F1F3A]'
+                  }`}
+                >
                   ₱{quote.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                  <span className="text-xs font-normal text-[#BFC7D5]"> / {row.item.unit_of_measure}</span>
+                  <span className="text-xs font-normal text-[#BFC7D5]">
+                    {' '}/ {row.item.unit_of_measure}
+                  </span>
                 </p>
                 <p className="text-xs text-[#BFC7D5]">
                   Total: ₱{quote.total_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-[#BFC7D5]">Lead: {quote.lead_time_days}d</p>
-                {quote.remarks && <p className="text-xs text-[#BFC7D5] italic">"{quote.remarks}"</p>}
+                {quote.remarks && (
+                  <p className="text-xs text-[#BFC7D5] italic">&ldquo;{quote.remarks}&rdquo;</p>
+                )}
 
+                {/* Phase 7: Can Award indicator */}
+                {canSelect && (
+                  <p className={`text-xs font-semibold ${canAward ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    Can Award: {canAward ? 'Yes' : 'No'}
+                  </p>
+                )}
+
+                {/* Select button — blocked if no verified product */}
                 {canSelect && (() => {
-                  const blocked = quote.is_alternative && quote.substitute_decision !== 'accepted';
-                  const tooltip = quote.is_alternative
+                  const altBlocked     = quote.is_alternative && quote.substitute_decision !== 'accepted';
+                  const productBlocked = !canAward;
+                  const blocked        = altBlocked || productBlocked;
+
+                  const tooltip = altBlocked
                     ? (quote.substitute_decision === null
                         ? 'Requestor has not yet decided on this substitute.'
                         : quote.substitute_decision === 'rejected'
                           ? 'Requestor rejected this substitute.'
                           : '')
-                    : '';
+                    : productBlocked
+                      ? isWithdrawn
+                        ? 'Supplier withdrew this catalog product. Cannot award.'
+                        : 'Supplier has not linked a verified catalog product to this quote. Cannot award.'
+                      : '';
+
                   return (
                     <button
                       onClick={() => !blocked && onSelect(row.item.id, supplier.id)}
@@ -707,10 +1026,12 @@ function MatrixRow({
                     >
                       {isSelected ? (
                         <><CheckCircle2 className="w-3 h-3" /> Selected</>
-                      ) : blocked && quote.substitute_decision === null ? (
+                      ) : altBlocked && quote.substitute_decision === null ? (
                         <><Clock className="w-3 h-3" /> Awaiting decision</>
-                      ) : blocked && quote.substitute_decision === 'rejected' ? (
+                      ) : altBlocked && quote.substitute_decision === 'rejected' ? (
                         <><XCircle className="w-3 h-3" /> Rejected</>
+                      ) : productBlocked ? (
+                        <><AlertTriangle className="w-3 h-3" /> No catalog product</>
                       ) : (
                         <><Trophy className="w-3 h-3" /> Select</>
                       )}

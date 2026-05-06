@@ -73,17 +73,19 @@ export interface RfqSupplier {
 }
 
 export interface RfqItemQuote {
-  id:                 string;
-  rfq_supplier_id:    string;
-  pr1_item_id:        string;
-  quoted_description: string;
-  is_alternative:     boolean;
-  unit_price:         number;
-  lead_time_days:     number;
-  remarks:            string | null;
-  submitted_at:       string | null;
-  created_at:         string;
-  updated_at:         string;
+  id:                  string;
+  rfq_supplier_id:     string;
+  pr1_item_id:         string;
+  quoted_description:  string;
+  is_alternative:      boolean;
+  unit_price:          number;
+  lead_time_days:      number;
+  remarks:             string | null;
+  submitted_at:        string | null;
+  created_at:          string;
+  updated_at:          string;
+  /** Phase 7: nullable link to supplier's verified catalog product. */
+  supplier_product_id: string | null;
 }
 
 export interface SupplierItemSelection {
@@ -113,6 +115,26 @@ export interface CanvassingQueueRow {
   rfq_status:                  RfqBatchStatus | null;
 }
 
+/** Phase 7: catalog product summary keyed by supplier_product_id. */
+export interface CatalogProductSummary {
+  product_name: string;
+  product_code: string | null;
+  status:       string;
+}
+
+/** Supplier users eligible for RFQ canvassing (procurement), with readiness context. */
+export interface CanvassSupplierCandidate {
+  id:                        string;
+  full_name:                 string;
+  email:                     string | null;
+  /** Latest `supplier_accreditations.status` by `created_at` DESC, or null if none. */
+  accreditation_status:      string | null;
+  verified_product_count:    number;
+  pending_product_count:     number;
+  rejected_product_count:    number;
+  withdrawn_product_count:   number;
+}
+
 export interface RfqDetailView {
   rfq:        RfqBatch;
   pr1: {
@@ -135,7 +157,10 @@ export interface RfqDetailView {
   quotes:     RfqItemQuote[];
   selections: SupplierItemSelection[];
   substituteDecisions: SubstituteDecisionRow[];
-  allSuppliers: { id: string; full_name: string }[];
+  /** All supplier-role profiles; used for canvass modal and assign name snapshots. */
+  allSuppliers: CanvassSupplierCandidate[];
+  /** Phase 7: map of supplier_product_id → product summary for all linked products. */
+  productLookup: Record<string, CatalogProductSummary>;
 }
 
 // Per-item quotation row used in comparison matrix
@@ -149,17 +174,22 @@ export interface QuoteMatrixRow {
     quantity_requested: number;
   };
   quotes: {
-    rfq_supplier_id:    string;
-    quote_id:           string | null;
-    supplier_name:      string;
-    quoted_description: string;
-    is_alternative:     boolean;
-    unit_price:         number;
-    lead_time_days:     number;
-    remarks:            string | null;
-    total_price:        number;
-    is_selected:        boolean;
-    substitute_decision: SubstituteDecision | null;
+    rfq_supplier_id:       string;
+    quote_id:              string | null;
+    supplier_name:         string;
+    quoted_description:    string;
+    is_alternative:        boolean;
+    unit_price:            number;
+    lead_time_days:        number;
+    remarks:               string | null;
+    total_price:           number;
+    is_selected:           boolean;
+    substitute_decision:   SubstituteDecision | null;
+    /** Phase 7: linked catalog product — null for old or unlinked quotes. */
+    supplier_product_id:   string | null;
+    supplier_product_name: string | null;
+    supplier_product_code: string | null;
+    supplier_product_status: string | null;
   }[];
   selected_rfq_supplier_id: string | null;
 }

@@ -1,4 +1,4 @@
-export type AppRole = 'employee' | 'warehouse' | 'procurement' | 'approver' | 'supplier' | 'admin';
+export type AppRole = 'employee' | 'warehouse' | 'procurement' | 'approver' | 'supplier' | 'admin' | 'tsqa';
 
 export type AppPosition =
   | 'Staff'
@@ -13,7 +13,8 @@ export type AppPosition =
   | 'Director'
   | 'Finance Director'
   | 'Supplier Representative'
-  | 'System Administrator';
+  | 'System Administrator'
+  | 'TSQA Staff';
 
 export interface UserProfile {
   id: string;

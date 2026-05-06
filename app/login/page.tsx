@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { fetchUserProfile } from '@/lib/profile';
 import { Eye, EyeOff, Lock, Mail, CircleAlert as AlertCircle } from 'lucide-react';
 import LightmodeLogo from '@/logo/lightmode_logo.png';
 
@@ -20,7 +21,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError('Invalid email or password. Please try again.');
@@ -28,7 +29,13 @@ export default function LoginPage() {
       return;
     }
 
-    router.push('/dashboard');
+    const userId = data.user?.id;
+    if (userId) {
+      const profile = await fetchUserProfile(userId);
+      router.push(profile?.role === 'tsqa' ? '/tsqa' : '/dashboard');
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   return (
