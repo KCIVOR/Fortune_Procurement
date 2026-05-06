@@ -1,29 +1,26 @@
-import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { rfqId, rfqNumber, department, purpose, deadline, supplierEmails, actionUrls } = body;
 
-    console.log('--- Email API Triggered ---');
+    console.log('--- Brevo API (Direct) Triggered ---');
     console.log('RFQ Number:', rfqNumber);
-    console.log('Suppliers to notify:', supplierEmails);
 
     if (!supplierEmails || supplierEmails.length === 0) {
-      console.log('Result: No supplier emails provided.');
       return NextResponse.json({ success: true, message: 'No suppliers to notify.' });
     }
 
+    const BREVO_API_KEY = process.env.BREVO_API_KEY;
+
     const results = await Promise.all(
       supplierEmails.map(async (email: string, idx: number) => {
-        const res = await resend.emails.send({
-          from: 'Fortune Procurement <onboarding@resend.dev>', // Use verified domain in production
-          to: email,
+        const payload = {
+          sender: { name: "Fortune Procurement", email: "johndaveb892@gmail.com" },
+          to: [{ email }],
           subject: `RFQ Issued: ${rfqNumber}`,
-          html: `
+          htmlContent: `
             <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
               <div style="background-color: #0f172a; color: white; padding: 24px; text-align: center;">
                 <h1 style="margin: 0; font-size: 20px;">Request for Quotation</h1>
@@ -72,13 +69,31 @@ export async function POST(req: Request) {
               </div>
             </div>
           `,
+        };
+
+        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'api-key': BREVO_API_KEY || '',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(payload),
         });
-        console.log(`Resend response for ${email}:`, res);
-        return res;
+
+        const data = await res.json();
+        console.log(`Brevo response for ${email}:`, data);
+        
+        return { 
+          email, 
+          success: res.ok, 
+          data, 
+          error: !res.ok ? data : null 
+        };
       })
     );
 
-    const hasError = results.some(r => r.error);
+    const hasError = results.some(r => !r.success);
     if (hasError) {
       return NextResponse.json({ success: false, results }, { status: 400 });
     }

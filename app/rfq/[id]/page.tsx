@@ -222,10 +222,18 @@ export default function RfqDetailPage() {
         }),
       });
 
+      const contentType = res.headers.get('content-type');
       if (!res.ok) {
-        const data = await res.json();
-        const firstError = data.results?.find((r: any) => r.error)?.error?.message;
-        throw new Error(firstError || 'Failed to send email.');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          const firstError = data.results?.find((r: any) => r.error)?.error?.message || data.error;
+          throw new Error(firstError || 'Failed to send email.');
+        } else {
+          // It's likely an HTML error page from the server
+          const htmlError = await res.text();
+          console.error('Server HTML Error:', htmlError);
+          throw new Error(`Server Error (${res.status}): Please check your terminal logs.`);
+        }
       }
 
       toast.success(supplierAssignmentId ? 'Email sent to supplier!' : 'Emails sent to all suppliers!');
