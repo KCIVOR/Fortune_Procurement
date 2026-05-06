@@ -62,7 +62,7 @@ export default function PR2ListPage() {
         description="Procurement purchase requests generated from completed canvassing."
       />
 
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-1.5 md:col-span-2">
           <Label htmlFor="pr2-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
             Search

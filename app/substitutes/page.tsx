@@ -10,7 +10,9 @@ import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
 import { fetchSubstitutesForRequestor } from '@/lib/canvassing';
 import type { SubstituteReviewBundle } from '@/types/canvassing';
-import { ArrowRight, Replace, CircleCheck as CheckCircle2, Circle as XCircle, Clock } from 'lucide-react';
+import { ArrowRight, Replace, CircleCheck as CheckCircle2, Circle as XCircle, Clock, Search } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function SubstitutesIndexPage() {
   const { profile } = useAuth();
@@ -18,6 +20,9 @@ export default function SubstitutesIndexPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
+  const [search, setSearch]               = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'decided'>('all');
 
   useEffect(() => {
     if (!profile) return;
@@ -27,13 +32,31 @@ export default function SubstitutesIndexPage() {
       .finally(() => setLoading(false));
   }, [profile]);
 
+  // Global stat counts — always from full unfiltered bundles
   const totalPending = bundles.reduce(
     (sum, b) => sum + b.substitutes.filter(s => s.decision === null).length,
     0
   );
 
-  const totalPages = Math.ceil(bundles.length / pageSize);
-  const bundlePage = bundles.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  // Client-side filtering
+  const filteredBundles = bundles.filter(b => {
+    if (selectedStatus === 'pending' && !b.substitutes.some(s => s.decision === null)) return false;
+    if (selectedStatus === 'decided' && !b.substitutes.every(s => s.decision !== null)) return false;
+    const term = appliedSearch.trim().toLowerCase();
+    if (term) {
+      const matchesPr1 =
+        b.pr1.pr1_number.toLowerCase().includes(term) ||
+        b.pr1.purpose.toLowerCase().includes(term);
+      const matchesSupplier = b.substitutes.some(s =>
+        s.supplier_name.toLowerCase().includes(term)
+      );
+      if (!matchesPr1 && !matchesSupplier) return false;
+    }
+    return true;
+  });
+
+  const totalPages = Math.ceil(filteredBundles.length / pageSize);
+  const bundlePage = filteredBundles.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <AppShell title="Substitute Review">
@@ -42,15 +65,79 @@ export default function SubstitutesIndexPage() {
         description="Suppliers sometimes offer alternatives to what you requested. Review and decide before procurement finalises selection."
       />
 
+      {/* Filter bar */}
+      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-1.5 md:col-span-2">
+          <Label htmlFor="sub-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+            Search
+          </Label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BFC7D5]" />
+              <input
+                id="sub-search"
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
+                placeholder="PR1 number, purpose, or supplier..."
+                disabled={loading}
+                className="w-full pl-9 pr-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+              />
+            </div>
+            <button
+              onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
+              disabled={loading}
+              className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+            >
+              Apply
+            </button>
+            <button
+              onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
+              disabled={loading}
+              className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] disabled:opacity-50 transition whitespace-nowrap"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="sub-status" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+            Status
+          </Label>
+          <Select
+            value={selectedStatus}
+            onValueChange={(v) => {
+              setSelectedStatus(v as 'all' | 'pending' | 'decided');
+              setCurrentPage(1);
+            }}
+            disabled={loading}
+          >
+            <SelectTrigger id="sub-status" className="text-sm">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="pending">Pending decision</SelectItem>
+              <SelectItem value="decided">All decided</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center h-48">
           <LoadingState message="Loading substitutes..." />
         </div>
-      ) : bundles.length === 0 ? (
+      ) : filteredBundles.length === 0 ? (
         <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
           <EmptyState
             title="No substitutes to review"
-            description="When a supplier proposes an alternative item for one of your PR1s, it will appear here."
+            description={
+              appliedSearch.trim() || selectedStatus !== 'all'
+                ? 'No bundles match your filters. Try adjusting search or status.'
+                : 'When a supplier proposes an alternative item for one of your PR1s, it will appear here.'
+            }
             icon={Replace}
           />
         </div>
@@ -119,12 +206,12 @@ export default function SubstitutesIndexPage() {
             })}
           </div>
 
-          {bundles.length > 0 && (
+          {filteredBundles.length > 0 && (
             <PaginationControls
               currentPage={currentPage}
               totalPages={Math.max(1, totalPages)}
               pageSize={pageSize}
-              totalCount={bundles.length}
+              totalCount={filteredBundles.length}
               entityLabel="PR1 bundles"
               loading={loading}
               onPageChange={(page) => {

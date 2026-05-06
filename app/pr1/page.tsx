@@ -162,7 +162,7 @@ export default function PR1ListPage() {
           />
         </div>
       ) : (
-        <>
+        <div className="space-y-4">
           <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
             <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -221,7 +221,7 @@ export default function PR1ListPage() {
             </div>
           </div>
 
-          {totalCount > rowsPerPage && (
+          {totalCount > 0 && (
             <PaginationControls
               currentPage={currentPage}
               totalPages={Math.ceil(totalCount / rowsPerPage)}
@@ -233,10 +233,10 @@ export default function PR1ListPage() {
                 if (page < currentPage) setCurrentPage((p) => Math.max(1, p - 1));
                 else setCurrentPage((p) => p + 1);
               }}
-              className="space-y-4"
+              className="rounded-[4px] border border-[#D8E2FF]"
             />
           )}
-        </>
+        </div>
       )}
     </AppShell>
   );

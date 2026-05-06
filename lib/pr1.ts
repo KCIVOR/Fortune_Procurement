@@ -25,8 +25,10 @@ export async function fetchMyPR1s(
 ): Promise<{ requests: PR1Request[]; total_count: number }> {
   const { limit, offset = 0, status, search } = options;
 
-  const buildBaseQuery = () => {
-    let q = db.from('pr1_requests').select('*').eq('requisitioner_id', userId);
+  // Single `.select(...)` per query — chaining `.select` again after `select('*')`
+  // drops the exact count header and yields count = null / 0.
+  const applyFilters = (q: any) => {
+    q = q.eq('requisitioner_id', userId);
 
     if (status && status !== 'all') {
       q = q.eq('status', status);
@@ -40,14 +42,19 @@ export async function fetchMyPR1s(
     return q;
   };
 
-  let dataQuery = buildBaseQuery().order('created_at', { ascending: false });
+  let dataQuery = applyFilters(db.from('pr1_requests').select('*')).order(
+    'created_at',
+    { ascending: false }
+  );
   if (limit != null && limit > 0) {
     dataQuery = dataQuery.range(offset, offset + limit - 1);
   }
 
   const [listRes, countRes] = await Promise.all([
     dataQuery,
-    buildBaseQuery().select('*', { count: 'exact', head: true }),
+    applyFilters(
+      db.from('pr1_requests').select('id', { count: 'exact', head: true })
+    ),
   ]);
 
   if (listRes.error) throw listRes.error;

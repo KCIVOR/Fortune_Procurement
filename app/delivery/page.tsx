@@ -15,7 +15,8 @@ import {
 import type { Delivery, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
 import { format } from 'date-fns';
-import { Truck, Package, Calendar, Building2, ChevronRight, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban } from 'lucide-react';
+import { Truck, Package, Calendar, Building2, ChevronRight, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban, Search } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 const STATUS_CONFIG: Record<DeliveryStatus, {
   label: string;
@@ -51,6 +52,8 @@ export default function DeliveryQueuePage() {
   const [rowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [tabCounts, setTabCounts] = useState<Record<DeliveryListTab, number> | null>(null);
+  const [search, setSearch]               = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
 
   const isEmployee = profile?.role === 'employee';
 
@@ -81,6 +84,7 @@ export default function DeliveryQueuePage() {
       statusTab: filter,
       limit: rowsPerPage,
       offset,
+      search: appliedSearch.trim() || undefined,
     })
       .then((page) => {
         setDeliveries(page.deliveries);
@@ -88,7 +92,7 @@ export default function DeliveryQueuePage() {
       })
       .catch(() => setError('Failed to load deliveries.'))
       .finally(() => setLoading(false));
-  }, [profile, isEmployee, filter, currentPage, rowsPerPage]);
+  }, [profile, isEmployee, filter, currentPage, rowsPerPage, appliedSearch]);
 
   const counts = tabCounts ?? EMPTY_TAB_COUNTS;
 
@@ -134,6 +138,42 @@ export default function DeliveryQueuePage() {
         </div>
       )}
 
+      {/* Search filter */}
+      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-4">
+        <Label htmlFor="delivery-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide block mb-1.5">
+          Search
+        </Label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BFC7D5]" />
+            <input
+              id="delivery-search"
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
+              placeholder="PO number, purpose, supplier, or warehouse..."
+              disabled={loading}
+              className="w-full pl-9 pr-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+            />
+          </div>
+          <button
+            onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
+            disabled={loading}
+            className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+          >
+            Apply
+          </button>
+          <button
+            onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
+            disabled={loading}
+            className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] disabled:opacity-50 transition whitespace-nowrap"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
       {/* Status filter tabs */}
       <div className="flex gap-2 flex-wrap mb-5">
         {(['all', 'pending', 'scheduled', 'in_transit', 'delayed', 'delivered'] as const).map(s => {
@@ -177,7 +217,7 @@ export default function DeliveryQueuePage() {
             ))}
           </div>
 
-          {deliveries.length > 0 && (
+          {totalCount > 0 && (
             <PaginationControls
               currentPage={currentPage}
               totalPages={totalPages}

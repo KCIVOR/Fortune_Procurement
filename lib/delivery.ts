@@ -86,8 +86,9 @@ export async function fetchDeliveryQueuePaged(params: {
   statusTab: DeliveryListTab;
   limit: number;
   offset: number;
+  search?: string;
 }): Promise<{ deliveries: Delivery[]; total_count: number }> {
-  const { mode, requisitionerId, requisitionerName, statusTab, limit, offset } = params;
+  const { mode, requisitionerId, requisitionerName, statusTab, limit, offset, search } = params;
 
   let q = db.from('deliveries').select('*', { count: 'exact' });
 
@@ -107,6 +108,14 @@ export async function fetchDeliveryQueuePaged(params: {
 
   if (statusTab !== 'all') {
     q = q.eq('status', statusTab);
+  }
+
+  const term = search?.trim();
+  if (term) {
+    const p = `%${term}%`;
+    q = q.or(
+      `po_number_snapshot.ilike.${p},purpose.ilike.${p},supplier_name_snapshot.ilike.${p},warehouse.ilike.${p}`
+    );
   }
 
   const { data, error, count } = await q

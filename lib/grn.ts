@@ -80,15 +80,27 @@ export async function fetchGRNQueuePaged(options: {
   statusFilter: GRNListTab;
   limit: number;
   offset: number;
+  search?: string;
 }): Promise<{ grns: GRNQueueRow[]; total_count: number }> {
-  const { statusFilter, limit, offset } = options;
+  const { statusFilter, limit, offset, search } = options;
 
-  let q = db.from('grn_receipts').select(GRN_QUEUE_SELECT, { count: 'exact' });
-  if (statusFilter !== 'all') {
-    q = q.eq('status', statusFilter);
-  }
+  const applyFilters = (q: any) => {
+    if (statusFilter !== 'all') {
+      q = q.eq('status', statusFilter);
+    }
+    const term = search?.trim();
+    if (term) {
+      const p = `%${term}%`;
+      q = q.or(
+        `grn_number.ilike.${p},po_number_snapshot.ilike.${p},supplier_name_snapshot.ilike.${p},department_name_snapshot.ilike.${p},warehouse.ilike.${p},received_by_name_snapshot.ilike.${p}`
+      );
+    }
+    return q;
+  };
 
-  const { data, error, count } = await q
+  const { data, error, count } = await applyFilters(
+    db.from('grn_receipts').select(GRN_QUEUE_SELECT, { count: 'exact' })
+  )
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 

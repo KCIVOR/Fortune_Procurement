@@ -64,23 +64,53 @@ export async function fetchCanvassingQueue(): Promise<CanvassingQueueRow[]> {
 
 // ─── Canvassing queue: paginated ─────────────────────────────────────────────
 
+const CANVASSING_QUEUE_PR1_SELECT =
+  'id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, date_required, submitted_at';
+
 export async function fetchCanvassingQueuePaged(options: {
   limit: number;
   offset: number;
+  search?: string;
 }): Promise<{ rows: CanvassingQueueRow[]; total_count: number }> {
-  const { limit, offset } = options;
+  const { limit, offset, search } = options;
+  const term = search?.trim();
+
+  let pr1IdsMatchingRfqNumber: string[] = [];
+  if (term) {
+    const pattern = `%${term}%`;
+    const { data: rfqHits, error: rfqSearchErr } = await db
+      .from('rfq_batches')
+      .select('pr1_id')
+      .ilike('rfq_number', pattern);
+    if (rfqSearchErr) throw rfqSearchErr;
+    pr1IdsMatchingRfqNumber = Array.from(
+      new Set((rfqHits ?? []).map((r: any) => r.pr1_id).filter(Boolean))
+    );
+  }
+
+  const applyFilters = (q: any) => {
+    q = q.in('status', ['for_canvassing', 'canvassing_complete']);
+    if (term) {
+      const p = `%${term}%`;
+      const orParts = [
+        `pr1_number.ilike.${p}`,
+        `purpose.ilike.${p}`,
+        `department_name_snapshot.ilike.${p}`,
+        `requisitioner_name_snapshot.ilike.${p}`,
+      ];
+      if (pr1IdsMatchingRfqNumber.length > 0) {
+        orParts.push(`id.in.(${pr1IdsMatchingRfqNumber.join(',')})`);
+      }
+      q = q.or(orParts.join(','));
+    }
+    return q;
+  };
 
   const [pr1sRes, countRes] = await Promise.all([
-    db
-      .from('pr1_requests')
-      .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, date_required, submitted_at')
-      .in('status', ['for_canvassing', 'canvassing_complete'])
+    applyFilters(db.from('pr1_requests').select(CANVASSING_QUEUE_PR1_SELECT))
       .order('submitted_at', { ascending: true })
       .range(offset, offset + limit - 1),
-    db
-      .from('pr1_requests')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['for_canvassing', 'canvassing_complete']),
+    applyFilters(db.from('pr1_requests').select('id', { count: 'exact', head: true })),
   ]);
 
   if (pr1sRes.error) throw pr1sRes.error;

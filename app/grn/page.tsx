@@ -12,7 +12,8 @@ import { fetchGRNQueuePaged, fetchGRNTabCounts } from '@/lib/grn';
 import type { GRNQueueRow, GRNStatus } from '@/types/grn';
 import { GRN_STATUS_LABELS } from '@/types/grn';
 import { format } from 'date-fns';
-import { PackageCheck, Building2, Calendar, ChevronRight, Clock, CircleCheck as CheckCircle2, ClipboardList } from 'lucide-react';
+import { PackageCheck, Building2, Calendar, ChevronRight, Clock, CircleCheck as CheckCircle2, ClipboardList, Search } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 const STATUS_CONFIG: Record<GRNStatus, {
   bg: string; text: string; border: string; icon: React.ElementType;
@@ -31,6 +32,8 @@ export default function GRNListPage() {
   const [rowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [tabCounts, setTabCounts] = useState<Record<GRNListTab, number> | null>(null);
+  const [search, setSearch]               = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
 
   useEffect(() => {
     if (!profile) return;
@@ -50,6 +53,7 @@ export default function GRNListPage() {
       statusFilter: filter,
       limit: rowsPerPage,
       offset,
+      search: appliedSearch.trim() || undefined,
     })
       .then((page) => {
         setGRNs(page.grns);
@@ -57,7 +61,7 @@ export default function GRNListPage() {
       })
       .catch(() => setError('Failed to load GRNs.'))
       .finally(() => setLoading(false));
-  }, [profile, filter, currentPage, rowsPerPage]);
+  }, [profile, filter, currentPage, rowsPerPage, appliedSearch]);
 
   const counts = tabCounts ?? { all: 0, open: 0, closed: 0 };
 
@@ -95,6 +99,44 @@ export default function GRNListPage() {
         <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700 mb-4">{error}</div>
       )}
 
+      {/* Search filter */}
+      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-4">
+        <Label htmlFor="grn-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide block mb-1.5">
+          Search
+        </Label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BFC7D5]" />
+            <input
+              id="grn-search"
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
+              placeholder="GRN number, PO, supplier, department, warehouse…"
+              disabled={loading}
+              className="w-full pl-9 pr-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
+            disabled={loading}
+            className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
+            disabled={loading}
+            className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] disabled:opacity-50 transition whitespace-nowrap"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
       {/* Status filter tabs */}
       <div className="flex gap-2 flex-wrap mb-5">
         {(['all', 'open', 'closed'] as const).map(s => {
@@ -128,9 +170,11 @@ export default function GRNListPage() {
         <EmptyState
           icon={PackageCheck}
           title="No goods receipts found"
-          description={filter === 'all'
+          description={filter === 'all' && !appliedSearch.trim()
             ? 'GRNs will appear here once deliveries are marked as received.'
-            : `No ${GRN_STATUS_LABELS[filter as GRNStatus]?.toLowerCase() ?? ''} GRNs.`}
+            : filter === 'all'
+              ? 'No GRNs match your search. Try different keywords.'
+              : `No ${GRN_STATUS_LABELS[filter as GRNStatus]?.toLowerCase() ?? ''} GRNs${appliedSearch.trim() ? ' for this search' : ''}.`}
         />
       ) : (
         <div className="space-y-4">
@@ -138,7 +182,7 @@ export default function GRNListPage() {
             {grns.map(g => <GRNCard key={g.id} grn={g} />)}
           </div>
 
-          {grns.length > 0 && (
+          {totalCount > 0 && (
             <PaginationControls
               currentPage={currentPage}
               totalPages={totalPages}
