@@ -105,6 +105,8 @@ export default function RfqDetailPage() {
   const assignedIds = new Set(suppliers.map(s => s.supplier_id));
   const availableSuppliers = allSuppliers.filter(s => !assignedIds.has(s.id));
 
+  // TODO(close/finalize): If every supplier marks `no_quote` on a line, Procurement may need a
+  // future "No Award / Re-canvass" path — today, closing still expects a winner per item.
   const allItemsSelected = matrix.length > 0 && matrix.every(r => r.selected_rfq_supplier_id !== null);
   const submittedSuppliers = suppliers.filter(s => s.status === 'submitted').length;
   const pendingSubstitutes = matrix.reduce((sum, row) =>
@@ -872,18 +874,34 @@ function MatrixRow({
         const quote      = row.quotes.find(q => q.rfq_supplier_id === supplier.id);
         const isSelected = row.selected_rfq_supplier_id === supplier.id;
 
+        const explicitNoQuote = quote?.response_status === 'no_quote';
+
         // Phase 7: catalog product state
         const hasProduct    = !!quote?.supplier_product_id;
         const isVerified    = quote?.supplier_product_status === 'verified';
         const isWithdrawn   = quote?.supplier_product_status === 'withdrawn';
-        const canAward      = hasProduct && isVerified;
+        const canAward      = !explicitNoQuote && hasProduct && isVerified;
 
         return (
           <td
             key={supplier.id}
             className={`px-4 py-3 align-top border-l border-[#D8E2FF] ${isSelected ? 'bg-emerald-50' : ''}`}
           >
-            {!quote || quote.unit_price === 0 ? (
+            {!quote ? (
+              <p className="text-xs text-[#BFC7D5] italic">No quote</p>
+            ) : explicitNoQuote ? (
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-rose-700">No Quote</p>
+                <p className="text-xs text-[#40527A] leading-snug">
+                  {quote.no_quote_reason?.trim() || '—'}
+                </p>
+                {canSelect && (
+                  <p className="text-xs font-semibold text-amber-600">
+                    Can Award: No
+                  </p>
+                )}
+              </div>
+            ) : quote.unit_price === 0 ? (
               <p className="text-xs text-[#BFC7D5] italic">No quote</p>
             ) : (
               <div className="space-y-1">

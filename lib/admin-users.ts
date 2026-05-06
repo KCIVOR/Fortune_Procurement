@@ -252,106 +252,47 @@ export async function getInactiveAssignments(userId: string): Promise<{
 export async function updateUserAssignment(
   userId: string,
   updates: UserAssignmentUpdate,
-  adminId?: string
+  _adminId?: string
 ): Promise<{ success: boolean; error?: string; user?: AdminUser }> {
   try {
-    // Fetch current user assignment for audit log
-    const { data: currentUserData } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, role_id, position_id, department_id')
-      .eq('id', userId)
-      .maybeSingle();
-
-    const currentUser = currentUserData as any;
-    if (!currentUser) {
-      return { success: false, error: 'User not found' };
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      return { success: false, error: 'Not authenticated' };
     }
 
-    // Check if any fields actually changed
-    const hasChanges =
-      (updates.role_id !== undefined && updates.role_id !== currentUser.role_id) ||
-      (updates.position_id !== undefined && updates.position_id !== currentUser.position_id) ||
-      (updates.department_id !== undefined && updates.department_id !== currentUser.department_id);
+    const res = await fetch(
+      `/api/admin/users/${encodeURIComponent(userId)}/assignment`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role_id: updates.role_id,
+          position_id: updates.position_id,
+          department_id: updates.department_id,
+        }),
+      }
+    );
 
-    const updateData: Record<string, unknown> = {};
-    if (updates.role_id !== undefined) updateData.role_id = updates.role_id;
-    if (updates.position_id !== undefined) updateData.position_id = updates.position_id;
-    if (updates.department_id !== undefined) updateData.department_id = updates.department_id;
-
-    const query = (supabase.from('profiles') as any)
-      .update(updateData)
-      .eq('id', userId)
-      .select(
-        `id, full_name, email, role_id, position_id, department_id, created_at,
-         roles(name), positions(title), departments(name)`
-      )
-      .maybeSingle();
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('Error updating user assignment:', error);
-      return { success: false, error: error.message };
-    }
-
-    if (!data) {
-      return { success: false, error: 'User not found' };
-    }
-
-    const user: AdminUser = {
-      id: data.id,
-      full_name: data.full_name,
-      email: data.email,
-      role_id: data.role_id,
-      role_name: (data as any).roles?.name || null,
-      position_id: data.position_id,
-      position_title: (data as any).positions?.title || null,
-      department_id: data.department_id,
-      department_name: (data as any).departments?.name || null,
-      created_at: data.created_at,
+    const json = (await res.json().catch(() => ({}))) as {
+      success?: boolean;
+      error?: string;
+      user?: AdminUser;
     };
 
-    // Create audit log entry if changes were made and adminId is provided
-    if (hasChanges && adminId) {
-      const changedFields: string[] = [];
-      if (updates.role_id !== undefined && updates.role_id !== currentUser.role_id) {
-        changedFields.push('role_id');
-      }
-      if (updates.position_id !== undefined && updates.position_id !== currentUser.position_id) {
-        changedFields.push('position_id');
-      }
-      if (updates.department_id !== undefined && updates.department_id !== currentUser.department_id) {
-        changedFields.push('department_id');
-      }
-
-      const auditPayload = {
-        target_user_id: userId,
-        target_user_email: currentUser.email,
-        target_user_name: currentUser.full_name,
-        old_role_id: currentUser.role_id,
-        new_role_id: updates.role_id !== undefined ? updates.role_id : currentUser.role_id,
-        old_position_id: currentUser.position_id,
-        new_position_id: updates.position_id !== undefined ? updates.position_id : currentUser.position_id,
-        old_department_id: currentUser.department_id,
-        new_department_id: updates.department_id !== undefined ? updates.department_id : currentUser.department_id,
-        changed_fields: changedFields,
+    if (!res.ok || !json.success || !json.user) {
+      return {
+        success: false,
+        error: json.error ?? `Request failed (${res.status})`,
       };
-
-      try {
-        await (supabase.from('audit_logs') as any).insert({
-          actor_id: adminId,
-          action: 'USER_ASSIGNMENT_UPDATED',
-          document_type: 'PROFILE',
-          document_id: userId,
-          payload: auditPayload,
-        });
-      } catch (auditErr) {
-        console.error('Audit log creation failed for user assignment update:', auditErr);
-        // Non-blocking: log error but don't fail the update
-      }
     }
 
-    return { success: true, user };
+    return { success: true, user: json.user };
   } catch (err) {
     console.error('Error updating user assignment:', err);
     return { success: false, error: 'Failed to update user assignment' };

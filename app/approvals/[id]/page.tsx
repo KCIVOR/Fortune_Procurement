@@ -285,8 +285,8 @@ export default function ApprovalDetailPage() {
                       <td className="px-4 py-3 text-[#0F1F3A] font-medium">{item.description}</td>
                       <td className="px-4 py-3 text-center text-[#40527A] text-xs">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 text-right font-mono text-xs text-[#40527A]">
-                        {(item as any).validated_soh !== undefined && (item as any).validated_soh !== null
-                          ? `${(item as any).validated_soh.toLocaleString()}`
+                        {item.validated_soh !== undefined && item.validated_soh !== null
+                          ? `${item.validated_soh.toLocaleString()}`
                           : '—'}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-[#0F1F3A]">{item.quantity_requested.toLocaleString()}</td>

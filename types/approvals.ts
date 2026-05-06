@@ -143,6 +143,8 @@ export interface PR1ApprovalItem {
   unit_of_measure: string;
   stock_on_hand: number;
   quantity_requested: number;
+  /** Per-line SOH from warehouse_validation_items after validation */
+  validated_soh?: number | null;
 }
 
 export interface WorkflowStep {

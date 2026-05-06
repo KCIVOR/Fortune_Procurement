@@ -27,6 +27,7 @@ import {
   Info,
   Package,
   PlusCircle,
+  Ban,
   X,
   Loader,
   Clock,
@@ -55,6 +56,24 @@ const VERIFIED_PRODUCT_PICKER_PAGE_SIZE = 10;
 
 const UNCATEGORIZED_CATEGORY_KEY = '__uncat__';
 
+/** Preset labels stored as `no_quote_reason` (plus free text when "Other"). */
+const NO_QUOTE_REASON_PRESETS = [
+  'Not available',
+  'Not in product line',
+  'Cannot meet required lead time',
+  'MOQ not met',
+  'Discontinued',
+] as const;
+
+const NO_QUOTE_OTHER = '__other__';
+
+function noQuoteReasonSelectValue(draft: QuoteDraft): string {
+  const r = (draft.no_quote_reason ?? '').trim();
+  if (!r) return '';
+  if ((NO_QUOTE_REASON_PRESETS as readonly string[]).includes(r)) return r;
+  return NO_QUOTE_OTHER;
+}
+
 function supplierProductCategoryKey(p: SupplierProduct): string {
   const t = p.category?.trim();
   return t ? t : UNCATEGORIZED_CATEGORY_KEY;
@@ -74,7 +93,7 @@ function previewField(val: string | null, maxLen: number): string {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** Per-item UI mode: how the supplier is filling this line. */
-type LineMode = 'select_verified' | 'propose_new';
+type LineMode = 'select_verified' | 'propose_new' | 'no_quote';
 
 /** Pending proposal form state per item. */
 interface ProposalForm {
@@ -140,21 +159,26 @@ export default function SupplierQuotationPage() {
 
         const initialDrafts: QuoteDraft[] = d.items.map(item => {
           const existing = d.quotes.find(q => q.pr1_item_id === item.id);
+          const isNoQuote = existing?.response_status === 'no_quote';
           return {
             pr1_item_id:         item.id,
-            quoted_description:  existing?.quoted_description ?? item.description,
+            quoted_description:  isNoQuote
+              ? 'No quote'
+              : (existing?.quoted_description ?? item.description),
             is_alternative:      existing?.is_alternative ?? false,
             unit_price:          existing ? Number(existing.unit_price) : 0,
             lead_time_days:      existing?.lead_time_days ?? 0,
             remarks:             existing?.remarks ?? '',
-            supplier_product_id: existing?.supplier_product_id ?? null,
+            supplier_product_id: isNoQuote ? null : (existing?.supplier_product_id ?? null),
+            response_status:     isNoQuote ? 'no_quote' : 'quoted',
+            no_quote_reason:     isNoQuote ? (existing?.no_quote_reason ?? null) : null,
           };
         });
         setDrafts(initialDrafts);
 
-        // Determine initial line mode: if existing quote has a product that is
-        // not in verified list, treat it as a pending proposal (propose mode)
+        // Determine initial line mode
         const initialModes: LineMode[] = initialDrafts.map(draft => {
+          if (draft.response_status === 'no_quote') return 'no_quote';
           if (!draft.supplier_product_id) return 'select_verified';
           const inVerified = products.some(p => p.id === draft.supplier_product_id);
           return inVerified ? 'select_verified' : 'propose_new';
@@ -189,6 +213,8 @@ export default function SupplierQuotationPage() {
         ...next[index],
         supplier_product_id: productId || null,
         is_alternative:      false,
+        response_status:     'quoted',
+        no_quote_reason:     null,
         // Always sync quoted line text to the newly selected verified product name so
         // switching A → B updates the field (previously only updated when description
         // was still empty or equal to the PR1 item description).
@@ -270,18 +296,53 @@ export default function SupplierQuotationPage() {
   const switchToVerifiedSelect = (index: number) => {
     setLineModes(prev => { const n = [...prev]; n[index] = 'select_verified'; return n; });
     setProposalErrors(prev => { const n = [...prev]; n[index] = ''; return n; });
-    // Clear any pending product on this line
     setPendingProducts(prev => { const n = { ...prev }; delete n[index]; return n; });
-    updateDraft(index, 'supplier_product_id', null);
-    updateDraft(index, 'is_alternative', false);
+    setDrafts(prev => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        supplier_product_id: null,
+        is_alternative:      false,
+        response_status:     'quoted',
+        no_quote_reason:     null,
+      };
+      return next;
+    });
   };
 
   const switchToProposeNew = (index: number) => {
     setLineModes(prev => { const n = [...prev]; n[index] = 'propose_new'; return n; });
-    // Keep existing draft price/lead-time; clear product selection from verified
-    if (!pendingProducts[index]) {
-      updateDraft(index, 'supplier_product_id', null);
-    }
+    const hasPending = pendingProducts[index];
+    setDrafts(prev => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        response_status: 'quoted',
+        no_quote_reason: null,
+        ...(!hasPending ? { supplier_product_id: null } : {}),
+      };
+      return next;
+    });
+  };
+
+  const switchToNoQuote = (index: number) => {
+    setLineModes(prev => { const n = [...prev]; n[index] = 'no_quote'; return n; });
+    setProposalErrors(prev => { const n = [...prev]; n[index] = ''; return n; });
+    setPendingProducts(prev => { const n = { ...prev }; delete n[index]; return n; });
+    setDrafts(prev => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        response_status:     'no_quote',
+        supplier_product_id: null,
+        unit_price:          0,
+        lead_time_days:      0,
+        is_alternative:      false,
+        quoted_description:  'No quote',
+        no_quote_reason:     null,
+      };
+      return next;
+    });
   };
 
   // ── Proposal form ────────────────────────────────────────────────────────────
@@ -326,6 +387,8 @@ export default function SupplierQuotationPage() {
           // substitute-decision workflow (is_alternative). Keeping false avoids blocking
           // award in saveItemSelection / RFQ matrix once the product is verified.
           is_alternative:      false,
+          response_status:     'quoted',
+          no_quote_reason:     null,
           quoted_description:  product.product_name,
         };
         return next;
@@ -357,27 +420,48 @@ export default function SupplierQuotationPage() {
     setProposalErrors(prev => { const n = [...prev]; n[index] = ''; return n; });
     updateDraft(index, 'supplier_product_id', null);
     updateDraft(index, 'is_alternative', false);
+    updateDraft(index, 'response_status', 'quoted');
+    updateDraft(index, 'no_quote_reason', null);
     updateDraft(index, 'quoted_description', detail?.items[index]?.description ?? '');
   };
+
+  const everyLineResponded = useMemo(() => {
+    if (!detail || !productsLoaded) return false;
+    return drafts.every((d, i) => {
+      const mode = lineModes[i] ?? 'select_verified';
+      if (mode === 'no_quote') {
+        return (d.no_quote_reason?.trim() ?? '').length > 0;
+      }
+      if (!d.supplier_product_id) return false;
+      return d.unit_price > 0;
+    });
+  }, [drafts, lineModes, productsLoaded, detail]);
 
   // ── Submit ───────────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
     if (!detail) return;
 
-    const invalidPrice = drafts.filter(d => d.unit_price <= 0);
-    if (invalidPrice.length > 0) {
-      setSubmitError('Please enter a unit price greater than 0 for all items.');
-      return;
-    }
-
-    // Phase 8: each line must have either a verified product OR a pending proposal
-    const missing = drafts.filter(d => !d.supplier_product_id);
-    if (productsLoaded && missing.length > 0) {
-      setSubmitError(
-        'Please select a verified product or propose a new product for each quoted line.'
-      );
-      return;
+    for (let i = 0; i < drafts.length; i++) {
+      const d = drafts[i];
+      const mode = lineModes[i] ?? 'select_verified';
+      if (mode === 'no_quote') {
+        if (!(d.no_quote_reason?.trim() ?? '')) {
+          setSubmitError('Please select or enter a reason for each line marked “No Quote”.');
+          return;
+        }
+        continue;
+      }
+      if (!d.supplier_product_id) {
+        setSubmitError(
+          'Please select a verified product, propose a new product, or mark “No Quote” on each line.'
+        );
+        return;
+      }
+      if (d.unit_price <= 0) {
+        setSubmitError('Please enter a unit price greater than 0 for each quoted line.');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -414,9 +498,6 @@ export default function SupplierQuotationPage() {
   const isClosed   = rfq.status === 'closed';
   const canSubmit  = rfq.status === 'open' && !isClosed;
   const isReadOnly = submitted || isClosed;
-
-  // Can submit if every line either has a verified product OR a pending proposal
-  const allLinesHaveProduct = drafts.every(d => !!d.supplier_product_id);
 
   return (
     <AppShell title="Submit Quotation">
@@ -504,10 +585,10 @@ export default function SupplierQuotationPage() {
             <div className="bg-amber-50 border border-amber-200 rounded-[4px] p-4">
               <p className="text-xs font-semibold text-amber-700 mb-1">Instructions</p>
               <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
-                <li>For each item, select a verified product <strong>or</strong> propose a new one</li>
-                <li>Fill in price and lead time</li>
+                <li>For each item, verify a catalog product, propose a new one, or mark <strong>No Quote</strong> with a reason</li>
+                <li>Quoted lines need price and lead time</li>
                 <li>Proposed products await Procurement validation before award</li>
-                <li>Mark &ldquo;Alternative item&rdquo; if quoting a substitute</li>
+                <li>Mark &ldquo;Alternative item&rdquo; only when quoting a substitute from verified catalog</li>
               </ul>
             </div>
           )}
@@ -540,9 +621,13 @@ export default function SupplierQuotationPage() {
               p => p.id === draft.supplier_product_id
             ) ?? null;
             const isProposedCatalogLine =
-              mode === 'propose_new' ||
-              (!!draft.supplier_product_id &&
-                !verifiedProducts.some(p => p.id === draft.supplier_product_id));
+              mode !== 'no_quote' &&
+              (mode === 'propose_new' ||
+                (!!draft.supplier_product_id &&
+                  !verifiedProducts.some(p => p.id === draft.supplier_product_id)));
+            const hideQuotePricing =
+              mode === 'no_quote' ||
+              (isReadOnly && draft.response_status === 'no_quote');
 
             return (
               <div
@@ -565,11 +650,19 @@ export default function SupplierQuotationPage() {
 
                 <div className="p-5 space-y-4">
 
+                  {isReadOnly && draft.response_status === 'no_quote' && (
+                    <div className="rounded-[4px] border border-rose-100 bg-rose-50/80 px-4 py-3">
+                      <p className="text-[10px] font-semibold text-rose-800 uppercase tracking-wide">No Quote</p>
+                      <p className="text-xs text-rose-900 mt-0.5 font-semibold">Cannot supply</p>
+                      <p className="text-sm text-[#0F1F3A] mt-2">{draft.no_quote_reason?.trim() || '—'}</p>
+                    </div>
+                  )}
+
                   {/* ── Phase 7/8: product section ── */}
                   {!isReadOnly && productsLoaded && (
                     <>
                       {/* Mode tabs */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
                           onClick={() => switchToVerifiedSelect(index)}
@@ -594,6 +687,18 @@ export default function SupplierQuotationPage() {
                           <PlusCircle className="inline w-3 h-3 mr-1" />
                           Propose New Product
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => switchToNoQuote(index)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
+                            mode === 'no_quote'
+                              ? 'bg-slate-700 text-white border-slate-700'
+                              : 'bg-white text-[#40527A] border-[#D8E2FF] hover:bg-[#F7F9FC]'
+                          }`}
+                        >
+                          <Ban className="inline w-3 h-3 mr-1" />
+                          No Quote
+                        </button>
                       </div>
 
                       {/* Select verified product panel */}
@@ -607,7 +712,7 @@ export default function SupplierQuotationPage() {
                               <Link href="/supplier/products" className="underline font-medium">
                                 Go to Product Catalog
                               </Link>{' '}
-                              or use &ldquo;Propose New Product&rdquo; above.
+                              or use &ldquo;Propose New Product&rdquo; or &ldquo;No Quote&rdquo; above.
                             </div>
                           ) : (
                             <div className="space-y-3">
@@ -782,6 +887,50 @@ export default function SupplierQuotationPage() {
                           )}
                         </div>
                       )}
+
+                      {/* No quote / cannot supply */}
+                      {mode === 'no_quote' && (
+                        <div className="rounded-[4px] border border-slate-200 bg-slate-50 px-4 py-4 space-y-3">
+                          <p className="text-xs font-semibold text-slate-800">
+                            <Ban className="inline w-3.5 h-3.5 mr-1" />
+                            Cannot supply this line — procurement will see your reason.
+                          </p>
+                          <ProposalField label="Reason *">
+                            <select
+                              value={noQuoteReasonSelectValue(draft)}
+                              onChange={e => {
+                                const v = e.target.value;
+                                if (v === NO_QUOTE_OTHER) {
+                                  updateDraft(index, 'no_quote_reason', '');
+                                } else {
+                                  updateDraft(index, 'no_quote_reason', v);
+                                }
+                              }}
+                              className="w-full h-10 rounded-[4px] border border-[#D8E2FF] bg-white px-3 text-sm text-[#0F1F3A]"
+                              aria-label="Reason for no quote"
+                            >
+                              <option value="">Select a reason…</option>
+                              {NO_QUOTE_REASON_PRESETS.map(preset => (
+                                <option key={preset} value={preset}>
+                                  {preset}
+                                </option>
+                              ))}
+                              <option value={NO_QUOTE_OTHER}>Other</option>
+                            </select>
+                          </ProposalField>
+                          {noQuoteReasonSelectValue(draft) === NO_QUOTE_OTHER && (
+                            <ProposalField label="Describe (required) *">
+                              <textarea
+                                rows={2}
+                                value={draft.no_quote_reason ?? ''}
+                                onChange={e => updateDraft(index, 'no_quote_reason', e.target.value)}
+                                placeholder="Brief explanation…"
+                                className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
+                              />
+                            </ProposalField>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -803,6 +952,8 @@ export default function SupplierQuotationPage() {
                     </div>
                   )}
 
+                  {!hideQuotePricing && (
+                    <>
                   {/* Alternative item toggle — show only for select_verified mode or when already alternative */}
                   {(!isReadOnly && (mode === 'select_verified' || draft.is_alternative)) && (
                     <label className="flex items-center gap-3 cursor-pointer">
@@ -882,6 +1033,8 @@ export default function SupplierQuotationPage() {
                       />
                     </div>
                   </div>
+                    </>
+                  )}
 
                   <div>
                     <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
@@ -910,10 +1063,10 @@ export default function SupplierQuotationPage() {
                   {submitError}
                 </div>
               )}
-              {!allLinesHaveProduct && productsLoaded && (
+              {!everyLineResponded && productsLoaded && (
                 <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-[4px] px-4 py-3 mb-4">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  Each item must have either a verified product selected or a new product proposed before submitting.
+                  Each line needs a complete response: quote with product and price, propose a product, or No Quote with a reason.
                 </div>
               )}
               <div className="flex items-center justify-between">
@@ -924,7 +1077,7 @@ export default function SupplierQuotationPage() {
                 </p>
                 <button
                   onClick={handleSubmit}
-                  disabled={submitting}
+                  disabled={submitting || !everyLineResponded}
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />

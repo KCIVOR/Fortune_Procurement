@@ -15,6 +15,7 @@ import type {
   SubstituteReviewBundle,
   CatalogProductSummary,
   CanvassSupplierCandidate,
+  RfqQuoteResponseStatus,
 } from '@/types/canvassing';
 
 const db = supabase as any;
@@ -362,6 +363,11 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
       const productId   = quote?.supplier_product_id ?? null;
       const productInfo = productId ? (detail.productLookup[productId] ?? null) : null;
 
+      const responseStatus: RfqQuoteResponseStatus =
+        quote?.response_status === 'no_quote' ? 'no_quote' : 'quoted';
+      const noQuoteReason =
+        responseStatus === 'no_quote' ? (quote?.no_quote_reason?.trim() || null) : null;
+
       return {
         rfq_supplier_id:         supplier.id,
         quote_id:                quote?.id ?? null,
@@ -378,6 +384,8 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
         supplier_product_name:   productInfo?.product_name   ?? null,
         supplier_product_code:   productInfo?.product_code   ?? null,
         supplier_product_status: productInfo?.status         ?? null,
+        response_status:         responseStatus,
+        no_quote_reason:         noQuoteReason,
       };
     });
 
@@ -1127,6 +1135,9 @@ export interface QuoteDraft {
   remarks:              string;
   /** Phase 7: optional link to a verified catalog product. */
   supplier_product_id?: string | null;
+  /** Omitted or `quoted` = priced/product response; `no_quote` = cannot supply (reason required). */
+  response_status?:     RfqQuoteResponseStatus;
+  no_quote_reason?:     string | null;
 }
 
 export async function submitSupplierQuotation(
@@ -1135,19 +1146,41 @@ export async function submitSupplierQuotation(
 ): Promise<void> {
   const now = new Date().toISOString();
 
-  const rows = quotes.map(q => ({
-    rfq_supplier_id:     rfqSupplierId,
-    pr1_item_id:         q.pr1_item_id,
-    quoted_description:  q.quoted_description.trim(),
-    is_alternative:      q.is_alternative,
-    unit_price:          q.unit_price,
-    lead_time_days:      q.lead_time_days,
-    remarks:             q.remarks.trim() || null,
-    submitted_at:        now,
-    updated_at:          now,
-    // Phase 7: persist the catalog product link; undefined → leave null in DB
-    supplier_product_id: q.supplier_product_id ?? null,
-  }));
+  const rows = quotes.map(q => {
+    const status: RfqQuoteResponseStatus =
+      q.response_status === 'no_quote' ? 'no_quote' : 'quoted';
+    if (status === 'no_quote') {
+      const reason = (q.no_quote_reason ?? '').trim();
+      return {
+        rfq_supplier_id:     rfqSupplierId,
+        pr1_item_id:         q.pr1_item_id,
+        quoted_description:  'No quote',
+        is_alternative:      false,
+        unit_price:          0,
+        lead_time_days:      0,
+        remarks:             q.remarks.trim() || null,
+        submitted_at:        now,
+        updated_at:          now,
+        supplier_product_id: null,
+        response_status:     'no_quote' as const,
+        no_quote_reason:     reason,
+      };
+    }
+    return {
+      rfq_supplier_id:     rfqSupplierId,
+      pr1_item_id:         q.pr1_item_id,
+      quoted_description:  q.quoted_description.trim(),
+      is_alternative:      q.is_alternative,
+      unit_price:          q.unit_price,
+      lead_time_days:      q.lead_time_days,
+      remarks:             q.remarks.trim() || null,
+      submitted_at:        now,
+      updated_at:          now,
+      supplier_product_id: q.supplier_product_id ?? null,
+      response_status:     'quoted' as const,
+      no_quote_reason:     null,
+    };
+  });
 
   const { error: upsertErr } = await db
     .from('rfq_item_quotes')

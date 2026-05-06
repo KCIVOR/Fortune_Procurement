@@ -104,7 +104,7 @@ export async function fetchApprovalDetail(
       .eq('instance_id', instanceId)
       .order('acted_at', { ascending: true }),
     db.from('warehouse_validations')
-      .select('decision, validator_name_snapshot, validated_at, notes')
+      .select('id, decision, validator_name_snapshot, validated_at, notes')
       .eq('pr1_id', inst.document_id)
       .maybeSingle(),
   ]);

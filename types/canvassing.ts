@@ -72,6 +72,8 @@ export interface RfqSupplier {
   created_at:             string;
 }
 
+export type RfqQuoteResponseStatus = 'quoted' | 'no_quote';
+
 export interface RfqItemQuote {
   id:                  string;
   rfq_supplier_id:     string;
@@ -86,6 +88,9 @@ export interface RfqItemQuote {
   updated_at:          string;
   /** Phase 7: nullable link to supplier's verified catalog product. */
   supplier_product_id: string | null;
+  /** Explicit line response; omitted/null treated as quoted for legacy rows. */
+  response_status?:     RfqQuoteResponseStatus;
+  no_quote_reason?:    string | null;
 }
 
 export interface SupplierItemSelection {
@@ -190,6 +195,9 @@ export interface QuoteMatrixRow {
     supplier_product_name: string | null;
     supplier_product_code: string | null;
     supplier_product_status: string | null;
+    /** Supplier explicit no-quote vs quoted line (default quoted). */
+    response_status:        RfqQuoteResponseStatus;
+    no_quote_reason:        string | null;
   }[];
   selected_rfq_supplier_id: string | null;
 }
