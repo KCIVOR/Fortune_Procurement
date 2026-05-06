@@ -23,6 +23,16 @@ interface PasswordDisplayState {
   copied: boolean;
 }
 
+function readCreateUserApiError(data: unknown): string {
+  if (!data || typeof data !== 'object') return 'Failed to create user';
+  const o = data as Record<string, unknown>;
+  for (const key of ['error', 'message', 'msg'] as const) {
+    const v = o[key];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  return 'Failed to create user';
+}
+
 export default function CreateUserModal({
   isOpen,
   onClose,
@@ -88,27 +98,39 @@ export default function CreateUserModal({
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to create user');
-        setLoading(false);
+      let data: Record<string, unknown> = {};
+      try {
+        const text = await response.text();
+        if (text) data = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        setError(`Invalid response from server (HTTP ${response.status}).`);
         return;
       }
 
-      setTempPassword(data.temp_password);
-      setUserEmail(data.email);
+      const failed =
+        !response.ok || data.success === false;
+
+      if (failed) {
+        setError(readCreateUserApiError(data));
+        return;
+      }
+
+      setTempPassword(typeof data.temp_password === 'string' ? data.temp_password : '');
+      setUserEmail(
+        typeof data.user_email === 'string' ? data.user_email :
+        typeof data.email === 'string' ? data.email :
+        formData.email
+      );
       setStep('success');
       setPasswordDisplay({ show: true, copied: false });
 
-      // Auto-hide modal after 90 seconds
-      const timeout = setTimeout(() => {
+      setTimeout(() => {
         handleClose();
       }, 90000);
-
-      return () => clearTimeout(timeout);
     } catch (err) {
-      setError('Network error. Please try again.');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Network error: ${msg}`);
+    } finally {
       setLoading(false);
     }
   }
@@ -140,7 +162,11 @@ export default function CreateUserModal({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {step === 'form' ? 'Create New User' : 'User Created Successfully'}
+            {step === 'success'
+              ? 'User Created Successfully'
+              : error
+              ? 'Failed to Create User'
+              : 'Create New User'}
           </DialogTitle>
           <DialogClose />
         </DialogHeader>
