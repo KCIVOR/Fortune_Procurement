@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, FileText, PackageSearch, SquareCheck as CheckSquare, ClipboardList, SendHorizontal as SendHorizonal, ShoppingCart, PackageCheck, Tag, Replace, LogOut, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { ROLE_NAV } from '@/config/navigation';
+import { ROLE_NAV, type NavItem } from '@/config/navigation';
 import type { AppRole } from '@/types/auth';
 import { cn } from '@/lib/utils';
 import FortuneLogo from '@/logo/fortune_logo.svg';
@@ -39,11 +39,10 @@ interface SidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void;
 }
 
-/** List roots that have sibling URLs under the same prefix (e.g. `/approvals/history`). */
-function isNavItemActive(pathname: string, href: string): boolean {
+/** Whether pathname belongs to this nav href (same rules as before, per-item). */
+function navItemMatches(pathname: string, href: string): boolean {
   if (pathname === href) return true;
   if (href === '/dashboard') return false;
-
   if (href === '/approvals') return false;
 
   if (href === '/warehouse') {
@@ -53,6 +52,20 @@ function isNavItemActive(pathname: string, href: string): boolean {
   return pathname.startsWith(`${href}/`);
 }
 
+/**
+ * At most one sidebar item active: exact match wins, otherwise longest matching href
+ * (so /tsqa/rse does not also light /tsqa, and /accreditation/products does not light /accreditation).
+ */
+function getActiveNavHref(pathname: string, items: NavItem[]): string | null {
+  const matching = items.filter((item) => navItemMatches(pathname, item.href));
+  if (matching.length === 0) return null;
+  const exact = matching.find((item) => item.href === pathname);
+  if (exact) return exact.href;
+  return matching.reduce((best, item) =>
+    item.href.length > best.href.length ? item : best
+  ).href;
+}
+
 export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedChange }: SidebarProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
@@ -60,6 +73,7 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
   if (!profile) return null;
 
   const navItems = ROLE_NAV[profile.role] ?? [];
+  const activeHref = getActiveNavHref(pathname, navItems);
   const toggleCollapse = () => onCollapsedChange?.(!isCollapsed);
 
   return (
@@ -100,7 +114,7 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
       )}>
         {navItems.map((item) => {
           const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
-          const isActive = isNavItemActive(pathname, item.href);
+          const isActive = activeHref !== null && item.href === activeHref;
 
           return (
             <Link

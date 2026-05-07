@@ -254,8 +254,17 @@ export async function fetchPR2ApprovalDetail(
     ((workflows ?? []) as any[]).map((w: any) => [w.id, w.code])
   );
 
-  const phase1Inst = allInstances.find((i: any) => wfCodeMap[i.workflow_id] === 'PR2_PHASE1');
-  const phase2Inst = allInstances.find((i: any) => wfCodeMap[i.workflow_id] === 'PR2_PHASE2');
+  const pickLatestByWorkflow = (code: string) => {
+    const candidates = allInstances.filter((i: any) => wfCodeMap[i.workflow_id] === code);
+    if (candidates.length === 0) return undefined;
+    return [...candidates].sort(
+      (a: any, b: any) =>
+        new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+    )[0];
+  };
+
+  const phase1Inst = pickLatestByWorkflow('PR2_PHASE1');
+  const phase2Inst = pickLatestByWorkflow('PR2_PHASE2');
 
   // Fetch steps + actions for both phases
   const phaseWfIds = [phase1Inst?.workflow_id, phase2Inst?.workflow_id].filter(Boolean);
@@ -357,6 +366,23 @@ export async function fetchPR2ApprovalDetail(
     active_instance_status: (activeInst?.status ?? null) as ApprovalInstanceStatus | null,
     active_steps:           activeSteps,
   };
+}
+
+/** Latest PR2 approval instance by started_at, then full merged phase detail (read-only). */
+export async function fetchPR2ApprovalDetailByPR2Id(
+  pr2Id: string
+): Promise<PR2ApprovalDetail | null> {
+  const { data: inst, error } = await db
+    .from('approval_instances')
+    .select('id')
+    .eq('document_type', 'PR2')
+    .eq('document_id', pr2Id)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!inst?.id) return null;
+  return fetchPR2ApprovalDetail(inst.id);
 }
 
 // ─── Submit PR2 approval action ───────────────────────────────────────────────

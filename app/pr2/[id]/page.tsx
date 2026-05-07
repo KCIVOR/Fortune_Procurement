@@ -9,9 +9,10 @@ import LoadingState from '@/components/shared/LoadingState';
 import { useAuth } from '@/context/AuthContext';
 import { fetchPR2ById, savePR2Items, calcPR2GrandTotal } from '@/lib/pr2';
 import { submitPR2ForApproval, canActOnPR2Step, fetchPR2ApprovalDetail } from '@/lib/pr2-approvals';
-import { fetchPOByPR2Id } from '@/lib/po';
+import { fetchPOsByPR2Id } from '@/lib/po';
 import { supabase } from '@/lib/supabase';
 import type { PR2WithItems, PR2Item } from '@/types/pr2';
+import type { PORequest } from '@/types/po';
 import type { PR2ApprovalDetail, ApprovalActionRecord, WorkflowStep } from '@/types/approvals';
 import { PR2_STATUS_LABELS } from '@/types/pr2';
 import { format } from 'date-fns';
@@ -118,7 +119,7 @@ export default function PR2DetailPage() {
           setActiveStepPosition(step?.position_required ?? null);
           setActiveStepLabel(step?.action_label ?? null);
         }),
-      fetchPOByPR2Id(id).then(po => setExistingPOId(po?.id ?? null)).catch(() => null),
+      fetchPOsByPR2Id(id).catch(() => []),
       (async () => {
         try {
           const inst = await db.from('approval_instances')
@@ -133,11 +134,34 @@ export default function PR2DetailPage() {
         } catch { }
       })(),
     ])
-      .then(([data]) => {
+      .then(async ([data, _, pos]) => {
         if (!data) { setError('PR2 not found.'); return; }
         setPR2(data);
         setEditItems(data.items.map(toEditableItem));
         setEditRemarks(data.remarks ?? '');
+        const poList = Array.isArray(pos) ? (pos as PORequest[]) : [];
+        setExistingPOs(poList);
+        const rsIds = Array.from(
+          new Set(
+            data.items
+              .map(i => i.selected_rfq_supplier_id)
+              .filter((id): id is string => Boolean(id))
+          )
+        );
+        let pending = false;
+        if (rsIds.length > 0) {
+          const { data: rs } = await db.from('rfq_suppliers').select('id, supplier_id').in('id', rsIds);
+          const uniqueProfileIds = new Set<string>(
+            (rs ?? [])
+              .map((r: { supplier_id: string | null }) => r.supplier_id)
+              .filter((id: string | null): id is string => Boolean(id))
+          );
+          const poSids = new Set<string>(
+            poList.map(p => p.supplier_id).filter((id: string | null): id is string => Boolean(id))
+          );
+          pending = Array.from(uniqueProfileIds).some(sid => !poSids.has(sid));
+        }
+        setHasPendingPOGroups(pending);
       })
       .catch(() => setError('Failed to load PR2.'))
       .finally(() => setLoading(false));
@@ -198,7 +222,8 @@ export default function PR2DetailPage() {
   const [activeStepPosition, setActiveStepPosition] = useState<string | null>(null);
   const [activeStepRole, setActiveStepRole] = useState<string | null>(null);
   const [activeStepLabel, setActiveStepLabel] = useState<string | null>(null);
-  const [existingPOId, setExistingPOId] = useState<string | null>(null);
+  const [existingPOs, setExistingPOs] = useState<PORequest[]>([]);
+  const [hasPendingPOGroups, setHasPendingPOGroups] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -346,32 +371,47 @@ export default function PR2DetailPage() {
         </div>
       )}
 
-      {/* PO banner — shown when PR2 is fully approved */}
-      {pr2.status === 'phase2_approved' && existingPOId && (
-        <div className="flex items-center justify-between gap-4 bg-emerald-50 border border-emerald-200 rounded-[4px] px-5 py-4 mb-4">
-          <div className="flex items-center gap-3">
-            <ShoppingCart className="w-5 h-5 text-emerald-600 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-800">Purchase Order generated</p>
-              <p className="text-xs text-emerald-700 mt-0.5">A PO has already been created for this PR2.</p>
+      {/* PO banners — fully approved PR2 (may be multiple suppliers) */}
+      {pr2.status === 'phase2_approved' && existingPOs.length > 0 && (
+        <div className="space-y-3 mb-4">
+          {existingPOs.map(po => (
+            <div
+              key={po.id}
+              className="flex items-center justify-between gap-4 bg-emerald-50 border border-emerald-200 rounded-[4px] px-5 py-4"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <ShoppingCart className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-emerald-800">Purchase Order</p>
+                  <p className="text-xs text-emerald-700 mt-0.5 truncate">
+                    {po.po_number} · {po.supplier_name_snapshot}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={`/po/${po.id}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-[4px] transition shrink-0"
+              >
+                View PO
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
-          </div>
-          <Link
-            href={`/po/${existingPOId}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-[4px] transition shrink-0"
-          >
-            View PO
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          ))}
         </div>
       )}
-      {pr2.status === 'phase2_approved' && !existingPOId && profile?.position === 'Buyer' && (
+      {pr2.status === 'phase2_approved' && hasPendingPOGroups && profile?.position === 'Buyer' && (
         <div className="flex items-center justify-between gap-4 bg-blue-50 border border-blue-200 rounded-[4px] px-5 py-4 mb-4">
           <div className="flex items-center gap-3">
             <ShoppingCart className="w-5 h-5 text-blue-600 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-blue-800">Ready for Purchase Order</p>
-              <p className="text-xs text-blue-700 mt-0.5">This PR2 is fully approved. Generate a PO to proceed.</p>
+              <p className="text-sm font-semibold text-blue-800">
+                {existingPOs.length > 0 ? 'Generate remaining Purchase Orders' : 'Ready for Purchase Order'}
+              </p>
+              <p className="text-xs text-blue-700 mt-0.5">
+                {existingPOs.length > 0
+                  ? 'One or more awarded suppliers still need a PO for this PR2.'
+                  : 'This PR2 is fully approved. Generate a PO for each awarded supplier.'}
+              </p>
             </div>
           </div>
           <Link
@@ -557,7 +597,7 @@ export default function PR2DetailPage() {
               <div>
                 <p className="text-sm font-semibold text-emerald-800">PR2 is ready for approval routing</p>
                 <p className="text-xs text-emerald-700 mt-0.5">
-                  Review the inventory figures above, then click "Submit for Approval" to start Phase 1.
+                  Review the inventory figures above, then click &ldquo;Submit for Approval&rdquo; to start Phase 1.
                 </p>
               </div>
             </div>
@@ -794,7 +834,9 @@ function WorkflowTimeline({
                     <span className="text-xs text-[#BFC7D5]">· {format(new Date(action!.acted_at), 'MMM d, yyyy h:mm a')}</span>
                   </div>
                   {action!.remarks && (
-                    <p className="text-xs text-[#40527A] italic ml-0.5">"{action!.remarks}"</p>
+                    <p className="text-xs text-[#40527A] italic ml-0.5">
+                      &ldquo;{action!.remarks}&rdquo;
+                    </p>
                   )}
                 </div>
               )}

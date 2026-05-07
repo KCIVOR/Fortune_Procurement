@@ -4,6 +4,14 @@ const db = supabase as any;
 
 export type ChainDocType = 'PR1' | 'RFQ' | 'PR2' | 'PO' | 'Delivery' | 'GRN';
 
+export interface ChainPOLink {
+  id: string;
+  document_number: string;
+  status: string | null;
+  supplier_name_snapshot: string | null;
+  route: string;
+}
+
 export interface ChainDoc {
   type: ChainDocType;
   id: string | null;
@@ -11,6 +19,8 @@ export interface ChainDoc {
   status: string | null;
   route: string | null;
   exists: boolean;
+  /** Multiple POs for the same PR2 (PR1/RFQ/PR2 anchors only). Omitted when a single PO or none. */
+  linked_pos?: ChainPOLink[];
 }
 
 export type DocumentChain = ChainDoc[];
@@ -77,14 +87,55 @@ async function resolvePR2ById(pr2Id: string): Promise<ChainDoc> {
   return { type: 'PR2', id: data.id, document_number: data.pr2_number, status: data.status, route: `/pr2/${data.id}`, exists: true };
 }
 
-async function resolvePOByPR2(pr2Id: string): Promise<ChainDoc> {
+/** First PO id for this PR2 (e.g. to resolve Delivery when multiple POs exist). */
+async function getFirstPOIdForPR2(pr2Id: string): Promise<string | null> {
   const { data } = await db
     .from('po_requests')
-    .select('id, po_number, status')
+    .select('id')
     .eq('pr2_id', pr2Id)
+    .order('generated_at', { ascending: true })
+    .limit(1)
     .maybeSingle();
-  if (!data) return { type: 'PO', id: null, document_number: null, status: null, route: null, exists: false };
-  return { type: 'PO', id: data.id, document_number: data.po_number, status: data.status, route: `/po/${data.id}`, exists: true };
+  return data?.id ?? null;
+}
+
+/** All PO rows for Related Records when viewing PR1 / RFQ / PR2 (not anchored on a specific PO). */
+async function resolvePOsByPR2ForChain(pr2Id: string): Promise<ChainDoc> {
+  const { data, error } = await db
+    .from('po_requests')
+    .select('id, po_number, status, supplier_name_snapshot')
+    .eq('pr2_id', pr2Id)
+    .order('generated_at', { ascending: true });
+  if (error || !data?.length) {
+    return { type: 'PO', id: null, document_number: null, status: null, route: null, exists: false };
+  }
+  if (data.length === 1) {
+    const row = data[0];
+    return {
+      type:               'PO',
+      id:                 row.id,
+      document_number:    row.po_number,
+      status:             row.status,
+      route:              `/po/${row.id}`,
+      exists:             true,
+    };
+  }
+  const linked_pos = data.map((row: { id: string; po_number: string; status: string | null; supplier_name_snapshot: string | null }) => ({
+    id:                     row.id as string,
+    document_number:        row.po_number as string,
+    status:                 (row.status as string) ?? null,
+    supplier_name_snapshot: (row.supplier_name_snapshot as string) ?? null,
+    route:                  `/po/${row.id}`,
+  }));
+  return {
+    type:            'PO',
+    id:              null,
+    document_number: null,
+    status:          null,
+    route:           null,
+    exists:          true,
+    linked_pos,
+  };
 }
 
 async function resolvePOById(poId: string): Promise<ChainDoc> {
@@ -247,20 +298,36 @@ export async function fetchDocumentChain(
       if (pr2.exists) pr2Id = pr2.id;
     }
     if (pr2Id && !poId) {
-      const po = await resolvePOByPR2(pr2Id);
-      if (po.exists) poId = po.id;
+      const firstPoId = await getFirstPOIdForPR2(pr2Id);
+      if (firstPoId) poId = firstPoId;
     }
     if (poId && !deliveryId) {
       const del = await resolveDeliveryByPO(poId);
       if (del.exists) deliveryId = del.id;
     }
 
+    const emptyPO: ChainDoc = {
+      type: 'PO',
+      id: null,
+      document_number: null,
+      status: null,
+      route: null,
+      exists: false,
+    };
+
+    const poFromAnchor =
+      baseType === 'PO' || baseType === 'Delivery' || baseType === 'GRN'
+        ? (poId ? resolvePOById(poId) : Promise.resolve(emptyPO))
+        : pr2Id
+          ? resolvePOsByPR2ForChain(pr2Id)
+          : Promise.resolve(emptyPO);
+
     // Build chain in order: PR1 → RFQ → PR2 → PO → Delivery → GRN
     const [pr1Doc, rfqDoc, pr2Doc, poDoc, deliveryDoc, grnDoc] = await Promise.all([
       pr1Id ? resolvePR1(pr1Id) : Promise.resolve({ type: 'PR1' as ChainDocType, id: null, document_number: null, status: null, route: null, exists: false }),
       rfqId ? resolveRFQById(rfqId) : Promise.resolve({ type: 'RFQ' as ChainDocType, id: null, document_number: null, status: null, route: null, exists: false }),
       pr2Id ? resolvePR2ById(pr2Id) : Promise.resolve({ type: 'PR2' as ChainDocType, id: null, document_number: null, status: null, route: null, exists: false }),
-      poId ? resolvePOById(poId) : Promise.resolve({ type: 'PO' as ChainDocType, id: null, document_number: null, status: null, route: null, exists: false }),
+      poFromAnchor,
       deliveryId ? resolveDeliveryById(deliveryId) : Promise.resolve({ type: 'Delivery' as ChainDocType, id: null, document_number: null, status: null, route: null, exists: false }),
       deliveryId ? resolveGRNByDelivery(deliveryId) : Promise.resolve({ type: 'GRN' as ChainDocType, id: null, document_number: null, status: null, route: null, exists: false }),
     ]);

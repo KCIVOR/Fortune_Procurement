@@ -1,3 +1,5 @@
+import type { StatusVariant } from '@/components/shared/StatusChip';
+
 export type PR1Status =
   | 'draft'
   | 'pending_warehouse'
@@ -26,6 +28,15 @@ export interface PR1Item {
   warehouse_decision?: string | null;
 }
 
+/** `warehouse_validations` header merged by `fetchPR1ById` when a row exists for this PR1. */
+export interface PR1WarehouseValidationSummary {
+  decision: 'sufficient' | 'insufficient' | null;
+  validator_name_snapshot: string | null;
+  validator_position_snapshot: string | null;
+  notes: string | null;
+  validated_at: string | null;
+}
+
 export interface PR1Request {
   id: string;
   pr1_number: string;
@@ -44,10 +55,20 @@ export interface PR1Request {
   priority: 'normal' | 'medium' | 'high';
   created_at: string;
   updated_at: string;
+  /** Derived employee-facing lifecycle (not stored in DB). */
+  lifecycle_display_label?: string;
+  lifecycle_display_chip?: StatusVariant;
 }
 
 export interface PR1WithItems extends PR1Request {
   items: PR1Item[];
+  warehouse_validation?: PR1WarehouseValidationSummary | null;
+}
+
+/** Batch lifecycle resolution for PR1 list / detail (Option C — display only). */
+export interface PR1LifecycleSummary {
+  lifecycle_display_label: string;
+  lifecycle_display_chip: StatusVariant;
 }
 
 // Form state for create/edit

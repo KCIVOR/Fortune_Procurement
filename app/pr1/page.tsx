@@ -200,8 +200,8 @@ export default function PR1ListPage() {
                     </td>
                     <td className="px-5 py-3.5">
                       <StatusChip
-                        status={STATUS_MAP[r.status] || 'pending'}
-                        label={PR1_STATUS_LABELS[r.status]}
+                        status={(r.lifecycle_display_chip ?? STATUS_MAP[r.status]) || 'pending'}
+                        label={r.lifecycle_display_label ?? PR1_STATUS_LABELS[r.status]}
                         size="sm"
                       />
                     </td>

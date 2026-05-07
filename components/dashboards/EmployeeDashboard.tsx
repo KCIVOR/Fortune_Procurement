@@ -25,13 +25,13 @@ import {
 } from 'lucide-react';
 
 const STATUS_MAP: Record<string, StatusVariant> = {
-  draft:              'draft',
-  pending_warehouse:  'pending',
-  pending_approval:   'in_review',
-  resolved_internal:  'validated',
-  approved:           'approved',
-  rejected:           'rejected',
-  cancelled:          'cancelled',
+  draft: 'draft',
+  pending_warehouse: 'pending',
+  pending_approval: 'in_review',
+  resolved_internal: 'validated',
+  approved: 'approved',
+  rejected: 'rejected',
+  cancelled: 'cancelled',
 };
 
 interface Props { profile: UserProfile; }
@@ -43,8 +43,8 @@ export default function EmployeeDashboard({ profile }: Props) {
 
   useEffect(() => {
     Promise.all([
-      fetchPendingSubstituteCount(profile.id).then(setPendingSubs).catch(() => {}),
-      fetchMyPR1s(profile.id).then((result) => setRequests(result.requests)).catch(() => {}),
+      fetchPendingSubstituteCount(profile.id).then(setPendingSubs).catch(() => { }),
+      fetchMyPR1s(profile.id).then((result) => setRequests(result.requests)).catch(() => { }),
     ]).finally(() => setLoading(false));
   }, [profile.id]);
 
@@ -54,10 +54,10 @@ export default function EmployeeDashboard({ profile }: Props) {
   const rejected = requests.filter(r => r.status === 'rejected').length;
 
   const stats = [
-    { label: 'Total Requests',   value: totalRequests.toString(), icon: FileText     },
-    { label: 'Pending Approval', value: pendingApproval.toString(), icon: Clock        },
-    { label: 'Approved',         value: approved.toString(), icon: CheckCircle2 },
-    { label: 'Rejected',         value: rejected.toString(), icon: XCircle      },
+    { label: 'Total Requests', value: totalRequests.toString(), icon: FileText },
+    { label: 'Pending Approval', value: pendingApproval.toString(), icon: Clock },
+    { label: 'Approved', value: approved.toString(), icon: CheckCircle2 },
+    { label: 'Rejected', value: rejected.toString(), icon: XCircle },
   ];
 
   const recentRequests = requests.slice(0, 5);
@@ -78,10 +78,27 @@ export default function EmployeeDashboard({ profile }: Props) {
         }
       />
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 mt-1">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex items-center gap-3">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
+                <Icon className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xl font-bold text-[#0F1F3A] leading-tight">{stat.value}</p>
+                <p className="text-xs text-[#40527A] leading-tight">{stat.label}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       {pendingSubs > 0 && (
         <Link
           href="/substitutes"
-          className="flex items-center gap-4 bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-5 py-4 mb-6 transition group"
+          className="flex items-center gap-4 bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-5 py-4 mb-4 transition group"
         >
           <div className="w-10 h-10 rounded-[4px] bg-white border border-[#D8E2FF] text-[#40527A] flex items-center justify-center shrink-0">
             <Replace className="w-5 h-5" />
@@ -100,7 +117,7 @@ export default function EmployeeDashboard({ profile }: Props) {
         </Link>
       )}
 
-      {/* Recent Requests — primary section */}
+      {/* Recent Requests */}
       <div className="bg-white rounded-[4px] border border-[#D8E2FF] mb-4">
         <div className="px-5 py-4 border-b border-[#D8E2FF]">
           <h2 className="text-sm font-semibold text-[#0F1F3A]">Recent Requests</h2>
@@ -161,24 +178,6 @@ export default function EmployeeDashboard({ profile }: Props) {
             </table>
           </div>
         )}
-      </div>
-
-      {/* Stats — secondary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div key={stat.label} className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex items-center gap-3">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
-                <Icon className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xl font-bold text-[#0F1F3A] leading-tight">{stat.value}</p>
-                <p className="text-xs text-[#40527A] leading-tight">{stat.label}</p>
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );

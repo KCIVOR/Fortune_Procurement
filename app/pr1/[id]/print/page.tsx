@@ -3,20 +3,149 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { fetchPR1ById } from '@/lib/pr1';
-import type { PR1WithItems } from '@/types/pr1';
+import { fetchPR1ApprovalSignatories } from '@/lib/approvals';
+import { labelForApprovalAction, latestActionForStep } from '@/lib/print-approval-signatures';
+import type { PR1WithItems, PR1WarehouseValidationSummary } from '@/types/pr1';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
+import type { ApprovalActionRecord, PR1ApprovalSignatories, WorkflowStep } from '@/types/approvals';
 import { format } from 'date-fns';
+
+function pr1StepOrders(steps: WorkflowStep[]) {
+  const ordered = [...steps].sort((a, b) => a.step_order - b.step_order);
+  const firstOrder = ordered[0]?.step_order ?? 1;
+  const finalStep = ordered.find(s => s.is_final) ?? ordered[ordered.length - 1];
+  const finalOrder = finalStep?.step_order ?? 2;
+  return { firstOrder, finalOrder };
+}
+
+function PR1ApproverSignatureBody({
+  action,
+}: {
+  action: ApprovalActionRecord | null;
+}) {
+  if (!action) {
+    return (
+      <div style={{ borderTop: '1px solid #000', paddingTop: 3, color: '#999', fontStyle: 'italic' }}>
+        Pending
+      </div>
+    );
+  }
+
+  const statusLabel = labelForApprovalAction(action.action);
+  const statusColor =
+    action.action === 'rejected' ? '#b91c1c' : action.action === 'revision_requested' ? '#b45309' : '#166534';
+
+  return (
+    <div style={{ borderTop: '1px solid #000', paddingTop: 3 }}>
+      {action.action !== 'approved' && (
+        <div style={{ fontWeight: 'bold', color: statusColor, marginBottom: 2 }}>{statusLabel}</div>
+      )}
+      <div style={{ fontWeight: 'bold' }}>{action.actor_name_snapshot}</div>
+      <div>{action.actor_position_snapshot}</div>
+      <div style={{ fontSize: 8, color: '#555', marginTop: 2 }}>
+        {format(new Date(action.acted_at), 'MM/dd/yyyy hh:mm a')}
+      </div>
+      {action.remarks && (
+        <div style={{ fontSize: 8, color: '#555', marginTop: 3, fontStyle: 'italic' }}>
+          {action.remarks}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PR1WarehouseUseBody({
+  warehouseValidation,
+}: {
+  warehouseValidation: PR1WarehouseValidationSummary | null | undefined;
+}) {
+  if (!warehouseValidation) {
+    return (
+      <div style={{ borderTop: '1px solid #000', paddingTop: 3, color: '#999', fontStyle: 'italic' }}>
+        Pending
+      </div>
+    );
+  }
+
+  const completed = Boolean(warehouseValidation.validated_at && warehouseValidation.decision);
+  const decisionLine =
+    warehouseValidation.decision === 'sufficient'
+      ? 'Stock sufficient'
+      : warehouseValidation.decision === 'insufficient'
+        ? 'Stock insufficient — forwarded for approval'
+        : null;
+
+  return (
+    <div style={{ borderTop: '1px solid #000', paddingTop: 3 }}>
+      {completed ? (
+        <>
+          <div style={{ fontWeight: 'bold' }}>SOH Verified</div>
+          {decisionLine && (
+            <div style={{ fontSize: 8, color: '#333', marginTop: 2 }}>{decisionLine}</div>
+          )}
+          {warehouseValidation.validator_name_snapshot && (
+            <div style={{ fontWeight: 'bold', marginTop: 4 }}>
+              {warehouseValidation.validator_name_snapshot}
+            </div>
+          )}
+          {warehouseValidation.validator_position_snapshot && (
+            <div style={{ fontSize: 8, color: '#333' }}>
+              {warehouseValidation.validator_position_snapshot}
+            </div>
+          )}
+          {warehouseValidation.validated_at && (
+            <div style={{ fontSize: 8, color: '#555', marginTop: 2 }}>
+              {format(new Date(warehouseValidation.validated_at), 'MM/dd/yyyy hh:mm a')}
+            </div>
+          )}
+          {warehouseValidation.notes && (
+            <div style={{ fontSize: 8, color: '#555', marginTop: 4, fontStyle: 'italic' }}>
+              {warehouseValidation.notes}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div style={{ fontWeight: 'bold', color: '#555', fontSize: 9 }}>
+            Warehouse review in progress
+          </div>
+          {warehouseValidation.validator_name_snapshot && (
+            <div style={{ fontWeight: 'bold', marginTop: 4, fontSize: 9 }}>
+              {warehouseValidation.validator_name_snapshot}
+            </div>
+          )}
+          {warehouseValidation.validator_position_snapshot && (
+            <div style={{ fontSize: 8, color: '#333' }}>
+              {warehouseValidation.validator_position_snapshot}
+            </div>
+          )}
+          {warehouseValidation.notes && (
+            <div style={{ fontSize: 8, color: '#555', marginTop: 4, fontStyle: 'italic' }}>
+              {warehouseValidation.notes}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function PR1PrintPage() {
   const { id } = useParams<{ id: string }>();
   const [pr1, setPR1] = useState<PR1WithItems | null>(null);
+  const [signatories, setSignatories] = useState<PR1ApprovalSignatories | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
-    fetchPR1ById(id)
-      .then(setPR1)
-      .finally(() => setLoading(false));
+    (async () => {
+      const [prRow, sig] = await Promise.all([
+        fetchPR1ById(id),
+        fetchPR1ApprovalSignatories(id).catch(() => null),
+      ]);
+      setPR1(prRow);
+      setSignatories(sig);
+    })().finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -47,6 +176,12 @@ export default function PR1PrintPage() {
     ...pr1.items,
     ...Array(Math.max(0, MINIMUM_ROWS - pr1.items.length)).fill(null),
   ];
+
+  const { firstOrder, finalOrder } = signatories
+    ? pr1StepOrders(signatories.workflow_steps)
+    : { firstOrder: 1, finalOrder: 2 };
+  const reviewedAction = signatories ? latestActionForStep(signatories.actions, firstOrder) : null;
+  const approvedAction = signatories ? latestActionForStep(signatories.actions, finalOrder) : null;
 
   return (
     <>
@@ -210,16 +345,16 @@ export default function PR1PrintPage() {
               </td>
               <td style={{ width: '25%', border: '1px solid #000', borderTop: 'none', padding: '6px 8px', fontSize: 9, verticalAlign: 'top' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: 20 }}>Reviewed and Noted By:</div>
-                <div style={{ borderTop: '1px solid #000', paddingTop: 3, color: '#999', fontStyle: 'italic' }}>Pending</div>
+                <PR1ApproverSignatureBody action={reviewedAction} />
               </td>
               <td style={{ width: '25%', border: '1px solid #000', borderTop: 'none', padding: '6px 8px', fontSize: 9, verticalAlign: 'top' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: 20 }}>Approved By:</div>
-                <div style={{ borderTop: '1px solid #000', paddingTop: 3, color: '#999', fontStyle: 'italic' }}>Pending</div>
+                <PR1ApproverSignatureBody action={approvedAction} />
               </td>
               <td style={{ width: '25%', border: '1px solid #000', borderTop: 'none', padding: '6px 8px', fontSize: 9, verticalAlign: 'top' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: 4 }}>For Warehouse Use:</div>
                 <div style={{ fontSize: 8, color: '#555', marginBottom: 16 }}>SOH Verified / Remarks:</div>
-                <div style={{ borderTop: '1px solid #000', paddingTop: 3, color: '#999', fontStyle: 'italic' }}>Pending</div>
+                <PR1WarehouseUseBody warehouseValidation={pr1.warehouse_validation} />
               </td>
             </tr>
           </tbody>

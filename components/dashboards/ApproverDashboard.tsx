@@ -22,8 +22,8 @@ import { format } from 'date-fns';
 interface Props { profile: UserProfile; }
 
 export default function ApproverDashboard({ profile }: Props) {
-  const [queue, setQueue]     = useState<PR1ApprovalQueueRow[]>([]);
-  const [stats, setStats]     = useState({
+  const [queue, setQueue] = useState<PR1ApprovalQueueRow[]>([]);
+  const [stats, setStats] = useState({
     awaitingAction: 0, approvedThisWeek: 0, rejectedThisWeek: 0, totalProcessed: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -39,10 +39,10 @@ export default function ApproverDashboard({ profile }: Props) {
   }, [profile.id]);
 
   const statCards = [
-    { label: 'Awaiting My Action', value: stats.awaitingAction,   icon: Clock        },
-    { label: 'Approved This Week', value: stats.approvedThisWeek,  icon: CheckCircle2 },
-    { label: 'Rejected This Week', value: stats.rejectedThisWeek,  icon: XCircle      },
-    { label: 'Total Processed',    value: stats.totalProcessed,    icon: CheckSquare  },
+    { label: 'Awaiting My Action', value: stats.awaitingAction, icon: Clock },
+    { label: 'Approved This Week', value: stats.approvedThisWeek, icon: CheckCircle2 },
+    { label: 'Rejected This Week', value: stats.rejectedThisWeek, icon: XCircle },
+    { label: 'Total Processed', value: stats.totalProcessed, icon: CheckSquare },
   ];
 
   return (
@@ -52,7 +52,23 @@ export default function ApproverDashboard({ profile }: Props) {
         description={`${profile.department} · Approval queue`}
       />
 
-      {/* Action queue first — primary content */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 mt-1">
+        {statCards.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex items-center gap-3">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
+                <Icon className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xl font-bold text-[#0F1F3A] leading-tight">{stat.value}</p>
+                <p className="text-xs text-[#40527A] leading-tight">{stat.label}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="bg-white rounded-[4px] border border-[#D8E2FF] mb-4">
         <div className="px-5 py-4 border-b border-[#D8E2FF] flex items-center justify-between">
           <div>
@@ -115,9 +131,8 @@ export default function ApproverDashboard({ profile }: Props) {
                     )}
                     <Link
                       href={`/approvals/${row.instance_id}`}
-                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${
-                        active ? 'text-[#1E4BFF] hover:text-[#0F1F3A]' : 'text-[#BFC7D5] hover:text-[#40527A]'
-                      }`}
+                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${active ? 'text-[#1E4BFF] hover:text-[#0F1F3A]' : 'text-[#BFC7D5] hover:text-[#40527A]'
+                        }`}
                     >
                       {active ? <><ArrowRight className="w-3.5 h-3.5" />Review</> : 'View'}
                     </Link>
@@ -127,24 +142,6 @@ export default function ApproverDashboard({ profile }: Props) {
             })}
           </div>
         )}
-      </div>
-
-      {/* Stats — secondary, below queue */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
-        {statCards.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div key={stat.label} className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex items-center gap-3">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
-                <Icon className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xl font-bold text-[#0F1F3A] leading-tight">{stat.value}</p>
-                <p className="text-xs text-[#40527A] leading-tight">{stat.label}</p>
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );

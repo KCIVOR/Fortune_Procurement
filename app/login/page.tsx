@@ -1,15 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { fetchUserProfile } from '@/lib/profile';
 import { Eye, EyeOff, Lock, Mail, CircleAlert as AlertCircle } from 'lucide-react';
 import LightmodeLogo from '@/logo/lightmode_logo.png';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resetSuccess = searchParams.get('reset') === 'success';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -80,6 +83,14 @@ export default function LoginPage() {
                   </div>
                 )}
 
+                {resetSuccess && (
+                  <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-lg px-4 py-3">
+                    <span>
+                      Your password was updated. Sign in with your new password.
+                    </span>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label htmlFor="email" className="block text-sm font-medium text-[#0F1F3A]">
                     Email address
@@ -124,6 +135,15 @@ export default function LoginPage() {
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-medium text-[#1E4BFF] hover:text-[#0F1F3A] hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
                 </div>
 
                 <button
@@ -221,5 +241,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center text-sm text-[#40527A]">
+          Loading…
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

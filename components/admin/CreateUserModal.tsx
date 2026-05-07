@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Copy, Check, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -42,7 +43,10 @@ export default function CreateUserModal({
   onUserCreated,
 }: CreateUserModalProps) {
   const { session } = useAuth();
+  const [mainTab, setMainTab] = useState<'create' | 'invite'>('create');
   const [step, setStep] = useState<'form' | 'success'>('form');
+  const [inviteStep, setInviteStep] = useState<'form' | 'success'>('form');
+  const [inviteSentToEmail, setInviteSentToEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [tempPassword, setTempPassword] = useState('');
@@ -55,6 +59,14 @@ export default function CreateUserModal({
     full_name: '',
     email: '',
     password: '',
+    role_id: '',
+    department_id: '',
+    position_id: '',
+  });
+
+  const [inviteForm, setInviteForm] = useState({
+    full_name: '',
+    email: '',
     role_id: '',
     department_id: '',
     position_id: '',
@@ -82,6 +94,14 @@ export default function CreateUserModal({
   const filteredPositions = formData.role_id
     ? positions.filter((p) => p.role_id === formData.role_id)
     : [];
+
+  const inviteFilteredPositions = inviteForm.role_id
+    ? positions.filter((p) => p.role_id === inviteForm.role_id)
+    : [];
+
+  const handleInviteRoleChange = (roleId: string) => {
+    setInviteForm({ ...inviteForm, role_id: roleId, position_id: '' });
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -135,6 +155,56 @@ export default function CreateUserModal({
     }
   }
 
+  async function handleInviteSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/admin/users/invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({
+          full_name: inviteForm.full_name,
+          email: inviteForm.email,
+          role_id: inviteForm.role_id,
+          department_id: inviteForm.department_id,
+          position_id: inviteForm.position_id,
+        }),
+      });
+
+      let data: Record<string, unknown> = {};
+      try {
+        const text = await response.text();
+        if (text) data = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        setError(`Invalid response from server (HTTP ${response.status}).`);
+        return;
+      }
+
+      const failed = !response.ok || data.success === false;
+      if (failed) {
+        setError(readCreateUserApiError(data));
+        return;
+      }
+
+      const sent =
+        typeof data.user_email === 'string'
+          ? data.user_email
+          : inviteForm.email.trim().toLowerCase();
+      setInviteSentToEmail(sent);
+      setInviteStep('success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Network error: ${msg}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleCopyPassword() {
     navigator.clipboard.writeText(tempPassword);
     setPasswordDisplay({ ...passwordDisplay, copied: true });
@@ -144,8 +214,12 @@ export default function CreateUserModal({
   }
 
   function handleClose() {
+    setMainTab('create');
     setStep('form');
+    setInviteStep('form');
+    setInviteSentToEmail('');
     setFormData({ full_name: '', email: '', password: '', role_id: '', department_id: '', position_id: '' });
+    setInviteForm({ full_name: '', email: '', role_id: '', department_id: '', position_id: '' });
     setTempPassword('');
     setUserEmail('');
     setError('');
@@ -162,15 +236,41 @@ export default function CreateUserModal({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {step === 'success'
-              ? 'User Created Successfully'
-              : error
-              ? 'Failed to Create User'
-              : 'Create New User'}
+            {mainTab === 'create'
+              ? step === 'success'
+                ? 'User Created Successfully'
+                : error
+                  ? 'Failed to Create User'
+                  : 'Create New User'
+              : inviteStep === 'success'
+                ? 'Invitation Sent'
+                : error
+                  ? 'Invitation Failed'
+                  : 'Invite by Email'}
           </DialogTitle>
           <DialogClose />
         </DialogHeader>
 
+        <Tabs
+          value={mainTab}
+          onValueChange={(v) => {
+            const t = v as 'create' | 'invite';
+            setMainTab(t);
+            setError('');
+            setStep('form');
+            setInviteStep('form');
+          }}
+        >
+          <TabsList className="grid w-full grid-cols-2 mb-2 h-auto p-1 bg-[#F7F9FC]">
+            <TabsTrigger value="create" className="text-xs">
+              Create user
+            </TabsTrigger>
+            <TabsTrigger value="invite" className="text-xs">
+              Invite by email
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="create" className="mt-0">
         {step === 'form' ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
@@ -418,6 +518,164 @@ export default function CreateUserModal({
             </div>
           </div>
         )}
+          </TabsContent>
+
+          <TabsContent value="invite" className="mt-0">
+            {inviteStep === 'form' ? (
+              <form onSubmit={handleInviteSubmit} className="space-y-4">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-xs text-red-800">{error}</p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="invite-full-name" className="text-xs font-medium text-[#40527A]">
+                    Full Name
+                  </Label>
+                  <Input
+                    id="invite-full-name"
+                    type="text"
+                    placeholder="e.g., John Doe"
+                    value={inviteForm.full_name}
+                    onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })}
+                    required
+                    disabled={loading}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="invite-email" className="text-xs font-medium text-[#40527A]">
+                    Email
+                  </Label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    placeholder="e.g., john@example.com"
+                    value={inviteForm.email}
+                    onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                    required
+                    disabled={loading}
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="invite-role" className="text-xs font-medium text-[#40527A]">
+                    Role
+                  </Label>
+                  <Select
+                    value={inviteForm.role_id}
+                    onValueChange={handleInviteRoleChange}
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="invite-role" className="text-sm">
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="invite-position" className="text-xs font-medium text-[#40527A]">
+                    Position
+                  </Label>
+                  <Select
+                    value={inviteForm.position_id}
+                    onValueChange={(value) => setInviteForm({ ...inviteForm, position_id: value })}
+                    disabled={loading || !inviteForm.role_id}
+                  >
+                    <SelectTrigger id="invite-position" className="text-sm">
+                      <SelectValue
+                        placeholder={inviteForm.role_id ? 'Select a position' : 'Choose role first'}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {inviteFilteredPositions.map((pos) => (
+                        <SelectItem key={pos.id} value={pos.id}>
+                          {pos.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="invite-dept" className="text-xs font-medium text-[#40527A]">
+                    Department
+                  </Label>
+                  <Select
+                    value={inviteForm.department_id}
+                    onValueChange={(value) => setInviteForm({ ...inviteForm, department_id: value })}
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="invite-dept" className="text-sm">
+                      <SelectValue placeholder="Select a department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <p className="text-xs text-[#7A8BA8]">
+                  The user will receive an email to set their own password. No temporary password is
+                  shown here.
+                </p>
+
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClose}
+                    disabled={loading}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      loading ||
+                      !inviteForm.full_name ||
+                      !inviteForm.email ||
+                      !inviteForm.role_id ||
+                      !inviteForm.position_id ||
+                      !inviteForm.department_id
+                    }
+                    className="flex-1 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white"
+                  >
+                    {loading ? 'Sending…' : 'Send invitation'}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-800 font-medium">
+                    Invitation sent to{' '}
+                    <span className="font-mono">{inviteSentToEmail}</span>. The user will set their
+                    password from the email link.
+                  </p>
+                </div>
+                <Button type="button" onClick={handleClose} className="w-full bg-[#1E4BFF] hover:bg-[#0F1F3A]">
+                  Close
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

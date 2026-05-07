@@ -64,6 +64,25 @@ export interface POFormValues {
   remarks: string;
 }
 
+/** One selectable row on /po/new: a supplier group within an approved PR2. */
+export interface POGenerationCandidate {
+  candidateKey: string;
+  pr2_id: string;
+  pr2_number: string;
+  purpose: string;
+  department_name_snapshot: string;
+  requisitioner_name_snapshot: string;
+  date_required: string;
+  /** Supplier user id (profiles.id / auth user). */
+  supplier_id: string;
+  supplier_name_snapshot: string;
+  selected_rfq_supplier_ids: string[];
+  item_count: number;
+  grand_total: number;
+  has_po: boolean;
+  existing_po_id: string | null;
+}
+
 export const WAREHOUSE_OPTIONS = [
   'Main Warehouse',
   'Warehouse A',

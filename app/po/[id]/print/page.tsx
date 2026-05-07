@@ -3,20 +3,147 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { fetchPOById, calcPOGrandTotal } from '@/lib/po';
-import type { POWithItems } from '@/types/po';
+import { fetchPOApprovalDetailByPOId } from '@/lib/po-approvals';
+import { labelForApprovalAction, latestActionForStep } from '@/lib/print-approval-signatures';
+import type { POWithItems, POApprovalDetail, POApprovalAction, POReceipt } from '@/types/po';
 import { format } from 'date-fns';
+
+function POApproverSignatureCell({
+  title,
+  staticHint,
+  action,
+  isFirst = false,
+}: {
+  title: string;
+  staticHint: string;
+  action: POApprovalAction | null;
+  isFirst?: boolean;
+}) {
+  return (
+    <td
+      style={{
+        border: '1px solid #000',
+        borderLeft: isFirst ? '1px solid #000' : 'none',
+        padding: '8px',
+        width: '25%',
+        textAlign: 'center',
+        verticalAlign: 'top',
+      }}
+    >
+      <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 8, color: '#666', marginBottom: 6 }}>{staticHint}</div>
+      <div style={{ borderTop: '1px solid #000', paddingTop: 6, minHeight: 28 }}>
+        {action ? (
+          <>
+            {action.action !== 'approved' && (
+              <div
+                style={{
+                  fontWeight: 'bold',
+                  fontSize: 8,
+                  color: action.action === 'rejected' ? '#b91c1c' : '#b45309',
+                  marginBottom: 4,
+                }}
+              >
+                {labelForApprovalAction(action.action)}
+              </div>
+            )}
+            <div style={{ fontSize: 8, fontWeight: 'bold' }}>{action.actor_name_snapshot}</div>
+            <div style={{ fontSize: 7, color: '#444' }}>{action.actor_position_snapshot}</div>
+            <div style={{ fontSize: 7, color: '#666', marginTop: 2 }}>
+              {format(new Date(action.acted_at), 'MMMM d, yyyy h:mm a')}
+            </div>
+            {action.remarks && (
+              <div style={{ fontSize: 7, color: '#555', marginTop: 4, fontStyle: 'italic' }}>
+                {action.remarks}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 8, color: '#999', fontStyle: 'italic' }}>Pending</div>
+        )}
+      </div>
+    </td>
+  );
+}
+
+function POReceivedSignatureCell({
+  receipt,
+  step4Action,
+}: {
+  receipt: POReceipt | null;
+  step4Action: POApprovalAction | null;
+}) {
+  const body = receipt ? (
+    <>
+      <div style={{ fontSize: 8, fontWeight: 'bold' }}>{receipt.acknowledged_by_name}</div>
+      <div style={{ fontSize: 7, color: '#666', marginTop: 2 }}>
+        {format(new Date(receipt.acknowledged_at), 'MMMM d, yyyy h:mm a')}
+      </div>
+      {receipt.commitment_date && (
+        <div style={{ fontSize: 7, color: '#444', marginTop: 2 }}>
+          Commitment: {format(new Date(receipt.commitment_date), 'MMMM d, yyyy')}
+        </div>
+      )}
+      {receipt.delivery_remarks && (
+        <div style={{ fontSize: 7, color: '#555', marginTop: 4, fontStyle: 'italic' }}>
+          {receipt.delivery_remarks}
+        </div>
+      )}
+    </>
+  ) : step4Action ? (
+    <>
+      {step4Action.action !== 'approved' && (
+        <div
+          style={{
+            fontWeight: 'bold',
+            fontSize: 8,
+            color: step4Action.action === 'rejected' ? '#b91c1c' : '#b45309',
+            marginBottom: 4,
+          }}
+        >
+          {labelForApprovalAction(step4Action.action)}
+        </div>
+      )}
+      <div style={{ fontSize: 8, fontWeight: 'bold' }}>{step4Action.actor_name_snapshot}</div>
+      <div style={{ fontSize: 7, color: '#444' }}>{step4Action.actor_position_snapshot}</div>
+      <div style={{ fontSize: 7, color: '#666', marginTop: 2 }}>
+        {format(new Date(step4Action.acted_at), 'MMMM d, yyyy h:mm a')}
+      </div>
+      {step4Action.remarks && (
+        <div style={{ fontSize: 7, color: '#555', marginTop: 4, fontStyle: 'italic' }}>
+          {step4Action.remarks}
+        </div>
+      )}
+    </>
+  ) : (
+    <div style={{ fontSize: 8, color: '#999', fontStyle: 'italic' }}>Pending</div>
+  );
+
+  return (
+    <td style={{ border: '1px solid #000', borderLeft: 'none', padding: '8px', width: '25%', textAlign: 'center', verticalAlign: 'top' }}>
+      <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 8 }}>Received By:</div>
+      <div style={{ fontSize: 8, color: '#666', marginBottom: 6 }}>Supplier Representative</div>
+      <div style={{ borderTop: '1px solid #000', paddingTop: 6, minHeight: 28 }}>{body}</div>
+    </td>
+  );
+}
 
 export default function POPrintPage() {
   const { id } = useParams<{ id: string }>();
   const [po, setPO] = useState<POWithItems | null>(null);
+  const [approvalDetail, setApprovalDetail] = useState<POApprovalDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
-    fetchPOById(id as string).then(data => {
-      setPO(data);
-      setLoading(false);
-    });
+    (async () => {
+      const [poData, detail] = await Promise.all([
+        fetchPOById(id as string),
+        fetchPOApprovalDetailByPOId(id as string),
+      ]);
+      setPO(poData);
+      setApprovalDetail(detail);
+    })().finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -34,7 +161,12 @@ export default function POPrintPage() {
   }
 
   const grandTotal = calcPOGrandTotal(po.items);
-  const today = format(new Date(), 'MMMM d, yyyy');
+
+  const actions = approvalDetail?.actions ?? [];
+  const preparedAction = latestActionForStep(actions, 1);
+  const reviewedAction = latestActionForStep(actions, 2);
+  const approvedAction = latestActionForStep(actions, 3);
+  const receivedAction = latestActionForStep(actions, 4);
 
   return (
     <>
@@ -237,22 +369,15 @@ export default function POPrintPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 20 }}>
           <tbody>
             <tr>
-              <td style={{ border: '1px solid #000', padding: '8px', width: '25%', textAlign: 'center', verticalAlign: 'top' }}>
-                <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 24 }}>Prepared By:</div>
-                <div style={{ borderTop: '1px solid #000', paddingTop: 3, fontSize: 8, color: '#666' }}>Buyer / Procurement Staff</div>
-              </td>
-              <td style={{ border: '1px solid #000', borderLeft: 'none', padding: '8px', width: '25%', textAlign: 'center', verticalAlign: 'top' }}>
-                <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 24 }}>Reviewed By:</div>
-                <div style={{ borderTop: '1px solid #000', paddingTop: 3, fontSize: 8, color: '#666' }}>Procurement Manager</div>
-              </td>
-              <td style={{ border: '1px solid #000', borderLeft: 'none', padding: '8px', width: '25%', textAlign: 'center', verticalAlign: 'top' }}>
-                <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 24 }}>Approved By:</div>
-                <div style={{ borderTop: '1px solid #000', paddingTop: 3, fontSize: 8, color: '#666' }}>Finance Director</div>
-              </td>
-              <td style={{ border: '1px solid #000', borderLeft: 'none', padding: '8px', width: '25%', textAlign: 'center', verticalAlign: 'top' }}>
-                <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 24 }}>Received By:</div>
-                <div style={{ borderTop: '1px solid #000', paddingTop: 3, fontSize: 8, color: '#666' }}>Supplier Representative</div>
-              </td>
+              <POApproverSignatureCell
+                isFirst
+                title="Prepared By:"
+                staticHint="Buyer / Procurement Staff"
+                action={preparedAction}
+              />
+              <POApproverSignatureCell title="Reviewed By:" staticHint="Procurement Manager" action={reviewedAction} />
+              <POApproverSignatureCell title="Approved By:" staticHint="Finance Director" action={approvedAction} />
+              <POReceivedSignatureCell receipt={approvalDetail?.receipt ?? null} step4Action={receivedAction} />
             </tr>
           </tbody>
         </table>

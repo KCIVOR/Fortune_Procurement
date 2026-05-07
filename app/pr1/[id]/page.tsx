@@ -8,14 +8,17 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
-import { fetchPR1ById, canUpdatePR1Priority, updatePR1Priority, fetchDownstreamStage } from '@/lib/pr1';
-import type { PR1WithItems, DownstreamStage } from '@/types/pr1';
+import { fetchPR1ById, canUpdatePR1Priority, updatePR1Priority, fetchPR1LifecycleSummaries } from '@/lib/pr1';
+import { fetchPR1ApprovalSignatories } from '@/lib/approvals';
+import type { PR1WithItems, PR1LifecycleSummary } from '@/types/pr1';
+import type { PR1ApprovalSignatories } from '@/types/approvals';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import PriorityChip from '@/components/shared/PriorityChip';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
 import { useAuth } from '@/context/AuthContext';
-import { Pencil, Clock, CircleCheck as CheckCircle2, User, Building2, FileText, CalendarDays, CircleAlert as AlertCircle } from 'lucide-react';
+import { Pencil, Clock, CircleCheck as CheckCircle2, User, Building2, FileText, CalendarDays, CircleAlert as AlertCircle, Circle as XCircle, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
+import ActionPill from '@/components/shared/ActionPill';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
@@ -52,7 +55,10 @@ export default function PR1DetailPage() {
   const { profile } = useAuth();
   const { handleBack } = useBackNavigation();
   const [pr1, setPR1] = useState<PR1WithItems | null>(null);
-  const [downstreamStage, setDownstreamStage] = useState<DownstreamStage | null>(null);
+  const [lifecycle, setLifecycle] = useState<PR1LifecycleSummary | null>(null);
+  const [approvalSignatories, setApprovalSignatories] = useState<
+    PR1ApprovalSignatories | null | undefined
+  >(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [priorityUpdating, setPriorityUpdating] = useState(false);
@@ -61,17 +67,49 @@ export default function PR1DetailPage() {
   useEffect(() => {
     if (!id) return;
     fetchPR1ById(id)
-      .then((data) => {
+      .then(async (data) => {
         setPR1(data);
         if (data) {
-          fetchDownstreamStage(data.id)
-            .then(setDownstreamStage)
-            .catch(() => setDownstreamStage('PR1 Approval'));
+          try {
+            const map = await fetchPR1LifecycleSummaries([{ id: data.id, status: data.status }]);
+            setLifecycle(map[data.id] ?? null);
+          } catch {
+            setLifecycle(null);
+          }
         }
       })
       .catch(() => setError('Failed to load PR1.'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    setApprovalSignatories(undefined);
+
+    if (!id || !pr1?.id || pr1.id !== id || !profile) {
+      setApprovalSignatories(null);
+      return;
+    }
+
+    const mayLoadApprovalSignatories =
+      profile.role !== 'employee' || profile.id === pr1.requisitioner_id;
+
+    if (!mayLoadApprovalSignatories) {
+      setApprovalSignatories(null);
+      return;
+    }
+
+    let cancelled = false;
+    fetchPR1ApprovalSignatories(pr1.id)
+      .then((data) => {
+        if (!cancelled) setApprovalSignatories(data);
+      })
+      .catch(() => {
+        if (!cancelled) setApprovalSignatories(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, pr1?.id, pr1?.requisitioner_id, profile]);
 
   const canEdit = pr1 && profile && pr1.requisitioner_id === profile.id && pr1.status === 'draft';
   const canUpdatePriority = pr1 && profile && canUpdatePR1Priority(profile);
@@ -127,10 +165,12 @@ export default function PR1DetailPage() {
           <div>
             <DetailTitleRow wrap>
               <h1 className="text-xl font-bold text-[#0F1F3A]">PR1 {pr1.pr1_number}</h1>
-              <StatusChip status={STATUS_MAP[pr1.status] || 'pending'} label={PR1_STATUS_LABELS[pr1.status]} />
-              {downstreamStage && pr1.status === 'approved' && (
-                <StatusChip status="in_review" label={`Current: ${downstreamStage}`} />
-              )}
+              {(() => {
+                const chip =
+                  (lifecycle?.lifecycle_display_chip ?? STATUS_MAP[pr1.status]) || 'pending';
+                const label = lifecycle?.lifecycle_display_label ?? PR1_STATUS_LABELS[pr1.status];
+                return <StatusChip status={chip} label={label} />;
+              })()}
               {canUpdatePriority ? (
                 <PrioritySelector
                   value={pr1.priority}
@@ -258,13 +298,16 @@ export default function PR1DetailPage() {
             <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Signatories</h2>
           </div>
           <div className="p-6">
-            <SignatureRow
-              label="Prepared By"
-              name={pr1.prepared_by_name_snapshot}
-              position={pr1.prepared_by_position_snapshot}
-              date={pr1.prepared_at}
-              done={Boolean(pr1.prepared_at)}
-            />
+            <PR1SignatoriesUnifiedTimeline pr1={pr1} approvalSignatories={approvalSignatories} />
+
+            {approvalSignatories === null &&
+              profile &&
+              (profile.role !== 'employee' || profile.id === pr1.requisitioner_id) &&
+              (pr1.status === 'pending_warehouse' || pr1.status === 'pending_approval') && (
+                <p className="text-xs text-[#BFC7D5] mt-4">
+                  Approval workflow not started yet.
+                </p>
+              )}
           </div>
         </div>
       </div>
@@ -272,39 +315,230 @@ export default function PR1DetailPage() {
   );
 }
 
-function SignatureRow({
-  label,
-  name,
-  position,
-  date,
-  done,
+/**
+ * Single continuous timeline for Signatories: Prepared By / Requestor + approval steps
+ * (visual parity with components/approvals/WorkflowTimeline).
+ */
+function PR1SignatoriesUnifiedTimeline({
+  pr1,
+  approvalSignatories,
 }: {
-  label: string;
-  name: string | null;
-  position: string | null;
-  date: string | null;
-  done: boolean;
+  pr1: PR1WithItems;
+  approvalSignatories: PR1ApprovalSignatories | null | undefined;
 }) {
+  const steps = approvalSignatories?.workflow_steps ?? [];
+  const actions = approvalSignatories?.actions ?? [];
+  const currentStep = approvalSignatories?.current_step ?? 1;
+  const instanceStatus = approvalSignatories?.instance_status ?? 'active';
+
+  const samePerson =
+    pr1.prepared_by_id !== null && pr1.prepared_by_id === pr1.requisitioner_id;
+
+  type PrefixRow = {
+    key: string;
+    title: string;
+    name: string | null;
+    subtitleLines: string[];
+    done: boolean;
+    detailLines: { label: string; at: string }[];
+  };
+
+  const prefixRows: PrefixRow[] = [];
+
+  if (samePerson) {
+    const done = Boolean(pr1.prepared_at && pr1.submitted_at);
+    const detailLines: { label: string; at: string }[] = [];
+    if (pr1.prepared_at) {
+      detailLines.push({
+        label: 'Prepared',
+        at: format(new Date(pr1.prepared_at), 'MMM d, yyyy h:mm a'),
+      });
+    }
+    if (pr1.submitted_at) {
+      detailLines.push({
+        label: 'Submitted',
+        at: format(new Date(pr1.submitted_at), 'MMM d, yyyy h:mm a'),
+      });
+    }
+    prefixRows.push({
+      key: 'prepared-requestor',
+      title: 'Prepared By / Requestor',
+      name: pr1.requisitioner_name_snapshot ?? pr1.prepared_by_name_snapshot,
+      subtitleLines: [pr1.prepared_by_position_snapshot, pr1.department_name_snapshot].filter(
+        (s): s is string => Boolean(s?.trim()),
+      ),
+      done,
+      detailLines,
+    });
+  } else {
+    prefixRows.push({
+      key: 'prepared',
+      title: 'Prepared By',
+      name: pr1.prepared_by_name_snapshot,
+      subtitleLines: [pr1.prepared_by_position_snapshot].filter(
+        (s): s is string => Boolean(s?.trim()),
+      ),
+      done: Boolean(pr1.prepared_at),
+      detailLines: pr1.prepared_at
+        ? [{ label: 'Prepared', at: format(new Date(pr1.prepared_at), 'MMM d, yyyy h:mm a') }]
+        : [],
+    });
+    prefixRows.push({
+      key: 'requestor',
+      title: 'Requestor',
+      name: pr1.requisitioner_name_snapshot,
+      subtitleLines: [pr1.department_name_snapshot].filter(
+        (s): s is string => Boolean(s?.trim()),
+      ),
+      done: Boolean(pr1.submitted_at),
+      detailLines: pr1.submitted_at
+        ? [{ label: 'Submitted', at: format(new Date(pr1.submitted_at), 'MMM d, yyyy h:mm a') }]
+        : [],
+    });
+  }
+
+  const totalItems = prefixRows.length + steps.length;
+
   return (
-    <div className="flex items-start gap-4">
-      <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${done ? 'bg-[#F7F9FC]' : 'bg-[#F7F9FC]'}`}>
-        <CheckCircle2 className={`w-3.5 h-3.5 ${done ? 'text-[#40527A]' : 'text-[#BFC7D5]'}`} />
-      </div>
-      <div>
-        <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">{label}</p>
-        {done ? (
-          <div className="mt-1">
-            <p className="text-sm font-semibold text-[#0F1F3A]">{name}</p>
-            <p className="text-xs text-[#40527A]">{position}</p>
-            {date && (
-              <p className="text-xs text-[#BFC7D5] mt-0.5">{format(new Date(date), 'MMMM d, yyyy h:mm a')}</p>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-[#BFC7D5] italic mt-1">Pending submission</p>
-        )}
-      </div>
-    </div>
+    <ol className="relative space-y-0">
+      {prefixRows.map((row, idx) => {
+        const showConnector = idx < totalItems - 1;
+        return (
+          <li key={row.key} className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 ${
+                  row.done
+                    ? 'bg-emerald-600 border-emerald-600'
+                    : 'bg-[#F7F9FC] border-[#D8E2FF]'
+                }`}
+              >
+                {row.done ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-[#BFC7D5]" />
+                )}
+              </div>
+              {showConnector && (
+                <div className="w-0.5 flex-1 my-1 min-h-[24px] bg-[#D8E2FF]" />
+              )}
+            </div>
+            <div className="pb-5 flex-1 min-w-0">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-sm font-semibold text-[#0F1F3A]">{row.title}</span>
+              </div>
+              {row.done ? (
+                <div className="mt-1.5 space-y-0.5">
+                  {row.name && (
+                    <span className="text-xs text-[#40527A] font-medium">{row.name}</span>
+                  )}
+                  {row.subtitleLines.map((line, i) => (
+                    <p key={`${row.key}-sub-${i}`} className="text-xs text-[#40527A]">
+                      {line}
+                    </p>
+                  ))}
+                  {row.detailLines.map(d => (
+                    <p key={`${d.label}-${d.at}`} className="text-xs text-[#BFC7D5]">
+                      {d.label} · {d.at}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-xs text-[#BFC7D5]">Pending submission</p>
+              )}
+            </div>
+          </li>
+        );
+      })}
+
+      {steps.map((step, sIdx) => {
+        const globalIdx = prefixRows.length + sIdx;
+        const showConnector = globalIdx < totalItems - 1;
+        const action = actions.find(a => a.step_order === step.step_order);
+        const isComplete = !!action;
+        const isCurrent =
+          !isComplete && step.step_order === currentStep && instanceStatus === 'active';
+        const isPending = !isComplete && !isCurrent;
+
+        return (
+          <li key={step.step_order} className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 ${
+                  isComplete
+                    ? action!.action === 'approved'
+                      ? 'bg-emerald-600 border-emerald-600'
+                      : action!.action === 'rejected'
+                        ? 'bg-red-600 border-red-600'
+                        : 'bg-orange-500 border-orange-500'
+                    : isCurrent
+                      ? 'bg-[#F7F9FC] border-[#1E4BFF]'
+                      : 'bg-[#F7F9FC] border-[#D8E2FF]'
+                }`}
+              >
+                {isComplete ? (
+                  action!.action === 'approved' ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                  ) : action!.action === 'rejected' ? (
+                    <XCircle className="w-3.5 h-3.5 text-white" />
+                  ) : (
+                    <RotateCcw className="w-3.5 h-3.5 text-white" />
+                  )
+                ) : isCurrent ? (
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#1E4BFF] animate-pulse" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-[#BFC7D5]" />
+                )}
+              </div>
+              {showConnector && (
+                <div className="w-0.5 flex-1 my-1 min-h-[24px] bg-[#D8E2FF]" />
+              )}
+            </div>
+
+            <div className="pb-5 flex-1 min-w-0">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-sm font-semibold text-[#0F1F3A]">
+                  Step {step.step_order}: {step.position_required}
+                </span>
+                <span className="text-xs text-[#BFC7D5]">{step.action_label}</span>
+                {step.is_final && (
+                  <span className="text-xs text-[#BFC7D5] italic">· Final</span>
+                )}
+              </div>
+
+              {isComplete && (
+                <div className="mt-1.5 space-y-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <ActionPill action={action!.action} />
+                    <span className="text-xs text-[#40527A] font-medium">
+                      {action!.actor_name_snapshot}
+                    </span>
+                    <span className="text-xs text-[#BFC7D5]">
+                      · {format(new Date(action!.acted_at), 'MMM d, yyyy h:mm a')}
+                    </span>
+                  </div>
+                  {action!.remarks && (
+                    <p className="text-xs text-[#40527A] italic ml-0.5">
+                      <span aria-hidden="true">&quot;</span>
+                      {action!.remarks}
+                      <span aria-hidden="true">&quot;</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {isCurrent && (
+                <p className="mt-1 text-xs text-[#1E4BFF] font-medium">Awaiting action</p>
+              )}
+
+              {isPending && (
+                <p className="mt-1 text-xs text-[#BFC7D5]">Not yet reached</p>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

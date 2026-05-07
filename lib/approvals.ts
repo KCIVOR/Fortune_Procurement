@@ -3,6 +3,7 @@ import type { UserProfile } from '@/types/auth';
 import type {
   PR1ApprovalQueueRow,
   PR1ApprovalDetail,
+  PR1ApprovalSignatories,
   ApprovalAction,
 } from '@/types/approvals';
 import { createNotification, notifyApproversForStep } from '@/lib/notifications';
@@ -166,6 +167,37 @@ export async function fetchApprovalDetail(
     warehouse_validator_name: wv?.validator_name_snapshot ?? null,
     warehouse_validated_at:   wv?.validated_at ?? null,
     warehouse_notes:          wv?.notes ?? null,
+  };
+}
+
+/**
+ * Read-only signatory chain for a PR1. Uses the latest approval instance for this document
+ * (ordered by `started_at` DESC — matches instance lifecycle start time).
+ */
+export async function fetchPR1ApprovalSignatories(
+  pr1Id: string
+): Promise<PR1ApprovalSignatories | null> {
+  const { data: inst, error: instErr } = await db
+    .from('approval_instances')
+    .select('id')
+    .eq('document_type', 'PR1')
+    .eq('document_id', pr1Id)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (instErr) throw instErr;
+  if (!inst?.id) return null;
+
+  const detail = await fetchApprovalDetail(inst.id);
+  if (!detail) return null;
+
+  return {
+    instance_id:      detail.instance_id,
+    instance_status:  detail.instance_status,
+    current_step:     detail.current_step,
+    workflow_steps:   detail.workflow_steps,
+    actions:          detail.actions,
   };
 }
 

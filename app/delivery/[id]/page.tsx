@@ -13,7 +13,7 @@ import { openGRNForDelivery, fetchGRNByDeliveryId } from '@/lib/grn';
 import type { DeliveryWithHistory, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
 import { format } from 'date-fns';
-import { ChevronLeft, Truck, Building2, Package, CalendarDays, MapPin, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban, Calendar, FileText, MessageSquare, User, Send, ShieldCheck, PackageCheck } from 'lucide-react';
+import { Truck, Building2, Package, CalendarDays, MapPin, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban, Calendar, MessageSquare, User, Send, ShieldCheck, PackageCheck } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
@@ -300,17 +300,6 @@ export default function DeliveryDetailPage() {
             {!delivery.commitment_date && !delivery.scheduled_date && (
               <p className="text-xs text-[#BFC7D5]">No dates confirmed yet.</p>
             )}
-          </div>
-
-          {/* Linked references */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-3 order-4 lg:order-none">
-            <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">Linked Documents</h2>
-            <div className="space-y-2">
-              <Link href={`/po/${delivery.po_id}`} className="flex items-center justify-between text-xs text-blue-600 hover:text-blue-800 font-mono group">
-                <span>PO {delivery.po_number_snapshot}</span>
-                <ChevronLeft className="w-3 h-3 rotate-180 opacity-0 group-hover:opacity-100 transition" />
-              </Link>
-            </div>
           </div>
 
           {/* Procurement: Mark Delivered */}

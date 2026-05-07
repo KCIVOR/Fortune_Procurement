@@ -103,6 +103,15 @@ export interface PR1ApprovalQueueRow {
   step_is_final: boolean;
 }
 
+/** Latest PR1 approval instance snapshot for read-only signatory display (e.g. /pr1/[id]). */
+export interface PR1ApprovalSignatories {
+  instance_id: string;
+  instance_status: ApprovalInstanceStatus;
+  current_step: number;
+  workflow_steps: WorkflowStep[];
+  actions: ApprovalActionRecord[];
+}
+
 // Full approval detail for the detail page
 export interface PR1ApprovalDetail {
   // pr1 header

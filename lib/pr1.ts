@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
+import type { StatusVariant } from '@/components/shared/StatusChip';
 import type {
   PR1Request,
   PR1WithItems,
@@ -7,10 +8,239 @@ import type {
   PR1ItemDraft,
   PR1FormValues,
   DownstreamStage,
+  PR1Status,
+  PR1LifecycleSummary,
+  PR1WarehouseValidationSummary,
 } from '@/types/pr1';
+import { PR1_STATUS_LABELS } from '@/types/pr1';
 
 // supabase client is untyped for custom tables — cast to any for PR1 queries
 const db = supabase as any;
+
+const PO_ISSUED_STATUSES = new Set(['approved', 'sent']);
+const DELIVERY_IN_PROGRESS_STATUSES = new Set(['pending', 'scheduled', 'in_transit', 'delayed']);
+const PR2_PHASE2_APPROVED = 'phase2_approved';
+
+const PR1_RAW_CHIP: Record<PR1Status, StatusVariant> = {
+  draft:                'draft',
+  pending_warehouse:    'pending',
+  pending_approval:     'in_review',
+  resolved_internal:    'validated',
+  revision_requested:   'in_review',
+  for_canvassing:       'approved',
+  canvassing_complete:  'approved',
+  approved:             'approved',
+  rejected:             'rejected',
+  cancelled:            'cancelled',
+};
+
+type POSummary = {
+  poId: string;
+  poStatus: string;
+  deliveryStatus: string | null;
+  grnStatus: string | null;
+};
+
+function pickPreferredDelivery(
+  rows: { id: string; po_id: string; status: string }[]
+): { id: string; status: string } | null {
+  if (rows.length === 0) return null;
+  const rank: Record<string, number> = {
+    delivered:  5,
+    in_transit: 4,
+    scheduled:  3,
+    delayed:    3,
+    pending:    2,
+    cancelled:  0,
+  };
+  return rows.reduce((best, cur) =>
+    (rank[cur.status] ?? 1) > (rank[best.status] ?? 1) ? cur : best
+  );
+}
+
+/** Pure employee-facing lifecycle (Option C): does not read or write pr1_requests.workflow fields beyond fallback label. */
+export function deriveEmployeeLifecycleSummary(
+  rawPr1Status: PR1Status,
+  rfqStatus: string | null,
+  pr2Statuses: string[],
+  poSummaries: POSummary[],
+): PR1LifecycleSummary {
+  const nPo = poSummaries.length;
+
+  if (nPo > 0) {
+    const closedGrn = poSummaries.filter(s => s.grnStatus === 'closed').length;
+    if (closedGrn === nPo) {
+      return { lifecycle_display_label: 'Completed (GRN Closed)', lifecycle_display_chip: 'completed' };
+    }
+    if (closedGrn > 0) {
+      return { lifecycle_display_label: 'Partial GRN', lifecycle_display_chip: 'in_review' };
+    }
+
+    const allHaveDelivery = poSummaries.every(s => s.deliveryStatus !== null);
+    const allDelivered =
+      allHaveDelivery && poSummaries.every(s => s.deliveryStatus === 'delivered');
+    if (allDelivered) {
+      return { lifecycle_display_label: 'Delivered', lifecycle_display_chip: 'received' };
+    }
+
+    const anyDelivery = poSummaries.some(s => s.deliveryStatus !== null);
+    const anyInFlight = poSummaries.some(
+      s => s.deliveryStatus !== null && DELIVERY_IN_PROGRESS_STATUSES.has(s.deliveryStatus),
+    );
+    if (anyDelivery && (!allDelivered || anyInFlight)) {
+      return { lifecycle_display_label: 'Delivery In Progress', lifecycle_display_chip: 'sent' };
+    }
+
+    let nIssued = 0;
+    for (const s of poSummaries) {
+      if (PO_ISSUED_STATUSES.has(s.poStatus)) nIssued++;
+    }
+    if (nIssued === nPo) {
+      return { lifecycle_display_label: 'PO — Sent to Supplier', lifecycle_display_chip: 'sent' };
+    }
+    if (nIssued > 0) {
+      return { lifecycle_display_label: 'Partial PO — Sent to Supplier', lifecycle_display_chip: 'in_review' };
+    }
+  }
+
+  if (pr2Statuses.length > 0) {
+    const allPr2Approved = pr2Statuses.every(s => s === PR2_PHASE2_APPROVED);
+    if (allPr2Approved) {
+      return { lifecycle_display_label: 'PR2 Approved', lifecycle_display_chip: 'approved' };
+    }
+    return { lifecycle_display_label: 'PR2 — Pending Approval', lifecycle_display_chip: 'pending' };
+  }
+
+  if (rfqStatus === 'closed' || rawPr1Status === 'canvassing_complete') {
+    return { lifecycle_display_label: 'Canvassing Complete', lifecycle_display_chip: 'approved' };
+  }
+
+  return {
+    lifecycle_display_label: PR1_STATUS_LABELS[rawPr1Status],
+    lifecycle_display_chip:  PR1_RAW_CHIP[rawPr1Status],
+  };
+}
+
+/**
+ * Batched lifecycle labels for employee PR1 list/detail. Uses existing FK graph only (no PR1 row updates).
+ */
+export async function fetchPR1LifecycleSummaries(
+  pr1Rows: Array<{ id: string; status: PR1Status }>,
+): Promise<Record<string, PR1LifecycleSummary>> {
+  const empty: Record<string, PR1LifecycleSummary> = {};
+  if (pr1Rows.length === 0) return empty;
+
+  const pr1Ids = pr1Rows.map(r => r.id);
+  const statusByPr1: Record<string, PR1Status> = Object.fromEntries(
+    pr1Rows.map(r => [r.id, r.status]),
+  );
+
+  const [{ data: pr2Rows }, { data: rfqRows }] = await Promise.all([
+    db.from('pr2_requests').select('id, pr1_id, status').in('pr1_id', pr1Ids),
+    db.from('rfq_batches').select('pr1_id, status').in('pr1_id', pr1Ids),
+  ]);
+
+  const pr2List = (pr2Rows ?? []) as { id: string; pr1_id: string; status: string }[];
+  const pr2Ids = pr2List.map(r => r.id);
+
+  const pr1ToPr2s = new Map<string, { id: string; status: string }[]>();
+  for (const p of pr2List) {
+    const list = pr1ToPr2s.get(p.pr1_id) ?? [];
+    list.push({ id: p.id, status: p.status });
+    pr1ToPr2s.set(p.pr1_id, list);
+  }
+
+  const pr1ToRfqStatus = new Map<string, string>();
+  for (const r of (rfqRows ?? []) as { pr1_id: string; status: string }[]) {
+    pr1ToRfqStatus.set(r.pr1_id, r.status);
+  }
+
+  const pr2ToPos = new Map<string, { id: string; status: string }[]>();
+  let allPos: { id: string; pr2_id: string; status: string }[] = [];
+
+  if (pr2Ids.length > 0) {
+    const { data: poRows } = await db
+      .from('po_requests')
+      .select('id, pr2_id, status')
+      .in('pr2_id', pr2Ids);
+    allPos = (poRows ?? []) as { id: string; pr2_id: string; status: string }[];
+    for (const po of allPos) {
+      const list = pr2ToPos.get(po.pr2_id) ?? [];
+      list.push({ id: po.id, status: po.status });
+      pr2ToPos.set(po.pr2_id, list);
+    }
+  }
+
+  const poIds = allPos.map(p => p.id);
+  const deliveriesByPo = new Map<string, { id: string; po_id: string; status: string }[]>();
+
+  if (poIds.length > 0) {
+    const { data: delRows } = await db
+      .from('deliveries')
+      .select('id, po_id, status')
+      .in('po_id', poIds);
+    for (const d of (delRows ?? []) as { id: string; po_id: string; status: string }[]) {
+      const list = deliveriesByPo.get(d.po_id) ?? [];
+      list.push(d);
+      deliveriesByPo.set(d.po_id, list);
+    }
+  }
+
+  const preferredDeliveryByPo = new Map<string, { id: string; status: string } | null>();
+  for (const poId of poIds) {
+    const picked = pickPreferredDelivery(deliveriesByPo.get(poId) ?? []);
+    preferredDeliveryByPo.set(poId, picked ? { id: picked.id, status: picked.status } : null);
+  }
+
+  const deliveryIds: string[] = [];
+  preferredDeliveryByPo.forEach(d => {
+    if (d) deliveryIds.push(d.id);
+  });
+
+  const grnByDeliveryId = new Map<string, { status: string }>();
+  if (deliveryIds.length > 0) {
+    const { data: grnRows } = await db
+      .from('grn_receipts')
+      .select('delivery_id, status')
+      .in('delivery_id', deliveryIds);
+    for (const g of (grnRows ?? []) as { delivery_id: string; status: string }[]) {
+      const prev = grnByDeliveryId.get(g.delivery_id);
+      if (!prev || (g.status === 'closed' && prev.status !== 'closed')) {
+        grnByDeliveryId.set(g.delivery_id, { status: g.status });
+      }
+    }
+  }
+
+  function buildPoSummariesForPR1(pr1Id: string): POSummary[] {
+    const pr2s = pr1ToPr2s.get(pr1Id) ?? [];
+    const summaries: POSummary[] = [];
+    for (const pr2 of pr2s) {
+      const pos = pr2ToPos.get(pr2.id) ?? [];
+      for (const po of pos) {
+        const del = preferredDeliveryByPo.get(po.id) ?? null;
+        const grn = del ? grnByDeliveryId.get(del.id) ?? null : null;
+        summaries.push({
+          poId: po.id,
+          poStatus: po.status,
+          deliveryStatus: del?.status ?? null,
+          grnStatus: grn?.status ?? null,
+        });
+      }
+    }
+    return summaries;
+  }
+
+  const out: Record<string, PR1LifecycleSummary> = {};
+  for (const pr1Id of pr1Ids) {
+    const pr2s = pr1ToPr2s.get(pr1Id) ?? [];
+    const pr2Statuses = pr2s.map(p => p.status);
+    const poSummaries = buildPoSummariesForPR1(pr1Id);
+    const rfqSt = pr1ToRfqStatus.get(pr1Id) ?? null;
+    out[pr1Id] = deriveEmployeeLifecycleSummary(statusByPr1[pr1Id], rfqSt, pr2Statuses, poSummaries);
+  }
+
+  return out;
+}
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
@@ -60,8 +290,17 @@ export async function fetchMyPR1s(
   if (listRes.error) throw listRes.error;
   if (countRes.error) throw countRes.error;
 
+  const requests = (listRes.data ?? []) as PR1Request[];
+  const summaries = await fetchPR1LifecycleSummaries(
+    requests.map(r => ({ id: r.id, status: r.status })),
+  );
+  const enriched: PR1Request[] = requests.map(r => ({
+    ...r,
+    ...summaries[r.id],
+  }));
+
   return {
-    requests:    (listRes.data ?? []) as PR1Request[],
+    requests:    enriched,
     total_count: countRes.count ?? 0,
   };
 }
@@ -84,7 +323,9 @@ export async function fetchPR1ById(id: string): Promise<PR1WithItems | null> {
   // Fetch warehouse validation data if validation exists
   const { data: warehouseValidation, error: wvError } = await db
     .from('warehouse_validations')
-    .select('id')
+    .select(
+      'id, decision, validator_name_snapshot, validator_position_snapshot, notes, validated_at'
+    )
     .eq('pr1_id', id)
     .maybeSingle();
 
@@ -116,9 +357,29 @@ export async function fetchPR1ById(id: string): Promise<PR1WithItems | null> {
     warehouse_decision: validatedSohMap[item.id]?.warehouse_decision ?? null,
   }));
 
+  const wvRow = warehouseValidation as {
+    id?: string;
+    decision?: 'sufficient' | 'insufficient' | null;
+    validator_name_snapshot?: string | null;
+    validator_position_snapshot?: string | null;
+    notes?: string | null;
+    validated_at?: string | null;
+  } | null;
+
+  const warehouse_validation: PR1WarehouseValidationSummary | null = wvRow?.id
+    ? {
+        decision: wvRow.decision ?? null,
+        validator_name_snapshot: wvRow.validator_name_snapshot ?? null,
+        validator_position_snapshot: wvRow.validator_position_snapshot ?? null,
+        notes: wvRow.notes?.trim() || null,
+        validated_at: wvRow.validated_at ?? null,
+      }
+    : null;
+
   return {
     ...row,
     items: itemsWithValidation,
+    warehouse_validation,
   };
 }
 

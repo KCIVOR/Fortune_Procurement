@@ -16,9 +16,9 @@ interface Props { profile: UserProfile; }
 
 interface Stats {
   pendingValidation: number;
-  validatedToday:    number;
-  openGRN:           number;
-  grnCompleted:      number;
+  validatedToday: number;
+  openGRN: number;
+  grnCompleted: number;
 }
 
 const db = supabase as any;
@@ -47,17 +47,17 @@ async function fetchWarehouseStats(): Promise<Stats> {
 
   return {
     pendingValidation: pendingRes.count ?? 0,
-    validatedToday:    validatedRes.count ?? 0,
-    openGRN:           openGRNRes.count ?? 0,
-    grnCompleted:      closedGRNRes.count ?? 0,
+    validatedToday: validatedRes.count ?? 0,
+    openGRN: openGRNRes.count ?? 0,
+    grnCompleted: closedGRNRes.count ?? 0,
   };
 }
 
 export default function WarehouseDashboard({ profile }: Props) {
-  const [stats, setStats]           = useState<Stats>({ pendingValidation: 0, validatedToday: 0, openGRN: 0, grnCompleted: 0 });
+  const [stats, setStats] = useState<Stats>({ pendingValidation: 0, validatedToday: 0, openGRN: 0, grnCompleted: 0 });
   const [pendingPRs, setPendingPRs] = useState<PR1QueueRow[]>([]);
-  const [openGRNs, setOpenGRNs]     = useState<GRNQueueRow[]>([]);
-  const [loading, setLoading]       = useState(true);
+  const [openGRNs, setOpenGRNs] = useState<GRNQueueRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -70,15 +70,15 @@ export default function WarehouseDashboard({ profile }: Props) {
         setPendingPRs(prs.slice(0, 10));
         setOpenGRNs(grns.filter(g => g.status === 'open').slice(0, 10));
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
 
   const statCards = [
-    { label: 'Pending Validation', value: stats.pendingValidation, icon: Clock         },
-    { label: 'Validated Today',    value: stats.validatedToday,    icon: CheckCircle2  },
-    { label: 'Open GRN',           value: stats.openGRN,           icon: PackageSearch },
-    { label: 'GRN Completed',      value: stats.grnCompleted,      icon: PackageCheck  },
+    { label: 'Pending Validation', value: stats.pendingValidation, icon: Clock },
+    { label: 'Validated Today', value: stats.validatedToday, icon: CheckCircle2 },
+    { label: 'Open GRN', value: stats.openGRN, icon: PackageSearch },
+    { label: 'GRN Completed', value: stats.grnCompleted, icon: PackageCheck },
   ];
 
   return (
@@ -88,8 +88,24 @@ export default function WarehouseDashboard({ profile }: Props) {
         description="Validate purchase requests and process goods receipts."
       />
 
-      {/* Queue cards — primary sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 mt-1">
+        {statCards.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex items-center gap-3">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
+                <Icon className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xl font-bold text-[#0F1F3A] leading-tight">{stat.value}</p>
+                <p className="text-xs text-[#40527A] leading-tight">{stat.label}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Pending Validation Queue */}
         <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
@@ -169,24 +185,6 @@ export default function WarehouseDashboard({ profile }: Props) {
           )}
         </div>
 
-      </div>
-
-      {/* Stats — secondary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
-        {statCards.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div key={stat.label} className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex items-center gap-3">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
-                <Icon className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xl font-bold text-[#0F1F3A] leading-tight">{stat.value}</p>
-                <p className="text-xs text-[#40527A] leading-tight">{stat.label}</p>
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );

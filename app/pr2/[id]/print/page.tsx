@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { fetchPR2ById } from '@/lib/pr2';
-import { fetchPR2ApprovalDetail } from '@/lib/pr2-approvals';
+import { fetchPR2ApprovalDetailByPR2Id } from '@/lib/pr2-approvals';
+import { labelForApprovalAction, latestActionForStep } from '@/lib/print-approval-signatures';
 import type { PR2WithItems } from '@/types/pr2';
 import type { PR2ApprovalDetail, ApprovalActionRecord, WorkflowStep } from '@/types/approvals';
 import { format } from 'date-fns';
@@ -24,7 +25,7 @@ function buildPhase1Slots(
     .map((step, idx) => ({
       label: labels[idx] ?? `Step ${step.step_order}`,
       hint: step.position_required,
-      action: actions.find(a => a.step_order === step.step_order && a.action === 'approved') ?? null,
+      action: latestActionForStep(actions, step.step_order),
     }));
 }
 
@@ -38,22 +39,40 @@ function buildPhase2Slots(
     .map((step, idx) => ({
       label: labels[idx] ?? `Step ${step.step_order}`,
       hint: step.position_required,
-      action: actions.find(a => a.step_order === step.step_order && a.action === 'approved') ?? null,
+      action: latestActionForStep(actions, step.step_order),
     }));
 }
 
 function SignatureCell({ slot, width }: { slot: SignatureSlot; width: string }) {
+  const action = slot.action;
+  const statusColor =
+    action?.action === 'rejected'
+      ? '#b91c1c'
+      : action?.action === 'revision_requested'
+        ? '#b45309'
+        : '#166534';
+
   return (
     <td style={{ width, border: '1px solid #000', borderTop: 'none', padding: '6px 8px', fontSize: 9, verticalAlign: 'top' }}>
       <div style={{ fontWeight: 'bold', marginBottom: 2 }}>{slot.label}:</div>
-      <div style={{ fontSize: 8, color: '#666', marginBottom: slot.action ? 4 : 18 }}>{slot.hint}</div>
-      {slot.action ? (
+      <div style={{ fontSize: 8, color: '#666', marginBottom: action ? 4 : 18 }}>{slot.hint}</div>
+      {action ? (
         <div style={{ borderTop: '1px solid #000', paddingTop: 3 }}>
-          <div style={{ fontWeight: 'bold', fontSize: 9 }}>{slot.action.actor_name_snapshot}</div>
-          <div style={{ fontSize: 8, color: '#333' }}>{slot.action.actor_position_snapshot}</div>
+          {action.action !== 'approved' && (
+            <div style={{ fontWeight: 'bold', fontSize: 8, color: statusColor, marginBottom: 2 }}>
+              {labelForApprovalAction(action.action)}
+            </div>
+          )}
+          <div style={{ fontWeight: 'bold', fontSize: 9 }}>{action.actor_name_snapshot}</div>
+          <div style={{ fontSize: 8, color: '#333' }}>{action.actor_position_snapshot}</div>
           <div style={{ fontSize: 7, color: '#666', marginTop: 1 }}>
-            {format(new Date(slot.action.acted_at), 'MM/dd/yyyy hh:mm a')}
+            {format(new Date(action.acted_at), 'MM/dd/yyyy hh:mm a')}
           </div>
+          {action.remarks && (
+            <div style={{ fontSize: 7, color: '#555', marginTop: 2, fontStyle: 'italic' }}>
+              {action.remarks}
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ borderTop: '1px solid #000', paddingTop: 3, color: '#999', fontStyle: 'italic', fontSize: 8 }}>
@@ -74,34 +93,13 @@ export default function PR2PrintPage() {
     if (!id) return;
 
     async function load() {
-      const [pr2Data] = await Promise.all([
-        fetchPR2ById(id as string),
-      ]);
+      const pr2Data = await fetchPR2ById(id as string);
       setPR2(pr2Data);
 
-      // Fetch approval detail — we need any instance id for this PR2.
-      // We do it by querying the first active or approved instance via approval detail.
-      // Since fetchPR2ApprovalDetail needs an instanceId, we'll use a direct supabase call
-      // from within the pr2 detail fetch, but we don't have that here.
-      // Instead, expose a helper that fetches by pr2_id.
-      // For now, try fetching phase detail via the pr2's own approval instance lookup.
       if (pr2Data) {
         try {
-          const { supabase } = await import('@/lib/supabase');
-          const db = supabase as any;
-          const { data: inst } = await db
-            .from('approval_instances')
-            .select('id')
-            .eq('document_type', 'PR2')
-            .eq('document_id', id)
-            .order('started_at', { ascending: true })
-            .limit(1)
-            .maybeSingle();
-
-          if (inst?.id) {
-            const approvalData = await fetchPR2ApprovalDetail(inst.id);
-            setDetail(approvalData);
-          }
+          const approvalData = await fetchPR2ApprovalDetailByPR2Id(id as string);
+          setDetail(approvalData);
         } catch {
           // approval detail not critical for print — show pending if unavailable
         }

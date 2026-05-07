@@ -8,7 +8,6 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import ApprovalInstanceStatusChip from '@/components/shared/ApprovalInstanceStatusChip';
-import ActionPill from '@/components/shared/ActionPill';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchApprovalDetail,
@@ -19,7 +18,7 @@ import {
   canUpdatePR1Priority,
   updatePR1Priority,
 } from '@/lib/pr1';
-import type { PR1ApprovalDetail, ApprovalAction, WorkflowStep, ApprovalActionRecord } from '@/types/approvals';
+import type { PR1ApprovalDetail, ApprovalAction } from '@/types/approvals';
 import {
   User,
   Building2,
@@ -52,6 +51,7 @@ import DetailInfoGrid from '@/components/shared/DetailInfoGrid';
 import DetailInfoField from '@/components/shared/DetailInfoField';
 import DetailWideInfoRow from '@/components/shared/DetailWideInfoRow';
 import DetailTableCard from '@/components/shared/DetailTableCard';
+import WorkflowTimeline from '@/components/approvals/WorkflowTimeline';
 
 export default function ApprovalDetailPage() {
   const { id: instanceId } = useParams<{ id: string }>();
@@ -328,7 +328,11 @@ export default function ApprovalDetailPage() {
                   </span>
                 </div>
                 {detail.warehouse_notes && (
-                  <p className="text-sm text-[#40527A] italic">"{detail.warehouse_notes}"</p>
+                  <p className="text-sm text-[#40527A] italic">
+                    <span aria-hidden="true">&quot;</span>
+                    {detail.warehouse_notes}
+                    <span aria-hidden="true">&quot;</span>
+                  </p>
                 )}
               </div>
             ) : (
@@ -476,101 +480,6 @@ export default function ApprovalDetailPage() {
         </div>
       )}
     </AppShell>
-  );
-}
-
-// ─── Workflow timeline ─────────────────────────────────────────────────────────
-
-function WorkflowTimeline({
-  steps,
-  actions,
-  currentStep,
-  instanceStatus,
-}: {
-  steps: WorkflowStep[];
-  actions: ApprovalActionRecord[];
-  currentStep: number;
-  instanceStatus: string;
-}) {
-  return (
-    <ol className="relative space-y-0">
-      {steps.map((step, idx) => {
-        const action = actions.find(a => a.step_order === step.step_order);
-        const isComplete = !!action;
-        const isCurrent = !isComplete && step.step_order === currentStep && instanceStatus === 'active';
-        const isPending = !isComplete && !isCurrent;
-
-        return (
-          <li key={step.step_order} className="flex gap-4">
-            {/* Connector line */}
-            <div className="flex flex-col items-center">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 ${
-                isComplete
-                  ? action!.action === 'approved'
-                    ? 'bg-emerald-600 border-emerald-600'
-                    : action!.action === 'rejected'
-                    ? 'bg-red-600 border-red-600'
-                    : 'bg-orange-500 border-orange-500'
-                  : isCurrent
-                  ? 'bg-[#F7F9FC] border-[#1E4BFF]'
-                  : 'bg-[#F7F9FC] border-[#D8E2FF]'
-              }`}>
-                {isComplete ? (
-                  action!.action === 'approved'
-                    ? <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                    : action!.action === 'rejected'
-                    ? <XCircle className="w-3.5 h-3.5 text-white" />
-                    : <RotateCcw className="w-3.5 h-3.5 text-white" />
-                ) : isCurrent ? (
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#1E4BFF] animate-pulse" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-[#BFC7D5]" />
-                )}
-              </div>
-              {idx < steps.length - 1 && (
-                <div className={`w-0.5 flex-1 my-1 min-h-[24px] ${
-                  isComplete ? 'bg-[#D8E2FF]' : 'bg-[#D8E2FF]'
-                }`} />
-              )}
-            </div>
-
-            {/* Step content */}
-            <div className="pb-5 flex-1 min-w-0">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-sm font-semibold text-[#0F1F3A]">
-                  Step {step.step_order}: {step.position_required}
-                </span>
-                <span className="text-xs text-[#BFC7D5]">{step.action_label}</span>
-                {step.is_final && (
-                  <span className="text-xs text-[#BFC7D5] italic">· Final</span>
-                )}
-              </div>
-
-              {isComplete && (
-                <div className="mt-1.5 space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <ActionPill action={action!.action} />
-                    <span className="text-xs text-[#40527A] font-medium">{action!.actor_name_snapshot}</span>
-                    <span className="text-xs text-[#BFC7D5]">· {format(new Date(action!.acted_at), 'MMM d, yyyy h:mm a')}</span>
-                  </div>
-                  {action!.remarks && (
-                    <p className="text-xs text-[#40527A] italic ml-0.5">"{action!.remarks}"</p>
-                  )}
-                </div>
-              )}
-
-              {isCurrent && (
-                <p className="mt-1 text-xs text-[#1E4BFF] font-medium">Awaiting action</p>
-              )}
-
-              {isPending && (
-                <p className="mt-1 text-xs text-[#BFC7D5]">Not yet reached</p>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
