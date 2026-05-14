@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type {
   ApprovalHistoryDocumentFilter,
   ApprovalHistoryRow,
+  FetchMyApprovalHistoryPagedOptions,
 } from '@/types/approvals';
 
 const db = supabase as any;
@@ -19,17 +20,155 @@ function actionUrl(documentType: string, instanceId: string): string {
   }
 }
 
+/** Remove ILIKE wildcards from user input so patterns stay predictable. */
+function sanitizeFreeText(term: string): string {
+  return term.replace(/[%_]/g, '').trim();
+}
+
+type SearchInstanceResolution = 'none' | 'empty' | Set<string>;
+
+/**
+ * Resolve approval_instance ids whose documents match the search and/or whose remarks match.
+ * `none` = do not restrict by instance_id.
+ * `empty` = no instances match (caller should return zero rows).
+ */
+async function resolveSearchInstanceIds(
+  actorId: string,
+  documentType: ApprovalHistoryDocumentFilter,
+  searchRaw: string | null | undefined,
+): Promise<SearchInstanceResolution> {
+  const raw = (searchRaw ?? '').trim();
+  if (!raw) return 'none';
+
+  const safe = sanitizeFreeText(raw);
+  if (!safe) return 'none';
+
+  const pattern = `%${safe}%`;
+  const instanceIds = new Set<string>();
+
+  const docTypes: Array<'PR1' | 'PR2' | 'PO'> =
+    documentType === 'all' ? ['PR1', 'PR2', 'PO'] : [documentType];
+
+  for (const dt of docTypes) {
+    if (dt === 'PR1') {
+      const { data, error } = await db.from('pr1_requests').select('id').ilike('pr1_number', pattern);
+      if (error) throw error;
+      const ids = ((data ?? []) as { id: string }[]).map((r) => r.id).filter(Boolean);
+      if (ids.length === 0) continue;
+      const { data: inst, error: e2 } = await db
+        .from('approval_instances')
+        .select('id')
+        .eq('document_type', 'PR1')
+        .in('document_id', ids);
+      if (e2) throw e2;
+      for (const r of (inst ?? []) as { id: string }[]) instanceIds.add(r.id);
+    } else if (dt === 'PR2') {
+      const { data, error } = await db.from('pr2_requests').select('id').ilike('pr2_number', pattern);
+      if (error) throw error;
+      const ids = ((data ?? []) as { id: string }[]).map((r) => r.id).filter(Boolean);
+      if (ids.length === 0) continue;
+      const { data: inst, error: e2 } = await db
+        .from('approval_instances')
+        .select('id')
+        .eq('document_type', 'PR2')
+        .in('document_id', ids);
+      if (e2) throw e2;
+      for (const r of (inst ?? []) as { id: string }[]) instanceIds.add(r.id);
+    } else {
+      const { data, error } = await db.from('po_requests').select('id').ilike('po_number', pattern);
+      if (error) throw error;
+      const ids = ((data ?? []) as { id: string }[]).map((r) => r.id).filter(Boolean);
+      if (ids.length === 0) continue;
+      const { data: inst, error: e2 } = await db
+        .from('approval_instances')
+        .select('id')
+        .eq('document_type', 'PO')
+        .in('document_id', ids);
+      if (e2) throw e2;
+      for (const r of (inst ?? []) as { id: string }[]) instanceIds.add(r.id);
+    }
+  }
+
+  const { data: remarkActions, error: re } = await db
+    .from('approval_actions')
+    .select('instance_id')
+    .eq('actor_id', actorId)
+    .not('remarks', 'is', null)
+    .ilike('remarks', pattern);
+  if (re) throw re;
+
+  const remarkInstIds = Array.from(
+    new Set(
+      ((remarkActions ?? []) as { instance_id: string }[])
+        .map((r) => r.instance_id)
+        .filter(Boolean),
+    ),
+  );
+
+  if (remarkInstIds.length > 0) {
+    let instQ = db.from('approval_instances').select('id').in('id', remarkInstIds);
+    if (documentType !== 'all') instQ = instQ.eq('document_type', documentType);
+    const { data: instRows, error: e3 } = await instQ;
+    if (e3) throw e3;
+    for (const r of (instRows ?? []) as { id: string }[]) instanceIds.add(r.id);
+  }
+
+  if (instanceIds.size === 0) return 'empty';
+  return instanceIds;
+}
+
+function startOfDayIso(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00`);
+  return d.toISOString();
+}
+
+function endOfDayIso(dateStr: string): string {
+  const d = new Date(`${dateStr}T23:59:59.999`);
+  return d.toISOString();
+}
+
+function applyActionAndDateFilters(
+  q: any,
+  opts: Pick<FetchMyApprovalHistoryPagedOptions, 'action' | 'actedAtFrom' | 'actedAtTo'>,
+): any {
+  let query = q;
+  if (opts.action && opts.action !== 'all') {
+    query = query.eq('action', opts.action);
+  }
+  if (opts.actedAtFrom?.trim()) {
+    query = query.gte('acted_at', startOfDayIso(opts.actedAtFrom.trim()));
+  }
+  if (opts.actedAtTo?.trim()) {
+    query = query.lte('acted_at', endOfDayIso(opts.actedAtTo.trim()));
+  }
+  return query;
+}
+
 /**
  * Paginated list of approval_actions for the current actor, joined to approval_instances
  * for document type / workflow status. Document numbers are resolved in batch (no per-row queries).
  */
-export async function fetchMyApprovalHistoryPaged(options: {
-  actorId: string;
-  documentType: ApprovalHistoryDocumentFilter;
-  limit: number;
-  offset: number;
-}): Promise<{ rows: ApprovalHistoryRow[]; total_count: number }> {
-  const { actorId, documentType, limit, offset } = options;
+export async function fetchMyApprovalHistoryPaged(
+  options: FetchMyApprovalHistoryPagedOptions,
+): Promise<{ rows: ApprovalHistoryRow[]; total_count: number }> {
+  const {
+    actorId,
+    documentType,
+    limit,
+    offset,
+    action = 'all',
+    actedAtFrom = null,
+    actedAtTo = null,
+    search = null,
+  } = options;
+
+  const searchInstances = await resolveSearchInstanceIds(actorId, documentType, search);
+  if (searchInstances === 'empty') {
+    return { rows: [], total_count: 0 };
+  }
+
+  const instanceIdList =
+    searchInstances instanceof Set ? Array.from(searchInstances) : null;
 
   const embed =
     documentType === 'all'
@@ -53,6 +192,12 @@ export async function fetchMyApprovalHistoryPaged(options: {
     .order('acted_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
+  listQuery = applyActionAndDateFilters(listQuery, { action, actedAtFrom, actedAtTo });
+
+  if (instanceIdList) {
+    listQuery = listQuery.in('instance_id', instanceIdList);
+  }
+
   if (documentType !== 'all') {
     listQuery = listQuery.eq('approval_instances.document_type', documentType);
   }
@@ -66,6 +211,12 @@ export async function fetchMyApprovalHistoryPaged(options: {
     .from('approval_actions')
     .select(countSelect, { count: 'exact', head: true })
     .eq('actor_id', actorId);
+
+  countQuery = applyActionAndDateFilters(countQuery, { action, actedAtFrom, actedAtTo });
+
+  if (instanceIdList) {
+    countQuery = countQuery.in('instance_id', instanceIdList);
+  }
 
   if (documentType !== 'all') {
     countQuery = countQuery.eq('approval_instances.document_type', documentType);
@@ -116,13 +267,13 @@ export async function fetchMyApprovalHistoryPaged(options: {
   if (poRes.error) throw poRes.error;
 
   const pr1Num: Record<string, string> = Object.fromEntries(
-    ((pr1Res.data ?? []) as any[]).map((r: any) => [r.id, r.pr1_number])
+    ((pr1Res.data ?? []) as any[]).map((r: any) => [r.id, r.pr1_number]),
   );
   const pr2Num: Record<string, string> = Object.fromEntries(
-    ((pr2Res.data ?? []) as any[]).map((r: any) => [r.id, r.pr2_number])
+    ((pr2Res.data ?? []) as any[]).map((r: any) => [r.id, r.pr2_number]),
   );
   const poNum: Record<string, string> = Object.fromEntries(
-    ((poRes.data ?? []) as any[]).map((r: any) => [r.id, r.po_number])
+    ((poRes.data ?? []) as any[]).map((r: any) => [r.id, r.po_number]),
   );
 
   const rows: ApprovalHistoryRow[] = [];
@@ -143,16 +294,16 @@ export async function fetchMyApprovalHistoryPaged(options: {
 
     rows.push({
       approval_action_id: row.id,
-      instance_id:        row.instance_id,
-      document_type:      dt,
-      document_id:        docId,
+      instance_id: row.instance_id,
+      document_type: dt,
+      document_id: docId,
       document_number,
-      action:             row.action,
-      step_order:         row.step_order,
-      remarks:            row.remarks ?? null,
-      acted_at:           row.acted_at,
-      instance_status:    inst.status,
-      action_url:         actionUrl(dt, row.instance_id),
+      action: row.action,
+      step_order: row.step_order,
+      remarks: row.remarks ?? null,
+      acted_at: row.acted_at,
+      instance_status: inst.status,
+      action_url: actionUrl(dt, row.instance_id),
     });
   }
 

@@ -1,9 +1,43 @@
 import type { AppRole } from '@/types/auth';
 
+/** Stable keys for sidebar + module visibility rules (global uniqueness). */
+export type ModuleKey =
+  | 'dashboard'
+  | 'my_requests'
+  | 'substitute_review'
+  | 'delivery_tracking'
+  | 'warehouse_validation'
+  | 'warehouse_history'
+  | 'goods_receipt'
+  | 'approval_queue'
+  | 'approval_history'
+  | 'approver_pr1'
+  | 'approver_pr2'
+  | 'approver_po'
+  | 'purchase_requests'
+  | 'canvassing_rfq'
+  | 'purchase_orders'
+  | 'supplier_accreditation'
+  | 'product_review'
+  | 'supplier_portal_accreditation'
+  | 'supplier_products'
+  | 'supplier_quotations'
+  | 'supplier_po'
+  | 'supplier_delivery'
+  | 'tsqa_dashboard'
+  | 'tsqa_rse'
+  | 'admin_users'
+  | 'admin_roles'
+  | 'admin_positions'
+  | 'admin_departments'
+  | 'admin_audit'
+  | 'admin_module_visibility';
+
 export interface NavItem {
   label: string;
   href: string;
   icon: string;
+  module_key: ModuleKey;
 }
 
 export interface NavGroup {
@@ -12,29 +46,150 @@ export interface NavGroup {
 }
 
 const ALL_NAV: Record<string, NavItem> = {
-  dashboard:        { label: 'Dashboard',         href: '/dashboard',            icon: 'LayoutDashboard' },
-  myRequests:       { label: 'My Requests',        href: '/pr1',                  icon: 'FileText' },
-  myDeliveries:     { label: 'Delivery Status',    href: '/delivery',             icon: 'Truck' },
-  warehouseQueue:   { label: 'Warehouse Queue',    href: '/warehouse',            icon: 'PackageSearch' },
-  approvalQueue:    { label: 'Approval Queue',     href: '/approvals',            icon: 'CheckSquare' },
-  pr2:              { label: 'Purchase Requests',  href: '/pr2',                  icon: 'ClipboardList' },
-  rfq:              { label: 'Canvassing / RFQ',   href: '/rfq',                  icon: 'SendHorizonal' },
-  purchaseOrders:   { label: 'Purchase Orders',    href: '/po',                   icon: 'ShoppingCart' },
-  deliveryTracking: { label: 'Delivery Tracking',  href: '/delivery',             icon: 'Truck' },
-  grn:              { label: 'Goods Receipt',      href: '/grn',                  icon: 'PackageCheck' },
-  supplierAccredQueue: { label: 'Supplier Accreditation', href: '/accreditation',          icon: 'BadgeCheck' },
-  productReviewQueue:  { label: 'Product Review',         href: '/accreditation/products', icon: 'PackageSearch' },
-  supplierPortal:        { label: 'Quotations',         href: '/supplier/quotations',     icon: 'Tag' },
-  supplierPO:            { label: 'Purchase Orders',    href: '/supplier/po',             icon: 'ShoppingCart' },
-  supplierDelivery:      { label: 'Deliveries',         href: '/supplier/delivery',       icon: 'Truck' },
-  supplierAccreditation: { label: 'Accreditation',      href: '/supplier/accreditation',  icon: 'BadgeCheck' },
-  supplierProducts:      { label: 'Product Catalog',    href: '/supplier/products',       icon: 'Package' },
-  substitutes:      { label: 'Substitute Review',  href: '/substitutes',          icon: 'Replace' },
-  adminUsers:       { label: 'User Management',    href: '/admin/users',          icon: 'Users' },
-  adminRoles:       { label: 'Roles',              href: '/admin/roles',          icon: 'Shield' },
-  adminPositions:   { label: 'Positions',          href: '/admin/positions',       icon: 'Tag' },
-  adminDepts:       { label: 'Departments',        href: '/admin/departments',     icon: 'FileText' },
-  adminAudit:       { label: 'Audit Logs',         href: '/admin/audit',          icon: 'Clock' },
+  dashboard: {
+    label: 'Dashboard',
+    href: '/dashboard',
+    icon: 'LayoutDashboard',
+    module_key: 'dashboard',
+  },
+  myRequests: {
+    label: 'My Requests',
+    href: '/pr1',
+    icon: 'FileText',
+    module_key: 'my_requests',
+  },
+  myDeliveries: {
+    label: 'Delivery Status',
+    href: '/delivery',
+    icon: 'Truck',
+    module_key: 'delivery_tracking',
+  },
+  warehouseQueue: {
+    label: 'Warehouse Queue',
+    href: '/warehouse',
+    icon: 'PackageSearch',
+    module_key: 'warehouse_validation',
+  },
+  approvalQueue: {
+    label: 'Approval Queue',
+    href: '/approvals',
+    icon: 'CheckSquare',
+    module_key: 'approval_queue',
+  },
+  pr2: {
+    label: 'Purchase Requests',
+    href: '/pr2',
+    icon: 'ClipboardList',
+    module_key: 'purchase_requests',
+  },
+  rfq: {
+    label: 'Canvassing / RFQ',
+    href: '/rfq',
+    icon: 'SendHorizonal',
+    module_key: 'canvassing_rfq',
+  },
+  purchaseOrders: {
+    label: 'Purchase Orders',
+    href: '/po',
+    icon: 'ShoppingCart',
+    module_key: 'purchase_orders',
+  },
+  deliveryTracking: {
+    label: 'Delivery Tracking',
+    href: '/delivery',
+    icon: 'Truck',
+    module_key: 'delivery_tracking',
+  },
+  grn: {
+    label: 'Goods Receipt',
+    href: '/grn',
+    icon: 'PackageCheck',
+    module_key: 'goods_receipt',
+  },
+  supplierAccredQueue: {
+    label: 'Supplier Accreditation',
+    href: '/accreditation',
+    icon: 'BadgeCheck',
+    module_key: 'supplier_accreditation',
+  },
+  productReviewQueue: {
+    label: 'Product Review',
+    href: '/accreditation/products',
+    icon: 'PackageSearch',
+    module_key: 'product_review',
+  },
+  supplierPortal: {
+    label: 'Quotations',
+    href: '/supplier/quotations',
+    icon: 'Tag',
+    module_key: 'supplier_quotations',
+  },
+  supplierPO: {
+    label: 'Purchase Orders',
+    href: '/supplier/po',
+    icon: 'ShoppingCart',
+    module_key: 'supplier_po',
+  },
+  supplierDelivery: {
+    label: 'Deliveries',
+    href: '/supplier/delivery',
+    icon: 'Truck',
+    module_key: 'supplier_delivery',
+  },
+  supplierAccreditation: {
+    label: 'Accreditation',
+    href: '/supplier/accreditation',
+    icon: 'BadgeCheck',
+    module_key: 'supplier_portal_accreditation',
+  },
+  supplierProducts: {
+    label: 'Product Catalog',
+    href: '/supplier/products',
+    icon: 'Package',
+    module_key: 'supplier_products',
+  },
+  substitutes: {
+    label: 'Substitute Review',
+    href: '/substitutes',
+    icon: 'Replace',
+    module_key: 'substitute_review',
+  },
+  adminUsers: {
+    label: 'User Management',
+    href: '/admin/users',
+    icon: 'Users',
+    module_key: 'admin_users',
+  },
+  adminRoles: {
+    label: 'Roles',
+    href: '/admin/roles',
+    icon: 'Shield',
+    module_key: 'admin_roles',
+  },
+  adminPositions: {
+    label: 'Positions',
+    href: '/admin/positions',
+    icon: 'Tag',
+    module_key: 'admin_positions',
+  },
+  adminDepts: {
+    label: 'Departments',
+    href: '/admin/departments',
+    icon: 'FileText',
+    module_key: 'admin_departments',
+  },
+  adminAudit: {
+    label: 'Audit Logs',
+    href: '/admin/audit',
+    icon: 'Clock',
+    module_key: 'admin_audit',
+  },
+  adminModuleVisibility: {
+    label: 'Module Visibility',
+    href: '/admin/module-visibility',
+    icon: 'Settings2',
+    module_key: 'admin_module_visibility',
+  },
 };
 
 export const ROLE_NAV: Record<AppRole, NavItem[]> = {
@@ -45,6 +200,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     ALL_NAV.adminPositions,
     ALL_NAV.adminDepts,
     ALL_NAV.adminAudit,
+    ALL_NAV.adminModuleVisibility,
   ],
   employee: [
     ALL_NAV.dashboard,
@@ -55,14 +211,24 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
   warehouse: [
     ALL_NAV.dashboard,
     ALL_NAV.warehouseQueue,
-    { label: 'Warehouse History', href: '/warehouse/history', icon: 'ClipboardList' },
+    {
+      label: 'Warehouse History',
+      href: '/warehouse/history',
+      icon: 'ClipboardList',
+      module_key: 'warehouse_history',
+    },
     ALL_NAV.deliveryTracking,
     ALL_NAV.grn,
   ],
   procurement: [
     ALL_NAV.dashboard,
     ALL_NAV.approvalQueue,
-    { label: 'Approval History', href: '/approvals/history', icon: 'CheckSquare' },
+    {
+      label: 'Approval History',
+      href: '/approvals/history',
+      icon: 'CheckSquare',
+      module_key: 'approval_history',
+    },
     ALL_NAV.pr2,
     ALL_NAV.rfq,
     ALL_NAV.purchaseOrders,
@@ -73,10 +239,30 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
   ],
   approver: [
     ALL_NAV.dashboard,
-    { label: 'PR1 Requests', href: '/approvals/pr1', icon: 'FileText' },
-    { label: 'PR2 Requests', href: '/approvals/pr2', icon: 'ClipboardList' },
-    { label: 'Purchase Orders', href: '/approvals/po', icon: 'ShoppingCart' },
-    { label: 'Approval History', href: '/approvals/history', icon: 'CheckSquare' },
+    {
+      label: 'PR1 Requests',
+      href: '/approvals/pr1',
+      icon: 'FileText',
+      module_key: 'approver_pr1',
+    },
+    {
+      label: 'PR2 Requests',
+      href: '/approvals/pr2',
+      icon: 'ClipboardList',
+      module_key: 'approver_pr2',
+    },
+    {
+      label: 'Purchase Orders',
+      href: '/approvals/po',
+      icon: 'ShoppingCart',
+      module_key: 'approver_po',
+    },
+    {
+      label: 'Approval History',
+      href: '/approvals/history',
+      icon: 'CheckSquare',
+      module_key: 'approval_history',
+    },
   ],
   supplier: [
     ALL_NAV.dashboard,
@@ -87,7 +273,17 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     ALL_NAV.supplierDelivery,
   ],
   tsqa: [
-    { label: 'Dashboard',  href: '/tsqa',     icon: 'LayoutDashboard' },
-    { label: 'RSE Queue',  href: '/tsqa/rse', icon: 'ClipboardList'   },
+    {
+      label: 'Dashboard',
+      href: '/tsqa',
+      icon: 'LayoutDashboard',
+      module_key: 'tsqa_dashboard',
+    },
+    {
+      label: 'RSE Queue',
+      href: '/tsqa/rse',
+      icon: 'ClipboardList',
+      module_key: 'tsqa_rse',
+    },
   ],
 };

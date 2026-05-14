@@ -20,6 +20,172 @@ import type {
 
 const db = supabase as any;
 
+// ─── Warehouse-routed RFQ lines (Phase 2) ─────────────────────────────────────
+// When warehouse validation is complete, only lines with procurement_qty > 0 appear in
+// RFQ/canvassing; quantity_requested on each row is the procurement quantity. Historical
+// RFQs may still have quotes on other lines — those pr1_item_ids are included for display.
+
+type Pr1ItemRfqRow = {
+  id: string;
+  pr1_id: string;
+  item_order: number;
+  item_code: string;
+  description: string;
+  unit_of_measure: string;
+  quantity_requested: number;
+};
+
+export async function fetchWarehouseProcurementByPr1Item(
+  pr1Id: string
+): Promise<{ validated: boolean; byPr1ItemId: Record<string, number> }> {
+  const { data: wv } = await db
+    .from('warehouse_validations')
+    .select('id, validated_at')
+    .eq('pr1_id', pr1Id)
+    .maybeSingle();
+
+  const validated = Boolean(wv?.validated_at);
+  const byPr1ItemId: Record<string, number> = {};
+  if (validated && wv?.id) {
+    const { data: rows } = await db
+      .from('warehouse_validation_items')
+      .select('pr1_item_id, procurement_qty')
+      .eq('validation_id', wv.id);
+    for (const r of rows ?? []) {
+      const id = (r as any).pr1_item_id as string;
+      byPr1ItemId[id] = Number((r as any).procurement_qty ?? 0);
+    }
+  }
+  return { validated, byPr1ItemId };
+}
+
+/** RFQ matrix / supplier quotation line list. */
+function buildRfqLineItems(
+  pr1Items: Pr1ItemRfqRow[],
+  warehouse: { validated: boolean; byPr1ItemId: Record<string, number> },
+  legacyReferencedPr1ItemIds: Set<string>,
+): RfqDetailView['items'] {
+  const pr1Qty = (i: Pr1ItemRfqRow) => Number(i.quantity_requested) || 0;
+
+  if (!warehouse.validated) {
+    return pr1Items.map(i => ({
+      id:                 i.id,
+      item_order:         i.item_order,
+      item_code:          i.item_code,
+      description:        i.description,
+      unit_of_measure:    i.unit_of_measure,
+      quantity_requested: pr1Qty(i),
+    }));
+  }
+
+  const procurementIdSet = new Set(
+    pr1Items.filter(i => (warehouse.byPr1ItemId[i.id] ?? 0) > 0).map(i => i.id),
+  );
+
+  const out: RfqDetailView['items'] = [];
+
+  for (const i of pr1Items) {
+    const procQty = warehouse.byPr1ItemId[i.id] ?? 0;
+    if (procQty > 0) {
+      out.push({
+        id:                     i.id,
+        item_order:             i.item_order,
+        item_code:              i.item_code,
+        description:            i.description,
+        unit_of_measure:        i.unit_of_measure,
+        quantity_requested:      procQty,
+        pr1_quantity_requested: pr1Qty(i),
+      });
+    }
+  }
+
+  for (const i of pr1Items) {
+    if (legacyReferencedPr1ItemIds.has(i.id) && !procurementIdSet.has(i.id)) {
+      const q = pr1Qty(i);
+      out.push({
+        id:                     i.id,
+        item_order:             i.item_order,
+        item_code:              i.item_code,
+        description:            i.description,
+        unit_of_measure:        i.unit_of_measure,
+        quantity_requested:      q,
+        pr1_quantity_requested: q,
+      });
+    }
+  }
+
+  out.sort((a, b) => a.item_order - b.item_order);
+
+  const seen = new Set<string>();
+  return out.filter(row => {
+    if (seen.has(row.id)) return false;
+    seen.add(row.id);
+    return true;
+  });
+}
+
+async function collectLegacyPr1ItemIdsForRfq(rfqId: string): Promise<Set<string>> {
+  const { data: rsRows } = await db.from('rfq_suppliers').select('id').eq('rfq_id', rfqId);
+  const supplierIds = (rsRows ?? []).map((r: any) => r.id as string);
+  const ids = new Set<string>();
+  if (supplierIds.length > 0) {
+    const { data: quoteRows } = await db
+      .from('rfq_item_quotes')
+      .select('pr1_item_id')
+      .in('rfq_supplier_id', supplierIds);
+    for (const q of quoteRows ?? []) ids.add((q as any).pr1_item_id as string);
+  }
+  const { data: selRows } = await db
+    .from('supplier_item_selections')
+    .select('pr1_item_id')
+    .eq('rfq_id', rfqId);
+  for (const s of selRows ?? []) ids.add((s as any).pr1_item_id as string);
+  return ids;
+}
+
+/** Count of RFQ lines per PR1 (procurement-only when warehouse validated). */
+async function fetchRfqLineCountsByPr1Id(pr1Ids: string[]): Promise<Record<string, number>> {
+  if (pr1Ids.length === 0) return {};
+  const { data: itemRows } = await db.from('pr1_items').select('pr1_id').in('pr1_id', pr1Ids);
+  const rawCount: Record<string, number> = {};
+  for (const r of itemRows ?? []) {
+    const pid = (r as any).pr1_id as string;
+    rawCount[pid] = (rawCount[pid] ?? 0) + 1;
+  }
+  const { data: wvs } = await db
+    .from('warehouse_validations')
+    .select('id, pr1_id, validated_at')
+    .in('pr1_id', pr1Ids);
+
+  const valIdByPr1: Record<string, string> = {};
+  for (const w of (wvs ?? []) as any[]) {
+    if (w.validated_at) valIdByPr1[w.pr1_id as string] = w.id as string;
+  }
+  const validationIds = Array.from(new Set(Object.values(valIdByPr1)));
+  let wvis: any[] = [];
+  if (validationIds.length > 0) {
+    const { data } = await db
+      .from('warehouse_validation_items')
+      .select('validation_id, procurement_qty')
+      .in('validation_id', validationIds);
+    wvis = data ?? [];
+  }
+  const procurementCountByValidation: Record<string, number> = {};
+  for (const w of wvis) {
+    if (Number(w.procurement_qty ?? 0) <= 0) continue;
+    procurementCountByValidation[w.validation_id] =
+      (procurementCountByValidation[w.validation_id] ?? 0) + 1;
+  }
+
+  const out: Record<string, number> = { ...rawCount };
+  for (const pid of pr1Ids) {
+    const vid = valIdByPr1[pid];
+    if (!vid) continue;
+    out[pid] = procurementCountByValidation[vid] ?? 0;
+  }
+  return out;
+}
+
 // ─── Canvassing queue (procurement) ──────────────────────────────────────────
 // Returns PR1s with status=for_canvassing, joined with their RFQ if one exists.
 
@@ -175,7 +341,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
       .eq('id', rfq.pr1_id)
       .maybeSingle(),
     db.from('pr1_items')
-      .select('id, item_order, item_code, description, unit_of_measure, quantity_requested')
+      .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested')
       .eq('pr1_id', rfq.pr1_id)
       .order('item_order', { ascending: true }),
     db.from('rfq_suppliers')
@@ -186,6 +352,11 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
   if (pr1Res.error) throw pr1Res.error;
   if (!pr1Res.data) return null;
   if (itemsRes.error) throw itemsRes.error;
+
+  const pr1Items = (itemsRes.data ?? []) as Pr1ItemRfqRow[];
+  const warehouse = await fetchWarehouseProcurementByPr1Item(rfq.pr1_id);
+  const legacyIds = await collectLegacyPr1ItemIdsForRfq(rfqId);
+  const items = buildRfqLineItems(pr1Items, warehouse, legacyIds);
 
   const assignedSuppliers: any[] = suppliersRes.data ?? [];
   const supplierIds = assignedSuppliers.map((s: any) => s.id);
@@ -333,7 +504,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
   return {
     rfq,
     pr1:        pr1Res.data,
-    items:      itemsRes.data ?? [],
+    items,
     suppliers:  assignedSuppliers,
     quotes,
     selections,
@@ -413,6 +584,26 @@ export async function createRfq(
     .maybeSingle();
 
   if (existing?.id) return existing.id;
+
+  const { data: pr1ItemsRows, error: piErr } = await db
+    .from('pr1_items')
+    .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested')
+    .eq('pr1_id', pr1Id)
+    .order('item_order', { ascending: true });
+  if (piErr) throw piErr;
+
+  const warehouse = await fetchWarehouseProcurementByPr1Item(pr1Id);
+  const rfqLines = buildRfqLineItems(
+    (pr1ItemsRows ?? []) as Pr1ItemRfqRow[],
+    warehouse,
+    new Set(),
+  );
+  if (warehouse.validated && rfqLines.length === 0) {
+    throw new Error(
+      'This request has no items requiring procurement (warehouse resolved all lines internally). ' +
+      'An RFQ is not applicable.',
+    );
+  }
 
   const now = new Date().toISOString();
 
@@ -813,6 +1004,13 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
     ((decisionsRes.data ?? []) as SubstituteDecisionRow[]).map(d => [d.rfq_item_quote_id, d])
   );
 
+  const wh = await fetchWarehouseProcurementByPr1Item(pr1.id);
+  const rfqQtyForItem = (pr1ItemId: string, pr1LineQty: number) => {
+    if (!wh.validated) return pr1LineQty;
+    const p = wh.byPr1ItemId[pr1ItemId];
+    return p !== undefined && p > 0 ? p : pr1LineQty;
+  };
+
   const substitutes: SubstituteReviewItem[] = quoteArr
     .map((q: any): SubstituteReviewItem | null => {
       const item     = itemMap[q.pr1_item_id];
@@ -830,7 +1028,7 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
         item_order:           item.item_order,
         item_code:            item.item_code,
         original_description: item.description,
-        original_quantity:    item.quantity_requested,
+        original_quantity: rfqQtyForItem(item.id, Number(item.quantity_requested) || 0),
         unit_of_measure:      item.unit_of_measure,
         quoted_description:   q.quoted_description,
         unit_price:           Number(q.unit_price),
@@ -910,7 +1108,11 @@ export async function fetchSupplierInbox(supplierId: string): Promise<SupplierRf
 
   if (rfqErr) throw rfqErr;
 
-  const pr1Ids = Array.from(new Set((rfqs ?? []).map((r: any) => r.pr1_id as string)));
+  const pr1Ids: string[] = Array.from(
+    new Set((rfqs ?? []).map((r: any) => r.pr1_id as string)),
+  );
+
+  const itemCounts = await fetchRfqLineCountsByPr1Id(pr1Ids);
 
   const [pr1Res, quotesRes] = await Promise.all([
     db.from('pr1_requests')
@@ -924,16 +1126,6 @@ export async function fetchSupplierInbox(supplierId: string): Promise<SupplierRf
   const rfqMap:   Record<string, any> = Object.fromEntries(((rfqs ?? []) as any[]).map((r: any) => [r.id, r]));
   const pr1Map:   Record<string, any> = Object.fromEntries(((pr1Res.data ?? []) as any[]).map((r: any) => [r.id, r]));
   const quotesArr: any[] = quotesRes.data ?? [];
-
-  // Count items per rfq batch (via pr1_items)
-  const itemCountRes = await db
-    .from('pr1_items')
-    .select('pr1_id')
-    .in('pr1_id', pr1Ids);
-  const itemCounts: Record<string, number> = {};
-  for (const item of (itemCountRes.data ?? []) as any[]) {
-    itemCounts[item.pr1_id] = (itemCounts[item.pr1_id] ?? 0) + 1;
-  }
 
   return (assignments as any[]).map((assignment: any) => {
     const rfq = rfqMap[assignment.rfq_id];
@@ -994,28 +1186,24 @@ export async function fetchSupplierInboxPaged(
 
   if (rfqErr) throw rfqErr;
 
-  const pr1Ids = Array.from(new Set(((rfqs ?? []) as any[]).map((r: any) => r.pr1_id as string)));
+  const pr1Ids: string[] = Array.from(
+    new Set(((rfqs ?? []) as any[]).map((r: any) => r.pr1_id as string)),
+  );
 
-  const [pr1Res, quotesRes, itemCountRes] = await Promise.all([
+  const itemCounts = await fetchRfqLineCountsByPr1Id(pr1Ids);
+
+  const [pr1Res, quotesRes] = await Promise.all([
     db.from('pr1_requests')
       .select('id, pr1_number, department_name_snapshot, purpose')
       .in('id', pr1Ids),
     db.from('rfq_item_quotes')
       .select('rfq_supplier_id, pr1_item_id, submitted_at')
       .in('rfq_supplier_id', (assignments as any[]).map((a: any) => a.id)),
-    db.from('pr1_items')
-      .select('pr1_id')
-      .in('pr1_id', pr1Ids),
   ]);
 
   const rfqMap:   Record<string, any> = Object.fromEntries(((rfqs ?? []) as any[]).map((r: any) => [r.id, r]));
   const pr1Map:   Record<string, any> = Object.fromEntries(((pr1Res.data ?? []) as any[]).map((r: any) => [r.id, r]));
   const quotesArr: any[] = quotesRes.data ?? [];
-
-  const itemCounts: Record<string, number> = {};
-  for (const item of (itemCountRes.data ?? []) as any[]) {
-    itemCounts[item.pr1_id] = (itemCounts[item.pr1_id] ?? 0) + 1;
-  }
 
   return {
     inbox: (assignments as any[]).map((assignment: any) => {
@@ -1069,6 +1257,7 @@ export interface SupplierQuoteDetail {
     description:        string;
     unit_of_measure:    string;
     quantity_requested: number;
+    pr1_quantity_requested?: number;
   }[];
   quotes: RfqItemQuote[];
 }
@@ -1102,27 +1291,36 @@ export async function fetchSupplierQuoteDetail(
 
   const rfq = rfqRes.data;
 
-  const [pr1Res, itemsRes] = await Promise.all([
+  const [pr1Res, pr1ItemsRes, legacyIds] = await Promise.all([
     db.from('pr1_requests')
       .select('pr1_number, department_name_snapshot, purpose')
       .eq('id', rfq.pr1_id)
       .maybeSingle(),
     db.from('pr1_items')
-      .select('id, item_order, item_code, description, unit_of_measure, quantity_requested')
+      .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested')
       .eq('pr1_id', rfq.pr1_id)
       .order('item_order', { ascending: true }),
+    collectLegacyPr1ItemIdsForRfq(rfq.id),
   ]);
 
   if (!pr1Res.data) return null;
+
+  const warehouse = await fetchWarehouseProcurementByPr1Item(rfq.pr1_id);
+  const items = buildRfqLineItems(
+    (pr1ItemsRes.data ?? []) as Pr1ItemRfqRow[],
+    warehouse,
+    legacyIds,
+  );
 
   return {
     rfqSupplier: rs,
     rfq,
     pr1:         pr1Res.data,
-    items:       itemsRes.data ?? [],
+    items,
     quotes:      quotesRes.data ?? [],
   };
 }
+
 
 // ─── Submit supplier quotation ────────────────────────────────────────────────
 

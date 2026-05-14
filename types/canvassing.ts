@@ -156,7 +156,10 @@ export interface RfqDetailView {
     item_code:          string;
     description:        string;
     unit_of_measure:    string;
+    /** RFQ / procurement quantity (from warehouse `procurement_qty` when validated). */
     quantity_requested: number;
+    /** Original PR1 requested quantity; set when warehouse validation applies and differs. */
+    pr1_quantity_requested?: number;
   }[];
   suppliers:  RfqSupplier[];
   quotes:     RfqItemQuote[];
@@ -177,6 +180,7 @@ export interface QuoteMatrixRow {
     description:        string;
     unit_of_measure:    string;
     quantity_requested: number;
+    pr1_quantity_requested?: number;
   };
   quotes: {
     rfq_supplier_id:       string;

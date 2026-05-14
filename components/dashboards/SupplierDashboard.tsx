@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { UserProfile } from '@/types/auth';
 import PageHeader from '@/components/shared/PageHeader';
+import { SupplierDashboardVisibilitySkeleton } from '@/components/shared/module-visibility-skeletons';
+import { useModuleVisibility } from '@/hooks/use-module-visibility';
 import { fetchSupplierStats } from '@/lib/canvassing';
 import { fetchSupplierComplianceDashboardStats } from '@/lib/compliance-dashboard';
 import {
@@ -21,7 +23,14 @@ import {
 
 interface Props { profile: UserProfile; }
 
+const ACCRED_CATALOG_GRID_CLASS =
+  'grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))]';
+
+const RFQ_KPI_GRID_CLASS =
+  'grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] mb-4';
+
 export default function SupplierDashboard({ profile }: Props) {
+  const { isModuleVisible, rulesLoading } = useModuleVisibility(profile);
   const [stats, setStats] = useState({ openRfqs: 0, submitted: 0, pending: 0 });
   const [cStats, setCStats] = useState({
     accreditationStatus: null as string | null,
@@ -51,6 +60,11 @@ export default function SupplierDashboard({ profile }: Props) {
     ? cStats.accreditationStatus.replace(/_/g, ' ')
     : 'No application';
 
+  const showPortalAccred = isModuleVisible('supplier_portal_accreditation');
+  const showSupplierProducts = isModuleVisible('supplier_products');
+  const showQuotations = isModuleVisible('supplier_quotations');
+  const showAccredCatalogBand = showPortalAccred || showSupplierProducts;
+
   return (
     <div>
       <PageHeader
@@ -58,15 +72,24 @@ export default function SupplierDashboard({ profile }: Props) {
         description={`Welcome, ${profile.full_name}. Respond to active RFQs and keep your accreditation and catalog up to date.`}
       />
 
+      {rulesLoading ? (
+        <SupplierDashboardVisibilitySkeleton />
+      ) : (
+        <>
       {/* Accreditation + catalog — KPI band */}
+      {showAccredCatalogBand && (
       <div className="mb-4 mt-1">
         <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-2">Accreditation &amp; catalog</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className={ACCRED_CATALOG_GRID_CLASS}>
+          {showPortalAccred && (
           <Link href="/supplier/accreditation" className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex flex-col gap-1 transition hover:border-[#0F1F3A]">
             <BadgeCheck className="w-4 h-4 text-[#40527A]" />
             <p className="text-lg font-bold text-[#0F1F3A] leading-tight capitalize">{accLabel}</p>
             <p className="text-[10px] text-[#40527A]">Accreditation status</p>
           </Link>
+          )}
+          {showSupplierProducts && (
+          <>
           <Link href="/supplier/products" className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex flex-col gap-1 transition hover:border-[#0F1F3A]">
             <Package className="w-4 h-4 text-[#40527A]" />
             <p className="text-lg font-bold text-[#0F1F3A] leading-tight">{cStats.totalProducts}</p>
@@ -92,11 +115,16 @@ export default function SupplierDashboard({ profile }: Props) {
             <p className="text-lg font-bold text-[#0F1F3A] leading-tight">{cStats.rejectedProducts}</p>
             <p className="text-[10px] text-[#40527A]">Rejected</p>
           </Link>
+          </>
+          )}
         </div>
       </div>
+      )}
 
       {/* RFQ KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      {showQuotations && (
+      <>
+      <div className={RFQ_KPI_GRID_CLASS}>
         {cards.map(card => {
           const Icon = card.icon;
           return (
@@ -153,6 +181,10 @@ export default function SupplierDashboard({ profile }: Props) {
             RFQs
           </Link>
         </div>
+      )}
+      </>
+      )}
+      </>
       )}
     </div>
   );

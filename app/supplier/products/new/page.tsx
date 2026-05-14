@@ -59,23 +59,24 @@ export default function NewSupplierProductPage() {
 
   return (
     <AppShell title="Add Product">
-      {/* Back link */}
-      <div className="mb-4">
-        <Link
-          href="/supplier/products"
-          className="inline-flex items-center gap-1 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Back to Products
-        </Link>
-      </div>
+      <div className="w-full max-w-5xl mx-auto px-4 sm:px-6">
+        {/* Back link */}
+        <div className="mb-4">
+          <Link
+            href="/supplier/products"
+            className="inline-flex items-center gap-1 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to Products
+          </Link>
+        </div>
 
-      <PageHeader
-        title="Add Product"
-        description="Add a new product to your catalog. Save as draft, upload documents, then submit for Procurement verification when ready."
-      />
+        <PageHeader
+          title="Add Product"
+          description="Add a new product to your catalog. Save as draft, upload documents, then submit for Procurement verification when ready."
+        />
 
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-6 max-w-2xl">
+        <div className="w-full bg-white rounded-[4px] border border-[#D8E2FF] p-6 sm:p-8">
         {formError && (
           <div className="bg-red-50 border border-red-200 rounded-[4px] p-3 text-sm text-red-700 mb-5">
             {formError}
@@ -94,7 +95,7 @@ export default function NewSupplierProductPage() {
             />
           </FormField>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <FormField label="Product Code / SKU">
               <input
                 type="text"
@@ -155,6 +156,7 @@ export default function NewSupplierProductPage() {
             </Link>
           </div>
         </form>
+        </div>
       </div>
     </AppShell>
   );

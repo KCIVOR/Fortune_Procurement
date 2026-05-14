@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { UserProfile } from '@/types/auth';
 import PageHeader from '@/components/shared/PageHeader';
+import { WarehouseDashboardVisibilitySkeleton } from '@/components/shared/module-visibility-skeletons';
+import { useModuleVisibility } from '@/hooks/use-module-visibility';
 import { supabase } from '@/lib/supabase';
 import { fetchWarehouseQueue } from '@/lib/warehouse';
 import { fetchGRNQueue } from '@/lib/grn';
@@ -13,6 +15,9 @@ import { PackageSearch, PackageCheck, Clock, CircleCheck as CheckCircle2, ArrowR
 import { format } from 'date-fns';
 
 interface Props { profile: UserProfile; }
+
+const STAT_GRID_CLASS =
+  'grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] mb-4 mt-1';
 
 interface Stats {
   pendingValidation: number;
@@ -54,6 +59,7 @@ async function fetchWarehouseStats(): Promise<Stats> {
 }
 
 export default function WarehouseDashboard({ profile }: Props) {
+  const { isModuleVisible, rulesLoading } = useModuleVisibility(profile);
   const [stats, setStats] = useState<Stats>({ pendingValidation: 0, validatedToday: 0, openGRN: 0, grnCompleted: 0 });
   const [pendingPRs, setPendingPRs] = useState<PR1QueueRow[]>([]);
   const [openGRNs, setOpenGRNs] = useState<GRNQueueRow[]>([]);
@@ -75,11 +81,16 @@ export default function WarehouseDashboard({ profile }: Props) {
   }, []);
 
   const statCards = [
-    { label: 'Pending Validation', value: stats.pendingValidation, icon: Clock },
-    { label: 'Validated Today', value: stats.validatedToday, icon: CheckCircle2 },
-    { label: 'Open GRN', value: stats.openGRN, icon: PackageSearch },
-    { label: 'GRN Completed', value: stats.grnCompleted, icon: PackageCheck },
+    { label: 'Pending Validation', value: stats.pendingValidation, icon: Clock, moduleKey: 'warehouse_validation' as const },
+    { label: 'Validated Today', value: stats.validatedToday, icon: CheckCircle2, moduleKey: 'warehouse_validation' as const },
+    { label: 'Open GRN', value: stats.openGRN, icon: PackageSearch, moduleKey: 'goods_receipt' as const },
+    { label: 'GRN Completed', value: stats.grnCompleted, icon: PackageCheck, moduleKey: 'goods_receipt' as const },
   ];
+
+  const visibleStatCards = statCards.filter((s) => isModuleVisible(s.moduleKey));
+  const showWarehousePanel = isModuleVisible('warehouse_validation');
+  const showGrnPanel = isModuleVisible('goods_receipt');
+  const showPanelsRow = showWarehousePanel || showGrnPanel;
 
   return (
     <div>
@@ -88,8 +99,13 @@ export default function WarehouseDashboard({ profile }: Props) {
         description="Validate purchase requests and process goods receipts."
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 mt-1">
-        {statCards.map((stat) => {
+      {rulesLoading ? (
+        <WarehouseDashboardVisibilitySkeleton />
+      ) : (
+        <>
+      {visibleStatCards.length > 0 && (
+      <div className={STAT_GRID_CLASS}>
+        {visibleStatCards.map((stat) => {
           const Icon = stat.icon;
           return (
             <div key={stat.label} className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex items-center gap-3">
@@ -104,10 +120,13 @@ export default function WarehouseDashboard({ profile }: Props) {
           );
         })}
       </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {showPanelsRow && (
+      <div className={showWarehousePanel && showGrnPanel ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : 'grid grid-cols-1 gap-4'}>
 
         {/* Pending Validation Queue */}
+        {showWarehousePanel && (
         <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#D8E2FF] flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[#0F1F3A]">Pending Validation Queue</h2>
@@ -148,8 +167,10 @@ export default function WarehouseDashboard({ profile }: Props) {
             </div>
           )}
         </div>
+        )}
 
         {/* Open Goods Receipts */}
+        {showGrnPanel && (
         <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#D8E2FF] flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[#0F1F3A]">Open Goods Receipts</h2>
@@ -184,8 +205,12 @@ export default function WarehouseDashboard({ profile }: Props) {
             </div>
           )}
         </div>
+        )}
 
       </div>
+      )}
+        </>
+      )}
     </div>
   );
 }

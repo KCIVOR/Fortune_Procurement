@@ -181,6 +181,21 @@ export interface ApprovalActionRecord {
 
 export type ApprovalHistoryDocumentFilter = 'all' | 'PR1' | 'PR2' | 'PO';
 
+/** Action filter for `/approvals/history` (excluding `'all'` means no filter). */
+export type ApprovalHistoryActionFilter = 'all' | ApprovalAction;
+
+/** Options for `fetchMyApprovalHistoryPaged`. */
+export interface FetchMyApprovalHistoryPagedOptions {
+  actorId: string;
+  documentType: ApprovalHistoryDocumentFilter;
+  limit: number;
+  offset: number;
+  action?: ApprovalHistoryActionFilter;
+  actedAtFrom?: string | null;
+  actedAtTo?: string | null;
+  search?: string | null;
+}
+
 export interface ApprovalHistoryRow {
   approval_action_id: string;
   instance_id: string;

@@ -1,5 +1,7 @@
 export type WarehouseDecision = 'sufficient' | 'insufficient';
 export type ItemAvailability = 'available' | 'unavailable';
+/** Set on submit from verified SOH vs requested qty. Partial stock uses `partial`, not `availability`. */
+export type WarehouseItemRoute = 'internal' | 'procurement' | 'partial';
 
 export interface WarehouseValidation {
   id: string;
@@ -26,6 +28,9 @@ export interface WarehouseValidationItem {
   validated_soh: number | null;
   quantity_requested: number;
   availability: ItemAvailability | null;
+  item_route: WarehouseItemRoute | null;
+  internal_fulfilled_qty: number;
+  procurement_qty: number;
   item_notes: string;
   created_at: string;
 }
@@ -45,14 +50,12 @@ export interface ValidationItemDraft {
   requestor_soh: number;
   quantity_requested: number;
   validated_soh: number | '';
-  availability: ItemAvailability | null;
   item_notes: string;
 }
 
 export interface ValidationFormValues {
   items: ValidationItemDraft[];
   notes: string;
-  decision: WarehouseDecision | null;
 }
 
 /** Completed validation rows for `/warehouse/history` (PR1 columns from `pr1_requests`). */
@@ -67,6 +70,21 @@ export interface WarehouseValidationHistoryRow {
   notes: string;
   validated_at: string;
   action_url: string;
+}
+
+export type WarehouseHistoryDecisionFilter = 'all' | WarehouseDecision;
+
+/** Options for `fetchMyWarehouseValidationHistoryPaged`. */
+export interface FetchMyWarehouseValidationHistoryPagedOptions {
+  validatorId: string;
+  limit: number;
+  offset: number;
+  search?: string | null;
+  decision?: WarehouseHistoryDecisionFilter;
+  /** PR1 request `status` enum value, or `'all'` / omitted for no filter. */
+  pr1Status?: string | null;
+  validatedFrom?: string | null;
+  validatedTo?: string | null;
 }
 
 // PR1 summary shown on the warehouse queue

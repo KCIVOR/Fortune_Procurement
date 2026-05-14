@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import type { PR2Request, PR2WithItems, PR2ItemDraft } from '@/types/pr2';
 import { createNotification } from '@/lib/notifications';
+import { fetchWarehouseProcurementByPr1Item } from '@/lib/canvassing';
 
 const db = supabase as any;
 
@@ -122,7 +123,7 @@ export async function generatePR2FromRfq(
   if (selErr) throw selErr;
   if (!selections || selections.length === 0) throw new Error('No supplier selections found. Close the RFQ first.');
 
-  // Fetch PR1 items
+  // Fetch PR1 items (for line metadata; quantities may come from warehouse procurement_qty)
   const { data: pr1Items, error: pr1ItemsErr } = await db
     .from('pr1_items')
     .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, stock_on_hand')
@@ -130,11 +131,24 @@ export async function generatePR2FromRfq(
     .order('item_order', { ascending: true });
   if (pr1ItemsErr) throw pr1ItemsErr;
 
+  const wh = await fetchWarehouseProcurementByPr1Item(pr1.id);
+
+  const pr2QtyForPr1Line = (pr1ItemId: string, pr1LineQty: number) => {
+    if (!wh.validated) return Number(pr1LineQty) || 0;
+    const p = wh.byPr1ItemId[pr1ItemId];
+    if (p !== undefined && p > 0) return p;
+    return Number(pr1LineQty) || 0;
+  };
+
+  const pr1ItemMap: Record<string, any> = Object.fromEntries(
+    ((pr1Items ?? []) as any[]).map((i: any) => [i.id, i]),
+  );
+
   // Fetch all quotes for winning rfq_supplier_ids
   const winningSupplierIds = Array.from(new Set((selections as any[]).map((s: any) => s.selected_rfq_supplier_id)));
   const { data: quotes, error: quotesErr } = await db
     .from('rfq_item_quotes')
-    .select('rfq_supplier_id, pr1_item_id, quoted_description, is_alternative, unit_price, lead_time_days, remarks')
+    .select('id, rfq_supplier_id, pr1_item_id, quoted_description, is_alternative, unit_price, lead_time_days, remarks')
     .in('rfq_supplier_id', winningSupplierIds);
   if (quotesErr) throw quotesErr;
 
@@ -147,9 +161,6 @@ export async function generatePR2FromRfq(
 
   const supplierNameMap: Record<string, string> = Object.fromEntries(
     ((rfqSuppliers ?? []) as any[]).map((rs: any) => [rs.id, rs.supplier_name_snapshot])
-  );
-  const selectionMap: Record<string, any> = Object.fromEntries(
-    ((selections as any[]).map((s: any) => [s.pr1_item_id, s]))
   );
   const quoteMap: Record<string, any> = {};
   for (const q of (quotes ?? []) as any[]) {
@@ -218,35 +229,40 @@ export async function generatePR2FromRfq(
 
   const pr2Id = pr2.id;
 
-  // Build PR2 items
-  const itemRows = ((pr1Items ?? []) as any[]).map((item: any) => {
-    const sel = selectionMap[item.id];
-    const supplierName = sel ? (supplierNameMap[sel.selected_rfq_supplier_id] ?? '') : '';
-    const quote = sel ? (quoteMap[`${sel.selected_rfq_supplier_id}:${item.id}`] ?? null) : null;
-    const unitPrice = quote ? Number(quote.unit_price) : 0;
-    const qty = Number(item.quantity_requested) || 0;
+  // Build PR2 items — one row per winning selection only; qty from warehouse procurement when validated
+  const itemRows = ((selections ?? []) as any[])
+    .map((sel: any) => {
+      const item = pr1ItemMap[sel.pr1_item_id];
+      if (!item) return null;
+      const supplierName = supplierNameMap[sel.selected_rfq_supplier_id] ?? '';
+      const quote = quoteMap[`${sel.selected_rfq_supplier_id}:${item.id}`] ?? null;
+      const unitPrice = quote ? Number(quote.unit_price) : 0;
+      const qty = pr2QtyForPr1Line(item.id, item.quantity_requested);
 
-    return {
-      pr2_id:                  pr2Id,
-      item_order:              item.item_order,
-      item_code:               item.item_code,
-      description:             item.description,
-      unit_of_measure:         item.unit_of_measure,
-      pr1_item_id:             item.id,
-      quantity_requested:      qty,
-      qty_on_hand:             0,
-      qty_incoming:            0,
-      quantity_to_purchase:    qty,
-      selected_rfq_supplier_id: sel?.selected_rfq_supplier_id ?? null,
-      supplier_name_snapshot:  supplierName,
-      quoted_description:      quote?.quoted_description ?? item.description,
-      is_alternative:          quote?.is_alternative ?? false,
-      unit_price:              unitPrice,
-      lead_time_days:          quote?.lead_time_days ?? 0,
-      total_price:             unitPrice * qty,
-      remarks:                 sel?.selection_notes ?? null,
-    };
-  });
+      return {
+        pr2_id:                  pr2Id,
+        item_order:              item.item_order,
+        item_code:               item.item_code,
+        description:             item.description,
+        unit_of_measure:         item.unit_of_measure,
+        pr1_item_id:             item.id,
+        quantity_requested:      qty,
+        qty_on_hand:             0,
+        qty_incoming:            0,
+        quantity_to_purchase:    qty,
+        selected_rfq_supplier_id: sel.selected_rfq_supplier_id ?? null,
+        supplier_name_snapshot:  supplierName,
+        quoted_description:      quote?.quoted_description ?? item.description,
+        is_alternative:          quote?.is_alternative ?? false,
+        unit_price:              unitPrice,
+        lead_time_days:          quote?.lead_time_days ?? 0,
+        total_price:             unitPrice * qty,
+        remarks:                 sel.selection_notes ?? null,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  itemRows.sort((a, b) => a.item_order - b.item_order);
 
   if (itemRows.length > 0) {
     const { error: itemsErr } = await db.from('pr2_items').insert(itemRows);

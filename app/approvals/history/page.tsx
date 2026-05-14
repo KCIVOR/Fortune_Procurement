@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
@@ -11,6 +11,7 @@ import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
 import { fetchMyApprovalHistoryPaged } from '@/lib/approval-history';
 import type {
+  ApprovalHistoryActionFilter,
   ApprovalHistoryDocumentFilter,
   ApprovalHistoryRow,
 } from '@/types/approvals';
@@ -32,29 +33,53 @@ const TABS: { value: ApprovalHistoryDocumentFilter; label: string }[] = [
   { value: 'PO', label: 'PO' },
 ];
 
+const ACTION_OPTIONS: { value: ApprovalHistoryActionFilter; label: string }[] = [
+  { value: 'all', label: 'All actions' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'revision_requested', label: 'Revision requested' },
+];
+
 const ACTION_BADGE: Record<string, string> = {
-  approved:           'bg-emerald-50 text-emerald-800 border-emerald-200',
-  rejected:           'bg-red-50 text-red-700 border-red-200',
+  approved: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  rejected: 'bg-red-50 text-red-700 border-red-200',
   revision_requested: 'bg-amber-50 text-amber-800 border-amber-200',
 };
 
 const INSTANCE_BADGE: Record<string, string> = {
-  active:    'bg-blue-50 text-blue-700 border-blue-200',
-  approved:  'bg-emerald-50 text-emerald-700 border-emerald-200',
-  rejected:  'bg-red-50 text-red-600 border-red-200',
+  active: 'bg-blue-50 text-blue-700 border-blue-200',
+  approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  rejected: 'bg-red-50 text-red-600 border-red-200',
   cancelled: 'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]',
 };
+
+const SEARCH_DEBOUNCE_MS = 400;
 
 export default function ApprovalsHistoryPage() {
   const { profile } = useAuth();
   const router = useRouter();
   const [documentType, setDocumentType] = useState<ApprovalHistoryDocumentFilter>('all');
-  const [rows, setRows]               = useState<ApprovalHistoryRow[]>([]);
-  const [totalCount, setTotalCount]    = useState(0);
-  const [loading, setLoading]          = useState(true);
-  const [error, setError]             = useState('');
-  const [currentPage, setCurrentPage]  = useState(1);
+  const [actionFilter, setActionFilter] = useState<ApprovalHistoryActionFilter>('all');
+  const [actedAtFrom, setActedAtFrom] = useState('');
+  const [actedAtTo, setActedAtTo] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [rows, setRows] = useState<ApprovalHistoryRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 20;
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const filterSignature = `${documentType}|${actionFilter}|${actedAtFrom}|${actedAtTo}|${debouncedSearch}`;
+  const filterSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -62,15 +87,29 @@ export default function ApprovalsHistoryPage() {
       router.replace('/dashboard');
       return;
     }
+
+    const filterChanged =
+      filterSignatureRef.current !== null && filterSignatureRef.current !== filterSignature;
+    let pageForFetch = currentPage;
+    if (filterChanged) {
+      pageForFetch = 1;
+      if (currentPage !== 1) setCurrentPage(1);
+    }
+    filterSignatureRef.current = filterSignature;
+
     setLoading(true);
     setError('');
-    const offset = (currentPage - 1) * rowsPerPage;
+    const offset = (pageForFetch - 1) * rowsPerPage;
 
     fetchMyApprovalHistoryPaged({
-      actorId:      profile.id,
+      actorId: profile.id,
       documentType,
-      limit:        rowsPerPage,
+      limit: rowsPerPage,
       offset,
+      action: actionFilter,
+      actedAtFrom: actedAtFrom.trim() || null,
+      actedAtTo: actedAtTo.trim() || null,
+      search: debouncedSearch || null,
     })
       .then((page) => {
         setRows(page.rows);
@@ -78,10 +117,31 @@ export default function ApprovalsHistoryPage() {
       })
       .catch(() => setError('Failed to load approval history.'))
       .finally(() => setLoading(false));
-  }, [profile, router, documentType, currentPage, rowsPerPage]);
+  }, [
+    profile,
+    router,
+    filterSignature,
+    documentType,
+    currentPage,
+    rowsPerPage,
+    actionFilter,
+    actedAtFrom,
+    actedAtTo,
+    debouncedSearch,
+  ]);
 
   const setTabAndResetPage = (t: ApprovalHistoryDocumentFilter) => {
     setDocumentType(t);
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setDocumentType('all');
+    setActionFilter('all');
+    setActedAtFrom('');
+    setActedAtTo('');
+    setSearchInput('');
+    setDebouncedSearch('');
     setCurrentPage(1);
   };
 
@@ -108,7 +168,7 @@ export default function ApprovalsHistoryPage() {
         description="Purchase requests you have approved, rejected, or marked for revision."
       />
 
-      <div className="flex gap-2 flex-wrap mb-5">
+      <div className="flex gap-2 flex-wrap mb-4">
         {TABS.map((t) => {
           const active = documentType === t.value;
           return (
@@ -127,6 +187,87 @@ export default function ApprovalsHistoryPage() {
             </button>
           );
         })}
+      </div>
+
+      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-5 space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="md:col-span-2">
+            <label htmlFor="approval-history-search" className="block text-xs font-semibold text-[#40527A] mb-1">
+              Search
+            </label>
+            <input
+              id="approval-history-search"
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search document number or remarks…"
+              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] placeholder:text-[#BFC7D5] focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label htmlFor="approval-history-action" className="block text-xs font-semibold text-[#40527A] mb-1">
+              Your action
+            </label>
+            <select
+              id="approval-history-action"
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value as ApprovalHistoryActionFilter)}
+              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              disabled={loading}
+            >
+              {ACTION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={clearFilters}
+              disabled={loading}
+              className="w-full md:w-auto px-4 py-2 rounded-[4px] border border-[#D8E2FF] text-sm font-semibold text-[#40527A] hover:bg-[#F7F9FC] hover:border-[#0F1F3A] transition disabled:opacity-50"
+            >
+              Clear filters
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="approval-history-from" className="block text-xs font-semibold text-[#40527A] mb-1">
+              Signed from
+            </label>
+            <input
+              id="approval-history-from"
+              type="date"
+              value={actedAtFrom}
+              onChange={(e) => setActedAtFrom(e.target.value)}
+              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label htmlFor="approval-history-to" className="block text-xs font-semibold text-[#40527A] mb-1">
+              Signed to
+            </label>
+            <input
+              id="approval-history-to"
+              type="date"
+              value={actedAtTo}
+              onChange={(e) => setActedAtTo(e.target.value)}
+              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              disabled={loading}
+            />
+          </div>
+        </div>
+        {!loading && !error ? (
+          <p className="text-xs text-[#40527A]">
+            <span className="font-semibold text-[#0F1F3A]">{totalCount}</span> action
+            {totalCount !== 1 ? 's' : ''} found
+          </p>
+        ) : null}
       </div>
 
       {error ? (
@@ -170,7 +311,9 @@ export default function ApprovalsHistoryPage() {
                       <td className="px-5 py-3.5 font-medium text-[#40527A]">{r.document_type}</td>
                       <td className="px-5 py-3.5 font-mono font-semibold text-[#0F1F3A]">{r.document_number}</td>
                       <td className="px-5 py-3.5">
-                        <span className={`inline-flex text-xs font-semibold border rounded-full px-2 py-0.5 capitalize ${ACTION_BADGE[r.action] ?? 'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]'}`}>
+                        <span
+                          className={`inline-flex text-xs font-semibold border rounded-full px-2 py-0.5 capitalize ${ACTION_BADGE[r.action] ?? 'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]'}`}
+                        >
                           {r.action.replace(/_/g, ' ')}
                         </span>
                       </td>
@@ -179,7 +322,9 @@ export default function ApprovalsHistoryPage() {
                         {format(new Date(r.acted_at), 'MMM d, yyyy h:mm a')}
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className={`inline-flex text-xs font-semibold border rounded-full px-2 py-0.5 capitalize ${INSTANCE_BADGE[r.instance_status] ?? INSTANCE_BADGE.active}`}>
+                        <span
+                          className={`inline-flex text-xs font-semibold border rounded-full px-2 py-0.5 capitalize ${INSTANCE_BADGE[r.instance_status] ?? INSTANCE_BADGE.active}`}
+                        >
                           {r.instance_status}
                         </span>
                       </td>

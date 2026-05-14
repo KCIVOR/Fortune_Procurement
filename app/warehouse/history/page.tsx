@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
@@ -10,18 +10,44 @@ import LoadingState from '@/components/shared/LoadingState';
 import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
 import { fetchMyWarehouseValidationHistoryPaged } from '@/lib/warehouse-history';
-import type { WarehouseValidationHistoryRow } from '@/types/warehouse';
+import { PR1_STATUS_LABELS, type PR1Status } from '@/types/pr1';
+import type {
+  WarehouseHistoryDecisionFilter,
+  WarehouseValidationHistoryRow,
+} from '@/types/warehouse';
 import { ClipboardList, Eye, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 const DECISION_BADGE: Record<string, string> = {
-  sufficient:   'bg-emerald-50 text-emerald-800 border-emerald-200',
+  sufficient: 'bg-emerald-50 text-emerald-800 border-emerald-200',
   insufficient: 'bg-amber-50 text-amber-800 border-amber-200',
 };
+
+const DECISION_OPTIONS: { value: WarehouseHistoryDecisionFilter; label: string }[] = [
+  { value: 'all', label: 'All decisions' },
+  { value: 'sufficient', label: 'Sufficient' },
+  { value: 'insufficient', label: 'Insufficient' },
+];
+
+const PR1_STATUS_OPTIONS: { value: PR1Status | 'all'; label: string }[] = [
+  { value: 'all', label: 'All PR1 statuses' },
+  ...(Object.keys(PR1_STATUS_LABELS) as PR1Status[]).map((s) => ({
+    value: s,
+    label: PR1_STATUS_LABELS[s],
+  })),
+];
+
+const SEARCH_DEBOUNCE_MS = 400;
 
 export default function WarehouseHistoryPage() {
   const { profile } = useAuth();
   const router = useRouter();
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [decisionFilter, setDecisionFilter] = useState<WarehouseHistoryDecisionFilter>('all');
+  const [pr1StatusFilter, setPr1StatusFilter] = useState<PR1Status | 'all'>('all');
+  const [validatedFrom, setValidatedFrom] = useState('');
+  const [validatedTo, setValidatedTo] = useState('');
   const [rows, setRows] = useState<WarehouseValidationHistoryRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -29,20 +55,45 @@ export default function WarehouseHistoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 20;
 
+  const filterSignature = `${decisionFilter}|${pr1StatusFilter}|${validatedFrom}|${validatedTo}|${debouncedSearch}`;
+  const filterSignatureRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   useEffect(() => {
     if (!profile) return;
     if (profile.role !== 'warehouse') {
       router.replace('/dashboard');
       return;
     }
+
+    const filterChanged =
+      filterSignatureRef.current !== null && filterSignatureRef.current !== filterSignature;
+    let pageForFetch = currentPage;
+    if (filterChanged) {
+      pageForFetch = 1;
+      if (currentPage !== 1) setCurrentPage(1);
+    }
+    filterSignatureRef.current = filterSignature;
+
     setLoading(true);
     setError('');
-    const offset = (currentPage - 1) * rowsPerPage;
+    const offset = (pageForFetch - 1) * rowsPerPage;
 
     fetchMyWarehouseValidationHistoryPaged({
       validatorId: profile.id,
-      limit:       rowsPerPage,
+      limit: rowsPerPage,
       offset,
+      search: debouncedSearch || null,
+      decision: decisionFilter,
+      pr1Status: pr1StatusFilter === 'all' ? null : pr1StatusFilter,
+      validatedFrom: validatedFrom.trim() || null,
+      validatedTo: validatedTo.trim() || null,
     })
       .then((page) => {
         setRows(page.rows);
@@ -54,7 +105,28 @@ export default function WarehouseHistoryPage() {
         setTotalCount(0);
       })
       .finally(() => setLoading(false));
-  }, [profile, router, currentPage, rowsPerPage]);
+  }, [
+    profile,
+    router,
+    filterSignature,
+    currentPage,
+    rowsPerPage,
+    decisionFilter,
+    pr1StatusFilter,
+    validatedFrom,
+    validatedTo,
+    debouncedSearch,
+  ]);
+
+  const clearFilters = () => {
+    setSearchInput('');
+    setDebouncedSearch('');
+    setDecisionFilter('all');
+    setPr1StatusFilter('all');
+    setValidatedFrom('');
+    setValidatedTo('');
+    setCurrentPage(1);
+  };
 
   const totalPages = Math.ceil(totalCount / rowsPerPage) || 1;
 
@@ -78,6 +150,105 @@ export default function WarehouseHistoryPage() {
         title="Warehouse History"
         description="PR1 stock validations you have completed."
       />
+
+      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-5 space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="md:col-span-2">
+            <label htmlFor="warehouse-history-search" className="block text-xs font-semibold text-[#40527A] mb-1">
+              Search
+            </label>
+            <input
+              id="warehouse-history-search"
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="PR1 number, purpose, department, or notes…"
+              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] placeholder:text-[#BFC7D5] focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label htmlFor="warehouse-history-decision" className="block text-xs font-semibold text-[#40527A] mb-1">
+              Decision
+            </label>
+            <select
+              id="warehouse-history-decision"
+              value={decisionFilter}
+              onChange={(e) => setDecisionFilter(e.target.value as WarehouseHistoryDecisionFilter)}
+              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              disabled={loading}
+            >
+              {DECISION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={clearFilters}
+              disabled={loading}
+              className="w-full md:w-auto px-4 py-2 rounded-[4px] border border-[#D8E2FF] text-sm font-semibold text-[#40527A] hover:bg-[#F7F9FC] hover:border-[#0F1F3A] transition disabled:opacity-50"
+            >
+              Clear filters
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="lg:col-span-1">
+            <label htmlFor="warehouse-history-pr1-status" className="block text-xs font-semibold text-[#40527A] mb-1">
+              PR1 status
+            </label>
+            <select
+              id="warehouse-history-pr1-status"
+              value={pr1StatusFilter}
+              onChange={(e) => setPr1StatusFilter(e.target.value as PR1Status | 'all')}
+              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              disabled={loading}
+            >
+              {PR1_STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="warehouse-history-from" className="block text-xs font-semibold text-[#40527A] mb-1">
+              Validated from
+            </label>
+            <input
+              id="warehouse-history-from"
+              type="date"
+              value={validatedFrom}
+              onChange={(e) => setValidatedFrom(e.target.value)}
+              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label htmlFor="warehouse-history-to" className="block text-xs font-semibold text-[#40527A] mb-1">
+              Validated to
+            </label>
+            <input
+              id="warehouse-history-to"
+              type="date"
+              value={validatedTo}
+              onChange={(e) => setValidatedTo(e.target.value)}
+              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              disabled={loading}
+            />
+          </div>
+        </div>
+        {!loading && !error ? (
+          <p className="text-xs text-[#40527A]">
+            <span className="font-semibold text-[#0F1F3A]">{totalCount}</span> validation
+            {totalCount !== 1 ? 's' : ''} found
+          </p>
+        ) : null}
+      </div>
 
       {loading ? (
         <div className="flex justify-center py-24">
@@ -150,8 +321,8 @@ export default function WarehouseHistoryPage() {
                         {format(new Date(r.validated_at), 'MMM d, yyyy h:mm a')}
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className="inline-flex text-xs font-semibold border rounded-full px-2 py-0.5 border-[#D8E2FF] bg-[#F7F9FC] text-[#40527A] capitalize">
-                          {r.pr1_status.replace(/_/g, ' ')}
+                        <span className="inline-flex text-xs font-semibold border rounded px-2 py-0.5 border-[#D8E2FF] bg-[#F7F9FC] text-[#40527A]">
+                          {PR1_STATUS_LABELS[r.pr1_status as PR1Status] ?? r.pr1_status.replace(/_/g, ' ')}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-[#40527A] max-w-[200px] truncate" title={r.notes || undefined}>

@@ -12,9 +12,9 @@ import type {
   PR1LifecycleSummary,
   PR1WarehouseValidationSummary,
 } from '@/types/pr1';
+import type { WarehouseItemRoute } from '@/types/warehouse';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
 
-// supabase client is untyped for custom tables — cast to any for PR1 queries
 const db = supabase as any;
 
 const PO_ISSUED_STATUSES = new Set(['approved', 'sent']);
@@ -331,30 +331,48 @@ export async function fetchPR1ById(id: string): Promise<PR1WithItems | null> {
 
   if (wvError) throw wvError;
 
-  // If warehouse validation exists, fetch per-item validated SOH
-  let validatedSohMap: Record<string, { validated_soh: number | null; warehouse_decision: string }> = {};
+  // If warehouse validation exists, fetch per-item SOH + routing
+  let validatedSohMap: Record<
+    string,
+    {
+      validated_soh: number | null;
+      warehouse_decision: string;
+      warehouse_item_route: WarehouseItemRoute | null;
+      warehouse_internal_fulfilled_qty: number;
+      warehouse_procurement_qty: number;
+    }
+  > = {};
   if (warehouseValidation?.id) {
     const { data: validationItems, error: viError } = await db
       .from('warehouse_validation_items')
-      .select('pr1_item_id, validated_soh')
+      .select(
+        'pr1_item_id, validated_soh, item_route, internal_fulfilled_qty, procurement_qty'
+      )
       .eq('validation_id', warehouseValidation.id);
 
     if (viError) throw viError;
 
-    // Build map: pr1_item_id → validated_soh
     (validationItems ?? []).forEach((vi: any) => {
       validatedSohMap[vi.pr1_item_id] = {
-        validated_soh: vi.validated_soh,
-        warehouse_decision: 'validated',
+        validated_soh:                 vi.validated_soh,
+        warehouse_decision:            'validated',
+        warehouse_item_route:          (vi.item_route ?? null) as WarehouseItemRoute | null,
+        warehouse_internal_fulfilled_qty: Number(vi.internal_fulfilled_qty ?? 0),
+        warehouse_procurement_qty:      Number(vi.procurement_qty ?? 0),
       };
     });
   }
 
-  // Merge validated_soh into items
+  // Merge warehouse validation fields into items
   const itemsWithValidation = items.map((item: PR1Item) => ({
     ...item,
-    validated_soh: validatedSohMap[item.id]?.validated_soh ?? null,
-    warehouse_decision: validatedSohMap[item.id]?.warehouse_decision ?? null,
+    validated_soh:                    validatedSohMap[item.id]?.validated_soh ?? null,
+    warehouse_decision:               validatedSohMap[item.id]?.warehouse_decision ?? null,
+    warehouse_item_route:             validatedSohMap[item.id]?.warehouse_item_route ?? null,
+    warehouse_internal_fulfilled_qty:
+      validatedSohMap[item.id]?.warehouse_internal_fulfilled_qty ?? null,
+    warehouse_procurement_qty:
+      validatedSohMap[item.id]?.warehouse_procurement_qty ?? null,
   }));
 
   const wvRow = warehouseValidation as {

@@ -1,4 +1,5 @@
 import type { StatusVariant } from '@/components/shared/StatusChip';
+import type { WarehouseItemRoute } from '@/types/warehouse';
 
 export type PR1Status =
   | 'draft'
@@ -26,6 +27,10 @@ export interface PR1Item {
   created_at: string;
   validated_soh?: number | null;
   warehouse_decision?: string | null;
+  /** Populated after warehouse submit from `warehouse_validation_items`. */
+  warehouse_item_route?: WarehouseItemRoute | null;
+  warehouse_internal_fulfilled_qty?: number | null;
+  warehouse_procurement_qty?: number | null;
 }
 
 /** `warehouse_validations` header merged by `fetchPR1ById` when a row exists for this PR1. */

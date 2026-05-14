@@ -39,6 +39,36 @@ export interface Database {
         Update: { id?: string; title?: string; role_id?: string; active?: boolean; created_at?: string };
       };
 
+      role_position_module_visibility: {
+        Row: {
+          id: string;
+          role_id: string;
+          position_id: string | null;
+          module_key: string;
+          is_visible: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          role_id: string;
+          position_id?: string | null;
+          module_key: string;
+          is_visible?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          role_id?: string;
+          position_id?: string | null;
+          module_key?: string;
+          is_visible?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
       profiles: {
         Row: {
           id: string;

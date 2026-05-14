@@ -6,10 +6,51 @@ import type {
   ValidationFormValues,
   WarehouseDecision,
   PR1QueueRow,
+  WarehouseItemRoute,
+  ItemAvailability,
 } from '@/types/warehouse';
 import { notifyApproversForStep } from '@/lib/notifications';
 
 const db = supabase as any;
+
+/** Derive per-line routing from verified SOH vs requested qty (persisted on submit). */
+export function computeWarehouseItemRouting(
+  validatedSoh: number,
+  quantityRequested: number,
+): {
+  item_route: WarehouseItemRoute;
+  internal_fulfilled_qty: number;
+  procurement_qty: number;
+  availability: ItemAvailability;
+} {
+  const soh = validatedSoh;
+  const qty = quantityRequested;
+  if (!Number.isFinite(soh) || !Number.isFinite(qty) || qty < 0 || soh < 0) {
+    throw new Error('Invalid validated SOH or requested quantity');
+  }
+  if (soh >= qty) {
+    return {
+      item_route:            'internal',
+      internal_fulfilled_qty: qty,
+      procurement_qty:      0,
+      availability:          'available',
+    };
+  }
+  if (soh <= 0) {
+    return {
+      item_route:            'procurement',
+      internal_fulfilled_qty: 0,
+      procurement_qty:      qty,
+      availability:          'unavailable',
+    };
+  }
+  return {
+    item_route:            'partial',
+    internal_fulfilled_qty: soh,
+    procurement_qty:      qty - soh,
+    availability:          'unavailable',
+  };
+}
 
 // ─── Queue ────────────────────────────────────────────────────────────────────
 
@@ -247,11 +288,26 @@ export async function saveValidationProgress(
   if (hErr) throw hErr;
 
   for (const item of values.items) {
+    const sohRaw = item.validated_soh;
+    const soh =
+      sohRaw === '' || sohRaw === null || sohRaw === undefined
+        ? null
+        : Number(sohRaw);
+
+    let availability: ItemAvailability | null = null;
+    if (soh !== null && Number.isFinite(soh) && soh >= 0) {
+      try {
+        availability = computeWarehouseItemRouting(soh, item.quantity_requested).availability;
+      } catch {
+        availability = null;
+      }
+    }
+
     const { error: iErr } = await db
       .from('warehouse_validation_items')
       .update({
-        validated_soh: item.validated_soh === '' ? null : Number(item.validated_soh),
-        availability:  item.availability,
+        validated_soh: soh,
+        availability,
         item_notes:    item.item_notes,
       })
       .eq('id', item.id)
@@ -267,13 +323,73 @@ export async function submitValidationDecision(
   validationId: string,
   pr1Id: string,
   values: ValidationFormValues,
-  decision: WarehouseDecision,
   profile: UserProfile
 ): Promise<void> {
   const now = new Date().toISOString();
 
-  // Save item progress first
-  await saveValidationProgress(validationId, values);
+  const itemPayloads: Array<{
+    item_route: WarehouseItemRoute;
+    internal_fulfilled_qty: number;
+    procurement_qty: number;
+    availability: ItemAvailability;
+    validated_soh: number;
+  }> = [];
+
+  for (const item of values.items) {
+    const sohRaw = item.validated_soh;
+    if (sohRaw === '' || sohRaw === null || sohRaw === undefined) {
+      throw new Error('Enter verified SOH for every line before submitting.');
+    }
+    const soh = Number(sohRaw);
+    if (!Number.isFinite(soh) || soh < 0) {
+      throw new Error(
+        `Invalid verified SOH for item ${item.item_code || `#${item.item_order}`}.`
+      );
+    }
+    const r = computeWarehouseItemRouting(soh, item.quantity_requested);
+    itemPayloads.push({
+      item_route:            r.item_route,
+      internal_fulfilled_qty: r.internal_fulfilled_qty,
+      procurement_qty:      r.procurement_qty,
+      availability:          r.availability,
+      validated_soh:         soh,
+    });
+  }
+
+  const decision: WarehouseDecision = itemPayloads.every(
+    p => p.item_route === 'internal'
+  )
+    ? 'sufficient'
+    : 'insufficient';
+
+  const { error: hErr } = await db
+    .from('warehouse_validations')
+    .update({
+      notes:      values.notes,
+      updated_at: now,
+    })
+    .eq('id', validationId);
+
+  if (hErr) throw hErr;
+
+  for (let i = 0; i < values.items.length; i++) {
+    const item = values.items[i];
+    const p    = itemPayloads[i];
+    const { error: iErr } = await db
+      .from('warehouse_validation_items')
+      .update({
+        validated_soh:          p.validated_soh,
+        availability:           p.availability,
+        item_notes:             item.item_notes,
+        item_route:             p.item_route,
+        internal_fulfilled_qty: p.internal_fulfilled_qty,
+        procurement_qty:      p.procurement_qty,
+      })
+      .eq('id', item.id)
+      .eq('validation_id', validationId);
+
+    if (iErr) throw iErr;
+  }
 
   // Map decision to PR1 status
   // sufficient  → resolved_internal (closed, no approval needed)
@@ -381,6 +497,12 @@ export async function submitValidationDecision(
       validated_by:  profile.full_name,
       position:      profile.position,
       next_status:   nextPR1Status,
+      item_routes:   values.items.map((it, idx) => ({
+        pr1_item_id: it.pr1_item_id,
+        item_order:  it.item_order,
+        ...itemPayloads[idx],
+      })),
+      derived_all_internal: decision === 'sufficient',
     },
   });
 }

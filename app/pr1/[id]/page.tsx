@@ -10,7 +10,7 @@ import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { fetchPR1ById, canUpdatePR1Priority, updatePR1Priority, fetchPR1LifecycleSummaries } from '@/lib/pr1';
 import { fetchPR1ApprovalSignatories } from '@/lib/approvals';
-import type { PR1WithItems, PR1LifecycleSummary } from '@/types/pr1';
+import type { PR1WithItems, PR1LifecycleSummary, PR1Item } from '@/types/pr1';
 import type { PR1ApprovalSignatories } from '@/types/approvals';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import PriorityChip from '@/components/shared/PriorityChip';
@@ -270,6 +270,7 @@ export default function PR1DetailPage() {
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">Unit</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">SOH</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-28">Req. Qty</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide min-w-[160px]">Warehouse route</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#D8E2FF]">
@@ -285,6 +286,7 @@ export default function PR1DetailPage() {
                         : '—'}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-[#0F1F3A] font-mono">{item.quantity_requested.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-left text-xs text-[#40527A]">{warehouseRouteCell(item)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -313,6 +315,21 @@ export default function PR1DetailPage() {
       </div>
     </AppShell>
   );
+}
+
+function warehouseRouteCell(item: PR1Item): string {
+  if (item.warehouse_item_route == null) return '—';
+  if (item.warehouse_item_route === 'internal') {
+    const n = item.warehouse_internal_fulfilled_qty ?? 0;
+    return `Internal · ${n.toLocaleString()} from stock`;
+  }
+  if (item.warehouse_item_route === 'procurement') {
+    const n = item.warehouse_procurement_qty ?? 0;
+    return `Procurement · ${n.toLocaleString()} to buy`;
+  }
+  const a = item.warehouse_internal_fulfilled_qty ?? 0;
+  const b = item.warehouse_procurement_qty ?? 0;
+  return `Partial · ${a.toLocaleString()} internal / ${b.toLocaleString()} procurement`;
 }
 
 /**

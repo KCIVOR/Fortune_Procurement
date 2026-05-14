@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { UserProfile } from '@/types/auth';
 import PageHeader from '@/components/shared/PageHeader';
+import { ApproverDashboardVisibilitySkeleton } from '@/components/shared/module-visibility-skeletons';
+import { useModuleVisibility } from '@/hooks/use-module-visibility';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
 import { fetchApprovalQueue, fetchApproverStats, canActOnStep } from '@/lib/approvals';
@@ -22,6 +24,8 @@ import { format } from 'date-fns';
 interface Props { profile: UserProfile; }
 
 export default function ApproverDashboard({ profile }: Props) {
+  const { isModuleVisible, rulesLoading } = useModuleVisibility(profile);
+  const showApprovalQueue = isModuleVisible('approval_queue');
   const [queue, setQueue] = useState<PR1ApprovalQueueRow[]>([]);
   const [stats, setStats] = useState({
     awaitingAction: 0, approvedThisWeek: 0, rejectedThisWeek: 0, totalProcessed: 0,
@@ -52,6 +56,10 @@ export default function ApproverDashboard({ profile }: Props) {
         description={`${profile.department} · Approval queue`}
       />
 
+      {rulesLoading ? (
+        <ApproverDashboardVisibilitySkeleton />
+      ) : showApprovalQueue ? (
+      <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 mt-1">
         {statCards.map((stat) => {
           const Icon = stat.icon;
@@ -143,6 +151,8 @@ export default function ApproverDashboard({ profile }: Props) {
           </div>
         )}
       </div>
+      </>
+      ) : null}
     </div>
   );
 }

@@ -3,10 +3,33 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, PackageSearch, SquareCheck as CheckSquare, ClipboardList, SendHorizontal as SendHorizonal, ShoppingCart, PackageCheck, Tag, Replace, LogOut, ChevronRight } from 'lucide-react';
+import { useMemo } from 'react';
+import {
+  LayoutDashboard,
+  FileText,
+  PackageSearch,
+  SquareCheck as CheckSquare,
+  ClipboardList,
+  SendHorizontal as SendHorizonal,
+  ShoppingCart,
+  PackageCheck,
+  Tag,
+  Replace,
+  LogOut,
+  ChevronRight,
+  Truck,
+  Users,
+  Shield,
+  Clock,
+  BadgeCheck,
+  Settings2,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useModuleVisibility } from '@/hooks/use-module-visibility';
 import { ROLE_NAV, type NavItem } from '@/config/navigation';
 import type { AppRole } from '@/types/auth';
+import { resolveVisibleModules } from '@/lib/module-visibility';
+import { SidebarNavSkeleton } from '@/components/shared/module-visibility-skeletons';
 import { cn } from '@/lib/utils';
 import FortuneLogo from '@/logo/fortune_logo.svg';
 
@@ -21,6 +44,12 @@ const ICON_MAP: Record<string, React.ElementType> = {
   PackageCheck,
   Tag,
   Replace,
+  Truck,
+  Users,
+  Shield,
+  Clock,
+  BadgeCheck,
+  Settings2,
 };
 
 const ROLE_LABELS: Record<AppRole, string> = {
@@ -69,12 +98,23 @@ function getActiveNavHref(pathname: string, items: NavItem[]): string | null {
 export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedChange }: SidebarProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
+  const { rules, rulesLoading } = useModuleVisibility(profile);
+
+  const navItems = useMemo((): NavItem[] | null => {
+    if (!profile) return null;
+    const base = ROLE_NAV[profile.role ?? 'employee'] ?? [];
+    if (profile.role === 'admin') return base;
+    if (!profile.role_id) {
+      return resolveVisibleModules(base, [], profile.position_id);
+    }
+    if (rulesLoading || rules === null) return null;
+    return resolveVisibleModules(base, rules, profile.position_id);
+  }, [profile, rules, rulesLoading]);
+
+  const activeHref = navItems !== null ? getActiveNavHref(pathname, navItems) : null;
+  const toggleCollapse = () => onCollapsedChange?.(!isCollapsed);
 
   if (!profile) return null;
-
-  const navItems = ROLE_NAV[profile.role] ?? [];
-  const activeHref = getActiveNavHref(pathname, navItems);
-  const toggleCollapse = () => onCollapsedChange?.(!isCollapsed);
 
   return (
     <aside className={cn(
@@ -112,34 +152,38 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
         'flex-1 py-4 space-y-0.5 overflow-y-auto transition-all duration-200',
         isCollapsed ? 'px-1.5' : 'px-3'
       )}>
-        {navItems.map((item) => {
-          const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
-          const isActive = activeHref !== null && item.href === activeHref;
+        {navItems === null ? (
+          <SidebarNavSkeleton isCollapsed={isCollapsed} />
+        ) : (
+          navItems.map((item) => {
+            const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
+            const isActive = activeHref !== null && item.href === activeHref;
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-[4px] text-sm font-medium transition-all group',
-                isCollapsed && 'justify-center px-2',
-                isActive
-                  ? 'bg-[#1E4BFF] text-white'
-                  : 'text-[#BFC7D5] hover:text-white hover:bg-white/10'
-              )}
-              title={isCollapsed ? item.label : undefined}
-            >
-              <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-white' : 'text-[#BFC7D5] group-hover:text-white')} />
-              {!isCollapsed && (
-                <>
-                  <span className="truncate">{item.label}</span>
-                  {isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto text-white/60" />}
-                </>
-              )}
-            </Link>
-          );
-        })}
+            return (
+              <Link
+                key={`${item.module_key}-${item.href}`}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-[4px] text-sm font-medium transition-all group',
+                  isCollapsed && 'justify-center px-2',
+                  isActive
+                    ? 'bg-[#1E4BFF] text-white'
+                    : 'text-[#BFC7D5] hover:text-white hover:bg-white/10'
+                )}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-white' : 'text-[#BFC7D5] group-hover:text-white')} />
+                {!isCollapsed && (
+                  <>
+                    <span className="truncate">{item.label}</span>
+                    {isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto text-white/60" />}
+                  </>
+                )}
+              </Link>
+            );
+          })
+        )}
       </nav>
 
       {/* User footer */}

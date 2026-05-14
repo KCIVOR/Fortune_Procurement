@@ -8,6 +8,7 @@ import type { PR1Request } from '@/types/pr1';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import PageHeader from '@/components/shared/PageHeader';
+import { useModuleVisibility } from '@/hooks/use-module-visibility';
 import EmptyState from '@/components/shared/EmptyState';
 import StatusChip from '@/components/shared/StatusChip';
 import LoadingState from '@/components/shared/LoadingState';
@@ -37,6 +38,7 @@ const STATUS_MAP: Record<string, StatusVariant> = {
 interface Props { profile: UserProfile; }
 
 export default function EmployeeDashboard({ profile }: Props) {
+  const { isModuleVisible, rulesLoading } = useModuleVisibility(profile);
   const [pendingSubs, setPendingSubs] = useState(0);
   const [requests, setRequests] = useState<PR1Request[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +97,13 @@ export default function EmployeeDashboard({ profile }: Props) {
         })}
       </div>
 
-      {pendingSubs > 0 && (
+      {rulesLoading ? (
+        <div
+          className="h-[4.75rem] mb-4 rounded-[4px] border border-[#D8E2FF] bg-[#F7F9FC] animate-pulse"
+          aria-hidden
+        />
+      ) : null}
+      {!rulesLoading && isModuleVisible('substitute_review') && pendingSubs > 0 && (
         <Link
           href="/substitutes"
           className="flex items-center gap-4 bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-5 py-4 mb-4 transition group"

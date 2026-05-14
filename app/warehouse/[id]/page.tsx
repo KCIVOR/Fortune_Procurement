@@ -11,6 +11,7 @@ import {
   openValidation,
   saveValidationProgress,
   submitValidationDecision,
+  computeWarehouseItemRouting,
 } from '@/lib/warehouse';
 import type { PR1WithItems } from '@/types/pr1';
 import type {
@@ -18,9 +19,19 @@ import type {
   ValidationFormValues,
   ValidationItemDraft,
   WarehouseDecision,
-  ItemAvailability,
 } from '@/types/warehouse';
-import { ChevronLeft, Save, CircleCheck as CheckCircle2, Circle as XCircle, TriangleAlert as AlertTriangle, User, Building2, FileText, CalendarDays, Clock } from 'lucide-react';
+import {
+  ChevronLeft,
+  Save,
+  CircleCheck as CheckCircle2,
+  Circle as XCircle,
+  TriangleAlert as AlertTriangle,
+  User,
+  Building2,
+  FileText,
+  CalendarDays,
+  Clock,
+} from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function WarehouseValidationPage() {
@@ -33,14 +44,13 @@ export default function WarehouseValidationPage() {
   const [formValues, setFormValues] = useState<ValidationFormValues>({
     items: [],
     notes: '',
-    decision: null,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [globalError, setGlobalError] = useState('');
-  const [confirmDecision, setConfirmDecision] = useState<WarehouseDecision | null>(null);
+  const [confirmSubmit, setConfirmSubmit] = useState(false);
 
   const isReadOnly = Boolean(validation?.decision);
 
@@ -61,8 +71,7 @@ export default function WarehouseValidationPage() {
   }, [pr1Id, profile]);
 
   const buildFormValues = (val: WarehouseValidationWithItems): ValidationFormValues => ({
-    notes:    val.notes,
-    decision: val.decision,
+    notes: val.notes,
     items: val.items.map(i => ({
       id:                 i.id,
       pr1_item_id:        i.pr1_item_id,
@@ -73,7 +82,6 @@ export default function WarehouseValidationPage() {
       requestor_soh:      i.requestor_soh,
       quantity_requested: i.quantity_requested,
       validated_soh:      i.validated_soh ?? '',
-      availability:       i.availability,
       item_notes:         i.item_notes,
     })),
   });
@@ -85,16 +93,9 @@ export default function WarehouseValidationPage() {
     }));
   }, []);
 
-  // Auto-derive availability when validated_soh is entered
   const handleValidatedSohChange = (idx: number, rawVal: string) => {
     const num = rawVal === '' ? '' : Number(rawVal);
     setItem(idx, 'validated_soh', num);
-    if (rawVal !== '') {
-      const qty = formValues.items[idx].quantity_requested;
-      const soh = Number(rawVal);
-      const auto: ItemAvailability = soh >= qty ? 'available' : 'unavailable';
-      setItem(idx, 'availability', auto);
-    }
   };
 
   const handleSaveProgress = async () => {
@@ -103,29 +104,25 @@ export default function WarehouseValidationPage() {
     setGlobalError('');
     try {
       await saveValidationProgress(validation.id, formValues);
-    } catch (err: any) {
-      setGlobalError(err.message ?? 'Failed to save progress.');
+    } catch (err: unknown) {
+      setGlobalError(err instanceof Error ? err.message : 'Failed to save progress.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleSubmitDecision = async (decision: WarehouseDecision) => {
+  const handleSubmit = async () => {
     if (!validation || !pr1 || !profile) return;
     setSubmitting(true);
     setGlobalError('');
-    setConfirmDecision(null);
+    setConfirmSubmit(false);
     try {
-      await submitValidationDecision(
-        validation.id,
-        pr1.id,
-        formValues,
-        decision,
-        profile
-      );
+      await submitValidationDecision(validation.id, pr1.id, formValues, profile);
       router.push('/warehouse');
-    } catch (err: any) {
-      setGlobalError(err.message ?? 'Failed to submit decision.');
+    } catch (err: unknown) {
+      setGlobalError(
+        err instanceof Error ? err.message : 'Failed to submit validation.'
+      );
       setSubmitting(false);
     }
   };
@@ -150,9 +147,25 @@ export default function WarehouseValidationPage() {
     );
   }
 
-  const allItemsReviewed = formValues.items.every(i => i.availability !== null);
-  const anyUnavailable = formValues.items.some(i => i.availability === 'unavailable');
-  const derivedDecision: WarehouseDecision = anyUnavailable ? 'insufficient' : 'sufficient';
+  const routingRows = formValues.items.map(item => {
+    const sohRaw = item.validated_soh;
+    if (sohRaw === '' || sohRaw === null || sohRaw === undefined) return null;
+    const soh = Number(sohRaw);
+    if (!Number.isFinite(soh) || soh < 0) return null;
+    try {
+      return computeWarehouseItemRouting(soh, item.quantity_requested);
+    } catch {
+      return null;
+    }
+  });
+
+  const allItemsHaveSoh =
+    formValues.items.length > 0 && routingRows.every(r => r !== null);
+  const derivedDecision: WarehouseDecision | null = allItemsHaveSoh
+    ? routingRows.every(r => r!.item_route === 'internal')
+      ? 'sufficient'
+      : 'insufficient'
+    : null;
 
   return (
     <AppShell title="Warehouse Validation">
@@ -183,6 +196,7 @@ export default function WarehouseValidationPage() {
         </div>
         {!isReadOnly && (
           <button
+            type="button"
             onClick={handleSaveProgress}
             disabled={saving || submitting}
             className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#D8E2FF] hover:border-[#0F1F3A] text-[#0F1F3A] text-sm font-medium rounded-[4px] transition disabled:opacity-50"
@@ -223,7 +237,7 @@ export default function WarehouseValidationPage() {
           <div className="px-6 py-4 border-b border-[#D8E2FF]">
             <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Item Validation</h2>
             <p className="text-xs text-[#BFC7D5] mt-0.5">
-              Enter verified SOH from stock cards. Availability is auto-set but can be overridden.
+              Enter verified SOH from stock cards. Outcome per line is derived from verified SOH versus requested quantity.
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -237,104 +251,76 @@ export default function WarehouseValidationPage() {
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">Req. SOH</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-28">Verified SOH</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">Req. Qty</th>
-                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-32">Availability</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide min-w-[200px]">Outcome</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Notes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#D8E2FF]">
-                {formValues.items.map((item, idx) => (
-                  <tr
-                    key={item.id}
-                    className={`${
-                      item.availability === 'unavailable' ? 'bg-red-50/40' :
-                      item.availability === 'available' ? 'bg-emerald-50/30' : ''
-                    } transition-colors`}
-                  >
-                    <td className="px-4 py-3 text-center text-xs text-[#BFC7D5] font-mono">{item.item_order}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-[#40527A]">{item.item_code || '—'}</td>
-                    <td className="px-4 py-3 text-[#0F1F3A] font-medium">{item.description}</td>
-                    <td className="px-4 py-3 text-center text-[#40527A] text-xs">{item.unit_of_measure}</td>
-                    {/* Requestor SOH — read-only */}
-                    <td className="px-4 py-3 text-right text-[#40527A] font-mono text-xs">
-                      {item.requestor_soh.toLocaleString()}
-                    </td>
-                    {/* Verified SOH — editable */}
-                    <td className="px-3 py-2">
-                      {isReadOnly ? (
-                        <span className={`block text-right font-mono text-sm font-semibold ${
-                          item.availability === 'unavailable' ? 'text-red-600' : 'text-emerald-700'
-                        }`}>
-                          {item.validated_soh !== '' && item.validated_soh !== null
-                            ? Number(item.validated_soh).toLocaleString()
-                            : '—'}
-                        </span>
-                      ) : (
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.validated_soh}
-                          onChange={e => handleValidatedSohChange(idx, e.target.value)}
-                          placeholder="0"
-                          className="w-full px-2.5 py-1.5 border border-[#D8E2FF] bg-[#F7F9FC] rounded-md text-xs text-right focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] focus:border-[#D8E2FF] transition font-mono"
-                        />
-                      )}
-                    </td>
-                    {/* Req qty — read-only */}
-                    <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-[#0F1F3A]">
-                      {item.quantity_requested.toLocaleString()}
-                    </td>
-                    {/* Availability toggle */}
-                    <td className="px-3 py-2">
-                      {isReadOnly ? (
-                        <div className="flex justify-center">
-                          <AvailabilityBadge availability={item.availability} />
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 justify-center">
-                          <button
-                            type="button"
-                            onClick={() => setItem(idx, 'availability', 'available')}
-                            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition border ${
-                              item.availability === 'available'
-                                ? 'bg-emerald-600 text-white border-emerald-600'
-                                : 'bg-white text-[#40527A] border-[#D8E2FF] hover:border-emerald-400 hover:text-emerald-600'
+                {formValues.items.map((item, idx) => {
+                  const rowRoute = routingRows[idx];
+                  const rowClass =
+                    rowRoute?.item_route === 'procurement' ? 'bg-red-50/40' :
+                    rowRoute?.item_route === 'partial' ? 'bg-amber-50/35' :
+                    rowRoute?.item_route === 'internal' ? 'bg-emerald-50/30' : '';
+
+                  return (
+                    <tr key={item.id} className={`${rowClass} transition-colors`}>
+                      <td className="px-4 py-3 text-center text-xs text-[#BFC7D5] font-mono">{item.item_order}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-[#40527A]">{item.item_code || '—'}</td>
+                      <td className="px-4 py-3 text-[#0F1F3A] font-medium">{item.description}</td>
+                      <td className="px-4 py-3 text-center text-[#40527A] text-xs">{item.unit_of_measure}</td>
+                      <td className="px-4 py-3 text-right text-[#40527A] font-mono text-xs">
+                        {item.requestor_soh.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2">
+                        {isReadOnly ? (
+                          <span
+                            className={`block text-right font-mono text-sm font-semibold ${
+                              rowRoute?.item_route === 'internal'
+                                ? 'text-emerald-700'
+                                : rowRoute
+                                  ? 'text-[#0F1F3A]'
+                                  : 'text-[#BFC7D5]'
                             }`}
                           >
-                            <CheckCircle2 className="w-3 h-3" />
-                            OK
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setItem(idx, 'availability', 'unavailable')}
-                            className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition border ${
-                              item.availability === 'unavailable'
-                                ? 'bg-red-600 text-white border-red-600'
-                                : 'bg-white text-[#40527A] border-[#D8E2FF] hover:border-red-400 hover:text-red-600'
-                            }`}
-                          >
-                            <XCircle className="w-3 h-3" />
-                            No
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                    {/* Item notes */}
-                    <td className="px-3 py-2">
-                      {isReadOnly ? (
-                        <span className="text-xs text-[#40527A] italic">{item.item_notes || '—'}</span>
-                      ) : (
-                        <input
-                          type="text"
-                          value={item.item_notes}
-                          onChange={e => setItem(idx, 'item_notes', e.target.value)}
-                          placeholder="Optional note..."
-                          className="w-full min-w-[140px] px-2.5 py-1.5 border border-[#D8E2FF] bg-[#F7F9FC] rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] focus:border-[#D8E2FF] transition"
-                        />
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                            {item.validated_soh !== '' && item.validated_soh !== null
+                              ? Number(item.validated_soh).toLocaleString()
+                              : '—'}
+                          </span>
+                        ) : (
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.validated_soh}
+                            onChange={e => handleValidatedSohChange(idx, e.target.value)}
+                            placeholder="0"
+                            className="w-full px-2.5 py-1.5 border border-[#D8E2FF] bg-[#F7F9FC] rounded-md text-xs text-right focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] focus:border-[#D8E2FF] transition font-mono"
+                          />
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-[#0F1F3A]">
+                        {item.quantity_requested.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2">
+                        <ItemOutcomeText route={rowRoute} />
+                      </td>
+                      <td className="px-3 py-2">
+                        {isReadOnly ? (
+                          <span className="text-xs text-[#40527A] italic">{item.item_notes || '—'}</span>
+                        ) : (
+                          <input
+                            type="text"
+                            value={item.item_notes}
+                            onChange={e => setItem(idx, 'item_notes', e.target.value)}
+                            placeholder="Optional note..."
+                            className="w-full min-w-[140px] px-2.5 py-1.5 border border-[#D8E2FF] bg-[#F7F9FC] rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] focus:border-[#D8E2FF] transition"
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -380,10 +366,10 @@ export default function WarehouseValidationPage() {
                   <p className={`text-sm font-semibold ${
                     validation.decision === 'sufficient' ? 'text-emerald-800' : 'text-blue-800'
                   }`}>
-                    Validation Complete —{' '}
+                    Validation complete —{' '}
                     {validation.decision === 'sufficient'
-                      ? 'Stock Sufficient. Request closed.'
-                      : 'Stock Insufficient. Routed to Approval Workflow.'}
+                      ? 'All lines fulfilled from stock. Request closed internally.'
+                      : 'One or more lines need procurement or partial fulfillment. PR1 routed to approval workflow.'}
                   </p>
                   <p className="text-xs text-[#40527A] mt-1">
                     Validated by <strong>{validation.validator_name_snapshot}</strong>
@@ -401,18 +387,26 @@ export default function WarehouseValidationPage() {
       {!isReadOnly && (
         <div className="sticky bottom-0 z-20 bg-white border-t border-[#D8E2FF]">
           <div className="px-6 py-4">
-            {!allItemsReviewed ? (
+            {!allItemsHaveSoh ? (
               <div className="flex items-center gap-3 text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
-                <p className="text-sm">All items must have an availability decision before submitting.</p>
+                <p className="text-sm">
+                  Enter verified SOH for every line before submitting warehouse validation.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
-                <DecisionPreview
-                  decision={derivedDecision}
-                  itemCount={formValues.items.length}
-                  unavailableCount={formValues.items.filter(i => i.availability === 'unavailable').length}
-                />
+                {derivedDecision && (
+                  <SubmitOutcomePreview
+                    decision={derivedDecision}
+                    itemCount={formValues.items.length}
+                    procurementOrPartialCount={
+                      routingRows.filter(
+                        r => r && (r.item_route === 'procurement' || r.item_route === 'partial')
+                      ).length
+                    }
+                  />
+                )}
 
                 {globalError && (
                   <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
@@ -421,28 +415,32 @@ export default function WarehouseValidationPage() {
                   </div>
                 )}
 
-                {confirmDecision ? (
-                  <div className="flex items-center gap-3">
+                {confirmSubmit ? (
+                  <div className="flex flex-wrap items-center gap-3">
                     <p className="text-sm text-[#40527A]">
-                      Confirm submitting as{' '}
-                      <strong className={confirmDecision === 'sufficient' ? 'text-emerald-700' : 'text-blue-700'}>
-                        {confirmDecision === 'sufficient' ? 'Sufficient' : 'Insufficient'}
-                      </strong>?
-                      {' '}This action cannot be undone.
+                      Submit warehouse validation? PR outcome:{' '}
+                      <strong
+                        className={
+                          derivedDecision === 'sufficient' ? 'text-emerald-700' : 'text-blue-700'
+                        }
+                      >
+                        {derivedDecision === 'sufficient'
+                          ? 'Resolve internally (all lines internal)'
+                          : 'Route to approval / procurement'}
+                      </strong>
+                      . This cannot be undone.
                     </p>
                     <button
-                      onClick={() => handleSubmitDecision(confirmDecision)}
+                      type="button"
+                      onClick={handleSubmit}
                       disabled={submitting}
-                      className={`px-4 py-2 text-sm font-semibold text-white rounded-[4px] transition disabled:opacity-50 ${
-                        confirmDecision === 'sufficient'
-                          ? 'bg-[#0F1F3A] hover:bg-[#40527A]'
-                          : 'bg-[#1E4BFF] hover:bg-[#0F1F3A]'
-                      }`}
+                      className="px-4 py-2 text-sm font-semibold text-white rounded-[4px] transition disabled:opacity-50 bg-[#0F1F3A] hover:bg-[#40527A]"
                     >
-                      {submitting ? 'Submitting...' : 'Confirm'}
+                      {submitting ? 'Submitting...' : 'Confirm submit'}
                     </button>
                     <button
-                      onClick={() => setConfirmDecision(null)}
+                      type="button"
+                      onClick={() => setConfirmSubmit(false)}
                       disabled={submitting}
                       className="px-4 py-2 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
                     >
@@ -450,24 +448,15 @@ export default function WarehouseValidationPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <button
-                      onClick={() => setConfirmDecision('sufficient')}
-                      disabled={submitting}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0F1F3A] hover:bg-[#40527A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Mark Sufficient
-                    </button>
-                    <button
-                      onClick={() => setConfirmDecision('insufficient')}
-                      disabled={submitting}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      Mark Insufficient — Route to Approval
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmSubmit(true)}
+                    disabled={submitting || !derivedDecision}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0F1F3A] hover:bg-[#40527A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Submit Warehouse Validation
+                  </button>
                 )}
               </div>
             )}
@@ -502,22 +491,38 @@ function InfoField({
   );
 }
 
-function AvailabilityBadge({ availability }: { availability: string | null }) {
-  if (!availability) {
-    return <span className="text-xs text-[#BFC7D5] italic">—</span>;
+function ItemOutcomeText({
+  route,
+}: {
+  route: ReturnType<typeof computeWarehouseItemRouting> | null;
+}) {
+  if (!route) {
+    return <span className="text-xs text-[#BFC7D5] italic">Enter verified SOH</span>;
   }
-  if (availability === 'available') {
+  if (route.item_route === 'internal') {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">
-        <CheckCircle2 className="w-3 h-3" />
-        Available
+      <span className="text-xs text-emerald-800 leading-relaxed">
+        <span className="font-semibold">Internal</span>
+        {' · '}
+        {route.internal_fulfilled_qty.toLocaleString()} fulfilled internally
+      </span>
+    );
+  }
+  if (route.item_route === 'procurement') {
+    return (
+      <span className="text-xs text-red-800 leading-relaxed">
+        <span className="font-semibold">Procurement</span>
+        {' · '}
+        {route.procurement_qty.toLocaleString()} for procurement
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-100 rounded-full px-2 py-0.5">
-      <XCircle className="w-3 h-3" />
-      Unavailable
+    <span className="text-xs text-amber-900 leading-relaxed">
+      <span className="font-semibold">Partial</span>
+      {' · '}
+      {route.internal_fulfilled_qty.toLocaleString()} internal /{' '}
+      {route.procurement_qty.toLocaleString()} procurement
     </span>
   );
 }
@@ -534,19 +539,19 @@ function DecisionBadge({ decision }: { decision: WarehouseDecision }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-100 border border-blue-200 rounded-full px-3 py-1">
       <XCircle className="w-3.5 h-3.5" />
-      Validated — Insufficient
+      Validated — Insufficient (approval)
     </span>
   );
 }
 
-function DecisionPreview({
+function SubmitOutcomePreview({
   decision,
   itemCount,
-  unavailableCount,
+  procurementOrPartialCount,
 }: {
   decision: WarehouseDecision;
   itemCount: number;
-  unavailableCount: number;
+  procurementOrPartialCount: number;
 }) {
   if (decision === 'sufficient') {
     return (
@@ -554,10 +559,10 @@ function DecisionPreview({
         <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
         <div>
           <p className="text-sm font-semibold text-emerald-800">
-            All {itemCount} item{itemCount !== 1 ? 's' : ''} available in stock
+            All {itemCount} line{itemCount !== 1 ? 's' : ''} can be fulfilled internally
           </p>
           <p className="text-xs text-emerald-700 mt-0.5">
-            Marking sufficient will close this request internally. No approval routing needed.
+            Submitting will close this PR1 internally. No approval workflow.
           </p>
         </div>
       </div>
@@ -568,10 +573,12 @@ function DecisionPreview({
       <XCircle className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
       <div>
         <p className="text-sm font-semibold text-blue-800">
-          {unavailableCount} item{unavailableCount !== 1 ? 's' : ''} unavailable
+          {procurementOrPartialCount} line{procurementOrPartialCount !== 1 ? 's' : ''} need procurement
+          or partial fulfillment
         </p>
         <p className="text-xs text-blue-700 mt-0.5">
-          Marking insufficient will route this PR1 to the approval workflow for procurement action.
+          Submitting will route this PR1 to the approval workflow (entire PR1, as today). Internal-only
+          lines stay marked internal in this validation record.
         </p>
       </div>
     </div>
