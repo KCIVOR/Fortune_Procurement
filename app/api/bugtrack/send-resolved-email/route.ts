@@ -1,0 +1,81 @@
+import { NextResponse } from 'next/server';
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { email, bugId, bugTitle, reporterName } = body;
+
+    if (!email) {
+      console.log('No reporter email provided to send resolution notification.');
+      return NextResponse.json({ success: true, message: 'No notification sent.' });
+    }
+
+    const BREVO_API_KEY = process.env.BREVO_API_KEY;
+
+    const payload = {
+      sender: { name: "BugTrack System", email: "johndaveb892@gmail.com" },
+      to: [{ email }],
+      subject: `[RESOLVED] Bug Report: ${bugTitle}`,
+      htmlContent: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: #059669; color: white; padding: 24px; text-align: center;">
+            <h1 style="margin: 0; font-size: 20px;">Bug Resolved</h1>
+            <p style="margin: 4px 0 0; opacity: 0.9; font-size: 14px;">Fortune BugTrack System</p>
+          </div>
+          <div style="padding: 24px; color: #1e293b;">
+            <p>Hello ${reporterName},</p>
+            <p>Good news! The bug you reported has been officially <strong>Resolved</strong> by our engineering team.</p>
+            
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;">
+              <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 4px 0; color: #64748b; width: 120px;">Issue:</td>
+                  <td style="padding: 4px 0; font-weight: 600;">${bugTitle}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 0; color: #64748b;">Bug ID:</td>
+                  <td style="padding: 4px 0; font-family: monospace;">#${bugId.slice(0, 8).toUpperCase()}</td>
+                </tr>
+              </table>
+            </div>
+
+            <p style="font-size: 14px; line-height: 1.6;">
+              Thank you for helping us keep the system running smoothly. You can log in and view the full details of the resolution on the BugTrack dashboard.
+            </p>
+
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/bugtrack/${bugId}" 
+                 style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px; display: inline-block;">
+                View Details
+              </a>
+            </div>
+          </div>
+          <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8;">
+            © ${new Date().getFullYear()} Fortune Procurement. All rights reserved.
+          </div>
+        </div>
+      `,
+    };
+
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': BREVO_API_KEY || '',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    
+    if (!res.ok) {
+      return NextResponse.json({ success: false, data }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Resolved Email sending error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

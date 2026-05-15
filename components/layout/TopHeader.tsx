@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Building2, Briefcase, Menu } from 'lucide-react';
+import { Building2, Briefcase, Menu, Bug } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/layout/NotificationBell';
 
@@ -43,6 +43,15 @@ export default function TopHeader({ title, onMenuToggle }: TopHeaderProps) {
           </div>
           <div className="hidden sm:block w-px h-4 bg-[#D8E2FF]" />
           <NotificationBell />
+          <div className="hidden sm:block w-px h-4 bg-[#D8E2FF]" />
+          <Link 
+            href="/bugtrack" 
+            className="flex items-center justify-center w-8 h-8 rounded-[4px] text-[#40527A] hover:text-[#1E4BFF] hover:bg-[#F7F9FC] transition relative group"
+            title="Bug Track"
+          >
+            <Bug className="w-5 h-5" />
+            <span className="absolute -bottom-8 scale-0 transition-all rounded bg-gray-800 p-2 text-xs text-white group-hover:scale-100 whitespace-nowrap">Bug Track</span>
+          </Link>
           <div className="hidden sm:block w-px h-4 bg-[#D8E2FF]" />
           <Link href="/profile" className="flex items-center gap-2 group" aria-label="My Profile">
             <div className="w-7 h-7 rounded-[4px] bg-[#1E4BFF] group-hover:bg-[#0F1F3A] transition flex items-center justify-center shrink-0">
