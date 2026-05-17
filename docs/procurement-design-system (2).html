@@ -1,0 +1,2814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ProcureIQ — Brand & Component Design System</title>
+<style>
+  /* ─── DESIGN TOKENS ─────────────────────────────────────────── */
+  :root {
+    /* Brand Colors */
+    --primary-900: #0a1628;
+    --primary-800: #0d2140;
+    --primary-700: #103058;
+    --primary-600: #1a4480;
+    --primary-500: #2563b0;
+    --primary-400: #3b82d4;
+    --primary-300: #93c5fd;
+    --primary-200: #bfdbfe;
+    --primary-100: #dbeafe;
+    --primary-50:  #eff6ff;
+
+    --accent-600:  #0e7490;
+    --accent-500:  #0891b2;
+    --accent-400:  #22d3ee;
+    --accent-100:  #cffafe;
+
+    --success-600: #15803d;
+    --success-500: #22c55e;
+    --success-100: #dcfce7;
+
+    --warning-600: #b45309;
+    --warning-500: #f59e0b;
+    --warning-100: #fef3c7;
+
+    --danger-600:  #dc2626;
+    --danger-500:  #ef4444;
+    --danger-100:  #fee2e2;
+
+    --neutral-950: #0a0f1a;
+    --neutral-900: #111827;
+    --neutral-800: #1f2937;
+    --neutral-700: #374151;
+    --neutral-600: #4b5563;
+    --neutral-500: #6b7280;
+    --neutral-400: #9ca3af;
+    --neutral-300: #d1d5db;
+    --neutral-200: #e5e7eb;
+    --neutral-150: #edf0f4;
+    --neutral-100: #f3f4f6;
+    --neutral-50:  #f9fafb;
+    --white:       #ffffff;
+
+    /* Typography */
+    --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+    /* Font Sizes */
+    --text-xs:   11px;
+    --text-sm:   12px;
+    --text-base: 14px;
+    --text-md:   15px;
+    --text-lg:   16px;
+    --text-xl:   18px;
+    --text-2xl:  22px;
+    --text-3xl:  28px;
+    --text-4xl:  36px;
+
+    /* Spacing */
+    --sp-1:  4px;
+    --sp-2:  8px;
+    --sp-3:  12px;
+    --sp-4:  16px;
+    --sp-5:  20px;
+    --sp-6:  24px;
+    --sp-8:  32px;
+    --sp-10: 40px;
+    --sp-12: 48px;
+    --sp-16: 64px;
+
+    /* Radii */
+    --r-sm:  4px;
+    --r-md:  6px;
+    --r-lg:  8px;
+    --r-xl:  12px;
+    --r-2xl: 16px;
+    --r-full: 9999px;
+
+    /* Shadows */
+    --shadow-xs:  0 1px 2px rgba(0,0,0,.06);
+    --shadow-sm:  0 1px 3px rgba(0,0,0,.10), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-md:  0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
+    --shadow-lg:  0 10px 15px rgba(0,0,0,.08), 0 4px 6px rgba(0,0,0,.05);
+    --shadow-xl:  0 20px 25px rgba(0,0,0,.10), 0 10px 10px rgba(0,0,0,.04);
+    --shadow-focus: 0 0 0 3px rgba(37,99,176,.25);
+    --shadow-focus-danger: 0 0 0 3px rgba(239,68,68,.25);
+
+    /* Transitions */
+    --ease: cubic-bezier(.4,0,.2,1);
+    --dur-fast: 120ms;
+    --dur-base: 180ms;
+  }
+
+  /* ─── RESET ─────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--neutral-100);
+    color: var(--neutral-900);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ─── PAGE SHELL ─────────────────────────────────────────────── */
+  .page-header {
+    background: var(--primary-900);
+    padding: var(--sp-8) var(--sp-10);
+    border-bottom: 1px solid var(--primary-800);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+  }
+  .page-header .logo-mark {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--primary-500), var(--accent-500));
+    border-radius: var(--r-lg);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 18px; color: var(--white);
+    letter-spacing: -1px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(37,99,176,.4);
+  }
+  .page-header .brand { flex: 1; }
+  .page-header .brand-name {
+    font-size: var(--text-xl); font-weight: 700;
+    color: var(--white); letter-spacing: -.3px;
+  }
+  .page-header .brand-tagline {
+    font-size: var(--text-xs); color: var(--primary-300);
+    letter-spacing: .5px; text-transform: uppercase;
+  }
+  .page-header .version-badge {
+    font-size: var(--text-xs); font-weight: 600;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.15);
+    color: var(--primary-200);
+    padding: 4px 10px; border-radius: var(--r-full);
+    letter-spacing: .3px;
+  }
+
+  .page-content { padding: var(--sp-10); max-width: 1200px; margin: 0 auto; }
+
+  /* ─── SECTION HEADERS ────────────────────────────────────────── */
+  .section { margin-bottom: var(--sp-12); }
+  .section-label {
+    font-size: var(--text-xs); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--neutral-500);
+    margin-bottom: var(--sp-4);
+    display: flex; align-items: center; gap: var(--sp-3);
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: var(--neutral-200);
+  }
+  .section-title {
+    font-size: var(--text-2xl); font-weight: 700;
+    color: var(--neutral-900); letter-spacing: -.4px;
+    margin-bottom: var(--sp-2);
+  }
+  .section-desc {
+    font-size: var(--text-base); color: var(--neutral-600);
+    margin-bottom: var(--sp-6);
+    max-width: 640px;
+  }
+
+  /* ─── GRID HELPERS ───────────────────────────────────────────── */
+  .row { display: flex; flex-wrap: wrap; gap: var(--sp-4); align-items: flex-start; }
+  .col { display: flex; flex-direction: column; gap: var(--sp-4); flex: 1; min-width: 180px; }
+  .showcase-box {
+    background: var(--white);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--r-xl);
+    padding: var(--sp-6);
+    box-shadow: var(--shadow-sm);
+  }
+  .showcase-box .box-label {
+    font-size: var(--text-xs); font-weight: 600;
+    text-transform: uppercase; letter-spacing: .8px;
+    color: var(--neutral-400); margin-bottom: var(--sp-4);
+    padding-bottom: var(--sp-3);
+    border-bottom: 1px solid var(--neutral-100);
+  }
+
+  /* ─── COLOR PALETTE ──────────────────────────────────────────── */
+  .palette-grid { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+  .color-swatch {
+    display: flex; flex-direction: column; gap: 6px; width: 72px;
+  }
+  .swatch-block {
+    height: 48px; border-radius: var(--r-md);
+    box-shadow: var(--shadow-xs);
+    border: 1px solid rgba(0,0,0,.06);
+  }
+  .swatch-name { font-size: 10px; font-weight: 600; color: var(--neutral-600); }
+  .swatch-hex  { font-size: 10px; color: var(--neutral-400); font-family: var(--font-mono); }
+
+  /* ─── TYPOGRAPHY ─────────────────────────────────────────────── */
+  .type-sample { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .type-row { display: flex; align-items: baseline; gap: var(--sp-4); padding: var(--sp-3) 0; border-bottom: 1px solid var(--neutral-100); }
+  .type-meta { width: 120px; flex-shrink: 0; }
+  .type-meta .meta-name { font-size: 10px; font-weight: 700; color: var(--neutral-500); text-transform: uppercase; letter-spacing: .5px; }
+  .type-meta .meta-spec { font-size: 10px; color: var(--neutral-400); font-family: var(--font-mono); }
+
+  /* ─── BUTTONS ────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+    font-family: var(--font-sans); font-weight: 600;
+    border: none; cursor: pointer;
+    transition: background var(--dur-fast) var(--ease),
+                box-shadow var(--dur-fast) var(--ease),
+                transform var(--dur-fast) var(--ease),
+                border-color var(--dur-fast) var(--ease);
+    white-space: nowrap; text-decoration: none;
+    position: relative; overflow: hidden;
+    letter-spacing: .1px;
+  }
+  .btn:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+  .btn:active { transform: scale(.985); }
+
+  /* Sizes */
+  .btn-xs  { font-size: var(--text-xs); padding: 5px 10px; border-radius: var(--r-sm); }
+  .btn-sm  { font-size: var(--text-sm); padding: 7px 14px; border-radius: var(--r-md); }
+  .btn-md  { font-size: var(--text-base); padding: 9px 18px; border-radius: var(--r-md); }
+  .btn-lg  { font-size: var(--text-md); padding: 11px 22px; border-radius: var(--r-lg); }
+  .btn-xl  { font-size: var(--text-lg); padding: 13px 28px; border-radius: var(--r-lg); }
+
+  /* Variants */
+  .btn-primary {
+    background: var(--primary-600); color: var(--white);
+    box-shadow: 0 1px 3px rgba(26,68,128,.3), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .btn-primary:hover { background: var(--primary-500); box-shadow: 0 3px 8px rgba(26,68,128,.35), inset 0 1px 0 rgba(255,255,255,.1); }
+
+  .btn-secondary {
+    background: var(--white); color: var(--neutral-700);
+    border: 1px solid var(--neutral-300);
+    box-shadow: var(--shadow-xs);
+  }
+  .btn-secondary:hover { background: var(--neutral-50); border-color: var(--neutral-400); box-shadow: var(--shadow-sm); }
+
+  .btn-ghost {
+    background: transparent; color: var(--neutral-600);
+    border: 1px solid transparent;
+  }
+  .btn-ghost:hover { background: var(--neutral-100); color: var(--neutral-800); border-color: var(--neutral-200); }
+
+  .btn-success {
+    background: var(--success-600); color: var(--white);
+    box-shadow: 0 1px 3px rgba(21,128,61,.3);
+  }
+  .btn-success:hover { filter: brightness(1.08); }
+
+  .btn-danger {
+    background: var(--danger-600); color: var(--white);
+    box-shadow: 0 1px 3px rgba(220,38,38,.3);
+  }
+  .btn-danger:hover { filter: brightness(1.08); }
+
+  .btn-warning {
+    background: var(--warning-500); color: var(--white);
+    box-shadow: 0 1px 3px rgba(180,83,9,.3);
+  }
+  .btn-warning:hover { filter: brightness(1.08); }
+
+  .btn-outline-primary {
+    background: transparent; color: var(--primary-600);
+    border: 1.5px solid var(--primary-500);
+  }
+  .btn-outline-primary:hover { background: var(--primary-50); }
+
+  .btn-subtle {
+    background: var(--primary-50); color: var(--primary-700);
+    border: 1px solid var(--primary-200);
+  }
+  .btn-subtle:hover { background: var(--primary-100); }
+
+  .btn-icon { padding: 9px; }
+  .btn-icon.btn-sm { padding: 7px; }
+  .btn-icon.btn-xs { padding: 5px; }
+
+  .btn[disabled] { opacity: .45; pointer-events: none; }
+
+  /* ─── TEXT INPUTS ────────────────────────────────────────────── */
+  .form-group { display: flex; flex-direction: column; gap: var(--sp-1); }
+  .form-label {
+    font-size: var(--text-sm); font-weight: 600;
+    color: var(--neutral-700); letter-spacing: .1px;
+  }
+  .form-label .required { color: var(--danger-500); margin-left: 2px; }
+  .form-sublabel { font-size: 11px; color: var(--neutral-500); margin-top: 1px; }
+  .form-hint { font-size: 11px; color: var(--neutral-500); margin-top: var(--sp-1); }
+  .form-error { font-size: 11px; color: var(--danger-600); margin-top: var(--sp-1); font-weight: 500; }
+
+  .input-wrap { position: relative; display: flex; align-items: center; }
+  .input-wrap .input-icon-left  { position: absolute; left: 10px; color: var(--neutral-400); pointer-events: none; }
+  .input-wrap .input-icon-right { position: absolute; right: 10px; color: var(--neutral-400); pointer-events: none; }
+  .input-wrap .input-prefix {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    display: flex; align-items: center; padding: 0 10px;
+    font-size: var(--text-sm); color: var(--neutral-500); font-weight: 500;
+    background: var(--neutral-100); border-right: 1px solid var(--neutral-300);
+    border-radius: var(--r-md) 0 0 var(--r-md);
+    pointer-events: none;
+  }
+
+  .input {
+    width: 100%; font-family: var(--font-sans); font-size: var(--text-base);
+    color: var(--neutral-900); background: var(--white);
+    border: 1.5px solid var(--neutral-300); border-radius: var(--r-md);
+    padding: 8px 12px; outline: none;
+    transition: border-color var(--dur-fast) var(--ease),
+                box-shadow var(--dur-fast) var(--ease);
+    line-height: 1.4;
+  }
+  .input::placeholder { color: var(--neutral-400); }
+  .input:hover { border-color: var(--neutral-400); }
+  .input:focus { border-color: var(--primary-500); box-shadow: var(--shadow-focus); }
+  .input.input-error  { border-color: var(--danger-500); }
+  .input.input-error:focus { box-shadow: var(--shadow-focus-danger); }
+  .input.input-success { border-color: var(--success-600); }
+  .input[disabled]    { background: var(--neutral-100); color: var(--neutral-400); cursor: not-allowed; }
+  .input[readonly]    { background: var(--neutral-50); color: var(--neutral-600); }
+
+  .input.has-icon-left  { padding-left: 34px; }
+  .input.has-icon-right { padding-right: 34px; }
+  .input.has-prefix     { padding-left: 52px; border-radius: 0 var(--r-md) var(--r-md) 0; }
+
+  .input-sm { padding: 6px 10px; font-size: var(--text-sm); }
+  .input-lg { padding: 10px 14px; font-size: var(--text-md); }
+
+  textarea.input { resize: vertical; min-height: 80px; }
+
+  /* ─── SELECT / DROPDOWN ──────────────────────────────────────── */
+  .select {
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+
+  /* ─── CHECKBOXES / RADIOS ────────────────────────────────────── */
+  .check-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+  .check-item  { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
+  .check-item input[type="checkbox"],
+  .check-item input[type="radio"] {
+    appearance: none; -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--neutral-300); border-radius: 3px;
+    background: var(--white); cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--dur-fast) var(--ease);
+    position: relative;
+  }
+  .check-item input[type="radio"] { border-radius: 50%; }
+  .check-item input[type="checkbox"]:checked,
+  .check-item input[type="radio"]:checked {
+    background: var(--primary-600); border-color: var(--primary-600);
+  }
+  .check-item input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute; width: 8px; height: 5px;
+    border-left: 2px solid white; border-bottom: 2px solid white;
+    transform: rotate(-45deg) translate(1px, -1px);
+    top: 3px; left: 3px;
+  }
+  .check-item input[type="radio"]:checked::after {
+    content: ''; position: absolute;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: white; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .check-label { font-size: var(--text-sm); color: var(--neutral-700); font-weight: 500; }
+  .check-desc  { font-size: 11px; color: var(--neutral-500); margin-top: 1px; }
+
+  /* ─── TOGGLE ─────────────────────────────────────────────────── */
+  .toggle-wrap { display: flex; align-items: center; gap: var(--sp-3); cursor: pointer; }
+  .toggle {
+    width: 40px; height: 22px; background: var(--neutral-300);
+    border-radius: var(--r-full); position: relative;
+    cursor: pointer; transition: background var(--dur-base) var(--ease);
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: ''; position: absolute;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: white; top: 3px; left: 3px;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--dur-base) var(--ease);
+  }
+  .toggle.on { background: var(--primary-600); }
+  .toggle.on::after { transform: translateX(18px); }
+  .toggle-label { font-size: var(--text-sm); color: var(--neutral-700); font-weight: 500; }
+
+  /* ─── BADGES / CHIPS ─────────────────────────────────────────── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: var(--text-xs); font-weight: 700; letter-spacing: .3px;
+    padding: 3px 8px; border-radius: var(--r-full);
+    text-transform: uppercase;
+  }
+  .badge-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .badge-blue    { background: var(--primary-100); color: var(--primary-700); }
+  .badge-blue .badge-dot { background: var(--primary-500); }
+  .badge-green   { background: var(--success-100); color: var(--success-600); }
+  .badge-green .badge-dot { background: var(--success-500); }
+  .badge-amber   { background: var(--warning-100); color: var(--warning-600); }
+  .badge-amber .badge-dot { background: var(--warning-500); }
+  .badge-red     { background: var(--danger-100); color: var(--danger-600); }
+  .badge-red .badge-dot { background: var(--danger-500); }
+  .badge-neutral { background: var(--neutral-200); color: var(--neutral-700); }
+  .badge-neutral .badge-dot { background: var(--neutral-500); }
+  .badge-teal    { background: var(--accent-100); color: var(--accent-600); }
+  .badge-teal .badge-dot { background: var(--accent-500); }
+
+  /* ─── TAGS ───────────────────────────────────────────────────── */
+  .tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600;
+    padding: 3px 8px; border-radius: var(--r-sm);
+    background: var(--neutral-100); color: var(--neutral-700);
+    border: 1px solid var(--neutral-200);
+  }
+  .tag .tag-remove { color: var(--neutral-400); cursor: pointer; font-size: 12px; line-height: 1; }
+
+  /* ─── CARDS ──────────────────────────────────────────────────── */
+  .card {
+    background: var(--white);
+    border: 1px solid var(--neutral-200);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: box-shadow var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease);
+  }
+  .card:hover { box-shadow: var(--shadow-md); border-color: var(--neutral-300); }
+  .card-header {
+    padding: var(--sp-4) var(--sp-5);
+    border-bottom: 1px solid var(--neutral-150);
+    display: flex; align-items: center; gap: var(--sp-3);
+    background: var(--neutral-50);
+  }
+  .card-header .card-icon {
+    width: 36px; height: 36px; border-radius: var(--r-md);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 16px;
+  }
+  .card-header .card-title   { font-size: var(--text-base); font-weight: 700; color: var(--neutral-900); line-height: 1.2; }
+  .card-header .card-subtitle{ font-size: 11px; color: var(--neutral-500); margin-top: 1px; }
+  .card-header .card-actions { margin-left: auto; display: flex; gap: var(--sp-2); }
+  .card-body   { padding: var(--sp-5); }
+  .card-footer { padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--neutral-150); background: var(--neutral-50); }
+
+  /* Stat Card */
+  .stat-card {
+    background: var(--white); border: 1px solid var(--neutral-200);
+    border-radius: var(--r-xl); padding: var(--sp-5);
+    box-shadow: var(--shadow-sm); position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  }
+  .stat-card.blue::before   { background: linear-gradient(90deg, var(--primary-500), var(--accent-500)); }
+  .stat-card.green::before  { background: linear-gradient(90deg, var(--success-600), var(--success-500)); }
+  .stat-card.amber::before  { background: linear-gradient(90deg, var(--warning-600), var(--warning-500)); }
+  .stat-card.red::before    { background: linear-gradient(90deg, var(--danger-600), var(--danger-500)); }
+
+  .stat-label { font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--neutral-500); margin-bottom: var(--sp-2); }
+  .stat-value { font-size: var(--text-3xl); font-weight: 800; color: var(--neutral-900); letter-spacing: -1px; line-height: 1; }
+  .stat-sub   { font-size: var(--text-sm); color: var(--neutral-500); margin-top: var(--sp-2); }
+  .stat-trend { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; }
+  .trend-up   { color: var(--success-600); }
+  .trend-down { color: var(--danger-600); }
+
+  /* ─── TABLE ──────────────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; border-radius: var(--r-xl); border: 1px solid var(--neutral-200); box-shadow: var(--shadow-sm); }
+  table {
+    width: 100%; border-collapse: collapse; font-size: var(--text-base);
+    background: var(--white);
+  }
+  thead th {
+    text-align: left; padding: 11px 16px;
+    font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--neutral-500);
+    background: var(--neutral-50);
+    border-bottom: 1px solid var(--neutral-200);
+    white-space: nowrap;
+  }
+  tbody tr { border-bottom: 1px solid var(--neutral-100); transition: background var(--dur-fast); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--primary-50); }
+  td { padding: 11px 16px; color: var(--neutral-800); vertical-align: middle; }
+  td.td-muted { color: var(--neutral-500); font-size: var(--text-sm); }
+  td.td-mono { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--neutral-600); }
+  td.td-bold { font-weight: 700; color: var(--neutral-900); }
+
+  /* ─── ALERTS / NOTIFICATIONS ─────────────────────────────────── */
+  .alert {
+    display: flex; align-items: flex-start; gap: var(--sp-3);
+    padding: var(--sp-4); border-radius: var(--r-lg);
+    border-left: 4px solid;
+    font-size: var(--text-sm);
+  }
+  .alert-icon   { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .alert-title  { font-weight: 700; margin-bottom: 2px; }
+  .alert-body   { flex: 1; }
+  .alert-info    { background: var(--primary-50);  border-color: var(--primary-500);  color: var(--primary-800); }
+  .alert-success { background: var(--success-100); border-color: var(--success-600); color: var(--success-600); }
+  .alert-warning { background: var(--warning-100); border-color: var(--warning-500); color: var(--warning-600); }
+  .alert-danger  { background: var(--danger-100);  border-color: var(--danger-600);  color: var(--danger-600); }
+
+  /* ─── PROGRESS ───────────────────────────────────────────────── */
+  .progress-wrap { display: flex; flex-direction: column; gap: var(--sp-1); }
+  .progress-meta { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--neutral-600); }
+  .progress-track {
+    height: 6px; background: var(--neutral-200); border-radius: var(--r-full); overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%; border-radius: var(--r-full);
+    background: linear-gradient(90deg, var(--primary-600), var(--primary-400));
+    transition: width .6s var(--ease);
+  }
+  .progress-bar.success { background: linear-gradient(90deg, var(--success-600), var(--success-500)); }
+  .progress-bar.warning { background: linear-gradient(90deg, var(--warning-600), var(--warning-500)); }
+  .progress-bar.danger  { background: linear-gradient(90deg, var(--danger-600), var(--danger-500)); }
+
+  /* ─── BREADCRUMB ─────────────────────────────────────────────── */
+  .breadcrumb { display: flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; }
+  .breadcrumb a { font-size: var(--text-sm); color: var(--primary-600); text-decoration: none; font-weight: 500; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .sep   { font-size: var(--text-xs); color: var(--neutral-400); }
+  .breadcrumb .crumb { font-size: var(--text-sm); color: var(--neutral-600); font-weight: 500; }
+  .breadcrumb .active { color: var(--neutral-900); font-weight: 600; }
+
+  /* ─── TABS ───────────────────────────────────────────────────── */
+  .tabs { display: flex; border-bottom: 2px solid var(--neutral-200); gap: 0; }
+  .tab {
+    padding: 10px 18px; font-size: var(--text-sm); font-weight: 600;
+    color: var(--neutral-500); cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -2px; white-space: nowrap;
+    transition: color var(--dur-fast), border-color var(--dur-fast);
+    display: flex; align-items: center; gap: var(--sp-2);
+  }
+  .tab:hover { color: var(--neutral-800); }
+  .tab.active { color: var(--primary-600); border-bottom-color: var(--primary-600); }
+
+  /* ─── SIDEBAR NAV ────────────────────────────────────────────── */
+  .nav-sidebar {
+    width: 220px; background: var(--primary-900);
+    border-radius: var(--r-xl); overflow: hidden;
+    padding: var(--sp-3) 0;
+  }
+  .nav-section-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--primary-400);
+    padding: var(--sp-2) var(--sp-4); margin-top: var(--sp-2);
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: 9px var(--sp-4); cursor: pointer;
+    font-size: var(--text-sm); font-weight: 500; color: var(--primary-300);
+    transition: background var(--dur-fast), color var(--dur-fast);
+    position: relative;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.06); color: var(--white); }
+  .nav-item.active {
+    background: rgba(37,99,176,.25); color: var(--white);
+    font-weight: 600;
+  }
+  .nav-item.active::before {
+    content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+    width: 3px; background: var(--primary-400); border-radius: 0 2px 2px 0;
+  }
+  .nav-icon { width: 16px; text-align: center; flex-shrink: 0; font-size: 15px; }
+  .nav-badge {
+    margin-left: auto; font-size: 10px; font-weight: 700;
+    background: var(--primary-600); color: white;
+    padding: 1px 6px; border-radius: var(--r-full);
+  }
+
+  /* ─── TIMELINE / STEPPER ─────────────────────────────────────── */
+  .stepper { display: flex; gap: 0; align-items: center; }
+  .step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); position: relative; }
+  .step:not(:last-child)::after {
+    content: ''; position: absolute;
+    top: 16px; left: 50%; right: -50%; height: 2px;
+    background: var(--neutral-300); z-index: 0;
+  }
+  .step.done:not(:last-child)::after { background: var(--primary-500); }
+  .step-circle {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 2px solid var(--neutral-300); background: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--neutral-500);
+    z-index: 1; transition: all var(--dur-base);
+  }
+  .step.done .step-circle   { background: var(--primary-600); border-color: var(--primary-600); color: white; }
+  .step.active .step-circle { background: var(--white); border-color: var(--primary-600); color: var(--primary-600); box-shadow: 0 0 0 4px var(--primary-100); }
+  .step-label { font-size: 11px; font-weight: 600; color: var(--neutral-500); text-align: center; }
+  .step.done .step-label   { color: var(--primary-700); }
+  .step.active .step-label { color: var(--neutral-900); }
+
+  /* ─── TOOLTIP ────────────────────────────────────────────────── */
+  .tooltip-demo { position: relative; display: inline-flex; }
+  .tooltip-box {
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: var(--neutral-900); color: white;
+    font-size: 11px; font-weight: 500; padding: 5px 10px;
+    border-radius: var(--r-md); white-space: nowrap;
+    pointer-events: none;
+    box-shadow: var(--shadow-md);
+  }
+  .tooltip-box::after {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--neutral-900);
+  }
+
+  /* ─── AVATAR ─────────────────────────────────────────────────── */
+  .avatar {
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: white; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--primary-600), var(--accent-500));
+    letter-spacing: -.3px;
+  }
+  .avatar-xs { width: 24px; height: 24px; font-size: 10px; }
+  .avatar-sm { width: 32px; height: 32px; font-size: 12px; }
+  .avatar-md { width: 40px; height: 40px; font-size: 14px; }
+  .avatar-lg { width: 48px; height: 48px; font-size: 18px; }
+  .avatar-stack { display: flex; }
+  .avatar-stack .avatar { margin-left: -8px; border: 2px solid white; }
+  .avatar-stack .avatar:first-child { margin-left: 0; }
+
+  /* ─── DIVIDERS ───────────────────────────────────────────────── */
+  .divider { height: 1px; background: var(--neutral-200); margin: var(--sp-4) 0; }
+  .divider-label { display: flex; align-items: center; gap: var(--sp-3); color: var(--neutral-400); font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .divider-label::before, .divider-label::after { content: ''; flex: 1; height: 1px; background: var(--neutral-200); }
+
+  /* ─── THEME DARK PREVIEW ─────────────────────────────────────── */
+  .dark-preview {
+    background: var(--primary-900);
+    border-radius: var(--r-xl); padding: var(--sp-6);
+    border: 1px solid rgba(255,255,255,.08);
+  }
+  .dark-preview .dp-label { font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--primary-300); margin-bottom: var(--sp-4); }
+  .dark-input {
+    width: 100%; background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.12);
+    border-radius: var(--r-md); padding: 9px 13px;
+    color: white; font-family: var(--font-sans); font-size: var(--text-base);
+    outline: none;
+  }
+  .dark-input::placeholder { color: rgba(255,255,255,.3); }
+  .dark-input:focus { border-color: var(--primary-400); box-shadow: 0 0 0 3px rgba(59,130,212,.25); }
+  .dark-card-inner {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: var(--r-lg); padding: var(--sp-4);
+  }
+
+  /* ─── ICON HELPER (SVG inline) ───────────────────────────────── */
+  svg { display: inline-block; vertical-align: middle; }
+
+  /* ─── MISC ───────────────────────────────────────────────────── */
+  .flex-gap-2 { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+  .flex-gap-3 { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+  .mt-4 { margin-top: var(--sp-4); }
+  .mt-6 { margin-top: var(--sp-6); }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-4); }
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--sp-4); }
+</style>
+</head>
+<body>
+
+<!-- ─── PAGE HEADER ──────────────────────────────────────────────── -->
+<header class="page-header">
+  <div class="logo-mark">PQ</div>
+  <div class="brand">
+    <div class="brand-name">ProcureIQ</div>
+    <div class="brand-tagline">Design System · Component Library</div>
+  </div>
+  <span class="version-badge">v2.0.0</span>
+</header>
+
+<div class="page-content">
+
+  <!-- ─── COLOR PALETTE ─────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">01 · Foundation</div>
+    <div class="section-title">Color Palette</div>
+    <div class="section-desc">A structured, accessible palette built for data-heavy enterprise environments — high contrast, semantically clear, and consistent across light and dark surfaces.</div>
+
+    <div class="showcase-box">
+      <div class="box-label">Primary — Brand Blue</div>
+      <div class="palette-grid">
+        <div class="color-swatch"><div class="swatch-block" style="background:#0a1628"></div><div class="swatch-name">900</div><div class="swatch-hex">#0a1628</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#0d2140"></div><div class="swatch-name">800</div><div class="swatch-hex">#0d2140</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#103058"></div><div class="swatch-name">700</div><div class="swatch-hex">#103058</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#1a4480"></div><div class="swatch-name">600</div><div class="swatch-hex">#1a4480</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#2563b0"></div><div class="swatch-name">500 ★</div><div class="swatch-hex">#2563b0</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#3b82d4"></div><div class="swatch-name">400</div><div class="swatch-hex">#3b82d4</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#93c5fd"></div><div class="swatch-name">300</div><div class="swatch-hex">#93c5fd</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#bfdbfe"></div><div class="swatch-name">200</div><div class="swatch-hex">#bfdbfe</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#dbeafe"></div><div class="swatch-name">100</div><div class="swatch-hex">#dbeafe</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#eff6ff;border:1px solid #e2e8f0"></div><div class="swatch-name">50</div><div class="swatch-hex">#eff6ff</div></div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="box-label">Semantic Colors</div>
+      <div class="palette-grid">
+        <div class="color-swatch"><div class="swatch-block" style="background:#0891b2"></div><div class="swatch-name">Teal</div><div class="swatch-hex">#0891b2</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#22c55e"></div><div class="swatch-name">Success</div><div class="swatch-hex">#22c55e</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#f59e0b"></div><div class="swatch-name">Warning</div><div class="swatch-hex">#f59e0b</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#ef4444"></div><div class="swatch-name">Danger</div><div class="swatch-hex">#ef4444</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#111827"></div><div class="swatch-name">Gray 900</div><div class="swatch-hex">#111827</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#6b7280"></div><div class="swatch-name">Gray 500</div><div class="swatch-hex">#6b7280</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#d1d5db"></div><div class="swatch-name">Gray 300</div><div class="swatch-hex">#d1d5db</div></div>
+        <div class="color-swatch"><div class="swatch-block" style="background:#f3f4f6;border:1px solid #e5e7eb"></div><div class="swatch-name">Gray 100</div><div class="swatch-hex">#f3f4f6</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SEMANTIC COLOR MAP ────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">02 · Foundation</div>
+    <div class="section-title">Semantic Color Usage</div>
+    <div class="section-desc">How each color token maps to a UI role. Use these as your decision guide — never pick colors by shade alone, always by purpose.</div>
+
+    <!-- Surfaces & Backgrounds -->
+    <div class="showcase-box" style="margin-bottom:var(--sp-4);">
+      <div class="box-label">Surfaces & Backgrounds</div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--neutral-100);border:1px solid var(--neutral-300);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Page Background</div>
+            <div class="sem-token">--neutral-100 · #f3f4f6</div>
+          </div>
+          <div class="sem-desc">The outermost page canvas. Used on <code>&lt;body&gt;</code>. All content sits on top of this.</div>
+          <span class="sem-tag">Global</span>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--white);border:1px solid var(--neutral-200);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Surface / Card Background</div>
+            <div class="sem-token">--white · #ffffff</div>
+          </div>
+          <div class="sem-desc">Cards, modals, panels, table rows, form inputs. The primary elevated surface.</div>
+          <span class="sem-tag">Cards</span>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--neutral-50);border:1px solid var(--neutral-200);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Subtle Surface</div>
+            <div class="sem-token">--neutral-50 · #f9fafb</div>
+          </div>
+          <div class="sem-desc">Table headers, card footers, read-only fields, accordion bodies. One step above white.</div>
+          <span class="sem-tag">Recessed</span>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--primary-900);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Dark / Navigation Background</div>
+            <div class="sem-token">--primary-900 · #0a1628</div>
+          </div>
+          <div class="sem-desc">Sidebar nav, top header bar, dark panels. The brand's darkest surface.</div>
+          <span class="sem-tag">Nav</span>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--primary-50);border:1px solid var(--primary-200);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Tinted / Selected Surface</div>
+            <div class="sem-token">--primary-50 · #eff6ff</div>
+          </div>
+          <div class="sem-desc">Selected table rows, active filter chips, info section boxes. Indicates selection or focus.</div>
+          <span class="sem-tag">Selection</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Primary Actions -->
+    <div class="showcase-box" style="margin-bottom:var(--sp-4);">
+      <div class="box-label">Primary & Brand Colors</div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--primary-600);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Primary Action</div>
+            <div class="sem-token">--primary-600 · #1a4480</div>
+          </div>
+          <div class="sem-desc">Primary buttons, active nav item highlight, links in tables, key interactive elements.</div>
+          <span class="sem-tag sem-tag-primary">Primary</span>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--primary-500);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Primary Hover</div>
+            <div class="sem-token">--primary-500 · #2563b0</div>
+          </div>
+          <div class="sem-desc">Hover state for primary buttons. Also used for sparklines and progress bars.</div>
+          <span class="sem-tag sem-tag-primary">Hover</span>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--primary-400);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Primary on Dark</div>
+            <div class="sem-token">--primary-400 · #3b82d4</div>
+          </div>
+          <div class="sem-desc">Active sidebar nav indicators, focus rings on dark surfaces, links on dark backgrounds.</div>
+          <span class="sem-tag sem-tag-primary">On Dark</span>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--accent-500);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Secondary Brand / Accent</div>
+            <div class="sem-token">--accent-500 · #0891b2</div>
+          </div>
+          <div class="sem-desc">Gradient pair with primary-500 for logo mark, stat highlights, and decorative accents.</div>
+          <span class="sem-tag" style="background:#e0f2fe;color:#0369a1;">Accent</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Text Colors -->
+    <div class="showcase-box" style="margin-bottom:var(--sp-4);">
+      <div class="box-label">Text & Typography Colors</div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--neutral-900);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Primary Text</div>
+            <div class="sem-token">--neutral-900 · #111827</div>
+          </div>
+          <div class="sem-desc">Headings, labels, table cell values, modal titles. Highest contrast on white.</div>
+          <div style="font-size:var(--text-sm);font-weight:700;color:var(--neutral-900);padding:4px 8px;background:white;border-radius:4px;border:1px solid var(--neutral-200);">Aa</div>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--neutral-700);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Body Text</div>
+            <div class="sem-token">--neutral-700 · #374151</div>
+          </div>
+          <div class="sem-desc">Form labels, descriptions, table column content. Standard readable text.</div>
+          <div style="font-size:var(--text-sm);color:var(--neutral-700);padding:4px 8px;background:white;border-radius:4px;border:1px solid var(--neutral-200);">Aa</div>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--neutral-500);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Muted / Helper Text</div>
+            <div class="sem-token">--neutral-500 · #6b7280</div>
+          </div>
+          <div class="sem-desc">Placeholder text, form hints, table header labels, timestamps, secondary metadata.</div>
+          <div style="font-size:var(--text-sm);color:var(--neutral-500);padding:4px 8px;background:white;border-radius:4px;border:1px solid var(--neutral-200);">Aa</div>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--neutral-400);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Disabled / Placeholder</div>
+            <div class="sem-token">--neutral-400 · #9ca3af</div>
+          </div>
+          <div class="sem-desc">Disabled form inputs, placeholder text, empty state icons, skeleton base.</div>
+          <div style="font-size:var(--text-sm);color:var(--neutral-400);padding:4px 8px;background:white;border-radius:4px;border:1px solid var(--neutral-200);">Aa</div>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--white);border:1px solid var(--neutral-200);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Inverse Text (on dark)</div>
+            <div class="sem-token">--white · #ffffff</div>
+          </div>
+          <div class="sem-desc">Text on primary buttons, nav items, dark surfaces, and colored badges.</div>
+          <div style="font-size:var(--text-sm);color:white;font-weight:700;padding:4px 8px;background:var(--primary-900);border-radius:4px;">Aa</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Borders & Dividers -->
+    <div class="showcase-box" style="margin-bottom:var(--sp-4);">
+      <div class="box-label">Borders, Dividers & Outlines</div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--neutral-200);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Default Border</div>
+            <div class="sem-token">--neutral-200 · #e5e7eb</div>
+          </div>
+          <div class="sem-desc">Cards, input fields, tables, dividers, modals. The standard separator color.</div>
+          <span class="sem-tag">Default</span>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--neutral-300);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Stronger Border</div>
+            <div class="sem-token">--neutral-300 · #d1d5db</div>
+          </div>
+          <div class="sem-desc">Hovered input borders, focused secondary buttons, dropdown menus.</div>
+          <span class="sem-tag">Hover</span>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--primary-500);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Focus Border</div>
+            <div class="sem-token">--primary-500 + shadow-focus</div>
+          </div>
+          <div class="sem-desc">Focused inputs, active tabs, selected elements. Always paired with a focus ring shadow.</div>
+          <span class="sem-tag sem-tag-primary">Focus</span>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--neutral-100);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Subtle / Inner Divider</div>
+            <div class="sem-token">--neutral-100 · #f3f4f6</div>
+          </div>
+          <div class="sem-desc">Row separators inside cards, accordion item dividers, form section breaks.</div>
+          <span class="sem-tag">Subtle</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semantic states -->
+    <div class="showcase-box">
+      <div class="box-label">Status & Feedback Colors</div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--success-600);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Success / Approved</div>
+            <div class="sem-token">--success-600 · #15803d</div>
+          </div>
+          <div class="sem-desc">Approved POs, positive trends, completed steps, success toasts and alerts.</div>
+          <div style="display:flex;gap:4px;align-items:center;"><span class="badge badge-green" style="font-size:10px;">Approved</span></div>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--warning-500);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Warning / Pending</div>
+            <div class="sem-token">--warning-500 · #f59e0b</div>
+          </div>
+          <div class="sem-desc">Pending approval, budget near threshold, expiring accreditations, caution states.</div>
+          <div style="display:flex;gap:4px;align-items:center;"><span class="badge badge-yellow" style="font-size:10px;">Pending</span></div>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--danger-600);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Danger / Rejected</div>
+            <div class="sem-token">--danger-600 · #dc2626</div>
+          </div>
+          <div class="sem-desc">Rejected POs, expired accreditations, destructive actions, error toasts and alerts.</div>
+          <div style="display:flex;gap:4px;align-items:center;"><span class="badge badge-red" style="font-size:10px;">Rejected</span></div>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--primary-600);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Informational / Draft</div>
+            <div class="sem-token">--primary-600 · #1a4480</div>
+          </div>
+          <div class="sem-desc">Draft POs, info alerts, neutral status badges, awaiting-action states.</div>
+          <div style="display:flex;gap:4px;align-items:center;"><span class="badge badge-blue" style="font-size:10px;">Draft</span></div>
+        </div>
+        <div class="sem-row">
+          <div class="sem-swatch" style="background:var(--neutral-400);"></div>
+          <div class="sem-info">
+            <div class="sem-role">Neutral / Cancelled</div>
+            <div class="sem-token">--neutral-400 · #9ca3af</div>
+          </div>
+          <div class="sem-desc">Cancelled or archived records, inactive steps, disabled states, closed items.</div>
+          <div style="display:flex;gap:4px;align-items:center;"><span class="badge" style="background:var(--neutral-200);color:var(--neutral-600);font-size:10px;">Cancelled</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── TYPOGRAPHY ────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">03 · Foundation</div>
+    <div class="section-title">Typography</div>
+    <div class="section-desc">Inter is the primary typeface — optimized for screen readability at small sizes. JetBrains Mono for numeric data, IDs, and code.</div>
+    <div class="showcase-box">
+      <div class="type-sample">
+        <div class="type-row">
+          <div class="type-meta"><div class="meta-name">Display</div><div class="meta-spec">36px / 800</div></div>
+          <span style="font-size:36px;font-weight:800;letter-spacing:-1px;color:var(--neutral-900)">Purchase Orders</span>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="meta-name">H1</div><div class="meta-spec">28px / 700</div></div>
+          <span style="font-size:28px;font-weight:700;letter-spacing:-.5px;color:var(--neutral-900)">Vendor Management</span>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="meta-name">H2</div><div class="meta-spec">22px / 700</div></div>
+          <span style="font-size:22px;font-weight:700;letter-spacing:-.3px;color:var(--neutral-900)">Contract Overview</span>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="meta-name">H3</div><div class="meta-spec">18px / 600</div></div>
+          <span style="font-size:18px;font-weight:600;color:var(--neutral-900)">Budget Allocation</span>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="meta-name">Body</div><div class="meta-spec">14px / 400</div></div>
+          <span style="font-size:14px;color:var(--neutral-700)">Streamline your procurement workflow with automated approvals, real-time budget tracking, and supplier analytics.</span>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="meta-name">Small</div><div class="meta-spec">12px / 400</div></div>
+          <span style="font-size:12px;color:var(--neutral-500)">Last updated 2 hours ago · PO-2025-00841</span>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="meta-name">Label</div><div class="meta-spec">11px / 700 · UC</div></div>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--neutral-500)">Vendor Code · Delivery Terms</span>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="meta-name">Mono</div><div class="meta-spec">13px / 500</div></div>
+          <span style="font-size:13px;font-family:var(--font-mono);color:var(--neutral-600)">PO-2025-00841 · ₱ 128,450.00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── BUTTONS ───────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">03 · Interactive</div>
+    <div class="section-title">Buttons</div>
+    <div class="section-desc">Eight button variants covering all procurement actions — approvals, submissions, rejections, and navigation.</div>
+
+    <div class="row">
+      <div class="showcase-box col" style="flex:2;min-width:320px;">
+        <div class="box-label">Variants</div>
+        <div class="flex-gap-2">
+          <button class="btn btn-primary btn-md">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+            Approve PO
+          </button>
+          <button class="btn btn-secondary btn-md">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Draft
+          </button>
+          <button class="btn btn-ghost btn-md">Preview</button>
+          <button class="btn btn-outline-primary btn-md">New Request</button>
+          <button class="btn btn-subtle btn-md">Export</button>
+        </div>
+        <div class="flex-gap-2 mt-4">
+          <button class="btn btn-success btn-md">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Submit for Review
+          </button>
+          <button class="btn btn-danger btn-md">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Reject
+          </button>
+          <button class="btn btn-warning btn-md">Flag Issue</button>
+        </div>
+      </div>
+
+      <div class="showcase-box col" style="min-width:200px;">
+        <div class="box-label">Sizes</div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-2);align-items:flex-start;">
+          <button class="btn btn-primary btn-xl">Extra Large</button>
+          <button class="btn btn-primary btn-lg">Large</button>
+          <button class="btn btn-primary btn-md">Medium</button>
+          <button class="btn btn-primary btn-sm">Small</button>
+          <button class="btn btn-primary btn-xs">Extra Small</button>
+        </div>
+      </div>
+
+      <div class="showcase-box col" style="min-width:160px;">
+        <div class="box-label">States</div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-2);align-items:flex-start;">
+          <button class="btn btn-primary btn-md">Default</button>
+          <button class="btn btn-primary btn-md" style="background:var(--primary-500);box-shadow:0 3px 8px rgba(26,68,128,.35)">Hover</button>
+          <button class="btn btn-primary btn-md" style="transform:scale(.985)">Active</button>
+          <button class="btn btn-primary btn-md" disabled>Disabled</button>
+          <button class="btn btn-primary btn-md" style="opacity:.7;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+            Loading
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── FORM INPUTS ───────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">04 · Interactive</div>
+    <div class="section-title">Form Fields</div>
+    <div class="section-desc">Consistent, accessible form controls designed for dense data entry — procurement details, vendor info, budget values, and more.</div>
+
+    <div class="row">
+      <!-- Text Inputs -->
+      <div class="showcase-box col" style="flex:2;min-width:300px;">
+        <div class="box-label">Text Inputs</div>
+        <div class="form-group">
+          <label class="form-label">PO Number <span class="required">*</span></label>
+          <div class="input-wrap">
+            <svg class="input-icon-left" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <input class="input has-icon-left" placeholder="PO-2025-00000" value="PO-2025-00841" />
+          </div>
+          <span class="form-hint">Auto-generated on submission</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total Amount <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-prefix">₱</span>
+            <input class="input has-prefix" placeholder="0.00" value="128,450.00" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vendor Name</label>
+          <div class="input-wrap">
+            <svg class="input-icon-left" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="input has-icon-left" placeholder="Search vendors…" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Delivery Address — Error State</label>
+          <input class="input input-error" value="123 Incomplete Rd" />
+          <span class="form-error">⚠ Please enter a complete barangay and city.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reference Contract — Success State</label>
+          <input class="input input-success" value="CTR-2024-0092" />
+          <span class="form-hint" style="color:var(--success-600);">✓ Contract found & linked</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Requisitioner (Read-only)</label>
+          <input class="input" readonly value="Maria G. Santos" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Remarks</label>
+          <textarea class="input" placeholder="Enter procurement remarks or special instructions…" rows="3"></textarea>
+        </div>
+      </div>
+
+      <!-- Select & Extras -->
+      <div class="showcase-box col" style="min-width:240px;">
+        <div class="box-label">Selects & Controls</div>
+
+        <div class="form-group">
+          <label class="form-label">PO Status</label>
+          <select class="input select">
+            <option>All Statuses</option>
+            <option selected>Pending Approval</option>
+            <option>Approved</option>
+            <option>Rejected</option>
+            <option>Closed</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          <select class="input select input-sm">
+            <option>— Select Department —</option>
+            <option>Finance</option>
+            <option selected>IT & Infrastructure</option>
+            <option>Operations</option>
+            <option>Human Resources</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Priority Level</label>
+          <select class="input select" style="border-color:var(--warning-500);">
+            <option>Low</option>
+            <option>Normal</option>
+            <option selected>High</option>
+            <option>Critical</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Delivery Date</label>
+          <input class="input" type="date" value="2025-08-15" />
+        </div>
+
+        <div class="divider-label">Checkboxes</div>
+        <div class="check-group">
+          <label class="check-item"><input type="checkbox" checked /><span class="check-label">Requires 3 quotations</span></label>
+          <label class="check-item"><input type="checkbox" /><span class="check-label">Tax-exempt transaction</span></label>
+          <label class="check-item"><input type="checkbox" checked /><span class="check-label">Rush order</span></label>
+        </div>
+
+        <div class="divider-label" style="margin-top:12px;">Radio Buttons</div>
+        <div class="check-group">
+          <label class="check-item"><input type="radio" name="mode" checked /><span class="check-label">Competitive Bidding</span></label>
+          <label class="check-item"><input type="radio" name="mode" /><span class="check-label">Direct Contracting</span></label>
+          <label class="check-item"><input type="radio" name="mode" /><span class="check-label">Shopping</span></label>
+        </div>
+
+        <div class="divider-label" style="margin-top:12px;">Toggles</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="toggle-wrap"><div class="toggle on"></div><span class="toggle-label">Email Notifications</span></div>
+          <div class="toggle-wrap"><div class="toggle"></div><span class="toggle-label">Auto-assign Approver</span></div>
+          <div class="toggle-wrap"><div class="toggle on"></div><span class="toggle-label">Require Attachments</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── BADGES & TAGS ─────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">05 · Data Indicators</div>
+    <div class="section-title">Badges, Tags & Status</div>
+    <div class="section-desc">Semantic status indicators for PO states, vendor ratings, urgency levels, and workflow stages.</div>
+    <div class="showcase-box">
+      <div class="box-label">Status Badges</div>
+      <div class="flex-gap-2">
+        <span class="badge badge-blue"><span class="badge-dot"></span>Pending Approval</span>
+        <span class="badge badge-green"><span class="badge-dot"></span>Approved</span>
+        <span class="badge badge-amber"><span class="badge-dot"></span>Under Review</span>
+        <span class="badge badge-red"><span class="badge-dot"></span>Rejected</span>
+        <span class="badge badge-neutral"><span class="badge-dot"></span>Draft</span>
+        <span class="badge badge-teal"><span class="badge-dot"></span>Delivered</span>
+        <span class="badge badge-green"><span class="badge-dot"></span>Paid</span>
+        <span class="badge badge-amber"><span class="badge-dot"></span>Partial Payment</span>
+      </div>
+      <div class="divider"></div>
+      <div class="box-label">Tags</div>
+      <div class="flex-gap-2">
+        <span class="tag">IT Equipment <span class="tag-remove">×</span></span>
+        <span class="tag">Q3 Budget <span class="tag-remove">×</span></span>
+        <span class="tag">Rush <span class="tag-remove">×</span></span>
+        <span class="tag">Recurring <span class="tag-remove">×</span></span>
+        <span class="tag">CAPEX <span class="tag-remove">×</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── CARDS ─────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">06 · Layout</div>
+    <div class="section-title">Cards</div>
+    <div class="section-desc">Modular card components for summaries, detail views, PO previews, and vendor profiles.</div>
+
+    <!-- Stat Cards -->
+    <div class="grid-4" style="margin-bottom:var(--sp-4);">
+      <div class="stat-card blue">
+        <div class="stat-label">Total POs This Month</div>
+        <div class="stat-value">248</div>
+        <div class="stat-sub"><span class="stat-trend trend-up">↑ 12%</span> vs last month</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Approved Amount</div>
+        <div class="stat-value" style="font-size:22px;">₱4.2M</div>
+        <div class="stat-sub"><span class="stat-trend trend-up">↑ 8.4%</span> vs last month</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-label">Pending Approval</div>
+        <div class="stat-value">37</div>
+        <div class="stat-sub"><span class="stat-trend trend-down">↑ 5</span> need action</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Overdue Deliveries</div>
+        <div class="stat-value">9</div>
+        <div class="stat-sub"><span class="stat-trend trend-down">↑ 3</span> this week</div>
+      </div>
+    </div>
+
+    <!-- Detail Card -->
+    <div class="row">
+      <div class="card" style="flex:2;min-width:300px;">
+        <div class="card-header">
+          <div class="card-icon" style="background:var(--primary-100);">📋</div>
+          <div>
+            <div class="card-title">Purchase Order — PO-2025-00841</div>
+            <div class="card-subtitle">Created 14 Jul 2025 · IT & Infrastructure</div>
+          </div>
+          <div class="card-actions">
+            <span class="badge badge-amber"><span class="badge-dot"></span>Pending</span>
+            <button class="btn btn-secondary btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);">
+            <div>
+              <div class="form-label" style="margin-bottom:4px;">Vendor</div>
+              <div style="font-size:var(--text-base);font-weight:600;color:var(--neutral-900);">TechSource PH, Inc.</div>
+              <div style="font-size:11px;color:var(--neutral-500);">VDR-2021-0047</div>
+            </div>
+            <div>
+              <div class="form-label" style="margin-bottom:4px;">Total Amount</div>
+              <div style="font-size:var(--text-xl);font-weight:800;color:var(--neutral-900);font-family:var(--font-mono);">₱ 128,450.00</div>
+            </div>
+            <div>
+              <div class="form-label" style="margin-bottom:4px;">Requested By</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="avatar avatar-sm">MS</div>
+                <div style="font-size:var(--text-sm);font-weight:600;">Maria G. Santos</div>
+              </div>
+            </div>
+            <div>
+              <div class="form-label" style="margin-bottom:4px;">Delivery Date</div>
+              <div style="font-size:var(--text-base);font-weight:600;color:var(--neutral-900);">August 15, 2025</div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="progress-wrap">
+            <div class="progress-meta"><span>Approval Progress</span><span>2 / 3 Approvers</span></div>
+            <div class="progress-track"><div class="progress-bar" style="width:66%;"></div></div>
+          </div>
+        </div>
+        <div class="card-footer" style="display:flex;justify-content:flex-end;gap:var(--sp-2);">
+          <button class="btn btn-ghost btn-sm">View Details</button>
+          <button class="btn btn-danger btn-sm">Reject</button>
+          <button class="btn btn-primary btn-sm">Approve</button>
+        </div>
+      </div>
+
+      <!-- Compact Vendor Card -->
+      <div class="col" style="min-width:220px;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:var(--success-100);">🏢</div>
+            <div>
+              <div class="card-title">TechSource PH</div>
+              <div class="card-subtitle">IT Supplies · Active</div>
+            </div>
+          </div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:var(--sp-3);">
+            <div style="font-size:var(--text-xs);color:var(--neutral-500);">VENDOR RATING</div>
+            <div style="display:flex;gap:2px;font-size:16px;">⭐⭐⭐⭐<span style="opacity:.3;">⭐</span></div>
+            <div style="font-size:var(--text-sm);color:var(--neutral-600);">42 completed orders</div>
+            <div class="divider"></div>
+            <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+              <span style="color:var(--neutral-500);">On-time delivery</span>
+              <span style="font-weight:700;color:var(--success-600);">94%</span>
+            </div>
+            <div class="progress-track"><div class="progress-bar success" style="width:94%;"></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon" style="background:var(--warning-100);">📊</div>
+            <div>
+              <div class="card-title">Budget Utilization</div>
+              <div class="card-subtitle">Q3 2025 · IT Dept</div>
+            </div>
+          </div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+            <div class="progress-wrap">
+              <div class="progress-meta"><span>Committed</span><span>₱3.1M / ₱4M</span></div>
+              <div class="progress-track"><div class="progress-bar warning" style="width:78%;"></div></div>
+            </div>
+            <div class="progress-wrap">
+              <div class="progress-meta"><span>Actual Spend</span><span>₱2.4M</span></div>
+              <div class="progress-track"><div class="progress-bar" style="width:60%;"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── DATA TABLE ────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">07 · Data Display</div>
+    <div class="section-title">Data Table</div>
+    <div class="section-desc">Dense, scannable tables for PO lists, vendor directories, and audit logs — with sortable headers, row actions, and inline status.</div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" style="width:14px;height:14px;cursor:pointer;" /></th>
+            <th>PO Number ↕</th>
+            <th>Vendor</th>
+            <th>Department</th>
+            <th>Amount ↕</th>
+            <th>Status</th>
+            <th>Date ↕</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><input type="checkbox" checked style="width:14px;height:14px;cursor:pointer;" /></td>
+            <td class="td-mono td-bold">PO-2025-00841</td>
+            <td><div style="font-weight:600;color:var(--neutral-900);">TechSource PH</div><div style="font-size:11px;color:var(--neutral-500);">IT Supplies</div></td>
+            <td class="td-muted">IT & Infrastructure</td>
+            <td class="td-mono td-bold">₱ 128,450.00</td>
+            <td><span class="badge badge-amber"><span class="badge-dot"></span>Pending</span></td>
+            <td class="td-muted">Jul 14, 2025</td>
+            <td><div class="flex-gap-2"><button class="btn btn-ghost btn-xs">View</button><button class="btn btn-primary btn-xs">Approve</button></div></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" style="width:14px;height:14px;cursor:pointer;" /></td>
+            <td class="td-mono td-bold">PO-2025-00840</td>
+            <td><div style="font-weight:600;color:var(--neutral-900);">Office Depot PH</div><div style="font-size:11px;color:var(--neutral-500);">Office Supplies</div></td>
+            <td class="td-muted">Administration</td>
+            <td class="td-mono">₱ 12,200.00</td>
+            <td><span class="badge badge-green"><span class="badge-dot"></span>Approved</span></td>
+            <td class="td-muted">Jul 13, 2025</td>
+            <td><div class="flex-gap-2"><button class="btn btn-ghost btn-xs">View</button><button class="btn btn-secondary btn-xs">Print</button></div></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" style="width:14px;height:14px;cursor:pointer;" /></td>
+            <td class="td-mono td-bold">PO-2025-00839</td>
+            <td><div style="font-weight:600;color:var(--neutral-900);">MedEquip Corp</div><div style="font-size:11px;color:var(--neutral-500);">Medical Supplies</div></td>
+            <td class="td-muted">Health & Safety</td>
+            <td class="td-mono">₱ 89,000.00</td>
+            <td><span class="badge badge-red"><span class="badge-dot"></span>Rejected</span></td>
+            <td class="td-muted">Jul 12, 2025</td>
+            <td><div class="flex-gap-2"><button class="btn btn-ghost btn-xs">View</button><button class="btn btn-outline-primary btn-xs">Revise</button></div></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" style="width:14px;height:14px;cursor:pointer;" /></td>
+            <td class="td-mono td-bold">PO-2025-00838</td>
+            <td><div style="font-weight:600;color:var(--neutral-900);">BuildPro Intl</div><div style="font-size:11px;color:var(--neutral-500);">Construction</div></td>
+            <td class="td-muted">Facilities Mgmt</td>
+            <td class="td-mono td-bold">₱ 540,000.00</td>
+            <td><span class="badge badge-teal"><span class="badge-dot"></span>Delivered</span></td>
+            <td class="td-muted">Jul 10, 2025</td>
+            <td><div class="flex-gap-2"><button class="btn btn-ghost btn-xs">View</button><button class="btn btn-success btn-xs">Close</button></div></td>
+          </tr>
+          <tr>
+            <td><input type="checkbox" style="width:14px;height:14px;cursor:pointer;" /></td>
+            <td class="td-mono">PO-2025-00837</td>
+            <td><div style="font-weight:600;color:var(--neutral-900);">CloudSystems Inc</div><div style="font-size:11px;color:var(--neutral-500);">SaaS / Licenses</div></td>
+            <td class="td-muted">IT & Infrastructure</td>
+            <td class="td-mono">₱ 63,500.00</td>
+            <td><span class="badge badge-neutral"><span class="badge-dot"></span>Draft</span></td>
+            <td class="td-muted">Jul 9, 2025</td>
+            <td><div class="flex-gap-2"><button class="btn btn-ghost btn-xs">Edit</button><button class="btn btn-primary btn-xs">Submit</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ─── NAVIGATION & STRUCTURE ─────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">08 · Navigation</div>
+    <div class="section-title">Navigation Components</div>
+
+    <div class="row">
+      <!-- Sidebar -->
+      <div class="showcase-box" style="padding:0;overflow:hidden;min-width:240px;">
+        <div class="box-label" style="padding:16px 20px 8px;border-radius:0;">Sidebar Navigation</div>
+        <div class="nav-sidebar" style="border-radius:0;width:100%;">
+          <div class="nav-section-title">Main Menu</div>
+          <div class="nav-item active">
+            <span class="nav-icon">🏠</span> Dashboard
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">📋</span> Purchase Orders
+            <span class="nav-badge">12</span>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">📄</span> Requisitions
+            <span class="nav-badge">5</span>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">🏢</span> Vendors
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">📑</span> Contracts
+          </div>
+          <div class="nav-section-title">Finance</div>
+          <div class="nav-item">
+            <span class="nav-icon">💰</span> Budgets
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">🧾</span> Invoices
+            <span class="nav-badge">3</span>
+          </div>
+          <div class="nav-section-title">Admin</div>
+          <div class="nav-item">
+            <span class="nav-icon">👥</span> Users & Roles
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">⚙️</span> Settings
+          </div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:2;min-width:280px;">
+        <!-- Tabs -->
+        <div class="showcase-box">
+          <div class="box-label">Tab Navigation</div>
+          <div class="tabs">
+            <div class="tab active">Overview</div>
+            <div class="tab">Line Items <span class="badge badge-blue" style="font-size:9px;padding:1px 5px;">4</span></div>
+            <div class="tab">Approvals</div>
+            <div class="tab">Attachments</div>
+            <div class="tab">Audit Log</div>
+          </div>
+        </div>
+
+        <!-- Breadcrumb -->
+        <div class="showcase-box">
+          <div class="box-label">Breadcrumb</div>
+          <div class="breadcrumb">
+            <a href="#">Dashboard</a>
+            <span class="sep">/</span>
+            <a href="#">Purchase Orders</a>
+            <span class="sep">/</span>
+            <span class="crumb">IT & Infrastructure</span>
+            <span class="sep">/</span>
+            <span class="crumb active">PO-2025-00841</span>
+          </div>
+        </div>
+
+        <!-- Stepper -->
+        <div class="showcase-box">
+          <div class="box-label">Approval Workflow Stepper</div>
+          <div class="stepper">
+            <div class="step done">
+              <div class="step-circle">✓</div>
+              <div class="step-label">Draft</div>
+            </div>
+            <div class="step done">
+              <div class="step-circle">✓</div>
+              <div class="step-label">Dept Head</div>
+            </div>
+            <div class="step active">
+              <div class="step-circle">3</div>
+              <div class="step-label">Finance</div>
+            </div>
+            <div class="step">
+              <div class="step-circle">4</div>
+              <div class="step-label">Procurement</div>
+            </div>
+            <div class="step">
+              <div class="step-circle">5</div>
+              <div class="step-label">Issued</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Avatars -->
+        <div class="showcase-box">
+          <div class="box-label">Avatars & User Indicators</div>
+          <div class="flex-gap-3">
+            <div class="avatar avatar-lg">MG</div>
+            <div class="avatar avatar-md" style="background:linear-gradient(135deg,var(--success-600),var(--accent-500));">JR</div>
+            <div class="avatar avatar-sm" style="background:linear-gradient(135deg,var(--warning-600),var(--warning-500));">AP</div>
+            <div class="avatar avatar-xs">LS</div>
+            <div class="avatar-stack">
+              <div class="avatar avatar-sm">AB</div>
+              <div class="avatar avatar-sm" style="background:linear-gradient(135deg,var(--accent-600),var(--success-600));">CD</div>
+              <div class="avatar avatar-sm" style="background:linear-gradient(135deg,var(--warning-600),var(--danger-500));">EF</div>
+              <div class="avatar avatar-sm" style="background:var(--neutral-400);font-size:9px;">+5</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── ALERTS & FEEDBACK ─────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">09 · Feedback</div>
+    <div class="section-title">Alerts & Notifications</div>
+    <div class="showcase-box">
+      <div style="display:flex;flex-direction:column;gap:var(--sp-3);">
+        <div class="alert alert-info">
+          <span class="alert-icon">ℹ️</span>
+          <div class="alert-body">
+            <div class="alert-title">Awaiting Secondary Approval</div>
+            This PO requires Finance department sign-off before it can be issued to the vendor.
+          </div>
+        </div>
+        <div class="alert alert-success">
+          <span class="alert-icon">✅</span>
+          <div class="alert-body">
+            <div class="alert-title">PO Successfully Approved</div>
+            PO-2025-00840 has been approved and sent to Office Depot PH. Expected delivery: July 20, 2025.
+          </div>
+        </div>
+        <div class="alert alert-warning">
+          <span class="alert-icon">⚠️</span>
+          <div class="alert-body">
+            <div class="alert-title">Budget Threshold Reached</div>
+            IT & Infrastructure has utilized 78% of Q3 budget. Consider reviewing pending POs before approving new requests.
+          </div>
+        </div>
+        <div class="alert alert-danger">
+          <span class="alert-icon">🚫</span>
+          <div class="alert-body">
+            <div class="alert-title">Vendor Accreditation Expired</div>
+            TechSource PH's accreditation expired on June 30, 2025. Renew vendor status before approving this PO.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── DARK THEME PREVIEW ────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">10 · Theming</div>
+    <div class="section-title">Dark Theme Preview</div>
+    <div class="section-desc">Dark mode surface tokens — for command palettes, top-of-page banners, panels, and sidebar navigation.</div>
+    <div class="dark-preview">
+      <div class="dp-label">Dark Surface Components</div>
+      <div class="row" style="gap:var(--sp-4);">
+        <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:var(--sp-3);">
+          <div style="color:rgba(255,255,255,.5);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;">Search Vendors</div>
+          <div style="position:relative;">
+            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.3);" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="dark-input" placeholder="Search vendors, POs, contracts…" style="padding-left:34px;" />
+          </div>
+          <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-1);">
+            <button class="btn btn-primary btn-sm">New PO</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12);">Export</button>
+            <button class="btn btn-sm" style="background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);">Filters</button>
+          </div>
+        </div>
+        <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:var(--sp-3);">
+          <div class="dark-card-inner">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.35);margin-bottom:8px;">Live Summary</div>
+            <div style="font-size:28px;font-weight:800;color:white;letter-spacing:-1px;line-height:1;">₱ 4.2M</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:4px;">Approved spend · Q3 2025</div>
+            <div style="height:4px;background:rgba(255,255,255,.08);border-radius:4px;margin-top:12px;overflow:hidden;">
+              <div style="height:100%;width:70%;background:linear-gradient(90deg,var(--primary-500),var(--accent-500));border-radius:4px;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.35);margin-top:4px;"><span>₱0</span><span>₱6M Budget</span></div>
+          </div>
+          <div style="display:flex;gap:var(--sp-2);">
+            <span class="badge badge-blue">Q3 Active</span>
+            <span class="badge badge-green" style="background:rgba(34,197,94,.15);color:#4ade80;">+12% MoM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SPACING & SHADOWS ─────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">11 · Foundation</div>
+    <div class="section-title">Elevation & Shadows</div>
+    <div class="showcase-box">
+      <div class="row" style="align-items:stretch;">
+        <div style="flex:1;min-width:100px;background:var(--white);border-radius:var(--r-lg);padding:var(--sp-4);box-shadow:var(--shadow-xs);border:1px solid var(--neutral-200);text-align:center;">
+          <div style="font-size:10px;font-weight:700;color:var(--neutral-500);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">XS</div>
+          <div style="font-size:10px;color:var(--neutral-400);">Dropdowns<br>Chips</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:var(--white);border-radius:var(--r-lg);padding:var(--sp-4);box-shadow:var(--shadow-sm);text-align:center;">
+          <div style="font-size:10px;font-weight:700;color:var(--neutral-500);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">SM</div>
+          <div style="font-size:10px;color:var(--neutral-400);">Cards<br>Tables</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:var(--white);border-radius:var(--r-lg);padding:var(--sp-4);box-shadow:var(--shadow-md);text-align:center;">
+          <div style="font-size:10px;font-weight:700;color:var(--neutral-500);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">MD</div>
+          <div style="font-size:10px;color:var(--neutral-400);">Hover states<br>Popovers</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:var(--white);border-radius:var(--r-lg);padding:var(--sp-4);box-shadow:var(--shadow-lg);text-align:center;">
+          <div style="font-size:10px;font-weight:700;color:var(--neutral-500);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">LG</div>
+          <div style="font-size:10px;color:var(--neutral-400);">Modals<br>Drawers</div>
+        </div>
+        <div style="flex:1;min-width:100px;background:var(--white);border-radius:var(--r-lg);padding:var(--sp-4);box-shadow:var(--shadow-xl);text-align:center;">
+          <div style="font-size:10px;font-weight:700;color:var(--neutral-500);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">XL</div>
+          <div style="font-size:10px;color:var(--neutral-400);">Full-screen<br>Overlays</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ─── CONTAINERS ─────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">12 · Layout</div>
+    <div class="section-title">Containers & Panels</div>
+    <div class="section-desc">Structural containers for grouping procurement content — cards, panels, split views, and collapsible sections.</div>
+
+    <div class="row" style="gap:var(--sp-4);align-items:stretch;">
+      <!-- Basic card -->
+      <div class="col" style="flex:1;min-width:260px;">
+        <div class="box-label-standalone">Basic Card</div>
+        <div class="container-card">
+          <div class="container-card-header">
+            <span class="container-card-title">PO-2025-00841</span>
+            <span class="badge badge-yellow">Pending</span>
+          </div>
+          <div class="container-card-body">
+            <div class="kv-row"><span class="kv-label">Vendor</span><span class="kv-val">TechSource PH</span></div>
+            <div class="kv-row"><span class="kv-label">Amount</span><span class="kv-val" style="font-weight:700;color:var(--primary-700);">₱ 148,500.00</span></div>
+            <div class="kv-row"><span class="kv-label">Requested by</span><span class="kv-val">Maria Garcia</span></div>
+            <div class="kv-row"><span class="kv-label">Due</span><span class="kv-val">July 25, 2025</span></div>
+          </div>
+          <div class="container-card-footer">
+            <button class="btn btn-ghost btn-sm">View Details</button>
+            <button class="btn btn-primary btn-sm">Approve</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flat panel -->
+      <div class="col" style="flex:1;min-width:260px;">
+        <div class="box-label-standalone">Flat Panel</div>
+        <div class="panel-flat">
+          <div class="panel-flat-header">Budget Summary — Q3 2025</div>
+          <div class="panel-flat-body">
+            <div style="display:flex;flex-direction:column;gap:var(--sp-3);">
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);margin-bottom:4px;">
+                  <span style="color:var(--neutral-600);">IT & Infrastructure</span><span style="font-weight:700;">₱ 4.2M / 6M</span>
+                </div>
+                <div class="progress-track"><div class="progress-bar" style="width:70%;"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);margin-bottom:4px;">
+                  <span style="color:var(--neutral-600);">Operations</span><span style="font-weight:700;">₱ 1.8M / 3M</span>
+                </div>
+                <div class="progress-track"><div class="progress-bar warning" style="width:60%;"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);margin-bottom:4px;">
+                  <span style="color:var(--neutral-600);">Admin & Facilities</span><span style="font-weight:700;">₱ 0.9M / 1.5M</span>
+                </div>
+                <div class="progress-track"><div class="progress-bar success" style="width:60%;"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bordered section box -->
+      <div class="col" style="flex:1;min-width:260px;">
+        <div class="box-label-standalone">Section Box</div>
+        <div class="section-box">
+          <div class="section-box-header">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Vendor Accreditation
+          </div>
+          <div class="section-box-body">
+            <p style="font-size:var(--text-sm);color:var(--neutral-600);margin-bottom:var(--sp-3);">Supplier has passed all required compliance checks and is accredited until December 2026.</p>
+            <div class="kv-row"><span class="kv-label">Accreditation #</span><span class="kv-val">ACC-2024-10092</span></div>
+            <div class="kv-row"><span class="kv-label">Category</span><span class="kv-val">IT Hardware</span></div>
+            <div class="kv-row"><span class="kv-label">Valid Until</span><span class="kv-val" style="color:var(--success-600);font-weight:600;">Dec 31, 2026</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Collapsible accordion -->
+    <div class="mt-6">
+      <div class="box-label-standalone">Accordion / Collapsible Sections</div>
+      <div class="accordion">
+        <div class="accordion-item open">
+          <div class="accordion-trigger" onclick="toggleAccordion(this)">
+            <span>📋 Purchase Order Details</span>
+            <svg class="acc-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="accordion-body">
+            <div class="kv-row"><span class="kv-label">PO Number</span><span class="kv-val">PO-2025-00841</span></div>
+            <div class="kv-row"><span class="kv-label">Requisition #</span><span class="kv-val">REQ-2025-00391</span></div>
+            <div class="kv-row"><span class="kv-label">Department</span><span class="kv-val">IT & Infrastructure</span></div>
+            <div class="kv-row"><span class="kv-label">Delivery Date</span><span class="kv-val">July 25, 2025</span></div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <div class="accordion-trigger" onclick="toggleAccordion(this)">
+            <span>💰 Line Items & Pricing</span>
+            <svg class="acc-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="accordion-body">
+            <table style="width:100%;border-collapse:collapse;font-size:var(--text-sm);">
+              <thead><tr style="border-bottom:1px solid var(--neutral-200);"><th style="text-align:left;padding:6px 0;color:var(--neutral-500);">Item</th><th style="text-align:right;padding:6px 0;color:var(--neutral-500);">Qty</th><th style="text-align:right;padding:6px 0;color:var(--neutral-500);">Unit Price</th><th style="text-align:right;padding:6px 0;color:var(--neutral-500);">Total</th></tr></thead>
+              <tbody>
+                <tr style="border-bottom:1px solid var(--neutral-100);"><td style="padding:8px 0;">Dell Laptop 15"</td><td style="text-align:right;">5</td><td style="text-align:right;">₱ 48,000</td><td style="text-align:right;font-weight:600;">₱ 240,000</td></tr>
+                <tr style="border-bottom:1px solid var(--neutral-100);"><td style="padding:8px 0;">USB-C Hub</td><td style="text-align:right;">10</td><td style="text-align:right;">₱ 2,500</td><td style="text-align:right;font-weight:600;">₱ 25,000</td></tr>
+                <tr><td style="padding:8px 0;">Wireless Mouse</td><td style="text-align:right;">10</td><td style="text-align:right;">₱ 1,200</td><td style="text-align:right;font-weight:600;">₱ 12,000</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <div class="accordion-trigger" onclick="toggleAccordion(this)">
+            <span>📎 Attachments & Documents</span>
+            <svg class="acc-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="accordion-body">
+            <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+              <div class="file-chip">📄 Quotation_TechSource_2025.pdf <span class="file-size">2.4 MB</span></div>
+              <div class="file-chip">📊 Budget_Justification_Q3.xlsx <span class="file-size">1.1 MB</span></div>
+              <div class="file-chip">📝 Technical_Specs_Laptop.docx <span class="file-size">845 KB</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SKELETON LOADERS ───────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">13 · Loading States</div>
+    <div class="section-title">Skeleton Loaders</div>
+    <div class="section-desc">Placeholder loaders for async content — used while POs, vendor data, and dashboards are fetching.</div>
+
+    <div class="row" style="gap:var(--sp-4);">
+      <!-- Card skeleton -->
+      <div class="showcase-box" style="flex:1;min-width:260px;">
+        <div class="box-label">PO Card Skeleton</div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-3);">
+          <div style="display:flex;align-items:center;gap:var(--sp-3);">
+            <div class="skel" style="width:40px;height:40px;border-radius:50%;flex-shrink:0;"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+              <div class="skel" style="height:13px;width:60%;border-radius:4px;"></div>
+              <div class="skel" style="height:11px;width:40%;border-radius:4px;"></div>
+            </div>
+            <div class="skel" style="height:22px;width:64px;border-radius:9999px;"></div>
+          </div>
+          <div class="skel" style="height:1px;"></div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="skel" style="height:12px;width:80%;border-radius:4px;"></div>
+            <div class="skel" style="height:12px;width:65%;border-radius:4px;"></div>
+            <div class="skel" style="height:12px;width:50%;border-radius:4px;"></div>
+          </div>
+          <div style="display:flex;gap:var(--sp-2);margin-top:4px;">
+            <div class="skel" style="height:32px;flex:1;border-radius:6px;"></div>
+            <div class="skel" style="height:32px;flex:1;border-radius:6px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table skeleton -->
+      <div class="showcase-box" style="flex:2;min-width:340px;">
+        <div class="box-label">Table Skeleton</div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+          <!-- header -->
+          <div style="display:flex;gap:var(--sp-3);padding-bottom:var(--sp-2);border-bottom:2px solid var(--neutral-200);">
+            <div class="skel" style="height:11px;width:90px;border-radius:4px;"></div>
+            <div class="skel" style="height:11px;width:120px;border-radius:4px;"></div>
+            <div class="skel" style="height:11px;width:80px;border-radius:4px;margin-left:auto;"></div>
+            <div class="skel" style="height:11px;width:70px;border-radius:4px;"></div>
+            <div class="skel" style="height:11px;width:60px;border-radius:4px;"></div>
+          </div>
+          <!-- rows -->
+          <div class="skel-row"><div class="skel" style="height:12px;width:80px;border-radius:4px;"></div><div class="skel" style="height:12px;width:140px;border-radius:4px;"></div><div class="skel" style="height:12px;width:90px;border-radius:4px;margin-left:auto;"></div><div class="skel" style="height:22px;width:70px;border-radius:9999px;"></div><div class="skel" style="height:12px;width:50px;border-radius:4px;"></div></div>
+          <div class="skel-row"><div class="skel" style="height:12px;width:80px;border-radius:4px;"></div><div class="skel" style="height:12px;width:110px;border-radius:4px;"></div><div class="skel" style="height:12px;width:90px;border-radius:4px;margin-left:auto;"></div><div class="skel" style="height:22px;width:70px;border-radius:9999px;"></div><div class="skel" style="height:12px;width:50px;border-radius:4px;"></div></div>
+          <div class="skel-row"><div class="skel" style="height:12px;width:80px;border-radius:4px;"></div><div class="skel" style="height:12px;width:160px;border-radius:4px;"></div><div class="skel" style="height:12px;width:90px;border-radius:4px;margin-left:auto;"></div><div class="skel" style="height:22px;width:70px;border-radius:9999px;"></div><div class="skel" style="height:12px;width:50px;border-radius:4px;"></div></div>
+          <div class="skel-row"><div class="skel" style="height:12px;width:80px;border-radius:4px;"></div><div class="skel" style="height:12px;width:120px;border-radius:4px;"></div><div class="skel" style="height:12px;width:90px;border-radius:4px;margin-left:auto;"></div><div class="skel" style="height:22px;width:70px;border-radius:9999px;"></div><div class="skel" style="height:12px;width:50px;border-radius:4px;"></div></div>
+        </div>
+      </div>
+
+      <!-- Stat skeleton -->
+      <div class="showcase-box" style="flex:1;min-width:200px;">
+        <div class="box-label">Stat Widget Skeleton</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+          <div style="display:flex;flex-direction:column;gap:6px;"><div class="skel" style="height:10px;width:70%;border-radius:4px;"></div><div class="skel" style="height:24px;width:90%;border-radius:4px;"></div><div class="skel" style="height:10px;width:50%;border-radius:4px;"></div></div>
+          <div style="display:flex;flex-direction:column;gap:6px;"><div class="skel" style="height:10px;width:70%;border-radius:4px;"></div><div class="skel" style="height:24px;width:90%;border-radius:4px;"></div><div class="skel" style="height:10px;width:50%;border-radius:4px;"></div></div>
+          <div style="display:flex;flex-direction:column;gap:6px;"><div class="skel" style="height:10px;width:70%;border-radius:4px;"></div><div class="skel" style="height:24px;width:90%;border-radius:4px;"></div><div class="skel" style="height:10px;width:50%;border-radius:4px;"></div></div>
+          <div style="display:flex;flex-direction:column;gap:6px;"><div class="skel" style="height:10px;width:70%;border-radius:4px;"></div><div class="skel" style="height:24px;width:90%;border-radius:4px;"></div><div class="skel" style="height:10px;width:50%;border-radius:4px;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full-width form skeleton -->
+    <div class="showcase-box mt-6">
+      <div class="box-label">Form Skeleton</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);">
+        <div style="display:flex;flex-direction:column;gap:6px;"><div class="skel" style="height:12px;width:100px;border-radius:4px;"></div><div class="skel" style="height:36px;border-radius:6px;"></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px;"><div class="skel" style="height:12px;width:80px;border-radius:4px;"></div><div class="skel" style="height:36px;border-radius:6px;"></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px;"><div class="skel" style="height:12px;width:120px;border-radius:4px;"></div><div class="skel" style="height:36px;border-radius:6px;"></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px;"><div class="skel" style="height:12px;width:90px;border-radius:4px;"></div><div class="skel" style="height:36px;border-radius:6px;"></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px;grid-column:1/-1;"><div class="skel" style="height:12px;width:110px;border-radius:4px;"></div><div class="skel" style="height:72px;border-radius:6px;"></div></div>
+      </div>
+      <div style="display:flex;gap:var(--sp-3);margin-top:var(--sp-4);justify-content:flex-end;">
+        <div class="skel" style="height:36px;width:100px;border-radius:6px;"></div>
+        <div class="skel" style="height:36px;width:120px;border-radius:6px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MODALS ─────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">14 · Overlays</div>
+    <div class="section-title">Modals & Dialogs</div>
+    <div class="section-desc">Overlays for confirmations, forms, and detail views used throughout the procurement workflow.</div>
+
+    <div class="row" style="gap:var(--sp-4);align-items:flex-start;">
+      <!-- Confirm dialog -->
+      <div style="flex:1;min-width:280px;">
+        <div class="box-label-standalone">Confirmation Dialog</div>
+        <div class="modal-preview">
+          <div class="modal-box" style="max-width:360px;">
+            <div class="modal-header">
+              <div class="modal-icon modal-icon-danger">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div>
+                <div class="modal-title">Cancel Purchase Order?</div>
+                <div class="modal-subtitle">This action cannot be undone</div>
+              </div>
+              <button class="modal-close" onclick="this.closest('.modal-preview').style.display='none'">✕</button>
+            </div>
+            <div class="modal-body">
+              <p style="font-size:var(--text-sm);color:var(--neutral-600);">You are about to cancel <strong>PO-2025-00841</strong> worth ₱ 148,500.00. The vendor will be notified and the budget reservation released.</p>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary btn-md">Keep PO</button>
+              <button class="btn btn-danger btn-md">Yes, Cancel PO</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form modal -->
+      <div style="flex:1;min-width:340px;">
+        <div class="box-label-standalone">Form Modal — Add Line Item</div>
+        <div class="modal-preview" style="padding:var(--sp-4);">
+          <div class="modal-box" style="max-width:480px;">
+            <div class="modal-header" style="padding-bottom:var(--sp-4);border-bottom:1px solid var(--neutral-200);">
+              <div>
+                <div class="modal-title">Add Line Item</div>
+                <div class="modal-subtitle">PO-2025-00841 · TechSource PH</div>
+              </div>
+              <button class="modal-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+                <div class="form-group" style="grid-column:1/-1;">
+                  <label class="form-label">Item Description <span class="required">*</span></label>
+                  <input class="input" placeholder="e.g. Dell Laptop 15-inch" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Quantity <span class="required">*</span></label>
+                  <input class="input" type="number" placeholder="0" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Unit Price (₱) <span class="required">*</span></label>
+                  <div class="input-wrap">
+                    <span class="input-prefix">₱</span>
+                    <input class="input has-prefix" type="number" placeholder="0.00" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Unit of Measure</label>
+                  <select class="input select"><option>Piece</option><option>Box</option><option>Set</option><option>Lot</option></select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Account Code</label>
+                  <input class="input" placeholder="e.g. 5-1040-001" />
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-ghost btn-md">Cancel</button>
+              <button class="btn btn-primary btn-md">Add Item</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drawer / Side panel -->
+    <div class="mt-6">
+      <div class="box-label-standalone">Side Drawer Preview</div>
+      <div style="display:flex;border:1px solid var(--neutral-200);border-radius:var(--r-xl);overflow:hidden;background:var(--neutral-100);min-height:320px;">
+        <!-- Content behind -->
+        <div style="flex:1;padding:var(--sp-6);opacity:.4;pointer-events:none;">
+          <div style="font-size:var(--text-xl);font-weight:700;color:var(--neutral-900);margin-bottom:var(--sp-4);">Purchase Orders</div>
+          <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+            <div style="background:white;border-radius:var(--r-lg);padding:var(--sp-3);border:1px solid var(--neutral-200);">PO-2025-00841 · TechSource PH · ₱148,500</div>
+            <div style="background:white;border-radius:var(--r-lg);padding:var(--sp-3);border:1px solid var(--neutral-200);">PO-2025-00840 · Office Depot PH · ₱23,400</div>
+            <div style="background:white;border-radius:var(--r-lg);padding:var(--sp-3);border:1px solid var(--neutral-200);">PO-2025-00839 · Lazada B2B · ₱8,750</div>
+          </div>
+        </div>
+        <!-- Drawer panel -->
+        <div class="drawer-panel">
+          <div class="drawer-header">
+            <div>
+              <div style="font-size:var(--text-base);font-weight:700;color:var(--neutral-900);">PO-2025-00841</div>
+              <div style="font-size:var(--text-xs);color:var(--neutral-500);">TechSource PH · IT Hardware</div>
+            </div>
+            <button class="btn btn-ghost btn-sm btn-icon">✕</button>
+          </div>
+          <div class="drawer-body">
+            <div class="kv-row"><span class="kv-label">Amount</span><span class="kv-val" style="font-weight:700;color:var(--primary-700);">₱ 148,500.00</span></div>
+            <div class="kv-row"><span class="kv-label">Status</span><span class="badge badge-yellow" style="font-size:10px;">Pending Finance</span></div>
+            <div class="kv-row"><span class="kv-label">Requestor</span><span class="kv-val">Maria Garcia</span></div>
+            <div class="kv-row"><span class="kv-label">Department</span><span class="kv-val">IT & Infrastructure</span></div>
+            <div class="kv-row"><span class="kv-label">Delivery</span><span class="kv-val">July 25, 2025</span></div>
+            <div class="divider"></div>
+            <div style="font-size:var(--text-sm);font-weight:600;color:var(--neutral-700);margin-bottom:var(--sp-2);">Approval Chain</div>
+            <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+              <div class="approval-item done"><div class="approval-dot done"></div><div><div style="font-size:var(--text-sm);font-weight:600;">Dept Head</div><div style="font-size:11px;color:var(--neutral-500);">Approved · Jun 18</div></div></div>
+              <div class="approval-item active"><div class="approval-dot active"></div><div><div style="font-size:var(--text-sm);font-weight:600;">Finance Review</div><div style="font-size:11px;color:var(--primary-600);">In Progress</div></div></div>
+              <div class="approval-item"><div class="approval-dot"></div><div><div style="font-size:var(--text-sm);font-weight:600;">Procurement Officer</div><div style="font-size:11px;color:var(--neutral-400);">Waiting</div></div></div>
+            </div>
+          </div>
+          <div class="drawer-footer">
+            <button class="btn btn-ghost btn-sm">Reject</button>
+            <button class="btn btn-primary btn-sm">Approve</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── TOAST / SNACKBAR ───────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">15 · Notifications</div>
+    <div class="section-title">Toast Notifications & Snackbars</div>
+    <div class="section-desc">Transient messages for action results — approvals, errors, saves, and background task updates.</div>
+
+    <div class="showcase-box">
+      <div style="display:flex;flex-direction:column;gap:var(--sp-3);">
+        <div class="toast toast-success">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <div class="toast-body"><strong>PO Approved</strong> · PO-2025-00841 sent to TechSource PH.</div>
+          <button class="toast-close">✕</button>
+        </div>
+        <div class="toast toast-danger">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div class="toast-body"><strong>Submission Failed</strong> · Budget limit exceeded for Q3. Review and resubmit.</div>
+          <button class="toast-close">✕</button>
+        </div>
+        <div class="toast toast-warning">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div class="toast-body"><strong>Draft Auto-Saved</strong> · Your changes to PO-2025-00842 were saved.</div>
+          <button class="toast-close">✕</button>
+        </div>
+        <div class="toast toast-info">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <div class="toast-body"><strong>Export Ready</strong> · Your PO report is ready. <a href="#" style="color:var(--primary-600);font-weight:600;">Download</a></div>
+          <button class="toast-close">✕</button>
+        </div>
+        <div class="toast toast-neutral">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 6v6l4 2"/></svg>
+          <div class="toast-body">Processing your bulk approval request (12 POs)… <span class="skel-inline"></span></div>
+          <button class="toast-close">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live demo trigger -->
+    <div class="showcase-box mt-4" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-3);">
+      <span style="font-size:var(--text-sm);color:var(--neutral-600);">Trigger live toasts:</span>
+      <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;">
+        <button class="btn btn-success btn-sm" onclick="showToast('success','PO-2025-00843 approved and issued to vendor.')">✓ Success</button>
+        <button class="btn btn-danger btn-sm" onclick="showToast('danger','Failed: Vendor accreditation expired.')">✕ Error</button>
+        <button class="btn btn-warning btn-sm" onclick="showToast('warning','Budget at 90% — review before submitting.')">⚠ Warning</button>
+        <button class="btn btn-subtle btn-sm" onclick="showToast('info','New vendor application received for review.')">ℹ Info</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── POPOVER / DROPDOWN MENU ───────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">16 · Overlays</div>
+    <div class="section-title">Popovers & Context Menus</div>
+    <div class="section-desc">Action menus, filter popovers, and quick-action dropdowns for PO rows and vendor cards.</div>
+
+    <div class="row" style="gap:var(--sp-4);align-items:flex-start;">
+      <!-- Context menu -->
+      <div class="showcase-box" style="flex:1;min-width:220px;">
+        <div class="box-label">Row Action Menu</div>
+        <div style="position:relative;display:inline-block;">
+          <button class="btn btn-secondary btn-sm" onclick="toggleMenu('ctx-menu')">Actions ▾</button>
+          <div class="context-menu" id="ctx-menu">
+            <div class="ctx-item"><span class="ctx-icon">👁</span>View Details</div>
+            <div class="ctx-item"><span class="ctx-icon">✏️</span>Edit PO</div>
+            <div class="ctx-item"><span class="ctx-icon">📋</span>Duplicate</div>
+            <div class="ctx-item"><span class="ctx-icon">📤</span>Export PDF</div>
+            <div class="ctx-divider"></div>
+            <div class="ctx-item"><span class="ctx-icon">✅</span>Approve</div>
+            <div class="ctx-item ctx-item-danger"><span class="ctx-icon">🚫</span>Reject</div>
+            <div class="ctx-item ctx-item-danger"><span class="ctx-icon">🗑</span>Cancel PO</div>
+          </div>
+        </div>
+        <div style="margin-top:var(--sp-3);font-size:11px;color:var(--neutral-400);">Click to toggle</div>
+      </div>
+
+      <!-- Filter popover -->
+      <div class="showcase-box" style="flex:2;min-width:320px;">
+        <div class="box-label">Filter Popover</div>
+        <div style="position:relative;display:inline-block;width:100%;">
+          <button class="btn btn-secondary btn-md" style="gap:var(--sp-2);" onclick="toggleMenu('filter-pop')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Filters <span class="badge badge-blue" style="font-size:10px;padding:1px 6px;">3</span>
+          </button>
+          <div class="filter-popover" id="filter-pop">
+            <div class="filter-pop-title">Filter Purchase Orders</div>
+            <div style="display:flex;flex-direction:column;gap:var(--sp-3);">
+              <div class="form-group">
+                <label class="form-label" style="font-size:11px;">Status</label>
+                <div class="flex-gap-2">
+                  <label class="chip-filter active"><input type="checkbox" checked style="display:none;">All</label>
+                  <label class="chip-filter"><input type="checkbox" style="display:none;">Draft</label>
+                  <label class="chip-filter"><input type="checkbox" style="display:none;">Pending</label>
+                  <label class="chip-filter"><input type="checkbox" style="display:none;">Approved</label>
+                  <label class="chip-filter"><input type="checkbox" style="display:none;">Issued</label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size:11px;">Department</label>
+                <select class="input input-sm select"><option>All Departments</option><option>IT & Infrastructure</option><option>Operations</option><option>Admin & Facilities</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size:11px;">Amount Range</label>
+                <div style="display:flex;gap:var(--sp-2);">
+                  <input class="input input-sm" placeholder="Min ₱" style="flex:1;" />
+                  <input class="input input-sm" placeholder="Max ₱" style="flex:1;" />
+                </div>
+              </div>
+              <div style="display:flex;gap:var(--sp-2);justify-content:flex-end;">
+                <button class="btn btn-ghost btn-sm">Clear</button>
+                <button class="btn btn-primary btn-sm">Apply Filters</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User card popover -->
+      <div class="showcase-box" style="flex:1;min-width:220px;">
+        <div class="box-label">User Hover Card</div>
+        <div class="tooltip-demo" style="display:inline-flex;">
+          <div class="avatar avatar-md" style="cursor:pointer;" onmouseenter="document.getElementById('user-pop').style.display='block'" onmouseleave="document.getElementById('user-pop').style.display='none'">MG</div>
+          <div class="user-popover" id="user-pop" style="display:none;">
+            <div style="display:flex;gap:var(--sp-3);align-items:center;margin-bottom:var(--sp-3);">
+              <div class="avatar avatar-lg">MG</div>
+              <div><div style="font-weight:700;font-size:var(--text-base);">Maria Garcia</div><div style="font-size:11px;color:var(--neutral-500);">m.garcia@company.ph</div></div>
+            </div>
+            <div class="kv-row"><span class="kv-label">Role</span><span class="kv-val">Procurement Officer</span></div>
+            <div class="kv-row"><span class="kv-label">Dept</span><span class="kv-val">IT & Infrastructure</span></div>
+            <div class="kv-row"><span class="kv-label">POs This Month</span><span class="kv-val badge badge-blue" style="font-size:10px;">12</span></div>
+            <div style="margin-top:var(--sp-3);display:flex;gap:var(--sp-2);">
+              <button class="btn btn-secondary btn-sm" style="flex:1;">Message</button>
+              <button class="btn btn-primary btn-sm" style="flex:1;">View Profile</button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:var(--sp-2);font-size:11px;color:var(--neutral-400);">Hover avatar to preview</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── DATA TABLE ENHANCED ────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">17 · Data</div>
+    <div class="section-title">Enhanced Data Table</div>
+    <div class="section-desc">Full-featured procurement table with sortable columns, row selection, bulk actions, and pagination.</div>
+
+    <div class="showcase-box" style="padding:0;overflow:hidden;">
+      <!-- Table toolbar -->
+      <div style="padding:var(--sp-4) var(--sp-5);display:flex;align-items:center;gap:var(--sp-3);border-bottom:1px solid var(--neutral-200);flex-wrap:wrap;">
+        <div style="font-weight:700;font-size:var(--text-base);color:var(--neutral-900);">Purchase Orders</div>
+        <span class="badge" style="background:var(--neutral-100);color:var(--neutral-600);font-size:10px;">248 records</span>
+        <div style="margin-left:auto;display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap;">
+          <div class="input-wrap" style="width:220px;">
+            <svg class="input-icon-left" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="input input-sm has-icon-left" placeholder="Search POs, vendors…" />
+          </div>
+          <button class="btn btn-secondary btn-sm">Export</button>
+          <button class="btn btn-primary btn-sm">+ New PO</button>
+        </div>
+      </div>
+      <!-- Bulk action bar (visible when rows selected) -->
+      <div style="padding:var(--sp-3) var(--sp-5);background:var(--primary-50);border-bottom:1px solid var(--primary-200);display:flex;align-items:center;gap:var(--sp-3);">
+        <span style="font-size:var(--text-sm);font-weight:600;color:var(--primary-700);">3 POs selected</span>
+        <div style="margin-left:auto;display:flex;gap:var(--sp-2);">
+          <button class="btn btn-subtle btn-sm">Bulk Approve</button>
+          <button class="btn btn-outline-primary btn-sm">Export Selected</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--danger-600);">Reject All</button>
+        </div>
+      </div>
+      <!-- Table -->
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:var(--text-sm);">
+          <thead>
+            <tr style="background:var(--neutral-50);border-bottom:1px solid var(--neutral-200);">
+              <th style="padding:10px 16px;text-align:left;"><input type="checkbox" /></th>
+              <th class="th-sort" onclick="sortIndicator(this)">PO Number <span class="sort-icon">↕</span></th>
+              <th class="th-sort">Vendor <span class="sort-icon">↕</span></th>
+              <th class="th-sort">Department <span class="sort-icon">↕</span></th>
+              <th class="th-sort" style="text-align:right;">Amount <span class="sort-icon">↓</span></th>
+              <th class="th-sort">Status <span class="sort-icon">↕</span></th>
+              <th class="th-sort">Requested By <span class="sort-icon">↕</span></th>
+              <th style="padding:10px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--neutral-500);">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="tr-selected">
+              <td style="padding:12px 16px;"><input type="checkbox" checked /></td>
+              <td style="padding:12px 16px;font-weight:600;color:var(--primary-600);">PO-2025-00841</td>
+              <td style="padding:12px 16px;">TechSource PH</td>
+              <td style="padding:12px 16px;color:var(--neutral-600);">IT & Infrastructure</td>
+              <td style="padding:12px 16px;text-align:right;font-weight:700;">₱ 148,500</td>
+              <td style="padding:12px 16px;"><span class="badge badge-yellow">Pending Finance</span></td>
+              <td style="padding:12px 16px;"><div style="display:flex;align-items:center;gap:var(--sp-2);"><div class="avatar avatar-xs">MG</div>Maria G.</div></td>
+              <td style="padding:12px 16px;"><div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-xs">View</button><button class="btn btn-ghost btn-xs">⋯</button></div></td>
+            </tr>
+            <tr class="tr-row">
+              <td style="padding:12px 16px;"><input type="checkbox" /></td>
+              <td style="padding:12px 16px;font-weight:600;color:var(--primary-600);">PO-2025-00840</td>
+              <td style="padding:12px 16px;">Office Depot PH</td>
+              <td style="padding:12px 16px;color:var(--neutral-600);">Admin & Facilities</td>
+              <td style="padding:12px 16px;text-align:right;font-weight:700;">₱ 23,400</td>
+              <td style="padding:12px 16px;"><span class="badge badge-green">Approved</span></td>
+              <td style="padding:12px 16px;"><div style="display:flex;align-items:center;gap:var(--sp-2);"><div class="avatar avatar-xs" style="background:linear-gradient(135deg,var(--success-600),var(--accent-500));">JR</div>Juan R.</div></td>
+              <td style="padding:12px 16px;"><div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-xs">View</button><button class="btn btn-ghost btn-xs">⋯</button></div></td>
+            </tr>
+            <tr class="tr-selected">
+              <td style="padding:12px 16px;"><input type="checkbox" checked /></td>
+              <td style="padding:12px 16px;font-weight:600;color:var(--primary-600);">PO-2025-00839</td>
+              <td style="padding:12px 16px;">Lazada B2B</td>
+              <td style="padding:12px 16px;color:var(--neutral-600);">Operations</td>
+              <td style="padding:12px 16px;text-align:right;font-weight:700;">₱ 8,750</td>
+              <td style="padding:12px 16px;"><span class="badge badge-blue">Draft</span></td>
+              <td style="padding:12px 16px;"><div style="display:flex;align-items:center;gap:var(--sp-2);"><div class="avatar avatar-xs" style="background:linear-gradient(135deg,var(--warning-600),var(--warning-500));">AP</div>Ana P.</div></td>
+              <td style="padding:12px 16px;"><div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-xs">View</button><button class="btn btn-ghost btn-xs">⋯</button></div></td>
+            </tr>
+            <tr class="tr-row">
+              <td style="padding:12px 16px;"><input type="checkbox" /></td>
+              <td style="padding:12px 16px;font-weight:600;color:var(--primary-600);">PO-2025-00838</td>
+              <td style="padding:12px 16px;">SM Mart B2B</td>
+              <td style="padding:12px 16px;color:var(--neutral-600);">HR & Compliance</td>
+              <td style="padding:12px 16px;text-align:right;font-weight:700;">₱ 65,000</td>
+              <td style="padding:12px 16px;"><span class="badge badge-red">Rejected</span></td>
+              <td style="padding:12px 16px;"><div style="display:flex;align-items:center;gap:var(--sp-2);"><div class="avatar avatar-xs" style="background:var(--neutral-500);">LS</div>Liza S.</div></td>
+              <td style="padding:12px 16px;"><div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-xs">View</button><button class="btn btn-ghost btn-xs">⋯</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- Pagination -->
+      <div style="padding:var(--sp-3) var(--sp-5);border-top:1px solid var(--neutral-200);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-3);">
+        <div style="font-size:var(--text-sm);color:var(--neutral-500);">Showing <strong>1–25</strong> of <strong>248</strong> purchase orders</div>
+        <div style="display:flex;align-items:center;gap:var(--sp-1);">
+          <button class="btn btn-ghost btn-sm btn-icon" disabled>‹</button>
+          <button class="pag-btn active">1</button>
+          <button class="pag-btn">2</button>
+          <button class="pag-btn">3</button>
+          <span style="font-size:var(--text-sm);color:var(--neutral-400);padding:0 4px;">…</span>
+          <button class="pag-btn">10</button>
+          <button class="btn btn-ghost btn-sm btn-icon">›</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--sp-2);">
+          <span style="font-size:var(--text-sm);color:var(--neutral-500);">Rows per page:</span>
+          <select class="input input-sm select" style="width:auto;padding-right:32px;">
+            <option>25</option><option>50</option><option>100</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── EMPTY STATES ───────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">18 · States</div>
+    <div class="section-title">Empty States</div>
+    <div class="section-desc">Helpful zero-data illustrations for when lists, search results, or dashboards have no content.</div>
+
+    <div class="row" style="gap:var(--sp-4);">
+      <div class="showcase-box empty-state-box" style="flex:1;min-width:220px;">
+        <div class="empty-icon">📋</div>
+        <div class="empty-title">No Purchase Orders</div>
+        <div class="empty-desc">You haven't created any purchase orders yet. Start by submitting a purchase request.</div>
+        <button class="btn btn-primary btn-md">+ Create First PO</button>
+      </div>
+      <div class="showcase-box empty-state-box" style="flex:1;min-width:220px;">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">No Results Found</div>
+        <div class="empty-desc">No POs match "Dell Laptop 2025 Q3 batch". Try adjusting your search or clearing filters.</div>
+        <div style="display:flex;gap:var(--sp-2);">
+          <button class="btn btn-ghost btn-sm">Clear Search</button>
+          <button class="btn btn-secondary btn-sm">Reset Filters</button>
+        </div>
+      </div>
+      <div class="showcase-box empty-state-box" style="flex:1;min-width:220px;">
+        <div class="empty-icon">⏳</div>
+        <div class="empty-title">No Pending Approvals</div>
+        <div class="empty-desc">You're all caught up! Check back later or review past approvals in the audit log.</div>
+        <button class="btn btn-subtle btn-sm">View Audit Log</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── FILE UPLOAD ────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">19 · Forms</div>
+    <div class="section-title">File Upload & Attachments</div>
+    <div class="section-desc">Drag-and-drop zones and file chip lists for attaching quotations, specs, and supporting documents to POs.</div>
+
+    <div class="row" style="gap:var(--sp-4);">
+      <div class="showcase-box" style="flex:1;min-width:280px;">
+        <div class="box-label">Drop Zone</div>
+        <div class="dropzone" onclick="this.querySelector('input').click()">
+          <input type="file" multiple style="display:none;" />
+          <div class="dropzone-icon">📎</div>
+          <div class="dropzone-title">Attach Supporting Documents</div>
+          <div class="dropzone-desc">Drag & drop files here, or click to browse<br><span style="color:var(--neutral-400);">PDF, XLSX, DOCX, PNG up to 25MB</span></div>
+          <button class="btn btn-secondary btn-sm" style="margin-top:var(--sp-2);" onclick="event.stopPropagation()">Browse Files</button>
+        </div>
+      </div>
+      <div class="showcase-box" style="flex:1;min-width:280px;">
+        <div class="box-label">Attached Files</div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+          <div class="file-item">
+            <div class="file-item-icon file-pdf">PDF</div>
+            <div class="file-item-info">
+              <div class="file-item-name">Quotation_TechSource_2025.pdf</div>
+              <div class="file-item-meta">2.4 MB · Uploaded Jun 18, 2025</div>
+              <div class="file-progress-track"><div class="file-progress-bar" style="width:100%;background:var(--success-600);"></div></div>
+            </div>
+            <button class="btn btn-ghost btn-xs btn-icon" style="color:var(--neutral-400);flex-shrink:0;">✕</button>
+          </div>
+          <div class="file-item">
+            <div class="file-item-icon file-xls">XLS</div>
+            <div class="file-item-info">
+              <div class="file-item-name">Budget_Justification_Q3.xlsx</div>
+              <div class="file-item-meta">1.1 MB · Uploading…</div>
+              <div class="file-progress-track"><div class="file-progress-bar" style="width:65%;"></div></div>
+            </div>
+            <button class="btn btn-ghost btn-xs btn-icon" style="color:var(--neutral-400);flex-shrink:0;">✕</button>
+          </div>
+          <div class="file-item">
+            <div class="file-item-icon file-doc">DOC</div>
+            <div class="file-item-info">
+              <div class="file-item-name">Technical_Specs_Laptop.docx</div>
+              <div class="file-item-meta">845 KB · Uploaded Jun 18, 2025</div>
+              <div class="file-progress-track"><div class="file-progress-bar" style="width:100%;background:var(--success-600);"></div></div>
+            </div>
+            <button class="btn btn-ghost btn-xs btn-icon" style="color:var(--neutral-400);flex-shrink:0;">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── STAT CARDS / KPI WIDGETS ──────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">20 · Dashboard</div>
+    <div class="section-title">KPI Stat Cards</div>
+    <div class="section-desc">Summary metric widgets for procurement dashboards — spend, PO counts, cycle times, and savings.</div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--sp-4);">
+      <div class="stat-card">
+        <div class="stat-label">Total Spend · Q3 2025</div>
+        <div class="stat-value">₱ 6.2M</div>
+        <div class="stat-trend up">↑ 12.4% vs Q2</div>
+        <div class="stat-sparkline">
+          <svg viewBox="0 0 80 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:28px;">
+            <polyline points="0,22 13,18 26,20 39,12 52,8 65,5 80,2" stroke="var(--primary-400)" stroke-width="2" fill="none"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open POs</div>
+        <div class="stat-value">48</div>
+        <div class="stat-trend down">↓ 3 from last week</div>
+        <div style="display:flex;gap:4px;margin-top:var(--sp-2);">
+          <span class="badge badge-yellow" style="font-size:10px;">12 Pending</span>
+          <span class="badge badge-blue" style="font-size:10px;">36 Draft</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg Approval Cycle</div>
+        <div class="stat-value">2.4 <span style="font-size:16px;font-weight:500;color:var(--neutral-500);">days</span></div>
+        <div class="stat-trend up">↑ 0.3 days slower</div>
+        <div class="progress-track" style="margin-top:var(--sp-2);"><div class="progress-bar warning" style="width:55%;"></div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Cost Savings · Q3</div>
+        <div class="stat-value" style="color:var(--success-600);">₱ 840K</div>
+        <div class="stat-trend up" style="color:var(--success-600);">↑ 18.2% vs target</div>
+        <div class="stat-sparkline">
+          <svg viewBox="0 0 80 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:28px;">
+            <polyline points="0,24 13,20 26,16 39,14 52,10 65,6 80,4" stroke="var(--success-500)" stroke-width="2" fill="none"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Vendors</div>
+        <div class="stat-value">127</div>
+        <div class="stat-trend neutral">→ Same as last month</div>
+        <div style="margin-top:var(--sp-2);display:flex;gap:var(--sp-1);">
+          <div class="avatar avatar-xs">TS</div>
+          <div class="avatar avatar-xs" style="background:linear-gradient(135deg,var(--success-600),var(--accent-500));">OD</div>
+          <div class="avatar avatar-xs" style="background:linear-gradient(135deg,var(--warning-600),var(--warning-500));">LB</div>
+          <div class="avatar avatar-xs" style="background:var(--neutral-400);font-size:9px;">+124</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Budget Utilization</div>
+        <div class="stat-value">78%</div>
+        <div class="stat-trend neutral" style="color:var(--warning-600);">⚠ Near threshold</div>
+        <div class="progress-track" style="margin-top:var(--sp-2);"><div class="progress-bar warning" style="width:78%;"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── INLINE EDITING ─────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">21 · Interaction</div>
+    <div class="section-title">Inline Edit & Editable Fields</div>
+    <div class="section-desc">Click-to-edit fields for quick updates without opening a full form — ideal for PO details and vendor records.</div>
+
+    <div class="showcase-box">
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4);">
+        <div class="editable-field">
+          <div class="editable-label">Delivery Date</div>
+          <div class="editable-value" onclick="startEdit(this)">July 25, 2025 <span class="edit-hint">✏</span></div>
+          <input class="input editable-input" value="2025-07-25" type="date" style="display:none;" onblur="stopEdit(this)" />
+        </div>
+        <div class="editable-field">
+          <div class="editable-label">Delivery Address</div>
+          <div class="editable-value" onclick="startEdit(this)">7F TechHub BGC, Taguig City, Metro Manila <span class="edit-hint">✏</span></div>
+          <input class="input editable-input" value="7F TechHub BGC, Taguig City, Metro Manila" style="display:none;" onblur="stopEdit(this)" />
+        </div>
+        <div class="editable-field">
+          <div class="editable-label">Internal Notes</div>
+          <div class="editable-value" onclick="startEdit(this)">Priority delivery for Q3 IT refresh project. Coordinate with J. Reyes for receiving. <span class="edit-hint">✏</span></div>
+          <textarea class="input editable-input" style="display:none;" onblur="stopEdit(this)">Priority delivery for Q3 IT refresh project. Coordinate with J. Reyes for receiving.</textarea>
+        </div>
+        <div class="editable-field">
+          <div class="editable-label">Payment Terms</div>
+          <div class="editable-value" onclick="startEditSelect(this)">Net 30 Days <span class="edit-hint">✏</span></div>
+          <select class="input select editable-input" style="display:none;" onblur="stopEditSelect(this)">
+            <option>Net 15 Days</option><option selected>Net 30 Days</option><option>Net 45 Days</option><option>Cash on Delivery</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page-content -->
+
+<!-- ─── TOAST CONTAINER ───────────────────────────────────────────── -->
+<div id="toast-container" style="position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:12px;z-index:9999;pointer-events:none;"></div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+@keyframes toast-in {
+  from { opacity:0; transform:translateX(24px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes toast-out {
+  from { opacity:1; transform:translateX(0); }
+  to   { opacity:0; transform:translateX(24px); }
+}
+
+/* ─── SEMANTIC COLOR GUIDE ──── */
+.sem-row {
+  display: flex; align-items: center; gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-2); border-radius: var(--r-lg);
+  transition: background var(--dur-fast);
+}
+.sem-row:hover { background: var(--neutral-50); }
+.sem-swatch {
+  width: 40px; height: 40px; border-radius: var(--r-md); flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
+}
+.sem-info { flex-shrink: 0; width: 220px; }
+.sem-role { font-size: var(--text-sm); font-weight: 700; color: var(--neutral-900); }
+.sem-token { font-size: 11px; color: var(--neutral-500); font-family: var(--font-mono); margin-top: 2px; }
+.sem-desc { flex: 1; font-size: var(--text-sm); color: var(--neutral-600); line-height: 1.5; }
+.sem-tag {
+  flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 3px 10px;
+  border-radius: var(--r-full); background: var(--neutral-100); color: var(--neutral-600);
+  text-transform: uppercase; letter-spacing: .5px; white-space: nowrap;
+}
+.sem-tag-primary { background: var(--primary-100); color: var(--primary-700); }
+
+/* ─── BOX LABEL STANDALONE ──── */
+.box-label-standalone {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .8px; color: var(--neutral-400);
+  margin-bottom: var(--sp-2);
+}
+
+/* ─── CONTAINERS ──────────────── */
+.container-card {
+  background: var(--white); border: 1px solid var(--neutral-200);
+  border-radius: var(--r-xl); box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.container-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--neutral-100);
+}
+.container-card-title { font-weight: 700; font-size: var(--text-base); color: var(--neutral-900); }
+.container-card-body  { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
+.container-card-footer{
+  padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--neutral-100);
+  display: flex; justify-content: flex-end; gap: var(--sp-2);
+  background: var(--neutral-50);
+}
+.panel-flat { background: var(--white); border: 1px solid var(--neutral-200); border-radius: var(--r-xl); overflow: hidden; }
+.panel-flat-header { padding: var(--sp-3) var(--sp-5); background: var(--neutral-50); border-bottom: 1px solid var(--neutral-200); font-size: var(--text-sm); font-weight: 700; color: var(--neutral-700); }
+.panel-flat-body { padding: var(--sp-4) var(--sp-5); }
+.section-box { background: var(--primary-50); border: 1px solid var(--primary-200); border-radius: var(--r-xl); overflow: hidden; }
+.section-box-header { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-5); background: var(--primary-100); border-bottom: 1px solid var(--primary-200); font-size: var(--text-sm); font-weight: 700; color: var(--primary-700); }
+.section-box-body { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
+
+/* ─── KV ROWS ──────────────────── */
+.kv-row { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-sm); padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,.04); }
+.kv-row:last-child { border-bottom: none; }
+.kv-label { color: var(--neutral-500); font-weight: 500; }
+.kv-val { color: var(--neutral-900); font-weight: 500; text-align: right; }
+
+/* ─── ACCORDION ─────────────────── */
+.accordion { border: 1px solid var(--neutral-200); border-radius: var(--r-xl); overflow: hidden; }
+.accordion-item { border-bottom: 1px solid var(--neutral-200); }
+.accordion-item:last-child { border-bottom: none; }
+.accordion-trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-4) var(--sp-5); cursor: pointer;
+  font-size: var(--text-sm); font-weight: 600; color: var(--neutral-800);
+  background: var(--white); transition: background var(--dur-fast);
+  user-select: none;
+}
+.accordion-trigger:hover { background: var(--neutral-50); }
+.accordion-body { display: none; padding: var(--sp-4) var(--sp-5); background: var(--neutral-50); border-top: 1px solid var(--neutral-100); }
+.accordion-item.open .accordion-body { display: block; }
+.accordion-item.open .acc-chevron { transform: rotate(180deg); }
+.acc-chevron { transition: transform var(--dur-base) var(--ease); flex-shrink: 0; color: var(--neutral-400); }
+
+/* ─── FILE CHIPS ────────────────── */
+.file-chip {
+  display: flex; align-items: center; gap: var(--sp-2); padding: 8px 12px;
+  background: var(--neutral-100); border-radius: var(--r-md); font-size: var(--text-sm);
+  color: var(--neutral-700); font-weight: 500;
+}
+.file-size { color: var(--neutral-400); font-size: 11px; margin-left: auto; }
+
+/* ─── SKELETON ──────────────────── */
+.skel {
+  background: linear-gradient(90deg, var(--neutral-200) 25%, var(--neutral-150) 50%, var(--neutral-200) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+.skel-row { display: flex; align-items: center; gap: var(--sp-3); padding: 10px 0; border-bottom: 1px solid var(--neutral-100); }
+.skel-inline { display: inline-block; width: 40px; height: 10px; border-radius: 4px; vertical-align: middle;
+  background: linear-gradient(90deg, rgba(0,0,0,.08) 25%, rgba(0,0,0,.04) 50%, rgba(0,0,0,.08) 75%);
+  background-size: 400px 100%; animation: shimmer 1.4s infinite linear; }
+
+/* ─── MODAL ─────────────────────── */
+.modal-preview {
+  background: rgba(0,0,0,.08); border-radius: var(--r-xl);
+  padding: var(--sp-6); display: flex; justify-content: center; align-items: flex-start;
+}
+.modal-box {
+  background: var(--white); border-radius: var(--r-xl);
+  box-shadow: var(--shadow-xl); width: 100%;
+  animation: none;
+}
+.modal-header {
+  display: flex; align-items: flex-start; gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+}
+.modal-icon {
+  width: 40px; height: 40px; border-radius: var(--r-lg);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.modal-icon-danger { background: var(--danger-100); color: var(--danger-600); }
+.modal-icon-success { background: var(--success-100); color: var(--success-600); }
+.modal-icon-info { background: var(--primary-100); color: var(--primary-600); }
+.modal-title { font-size: var(--text-lg); font-weight: 700; color: var(--neutral-900); }
+.modal-subtitle { font-size: var(--text-sm); color: var(--neutral-500); margin-top: 2px; }
+.modal-close {
+  margin-left: auto; flex-shrink: 0; background: none; border: none; cursor: pointer;
+  color: var(--neutral-400); font-size: 16px; padding: 4px; border-radius: var(--r-sm);
+  line-height: 1; transition: color var(--dur-fast);
+}
+.modal-close:hover { color: var(--neutral-700); background: var(--neutral-100); }
+.modal-body { padding: 0 var(--sp-5) var(--sp-5); }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--neutral-200);
+  background: var(--neutral-50); border-radius: 0 0 var(--r-xl) var(--r-xl);
+}
+
+/* ─── DRAWER ────────────────────── */
+.drawer-panel {
+  width: 320px; flex-shrink: 0; background: var(--white);
+  border-left: 1px solid var(--neutral-200); display: flex; flex-direction: column;
+}
+.drawer-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--neutral-200);
+  background: var(--neutral-50);
+}
+.drawer-body { flex: 1; padding: var(--sp-5); overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-2); }
+.drawer-footer {
+  display: flex; justify-content: flex-end; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--neutral-200);
+}
+.approval-item { display: flex; align-items: flex-start; gap: var(--sp-3); font-size: var(--text-sm); padding: 4px 0; }
+.approval-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--neutral-300); margin-top: 4px; flex-shrink: 0; }
+.approval-dot.done { background: var(--success-500); }
+.approval-dot.active { background: var(--primary-600); box-shadow: 0 0 0 3px var(--primary-100); }
+
+/* ─── TOAST ─────────────────────── */
+.toast {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: 12px 16px; border-radius: var(--r-lg); border: 1px solid;
+  font-size: var(--text-sm); box-shadow: var(--shadow-lg); min-width: 260px;
+}
+.toast-success { background: var(--success-100); border-color: var(--success-600); color: var(--success-600); }
+.toast-danger  { background: var(--danger-100);  border-color: var(--danger-600);  color: var(--danger-600); }
+.toast-warning { background: var(--warning-100); border-color: var(--warning-600); color: var(--warning-600); }
+.toast-info    { background: var(--primary-100); border-color: var(--primary-400); color: var(--primary-700); }
+.toast-neutral { background: var(--white);       border-color: var(--neutral-300); color: var(--neutral-700); }
+.toast-body { flex: 1; line-height: 1.4; }
+.toast-close { background: none; border: none; cursor: pointer; opacity: .5; font-size: 14px; padding: 0 0 0 8px; }
+.toast-close:hover { opacity: 1; }
+
+/* Live toast */
+.live-toast {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: 13px 18px; border-radius: var(--r-lg);
+  font-size: var(--text-sm); box-shadow: var(--shadow-xl);
+  min-width: 280px; pointer-events: all;
+  animation: toast-in .2s var(--ease) forwards;
+}
+
+/* ─── CONTEXT MENU ──────────────── */
+.context-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 100;
+  background: var(--white); border: 1px solid var(--neutral-200); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xl); min-width: 180px; padding: var(--sp-1) 0;
+  display: none;
+}
+.context-menu.open { display: block; }
+.ctx-item {
+  display: flex; align-items: center; gap: var(--sp-2); padding: 9px 14px;
+  font-size: var(--text-sm); color: var(--neutral-700); cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.ctx-item:hover { background: var(--neutral-50); }
+.ctx-item-danger { color: var(--danger-600); }
+.ctx-item-danger:hover { background: var(--danger-100); }
+.ctx-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+.ctx-divider { height: 1px; background: var(--neutral-200); margin: var(--sp-1) 0; }
+
+/* ─── FILTER POPOVER ─────────────── */
+.filter-popover {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 100;
+  background: var(--white); border: 1px solid var(--neutral-200); border-radius: var(--r-xl);
+  box-shadow: var(--shadow-xl); padding: var(--sp-5); min-width: 280px;
+  display: none;
+}
+.filter-popover.open { display: block; }
+.filter-pop-title { font-weight: 700; font-size: var(--text-base); color: var(--neutral-900); margin-bottom: var(--sp-4); }
+.chip-filter {
+  display: inline-flex; align-items: center; padding: 4px 10px;
+  border: 1.5px solid var(--neutral-300); border-radius: var(--r-full);
+  font-size: var(--text-xs); font-weight: 600; color: var(--neutral-600); cursor: pointer;
+  transition: all var(--dur-fast);
+}
+.chip-filter:hover { border-color: var(--primary-400); color: var(--primary-600); }
+.chip-filter.active { background: var(--primary-600); border-color: var(--primary-600); color: white; }
+
+/* ─── USER POPOVER ───────────────── */
+.user-popover {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  background: var(--white); border: 1px solid var(--neutral-200); border-radius: var(--r-xl);
+  box-shadow: var(--shadow-xl); padding: var(--sp-4); min-width: 240px; z-index: 100;
+}
+
+/* ─── TABLE ENHANCEMENTS ─────────── */
+.th-sort {
+  padding: 10px 16px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--neutral-500); text-align: left; cursor: pointer;
+  user-select: none; white-space: nowrap;
+  transition: color var(--dur-fast);
+}
+.th-sort:hover { color: var(--neutral-800); }
+.sort-icon { opacity: .4; font-size: 11px; }
+.tr-row { border-bottom: 1px solid var(--neutral-100); transition: background var(--dur-fast); }
+.tr-row:hover { background: var(--neutral-50); }
+.tr-selected { background: var(--primary-50); border-bottom: 1px solid var(--primary-100); }
+.pag-btn {
+  width: 32px; height: 32px; border-radius: var(--r-md); border: 1px solid var(--neutral-300);
+  background: var(--white); font-size: var(--text-sm); font-weight: 600; cursor: pointer;
+  color: var(--neutral-700); transition: all var(--dur-fast);
+}
+.pag-btn:hover { background: var(--neutral-100); }
+.pag-btn.active { background: var(--primary-600); color: white; border-color: var(--primary-600); }
+
+/* ─── EMPTY STATE ─────────────────── */
+.empty-state-box { display: flex; flex-direction: column; align-items: center; text-align: center; padding: var(--sp-10) var(--sp-6); gap: var(--sp-3); }
+.empty-icon { font-size: 40px; }
+.empty-title { font-size: var(--text-lg); font-weight: 700; color: var(--neutral-800); }
+.empty-desc { font-size: var(--text-sm); color: var(--neutral-500); max-width: 260px; line-height: 1.6; }
+
+/* ─── FILE UPLOAD ─────────────────── */
+.dropzone {
+  border: 2px dashed var(--neutral-300); border-radius: var(--r-xl);
+  padding: var(--sp-8) var(--sp-6); text-align: center; cursor: pointer;
+  transition: all var(--dur-base); display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
+}
+.dropzone:hover { border-color: var(--primary-400); background: var(--primary-50); }
+.dropzone-icon { font-size: 32px; }
+.dropzone-title { font-weight: 700; color: var(--neutral-800); font-size: var(--text-md); }
+.dropzone-desc { font-size: var(--text-sm); color: var(--neutral-500); line-height: 1.5; }
+.file-item {
+  display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3);
+  background: var(--neutral-50); border: 1px solid var(--neutral-200); border-radius: var(--r-lg);
+}
+.file-item-icon {
+  width: 36px; height: 36px; border-radius: var(--r-md); display: flex; align-items: center;
+  justify-content: center; font-size: 10px; font-weight: 800; letter-spacing: .3px; flex-shrink: 0;
+}
+.file-pdf { background: var(--danger-100); color: var(--danger-600); }
+.file-xls { background: var(--success-100); color: var(--success-600); }
+.file-doc { background: var(--primary-100); color: var(--primary-600); }
+.file-item-info { flex: 1; min-width: 0; }
+.file-item-name { font-size: var(--text-sm); font-weight: 600; color: var(--neutral-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-item-meta { font-size: 11px; color: var(--neutral-500); margin-top: 2px; }
+.file-progress-track { height: 3px; background: var(--neutral-200); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+.file-progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary-600), var(--accent-500)); border-radius: 3px; transition: width .4s var(--ease); }
+
+/* ─── STAT CARDS ──────────────────── */
+.stat-card {
+  background: var(--white); border: 1px solid var(--neutral-200); border-radius: var(--r-xl);
+  padding: var(--sp-5); box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: var(--sp-1);
+}
+.stat-label { font-size: var(--text-xs); font-weight: 700; color: var(--neutral-500); text-transform: uppercase; letter-spacing: .5px; }
+.stat-value { font-size: var(--text-3xl); font-weight: 800; color: var(--neutral-900); letter-spacing: -1px; line-height: 1.1; margin-top: 2px; }
+.stat-trend { font-size: var(--text-xs); font-weight: 600; margin-top: 2px; }
+.stat-trend.up { color: var(--success-600); }
+.stat-trend.down { color: var(--danger-600); }
+.stat-trend.neutral { color: var(--neutral-500); }
+.stat-sparkline { margin-top: var(--sp-2); }
+
+/* ─── INLINE EDITING ──────────────── */
+.editable-field { display: flex; flex-direction: column; gap: 4px; padding: var(--sp-3) 0; border-bottom: 1px solid var(--neutral-100); }
+.editable-field:last-child { border-bottom: none; }
+.editable-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--neutral-400); }
+.editable-value {
+  font-size: var(--text-base); color: var(--neutral-800); cursor: pointer; padding: 4px 6px;
+  border-radius: var(--r-sm); border: 1px solid transparent;
+  transition: all var(--dur-fast); display: flex; align-items: center; gap: var(--sp-2);
+}
+.editable-value:hover { background: var(--primary-50); border-color: var(--primary-200); }
+.edit-hint { color: var(--neutral-400); font-size: 12px; margin-left: auto; opacity: 0; transition: opacity var(--dur-fast); }
+.editable-value:hover .edit-hint { opacity: 1; }
+.editable-input { margin-top: 2px; }
+</style>
+
+<script>
+// Accordion toggle
+function toggleAccordion(trigger) {
+  const item = trigger.closest('.accordion-item');
+  const wasOpen = item.classList.contains('open');
+  document.querySelectorAll('.accordion-item.open').forEach(i => i.classList.remove('open'));
+  if (!wasOpen) item.classList.add('open');
+}
+
+// Context / filter menu toggle
+function toggleMenu(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+  document.addEventListener('click', function close(e) {
+    if (!el.contains(e.target)) { el.classList.remove('open'); document.removeEventListener('click', close); }
+  }, { once: true });
+}
+
+// Sort indicator (demo only)
+function sortIndicator(th) {
+  document.querySelectorAll('.sort-icon').forEach(s => s.textContent = '↕');
+  th.querySelector('.sort-icon').textContent = '↓';
+}
+
+// Live toast
+function showToast(type, msg) {
+  const colors = {
+    success: { bg:'var(--success-100)', border:'var(--success-600)', color:'var(--success-600)', icon:'✓' },
+    danger:  { bg:'var(--danger-100)',  border:'var(--danger-600)',  color:'var(--danger-600)',  icon:'✕' },
+    warning: { bg:'var(--warning-100)', border:'var(--warning-600)', color:'var(--warning-600)', icon:'⚠' },
+    info:    { bg:'var(--primary-100)', border:'var(--primary-400)', color:'var(--primary-700)', icon:'ℹ' },
+  };
+  const c = colors[type] || colors.info;
+  const t = document.createElement('div');
+  t.className = 'live-toast';
+  t.style.cssText = `background:${c.bg};border:1px solid ${c.border};color:${c.color};`;
+  t.innerHTML = `<span style="font-size:16px;">${c.icon}</span><span style="flex:1;font-size:13px;font-weight:500;">${msg}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;opacity:.6;font-size:14px;color:inherit;">✕</button>`;
+  document.getElementById('toast-container').prepend(t);
+  setTimeout(() => { t.style.animation='toast-out .2s var(--ease) forwards'; setTimeout(()=>t.remove(),200); }, 4000);
+}
+
+// Inline edit
+function startEdit(el) {
+  el.style.display = 'none';
+  const inp = el.nextElementSibling;
+  inp.style.display = 'block';
+  inp.focus();
+  if (inp.select) inp.select();
+}
+function stopEdit(inp) {
+  inp.style.display = 'none';
+  const val = inp.previousElementSibling;
+  val.style.display = '';
+  val.childNodes[0].textContent = inp.value + ' ';
+}
+function startEditSelect(el) {
+  el.style.display = 'none';
+  const inp = el.nextElementSibling;
+  inp.style.display = 'block';
+  inp.focus();
+}
+function stopEditSelect(inp) {
+  inp.style.display = 'none';
+  const val = inp.previousElementSibling;
+  val.style.display = '';
+  val.childNodes[0].textContent = inp.options[inp.selectedIndex].text + ' ';
+}
+</script>
+</body>
+</html>
