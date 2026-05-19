@@ -24,7 +24,7 @@ export default function PR1NewPage() {
       <div className="mb-2">
         <Link
           href="/pr1"
-          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition"
+          className="inline-flex items-center gap-1 text-xs text-pq-neutral-500 hover:text-pq-neutral-500 transition"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
           Back to My Requests

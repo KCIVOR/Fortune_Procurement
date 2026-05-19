@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { StatCard } from '@/components/shared/StatCard';
 import type { UserProfile } from '@/types/auth';
 import PageHeader from '@/components/shared/PageHeader';
 import { ProcurementDashboardVisibilitySkeleton } from '@/components/shared/module-visibility-skeletons';
@@ -75,7 +76,7 @@ export default function ProcurementDashboard({ profile }: Props) {
   ];
 
   const kpiCardClass =
-    'bg-white rounded-[4px] border border-[#D8E2FF] p-2.5 flex items-center gap-2.5 min-h-[88px] transition hover:border-[#0F1F3A]';
+    'bg-white rounded-md border border-pq-neutral-200 p-2.5 flex items-center gap-2.5 min-h-[88px] transition hover:border-pq-primary-600';
 
   const showSupplierAccreditation = isModuleVisible('supplier_accreditation');
   const showProductReview = isModuleVisible('product_review');
@@ -97,30 +98,37 @@ export default function ProcurementDashboard({ profile }: Props) {
       <Link
         key="accreditation-queue"
         href={accreditationQueueCard.href}
-        className={kpiCardClass}
+        className="block transition hover:-translate-y-0.5"
       >
-        <div className="inline-flex items-center justify-center w-7 h-7 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
-          <Icon className="w-3.5 h-3.5" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-lg font-bold text-[#0F1F3A] leading-tight">{accreditationQueueCard.value}</p>
-          <p className="text-[10px] text-[#40527A] leading-tight">{accreditationQueueCard.label}</p>
-        </div>
+        <StatCard
+          label={accreditationQueueCard.label}
+          value={accreditationQueueCard.value}
+          icon={<Icon className="w-5 h-5" />}
+          accent="blue"
+        />
       </Link>,
     );
   }
   if (showProductReview) {
     for (const card of productComplianceCards) {
       const Icon = card.icon;
+      const lowerLabel = card.label.toLowerCase();
+      const accent = lowerLabel.includes('rejected')
+        ? 'red'
+        : lowerLabel.includes('verified')
+        ? 'green'
+        : lowerLabel.includes('pending') || lowerLabel.includes('review')
+        ? 'amber'
+        : 'blue';
+
       kpiNodes.push(
-        <Link key={card.label} href={card.href} className={kpiCardClass}>
-          <div className="inline-flex items-center justify-center w-7 h-7 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
-            <Icon className="w-3.5 h-3.5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-lg font-bold text-[#0F1F3A] leading-tight">{card.value}</p>
-            <p className="text-[10px] text-[#40527A] leading-tight">{card.label}</p>
-          </div>
+        <Link key={card.label} href={card.href} className="block transition hover:-translate-y-0.5">
+          <StatCard
+            label={card.label}
+            value={card.value}
+            icon={<Icon className="w-5 h-5" />}
+            accent={accent}
+          />
         </Link>,
       );
     }
@@ -128,15 +136,21 @@ export default function ProcurementDashboard({ profile }: Props) {
   if (showCanvassingRfq) {
     for (const card of rfqStatCards) {
       const Icon = card.icon;
+      const lowerLabel = card.label.toLowerCase();
+      const accent = lowerLabel.includes('priority')
+        ? 'amber'
+        : lowerLabel.includes('done')
+        ? 'green'
+        : 'blue';
+
       kpiNodes.push(
-        <Link key={card.label} href={card.href} className={kpiCardClass}>
-          <div className="inline-flex items-center justify-center w-7 h-7 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
-            <Icon className="w-3.5 h-3.5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-lg font-bold text-[#0F1F3A] leading-tight">{card.value}</p>
-            <p className="text-[10px] text-[#40527A] leading-tight">{card.label}</p>
-          </div>
+        <Link key={card.label} href={card.href} className="block transition hover:-translate-y-0.5">
+          <StatCard
+            label={card.label}
+            value={card.value}
+            icon={<Icon className="w-5 h-5" />}
+            accent={accent}
+          />
         </Link>,
       );
     }
@@ -144,14 +158,13 @@ export default function ProcurementDashboard({ profile }: Props) {
   if (showPurchaseOrders) {
     const Icon = purchaseOrderStatCard.icon;
     kpiNodes.push(
-      <Link key={purchaseOrderStatCard.label} href={purchaseOrderStatCard.href} className={kpiCardClass}>
-        <div className="inline-flex items-center justify-center w-7 h-7 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
-          <Icon className="w-3.5 h-3.5" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-lg font-bold text-[#0F1F3A] leading-tight">{purchaseOrderStatCard.value}</p>
-          <p className="text-[10px] text-[#40527A] leading-tight">{purchaseOrderStatCard.label}</p>
-        </div>
+      <Link key={purchaseOrderStatCard.label} href={purchaseOrderStatCard.href} className="block transition hover:-translate-y-0.5">
+        <StatCard
+          label={purchaseOrderStatCard.label}
+          value={purchaseOrderStatCard.value}
+          icon={<Icon className="w-5 h-5" />}
+          accent="blue"
+        />
       </Link>,
     );
   }
@@ -173,14 +186,14 @@ export default function ProcurementDashboard({ profile }: Props) {
         <div className="mb-4 mt-1">
           {complianceHeadingVisible && (
             <>
-              <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-2">Supplier accreditation &amp; products</h2>
-              <p className="text-[10px] text-[#BFC7D5] mb-3">
+              <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-2">Supplier accreditation &amp; products</h2>
+              <p className="text-[10px] text-pq-neutral-400 mb-3">
                 Counts from live data. TSQA evaluates products only; accreditation approval stays with Procurement.
               </p>
             </>
           )}
           {rfqBandHeadingOnly && (
-            <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-2">RFQ &amp; purchase orders</h2>
+            <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-2">RFQ &amp; purchase orders</h2>
           )}
           <div className={KPI_GRID_CLASS}>{kpiNodes}</div>
         </div>
@@ -189,21 +202,21 @@ export default function ProcurementDashboard({ profile }: Props) {
       {/* Canvassing Queue + Open RFQs */}
       {showCanvassingRfq && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#D8E2FF]">
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Canvassing Queue</h2>
-              <Link href="/rfq" className="inline-flex items-center gap-1 text-xs text-[#1E4BFF] hover:text-[#0F1F3A] font-medium transition">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">Canvassing Queue</h2>
+              <Link href="/rfq" className="inline-flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 font-medium transition">
                 View all <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
             <div className="px-5 py-6 text-center">
               {stats.forCanvassing === 0 ? (
-                <p className="text-sm text-[#BFC7D5]">No PR1s awaiting RFQ.</p>
+                <p className="text-sm text-pq-neutral-400">No PR1s awaiting RFQ.</p>
               ) : (
                 <div className="space-y-1">
-                  <p className="text-3xl font-bold text-[#0F1F3A]">{stats.forCanvassing}</p>
-                  <p className="text-sm text-[#40527A]">PR1{stats.forCanvassing !== 1 ? 's' : ''} ready for RFQ</p>
-                  <Link href="/rfq" className="inline-flex items-center gap-1 mt-2 text-xs text-[#1E4BFF] hover:text-[#0F1F3A] font-semibold transition">
+                  <p className="text-3xl font-bold text-pq-neutral-900">{stats.forCanvassing}</p>
+                  <p className="text-sm text-pq-neutral-500">PR1{stats.forCanvassing !== 1 ? 's' : ''} ready for RFQ</p>
+                  <Link href="/rfq" className="inline-flex items-center gap-1 mt-2 text-xs text-pq-primary-600 hover:text-pq-neutral-900 font-semibold transition">
                     Go to canvassing queue <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
@@ -211,20 +224,20 @@ export default function ProcurementDashboard({ profile }: Props) {
             </div>
           </div>
 
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#D8E2FF]">
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Open RFQs</h2>
-              <Link href="/rfq" className="inline-flex items-center gap-1 text-xs text-[#1E4BFF] hover:text-[#0F1F3A] font-medium transition">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">Open RFQs</h2>
+              <Link href="/rfq" className="inline-flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 font-medium transition">
                 View all <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
             <div className="px-5 py-6 text-center">
               {stats.openRfqs === 0 ? (
-                <p className="text-sm text-[#BFC7D5]">No open RFQs at this time.</p>
+                <p className="text-sm text-pq-neutral-400">No open RFQs at this time.</p>
               ) : (
                 <div className="space-y-1">
-                  <p className="text-3xl font-bold text-[#0F1F3A]">{stats.openRfqs}</p>
-                  <p className="text-sm text-[#40527A]">RFQ{stats.openRfqs !== 1 ? 's' : ''} awaiting supplier response</p>
+                  <p className="text-3xl font-bold text-pq-neutral-900">{stats.openRfqs}</p>
+                  <p className="text-sm text-pq-neutral-500">RFQ{stats.openRfqs !== 1 ? 's' : ''} awaiting supplier response</p>
                 </div>
               )}
             </div>

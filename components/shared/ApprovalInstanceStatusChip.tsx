@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { CheckCircle2, RotateCcw, Circle as XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -14,11 +14,11 @@ export default function ApprovalInstanceStatusChip({ status, className }: Approv
     return (
       <span
         className={cn(
-          'inline-flex items-center gap-1.5 text-xs font-medium text-[#0F1F3A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-2.5 py-1',
+          'inline-flex items-center gap-1.5 text-xs font-medium text-pq-neutral-900 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-2.5 py-1',
           className
         )}
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-[#1E4BFF] animate-pulse" />
+        <span className="w-1.5 h-1.5 rounded-full bg-pq-primary-600 animate-pulse" />
         Pending Approval
       </span>
     );
@@ -28,7 +28,7 @@ export default function ApprovalInstanceStatusChip({ status, className }: Approv
     return (
       <span
         className={cn(
-          'inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1',
+          'inline-flex items-center gap-1.5 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2.5 py-1',
           className
         )}
       >
@@ -42,7 +42,7 @@ export default function ApprovalInstanceStatusChip({ status, className }: Approv
     return (
       <span
         className={cn(
-          'inline-flex items-center gap-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-full px-2.5 py-1',
+          'inline-flex items-center gap-1.5 text-xs font-medium text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded-full px-2.5 py-1',
           className
         )}
       >

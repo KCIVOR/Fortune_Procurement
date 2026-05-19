@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
+import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchRfqDetail,
@@ -31,18 +32,18 @@ import { db } from '@/lib/supabase';
 
 
 const STATUS_BADGE: Record<string, string> = {
-  draft:     'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]',
-  open:      'bg-amber-50 text-amber-700 border-amber-200',
-  closed:    'bg-emerald-50 text-emerald-700 border-emerald-200',
-  cancelled: 'bg-red-50 text-red-600 border-red-200',
+  draft:     'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
+  open:      'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
+  closed:    'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
+  cancelled: 'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
 };
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Draft', open: 'Open', closed: 'Closed', cancelled: 'Cancelled',
 };
 const SUPPLIER_STATUS_COLOR: Record<string, string> = {
-  invited:   'bg-amber-50 text-amber-700 border-amber-200',
-  submitted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  declined:  'bg-red-50 text-red-600 border-red-200',
+  invited:   'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
+  submitted: 'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
+  declined:  'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
 };
 
 export default function RfqDetailPage() {
@@ -83,15 +84,13 @@ export default function RfqDetailPage() {
 
   if (loading) return (
     <AppShell title="RFQ Detail">
-      <div className="flex items-center justify-center h-64">
-        <LoadingState message="Loading RFQ..." />
-      </div>
+      <DetailPageSkeleton />
     </AppShell>
   );
 
   if (error || !detail) return (
     <AppShell title="RFQ Detail">
-      <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+      <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
         {error || 'RFQ not found.'}
       </div>
     </AppShell>
@@ -272,13 +271,13 @@ export default function RfqDetailPage() {
         left={
           <div>
             <DetailTitleRow mb>
-              <h1 className="text-2xl font-bold text-[#0F1F3A] font-mono">{rfq.rfq_number}</h1>
+              <h1 className="text-2xl font-bold text-pq-neutral-900 font-mono">{rfq.rfq_number}</h1>
               <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_BADGE[rfq.status]}`}>
                 {STATUS_LABEL[rfq.status]}
               </span>
             </DetailTitleRow>
-            <p className="text-sm text-[#40527A]">
-              PR1 <span className="font-semibold text-[#0F1F3A]">{pr1.pr1_number}</span>
+            <p className="text-sm text-pq-neutral-500">
+              PR1 <span className="font-semibold text-pq-neutral-900">{pr1.pr1_number}</span>
               {' '}· {pr1.department_name_snapshot} · {pr1.purpose}
             </p>
           </div>
@@ -345,7 +344,7 @@ export default function RfqDetailPage() {
       />
 
       {actionError && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-[4px] px-4 py-3 mb-4">
+        <div className="flex items-center gap-2 bg-pq-danger-100 border border-pq-danger-100 text-pq-danger-600 text-sm rounded-md px-4 py-3 mb-4">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           {actionError}
         </div>
@@ -360,25 +359,25 @@ export default function RfqDetailPage() {
 
       {/* Guidance banners */}
       {isDraft && suppliers.length < 2 && (
-        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-[4px] px-5 py-4 mb-6">
-          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-amber-800">Assign at least 2 suppliers before you can issue this RFQ.</p>
+        <div className="flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-6">
+          <AlertTriangle className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-pq-warning-600">Assign at least 2 suppliers before you can issue this RFQ.</p>
         </div>
       )}
       {isDraft && suppliers.length >= 2 && (
-        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-[4px] px-5 py-4 mb-6">
-          <CircleDot className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-blue-800">Ready to issue. Click &ldquo;Issue RFQ&rdquo; to open it to suppliers.</p>
+        <div className="flex items-start gap-3 bg-pq-primary-50 border border-pq-primary-200 rounded-md px-5 py-4 mb-6">
+          <CircleDot className="w-4 h-4 text-pq-primary-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-pq-primary-600">Ready to issue. Click &ldquo;Issue RFQ&rdquo; to open it to suppliers.</p>
         </div>
       )}
       {isOpen && !allItemsSelected && submittedSuppliers > 0 && (
-        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-[4px] px-5 py-4 mb-6">
-          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-amber-800">Select a winning supplier for each item below, then close the RFQ.</p>
+        <div className="flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-6">
+          <AlertTriangle className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-pq-warning-600">Select a winning supplier for each item below, then close the RFQ.</p>
         </div>
       )}
       {isOpen && pendingSubstitutes > 0 && (
-        <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-[4px] px-5 py-4 mb-6">
+        <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-md px-5 py-4 mb-6">
           <Replace className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-orange-800">
@@ -391,9 +390,9 @@ export default function RfqDetailPage() {
         </div>
       )}
       {isClosed && (
-        <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-[4px] px-5 py-4 mb-6">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-emerald-800">Canvassing complete. Winning suppliers have been selected for all items.</p>
+        <div className="flex items-start gap-3 bg-pq-success-100 border border-pq-success-100 rounded-md px-5 py-4 mb-6">
+          <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-pq-success-600">Canvassing complete. Winning suppliers have been selected for all items.</p>
         </div>
       )}
 
@@ -401,10 +400,10 @@ export default function RfqDetailPage() {
         {/* Left column: PR1 summary + suppliers */}
         <div className="space-y-4">
           {/* PR1 info card */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-3">
-            <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">PR1 Details</h2>
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-3">
+            <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">PR1 Details</h2>
             <DetailInfoField
-              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<FileText className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="PR1 Number"
               value={pr1.pr1_number}
               labelTone="muted"
@@ -412,14 +411,14 @@ export default function RfqDetailPage() {
               valueClassName="font-mono font-semibold"
             />
             <DetailInfoField
-              icon={<Building2 className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<Building2 className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Department"
               value={pr1.department_name_snapshot}
               labelTone="muted"
               labelSpacing="compact"
             />
             <DetailInfoField
-              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<FileText className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Purpose"
               value={pr1.purpose}
               labelTone="muted"
@@ -427,7 +426,7 @@ export default function RfqDetailPage() {
             />
             {rfq.deadline && (
               <DetailInfoField
-                icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+                icon={<CalendarDays className="w-3.5 h-3.5 text-pq-neutral-400" />}
                 label="RFQ Deadline"
                 value={format(new Date(rfq.deadline), 'MMM d, yyyy')}
                 labelTone="muted"
@@ -436,25 +435,25 @@ export default function RfqDetailPage() {
             )}
             {rfq.notes && (
               <div>
-                <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1">Notes</p>
-                <p className="text-sm text-[#0F1F3A]">{rfq.notes}</p>
+                <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1">Notes</p>
+                <p className="text-sm text-pq-neutral-900">{rfq.notes}</p>
               </div>
             )}
           </div>
 
           {/* Items list */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-[#D8E2FF]">
-              <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">Items ({items.length})</h2>
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-pq-neutral-200">
+              <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">Items ({items.length})</h2>
             </div>
-            <div className="divide-y divide-[#D8E2FF]">
+            <div className="divide-y divide-pq-neutral-200">
               {items.map(item => (
                 <div key={item.id} className="px-5 py-3">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xs text-[#BFC7D5] w-4 shrink-0">{item.item_order}.</span>
+                    <span className="text-xs text-pq-neutral-400 w-4 shrink-0">{item.item_order}.</span>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-[#0F1F3A]">{item.description}</p>
-                      <p className="text-xs text-[#BFC7D5] mt-0.5">
+                      <p className="text-sm font-medium text-pq-neutral-900">{item.description}</p>
+                      <p className="text-xs text-pq-neutral-400 mt-0.5">
                         {item.item_code && <span className="font-mono">{item.item_code} · </span>}
                         {item.quantity_requested} {item.unit_of_measure}
                       </p>
@@ -466,19 +465,19 @@ export default function RfqDetailPage() {
           </div>
 
           {/* Suppliers */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
-              <Users className="w-4 h-4 text-[#BFC7D5]" />
-              <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">Suppliers ({suppliers.length})</h2>
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
+              <Users className="w-4 h-4 text-pq-neutral-400" />
+              <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">Suppliers ({suppliers.length})</h2>
             </div>
             {suppliers.length === 0 ? (
-              <p className="text-xs text-[#BFC7D5] px-5 py-4">No suppliers assigned yet.</p>
+              <p className="text-xs text-pq-neutral-400 px-5 py-4">No suppliers assigned yet.</p>
             ) : (
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {suppliers.map(s => (
-                  <div key={s.id} className="px-5 py-3 flex items-center justify-between hover:bg-[#F7F9FC] group transition">
+                  <div key={s.id} className="px-5 py-3 flex items-center justify-between hover:bg-pq-neutral-50 group transition">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-[#0F1F3A]">{s.supplier_name_snapshot}</p>
+                      <p className="text-sm font-medium text-pq-neutral-900">{s.supplier_name_snapshot}</p>
                       <span className={`inline-block mt-1 text-[10px] font-medium border rounded-full px-2 py-0.5 ${SUPPLIER_STATUS_COLOR[s.status]}`}>
                         {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
                       </span>
@@ -486,7 +485,7 @@ export default function RfqDetailPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleSendEmail(s.id)}
-                        className="p-2 text-[#BFC7D5] hover:text-[#1E4BFF] hover:bg-[#E5EAFF] rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        className="p-2 text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-neutral-200 rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
                         title="Resend email to this supplier"
                         disabled={working}
                       >
@@ -494,7 +493,7 @@ export default function RfqDetailPage() {
                       </button>
                       <button
                         onClick={() => handleCopyForViber(s.id)}
-                        className="p-2 text-[#BFC7D5] hover:text-[#1E4BFF] hover:bg-[#E5EAFF] rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        className="p-2 text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-neutral-200 rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
                         title="Copy personal link for Viber"
                       >
                         <MessageSquare className="w-4 h-4" />
@@ -511,36 +510,36 @@ export default function RfqDetailPage() {
 
         {/* Right column: quotation comparison matrix */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF] flex-wrap">
-              <Trophy className="w-4 h-4 text-[#BFC7D5]" />
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200 flex-wrap">
+              <Trophy className="w-4 h-4 text-pq-neutral-400" />
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-[#0F1F3A]">Quotation Comparison</h2>
-                <p className="text-[10px] text-[#BFC7D5] mt-0.5">
+                <h2 className="text-sm font-semibold text-pq-neutral-900">Quotation Comparison</h2>
+                <p className="text-[10px] text-pq-neutral-400 mt-0.5">
                   Verified catalog product on the quote line = Can Award (after substitute approval if applicable). Pending / missing link = not awardable.
                 </p>
               </div>
-              <span className="text-xs text-[#BFC7D5] ml-auto shrink-0">
+              <span className="text-xs text-pq-neutral-400 ml-auto shrink-0">
                 {submittedSuppliers}/{suppliers.length} suppliers responded
               </span>
             </div>
 
             {suppliers.length === 0 ? (
               <div className="px-5 py-10 text-center">
-                <p className="text-sm text-[#BFC7D5]">Assign suppliers to begin collecting quotations.</p>
+                <p className="text-sm text-pq-neutral-400">Assign suppliers to begin collecting quotations.</p>
               </div>
             ) : matrix.length === 0 ? (
               <div className="px-5 py-10 text-center">
-                <p className="text-sm text-[#BFC7D5]">No items found for this PR1.</p>
+                <p className="text-sm text-pq-neutral-400">No items found for this PR1.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-[#F7F9FC] border-b border-[#D8E2FF]">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#40527A] w-1/3">Item</th>
+                    <tr className="bg-pq-neutral-50 border-b border-pq-neutral-200">
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-pq-neutral-500 w-1/3">Item</th>
                       {suppliers.map(s => (
-                        <th key={s.id} className="text-left px-4 py-3 text-xs font-semibold text-[#40527A] min-w-[160px]">
+                        <th key={s.id} className="text-left px-4 py-3 text-xs font-semibold text-pq-neutral-500 min-w-[160px]">
                           <div className="flex items-center gap-1.5">
                             {s.supplier_name_snapshot}
                             <span className={`text-xs border rounded-full px-1.5 py-0.5 ${SUPPLIER_STATUS_COLOR[s.status]}`}>
@@ -551,7 +550,7 @@ export default function RfqDetailPage() {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#D8E2FF]">
+                  <tbody className="divide-y divide-pq-neutral-200">
                     {matrix.map(row => (
                       <MatrixRow
                         key={row.item.id}
@@ -572,15 +571,15 @@ export default function RfqDetailPage() {
       {/* Assign suppliers panel */}
       {assigning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[4px] w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-[#D8E2FF] shadow-lg">
-            <div className="px-6 py-4 border-b border-[#D8E2FF] shrink-0">
-              <h2 className="text-lg font-semibold text-[#0F1F3A]">Canvass Suppliers</h2>
-              <p className="text-xs text-[#40527A] mt-1">
+          <div className="bg-white rounded-md w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-pq-neutral-200 shadow-lg">
+            <div className="px-6 py-4 border-b border-pq-neutral-200 shrink-0">
+              <h2 className="text-lg font-semibold text-pq-neutral-900">Canvass Suppliers</h2>
+              <p className="text-xs text-pq-neutral-500 mt-1">
                 Select suppliers to invite. Review accreditation and product readiness before assigning.
               </p>
             </div>
-            <div className="px-6 py-3 bg-amber-50/80 border-b border-amber-100 shrink-0">
-              <div className="flex gap-2 text-xs text-amber-900">
+            <div className="px-6 py-3 bg-pq-warning-100/80 border-b border-amber-100 shrink-0">
+              <div className="flex gap-2 text-xs text-pq-warning-600">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <p className="font-semibold">Warnings are informational only.</p>
@@ -591,8 +590,8 @@ export default function RfqDetailPage() {
                 </div>
               </div>
             </div>
-            <div className="px-6 py-2 border-b border-[#D8E2FF] shrink-0 flex gap-2 text-[11px] text-[#40527A]">
-              <Info className="w-3.5 h-3.5 shrink-0 text-[#BFC7D5]" />
+            <div className="px-6 py-2 border-b border-pq-neutral-200 shrink-0 flex gap-2 text-[11px] text-pq-neutral-500">
+              <Info className="w-3.5 h-3.5 shrink-0 text-pq-neutral-400" />
               <p>
                 Suppliers without verified products may still be invited, but their quote items cannot be
                 awarded until a verified product is linked on the quotation.
@@ -600,15 +599,15 @@ export default function RfqDetailPage() {
             </div>
             <div className="flex-1 min-h-0 overflow-auto">
               {availableSuppliers.length === 0 ? (
-                <p className="text-sm text-[#BFC7D5] text-center py-10 px-6">
+                <p className="text-sm text-pq-neutral-400 text-center py-10 px-6">
                   {allSuppliers.length === 0
                     ? 'No supplier users are registered in the system.'
                     : 'All suppliers are already assigned to this RFQ.'}
                 </p>
               ) : (
                 <table className="w-full text-sm text-left">
-                  <thead className="sticky top-0 bg-[#F7F9FC] border-b border-[#D8E2FF] z-10">
-                    <tr className="text-[10px] font-semibold text-[#40527A] uppercase tracking-wide">
+                  <thead className="sticky top-0 bg-pq-neutral-50 border-b border-pq-neutral-200 z-10">
+                    <tr className="text-[10px] font-semibold text-pq-neutral-500 uppercase tracking-wide">
                       <th className="w-10 px-3 py-2.5" aria-label="Select" />
                       <th className="px-3 py-2.5">Supplier</th>
                       <th className="px-3 py-2.5 hidden md:table-cell">Email</th>
@@ -626,7 +625,7 @@ export default function RfqDetailPage() {
                       <th className="px-3 py-2.5 min-w-[160px]">Readiness</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#D8E2FF]">
+                  <tbody className="divide-y divide-pq-neutral-200">
                     {availableSuppliers.map(c => {
                       const checked = selectedIds.has(c.id);
                       const acc = accreditationLabelForCandidate(c);
@@ -634,7 +633,7 @@ export default function RfqDetailPage() {
                       return (
                         <tr
                           key={c.id}
-                          className={`hover:bg-[#F7F9FC]/80 ${checked ? 'bg-blue-50/50' : ''}`}
+                          className={`hover:bg-pq-neutral-50/80 ${checked ? 'bg-pq-primary-50/50' : ''}`}
                         >
                           <td className="px-3 py-2.5 align-top">
                             <input
@@ -646,13 +645,13 @@ export default function RfqDetailPage() {
                                 checked ? next.delete(c.id) : next.add(c.id);
                                 setSelectedIds(next);
                               }}
-                              className="w-4 h-4 rounded border-[#D8E2FF] text-[#1E4BFF] mt-1"
+                              className="w-4 h-4 rounded border-pq-neutral-200 text-pq-primary-600 mt-1"
                             />
                           </td>
-                          <td className="px-3 py-2.5 align-top font-medium text-[#0F1F3A]">
+                          <td className="px-3 py-2.5 align-top font-medium text-pq-neutral-900">
                             {c.full_name}
                           </td>
-                          <td className="px-3 py-2.5 align-top text-xs text-[#40527A] hidden md:table-cell">
+                          <td className="px-3 py-2.5 align-top text-xs text-pq-neutral-500 hidden md:table-cell">
                             {c.email && c.email.trim() !== '' ? c.email : '—'}
                           </td>
                           <td className="px-3 py-2.5 align-top">
@@ -685,8 +684,8 @@ export default function RfqDetailPage() {
                                   key={i}
                                   className={
                                     readiness.level === 'ok'
-                                      ? 'text-emerald-700 font-medium'
-                                      : 'text-amber-800'
+                                      ? 'text-pq-success-600 font-medium'
+                                      : 'text-pq-warning-600'
                                   }
                                 >
                                   {line}
@@ -702,14 +701,14 @@ export default function RfqDetailPage() {
               )}
             </div>
             {actionError && (
-              <p className="text-sm text-red-600 px-6 py-2 border-t border-[#D8E2FF]">{actionError}</p>
+              <p className="text-sm text-pq-danger-600 px-6 py-2 border-t border-pq-neutral-200">{actionError}</p>
             )}
-            <div className="px-6 py-4 flex items-center justify-end gap-3 border-t border-[#D8E2FF] shrink-0 bg-white">
+            <div className="px-6 py-4 flex items-center justify-end gap-3 border-t border-pq-neutral-200 shrink-0 bg-white">
               <button
                 type="button"
                 onClick={() => { setAssigning(false); setSelectedIds(new Set()); }}
                 disabled={working}
-                className="px-4 py-2 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
+                className="px-4 py-2 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
               >
                 Cancel
               </button>
@@ -717,7 +716,7 @@ export default function RfqDetailPage() {
                 type="button"
                 onClick={handleAssign}
                 disabled={working || selectedIds.size === 0}
-                className="px-5 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50 flex items-center gap-2"
+                className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50 flex items-center gap-2"
               >
                 {working && <Loader2 className="w-4 h-4 animate-spin" />}
                 Assign {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
@@ -739,7 +738,7 @@ function accreditationLabelForCandidate(c: CanvassSupplierCandidate): {
   if (!st) {
     return {
       label: 'No Accreditation',
-      className: 'text-[#40527A] bg-[#F7F9FC] border-[#D8E2FF]',
+      className: 'text-pq-neutral-500 bg-pq-neutral-50 border-pq-neutral-200',
       icon: null,
     };
   }
@@ -747,7 +746,7 @@ function accreditationLabelForCandidate(c: CanvassSupplierCandidate): {
     case 'approved':
       return {
         label: 'Accredited',
-        className: 'text-emerald-800 bg-emerald-50 border-emerald-200',
+        className: 'text-pq-success-600 bg-pq-success-100 border-pq-success-100',
         icon: <BadgeCheck className="w-3 h-3 shrink-0" aria-hidden />,
       };
     case 'submitted':
@@ -755,31 +754,31 @@ function accreditationLabelForCandidate(c: CanvassSupplierCandidate): {
     case 'draft':
       return {
         label: 'Pending Accreditation',
-        className: 'text-amber-800 bg-amber-50 border-amber-200',
+        className: 'text-pq-warning-600 bg-pq-warning-100 border-pq-warning-100',
         icon: null,
       };
     case 'missing_documents':
       return {
         label: 'Missing Documents',
-        className: 'text-amber-900 bg-amber-50 border-amber-200',
+        className: 'text-pq-warning-600 bg-pq-warning-100 border-pq-warning-100',
         icon: null,
       };
     case 'rejected':
       return {
         label: 'Rejected',
-        className: 'text-red-800 bg-red-50 border-red-200',
+        className: 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100',
         icon: null,
       };
     case 'withdrawn':
       return {
         label: 'Withdrawn',
-        className: 'text-slate-700 bg-slate-100 border-slate-200',
+        className: 'text-pq-neutral-500 bg-pq-neutral-100 border-pq-neutral-200',
         icon: null,
       };
     default:
       return {
         label: st.replace(/_/g, ' '),
-        className: 'text-[#40527A] bg-[#F7F9FC] border-[#D8E2FF]',
+        className: 'text-pq-neutral-500 bg-pq-neutral-50 border-pq-neutral-200',
         icon: null,
       };
   }
@@ -793,7 +792,7 @@ function productInventoryBadges(c: CanvassSupplierCandidate) {
     nodes.push(
       <span
         key="verified"
-        className={`${chip} text-emerald-800 bg-white border-emerald-200`}
+        className={`${chip} text-pq-success-600 bg-white border-pq-success-100`}
       >
         Has Verified Products
       </span>,
@@ -802,7 +801,7 @@ function productInventoryBadges(c: CanvassSupplierCandidate) {
     nodes.push(
       <span
         key="no-verified"
-        className={`${chip} text-[#40527A] bg-white border-[#D8E2FF]`}
+        className={`${chip} text-pq-neutral-500 bg-white border-pq-neutral-200`}
       >
         No Verified Products
       </span>,
@@ -812,7 +811,7 @@ function productInventoryBadges(c: CanvassSupplierCandidate) {
     nodes.push(
       <span
         key="pending-val"
-        className={`${chip} text-amber-900 bg-white border-amber-200`}
+        className={`${chip} text-pq-warning-600 bg-white border-pq-warning-100`}
       >
         Pending Validation
       </span>,
@@ -863,10 +862,10 @@ function MatrixRow({
   onSelect: (pr1ItemId: string, rfqSupplierId: string) => void;
 }) {
   return (
-    <tr className="hover:bg-[#F7F9FC] transition">
+    <tr className="hover:bg-pq-neutral-50 transition">
       <td className="px-4 py-3 align-top">
-        <p className="font-medium text-[#0F1F3A] text-xs">{row.item.description}</p>
-        <p className="text-xs text-[#BFC7D5] mt-0.5">
+        <p className="font-medium text-pq-neutral-900 text-xs">{row.item.description}</p>
+        <p className="text-xs text-pq-neutral-400 mt-0.5">
           {row.item.quantity_requested} {row.item.unit_of_measure}
         </p>
       </td>
@@ -885,24 +884,24 @@ function MatrixRow({
         return (
           <td
             key={supplier.id}
-            className={`px-4 py-3 align-top border-l border-[#D8E2FF] ${isSelected ? 'bg-emerald-50' : ''}`}
+            className={`px-4 py-3 align-top border-l border-pq-neutral-200 ${isSelected ? 'bg-pq-success-100' : ''}`}
           >
             {!quote ? (
-              <p className="text-xs text-[#BFC7D5] italic">No quote</p>
+              <p className="text-xs text-pq-neutral-400 italic">No quote</p>
             ) : explicitNoQuote ? (
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold text-rose-700">No Quote</p>
-                <p className="text-xs text-[#40527A] leading-snug">
+                <p className="text-xs text-pq-neutral-500 leading-snug">
                   {quote.no_quote_reason?.trim() || '—'}
                 </p>
                 {canSelect && (
-                  <p className="text-xs font-semibold text-amber-600">
+                  <p className="text-xs font-semibold text-pq-warning-600">
                     Can Award: No
                   </p>
                 )}
               </div>
             ) : quote.unit_price === 0 ? (
-              <p className="text-xs text-[#BFC7D5] italic">No quote</p>
+              <p className="text-xs text-pq-neutral-400 italic">No quote</p>
             ) : (
               <div className="space-y-1">
                 {/* Alternative item badges */}
@@ -912,7 +911,7 @@ function MatrixRow({
                       Alt. item
                     </span>
                     {quote.substitute_decision === 'accepted' && (
-                      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded px-1.5 py-0.5">
                         <CheckCircle2 className="w-2.5 h-2.5" /> Accepted
                       </span>
                     )}
@@ -922,7 +921,7 @@ function MatrixRow({
                       </span>
                     )}
                     {quote.substitute_decision === null && (
-                      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded px-1.5 py-0.5">
                         <Clock className="w-2.5 h-2.5" /> Pending
                       </span>
                     )}
@@ -932,12 +931,12 @@ function MatrixRow({
                 {/* Phase 7/8: catalog product line */}
                 {hasProduct && isVerified ? (
                   <div className="flex items-center gap-1 flex-wrap">
-                    <span className="inline-flex items-center gap-0.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                    <span className="inline-flex items-center gap-0.5 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded px-1.5 py-0.5">
                       <CheckCircle2 className="w-2.5 h-2.5" />
                       {quote.supplier_product_name ?? 'Verified product'}
                     </span>
                     {quote.supplier_product_code && (
-                      <span className="text-xs font-mono text-[#BFC7D5]">
+                      <span className="text-xs font-mono text-pq-neutral-400">
                         {quote.supplier_product_code}
                       </span>
                     )}
@@ -945,21 +944,21 @@ function MatrixRow({
                 ) : hasProduct && !isVerified ? (
                   // Phase 8: proposed product pending validation
                   <div className="space-y-0.5">
-                    <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 flex-wrap">
+                    <div className="flex items-center gap-1 text-xs text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded px-1.5 py-0.5 flex-wrap">
                       <AlertTriangle className="w-3 h-3 shrink-0" />
                       <span className="font-medium">
                         {quote.supplier_product_name ?? 'Proposed product'}
                         {quote.supplier_product_code ? ` (${quote.supplier_product_code})` : ''}
                       </span>
                       {isWithdrawn ? (
-                        <span className="text-amber-800 font-semibold">— Withdrawn — Cannot Award</span>
+                        <span className="text-pq-warning-600 font-semibold">— Withdrawn — Cannot Award</span>
                       ) : (
-                        <span className="text-amber-600 capitalize">
+                        <span className="text-pq-warning-600 capitalize">
                           — {(quote.supplier_product_status ?? 'pending').replace(/_/g, ' ')}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-amber-600">
+                    <div className="flex items-center gap-1 text-xs text-pq-warning-600">
                       <span>
                         {isWithdrawn
                           ? 'Supplier withdrew this catalog product — quote stays visible; cannot award.'
@@ -968,7 +967,7 @@ function MatrixRow({
                       {quote.supplier_product_id && (
                         <Link
                           href={`/accreditation/products/${quote.supplier_product_id}`}
-                          className="underline font-medium hover:text-[#0F1F3A] transition"
+                          className="underline font-medium hover:text-pq-neutral-900 transition"
                         >
                           Review →
                         </Link>
@@ -977,36 +976,36 @@ function MatrixRow({
                   </div>
                 ) : (
                   // No catalog product at all (old/legacy quote)
-                  <div className="flex items-center gap-1 text-xs text-amber-600">
+                  <div className="flex items-center gap-1 text-xs text-pq-warning-600">
                     <AlertTriangle className="w-3 h-3 shrink-0" />
                     <span className="font-medium">No catalog product — Cannot Award</span>
                   </div>
                 )}
 
-                <p className="text-xs text-[#40527A] leading-snug">{quote.quoted_description || '—'}</p>
+                <p className="text-xs text-pq-neutral-500 leading-snug">{quote.quoted_description || '—'}</p>
                 <p
                   className={`text-sm font-bold ${
                     quote.substitute_decision === 'rejected'
-                      ? 'text-[#BFC7D5] line-through'
-                      : 'text-[#0F1F3A]'
+                      ? 'text-pq-neutral-400 line-through'
+                      : 'text-pq-neutral-900'
                   }`}
                 >
                   ₱{quote.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                  <span className="text-xs font-normal text-[#BFC7D5]">
+                  <span className="text-xs font-normal text-pq-neutral-400">
                     {' '}/ {row.item.unit_of_measure}
                   </span>
                 </p>
-                <p className="text-xs text-[#BFC7D5]">
+                <p className="text-xs text-pq-neutral-400">
                   Total: ₱{quote.total_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs text-[#BFC7D5]">Lead: {quote.lead_time_days}d</p>
+                <p className="text-xs text-pq-neutral-400">Lead: {quote.lead_time_days}d</p>
                 {quote.remarks && (
-                  <p className="text-xs text-[#BFC7D5] italic">&ldquo;{quote.remarks}&rdquo;</p>
+                  <p className="text-xs text-pq-neutral-400 italic">&ldquo;{quote.remarks}&rdquo;</p>
                 )}
 
                 {/* Phase 7: Can Award indicator */}
                 {canSelect && (
-                  <p className={`text-xs font-semibold ${canAward ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  <p className={`text-xs font-semibold ${canAward ? 'text-pq-success-600' : 'text-pq-warning-600'}`}>
                     Can Award: {canAward ? 'Yes' : 'No'}
                   </p>
                 )}
@@ -1036,10 +1035,10 @@ function MatrixRow({
                       title={tooltip}
                       className={`mt-1.5 inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md transition ${
                         isSelected
-                          ? 'bg-emerald-600 text-white'
+                          ? 'bg-pq-success-600 text-white'
                           : blocked
-                            ? 'bg-[#F7F9FC] text-[#BFC7D5] cursor-not-allowed'
-                            : 'bg-[#F7F9FC] text-[#40527A] hover:bg-emerald-100 hover:text-emerald-700'
+                            ? 'bg-pq-neutral-50 text-pq-neutral-400 cursor-not-allowed'
+                            : 'bg-pq-neutral-50 text-pq-neutral-500 hover:bg-pq-success-100 hover:text-pq-success-600'
                       }`}
                     >
                       {isSelected ? (
@@ -1057,7 +1056,7 @@ function MatrixRow({
                   );
                 })()}
                 {!canSelect && isSelected && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 rounded-md px-2 py-1">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-pq-success-600 bg-pq-success-100 rounded-md px-2 py-1">
                     <CheckCircle2 className="w-3 h-3" /> Winner
                   </span>
                 )}
@@ -1086,16 +1085,16 @@ function ActionButton({
   disabled?: boolean;
 }) {
   const cls = {
-    blue:    'bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white',
-    emerald: 'bg-emerald-600 hover:bg-emerald-700 text-white',
-    slate:   'bg-white border border-[#D8E2FF] text-[#0F1F3A] hover:bg-[#F7F9FC]',
+    blue:    'bg-pq-primary-600 hover:bg-pq-neutral-900 text-white',
+    emerald: 'bg-pq-success-600 hover:bg-pq-success-600 text-white',
+    slate:   'bg-white border border-pq-neutral-200 text-pq-neutral-900 hover:bg-pq-neutral-50',
   }[color];
 
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-[4px] transition disabled:opacity-40 ${cls}`}
+      className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-md transition disabled:opacity-40 ${cls}`}
     >
       <Icon className="w-4 h-4" />
       {label}

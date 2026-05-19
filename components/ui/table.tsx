@@ -20,7 +20,8 @@ const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn('[&_tr]:border-b', className)} {...props} />
+  /* v2.0: Upgraded header background to light neutral token and standardized border */
+  <thead ref={ref} className={cn('[&_tr]:border-b [&_tr]:border-pq-neutral-200 bg-pq-neutral-50', className)} {...props} />
 ));
 TableHeader.displayName = 'TableHeader';
 
@@ -42,8 +43,9 @@ const TableFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tfoot
     ref={ref}
+    /* v2.0: Upgraded footer background and borders */
     className={cn(
-      'border-t bg-muted/50 font-medium [&>tr]:last:border-b-0',
+      'border-t border-pq-neutral-200 bg-pq-neutral-50 font-medium [&>tr]:last:border-b-0',
       className
     )}
     {...props}
@@ -57,8 +59,9 @@ const TableRow = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tr
     ref={ref}
+    /* v2.0: Unified border and custom state-based neutral token backgrounds */
     className={cn(
-      'border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted',
+      'border-b border-pq-neutral-200 transition-colors hover:bg-pq-neutral-50 data-[state=selected]:bg-pq-neutral-100',
       className
     )}
     {...props}
@@ -72,8 +75,9 @@ const TableHead = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <th
     ref={ref}
+    /* v2.0: Standardized header typography weight and color using pq-neutral-600 */
     className={cn(
-      'h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0',
+      'h-12 px-4 text-left align-middle font-semibold text-pq-neutral-600 [&:has([role=checkbox])]:pr-0',
       className
     )}
     {...props}
@@ -87,7 +91,8 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn('p-4 align-middle [&:has([role=checkbox])]:pr-0', className)}
+    /* v2.0: Standardized cell text color using pq-neutral-700 */
+    className={cn('p-4 align-middle text-pq-neutral-700 [&:has([role=checkbox])]:pr-0', className)}
     {...props}
   />
 ));
@@ -99,7 +104,7 @@ const TableCaption = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <caption
     ref={ref}
-    className={cn('mt-4 text-sm text-muted-foreground', className)}
+    className={cn('mt-4 text-sm text-pq-neutral-500', className)}
     {...props}
   />
 ));

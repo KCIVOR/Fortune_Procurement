@@ -7,6 +7,7 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import ComplianceTraceability from '@/components/shared/ComplianceTraceability';
 import LoadingState from '@/components/shared/LoadingState';
+import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { useAuth } from '@/context/AuthContext';
@@ -43,6 +44,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { FileUpload } from '@/components/shared/FileUpload';
+import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,14 +62,14 @@ import {
 
 function productChip(status: string): { variant: StatusVariant; label: string } {
   const map: Record<string, { variant: StatusVariant; label: string }> = {
-    draft:        { variant: 'draft',     label: 'Draft' },
-    submitted:    { variant: 'pending',   label: 'Submitted' },
+    draft: { variant: 'draft', label: 'Draft' },
+    submitted: { variant: 'pending', label: 'Submitted' },
     under_review: { variant: 'in_review', label: 'Under Procurement Review' },
     pending_tsqa: { variant: 'in_review', label: 'Under Technical Evaluation' },
-    verified:     { variant: 'validated', label: 'Verified' },
-    rejected:     { variant: 'rejected',  label: 'Rejected' },
-    inactive:     { variant: 'cancelled', label: 'Inactive' },
-    withdrawn:    { variant: 'cancelled', label: 'Withdrawn' },
+    verified: { variant: 'validated', label: 'Verified' },
+    rejected: { variant: 'rejected', label: 'Rejected' },
+    inactive: { variant: 'cancelled', label: 'Inactive' },
+    withdrawn: { variant: 'cancelled', label: 'Withdrawn' },
   };
   return map[status] ?? { variant: 'draft', label: status };
 }
@@ -74,59 +77,59 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 // ─── Document upload constants ────────────────────────────────────────────────
 
 const DOC_TYPE_OPTIONS = [
-  { value: 'tds',                   label: 'Technical Data Sheet (TDS)' },
-  { value: 'msds',                  label: 'MSDS / Safety Data Sheet' },
+  { value: 'tds', label: 'Technical Data Sheet (TDS)' },
+  { value: 'msds', label: 'MSDS / Safety Data Sheet' },
   { value: 'product_specification', label: 'Product Specification' },
-  { value: 'certification',         label: 'Certification' },
-  { value: 'company_profile',       label: 'Company Profile' },
-  { value: 'other',                 label: 'Other' },
+  { value: 'certification', label: 'Certification' },
+  { value: 'company_profile', label: 'Company Profile' },
+  { value: 'other', label: 'Other' },
 ];
 
 function validateDocFile(file: File): string | null {
   const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png']);
   if (!allowed.has(file.type || '')) return 'Allowed types: PDF, JPG, or PNG only.';
-  if (file.size > 20 * 1024 * 1024)   return 'File must be 20 MB or smaller.';
+  if (file.size > 20 * 1024 * 1024) return 'File must be 20 MB or smaller.';
   return null;
 }
 
 // ─── Form state type ─────────────────────────────────────────────────────────
 
 interface ProductForm {
-  product_name:   string;
-  product_code:   string;
-  category:       string;
-  description:    string;
+  product_name: string;
+  product_code: string;
+  category: string;
+  description: string;
   specifications: string;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SupplierProductDetailPage() {
-  const { id }      = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
 
   const [product, setProduct] = useState<SupplierProduct | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
+  const [error, setError] = useState('');
 
-  const [editing, setEditing]     = useState(false);
-  const [form, setForm]           = useState<ProductForm>({
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<ProductForm>({
     product_name: '', product_code: '', category: '', description: '', specifications: '',
   });
-  const [busy, setBusy]               = useState(false);
-  const [formError, setFormError]     = useState('');
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState('');
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
 
-  const [rseRecords, setRseRecords]   = useState<RSEWithReview[]>([]);
+  const [rseRecords, setRseRecords] = useState<RSEWithReview[]>([]);
 
-  const [documents, setDocuments]     = useState<SupplierDocument[]>([]);
+  const [documents, setDocuments] = useState<SupplierDocument[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
-  const [docType, setDocType]         = useState('tds');
-  const [docFile, setDocFile]         = useState<File | null>(null);
-  const [uploadBusy, setUploadBusy]   = useState(false);
+  const [docType, setDocType] = useState('tds');
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const fileInputRef                  = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadDocs = useCallback(async (productId: string) => {
     setDocsLoading(true);
@@ -149,10 +152,10 @@ export default function SupplierProductDetailPage() {
       if (!p) { setError('Product not found.'); return; }
       setProduct(p);
       setForm({
-        product_name:   p.product_name,
-        product_code:   p.product_code   ?? '',
-        category:       p.category       ?? '',
-        description:    p.description    ?? '',
+        product_name: p.product_name,
+        product_code: p.product_code ?? '',
+        category: p.category ?? '',
+        description: p.description ?? '',
         specifications: p.specifications ?? '',
       });
       const [, rse] = await Promise.all([
@@ -186,10 +189,10 @@ export default function SupplierProductDetailPage() {
       await updateSupplierProduct(
         product.id,
         {
-          product_name:   form.product_name,
-          product_code:   form.product_code.trim()   || null,
-          category:       form.category.trim()       || null,
-          description:    form.description.trim()    || null,
+          product_name: form.product_name,
+          product_code: form.product_code.trim() || null,
+          category: form.category.trim() || null,
+          description: form.description.trim() || null,
           specifications: form.specifications.trim() || null,
         },
         profile
@@ -207,10 +210,10 @@ export default function SupplierProductDetailPage() {
   const handleCancelEdit = () => {
     if (!product) return;
     setForm({
-      product_name:   product.product_name,
-      product_code:   product.product_code   ?? '',
-      category:       product.category       ?? '',
-      description:    product.description    ?? '',
+      product_name: product.product_name,
+      product_code: product.product_code ?? '',
+      category: product.category ?? '',
+      description: product.description ?? '',
       specifications: product.specifications ?? '',
     });
     setFormError('');
@@ -267,10 +270,10 @@ export default function SupplierProductDetailPage() {
     }
   };
 
-  const isDraft    = product?.status === 'draft';
+  const isDraft = product?.status === 'draft';
   const isWithdrawn = product?.status === 'withdrawn';
-  const chip       = product ? productChip(product.status) : null;
-  const canOffer   = product?.status === 'verified';
+  const chip = product ? productChip(product.status) : null;
+  const canOffer = product?.status === 'verified';
   const canWithdraw =
     product?.status === 'draft' || product?.status === 'submitted';
 
@@ -282,7 +285,7 @@ export default function SupplierProductDetailPage() {
       <div className="mb-4">
         <Link
           href="/supplier/products"
-          className="inline-flex items-center gap-1 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
+          className="inline-flex items-center gap-1 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
         >
           <ChevronLeft className="w-4 h-4" />
           Back to Products
@@ -290,11 +293,9 @@ export default function SupplierProductDetailPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <LoadingState message="Loading product…" />
-        </div>
+        <DetailPageSkeleton />
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
       ) : !product ? null : (
@@ -313,16 +314,15 @@ export default function SupplierProductDetailPage() {
 
           {/* ── Can Offer banner ── */}
           <div
-            className={`rounded-[4px] border px-4 py-3 flex items-center gap-2.5 text-sm font-medium ${
-              canOffer
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                : 'bg-[#F7F9FC] border-[#D8E2FF] text-[#40527A]'
-            }`}
+            className={`rounded-md border px-4 py-3 flex items-center gap-2.5 text-sm font-medium ${canOffer
+                ? 'bg-pq-success-100 border-pq-success-100 text-pq-success-600'
+                : 'bg-pq-neutral-50 border-pq-neutral-200 text-pq-neutral-500'
+              }`}
           >
             {canOffer ? (
               <CheckCircle2 className="w-4 h-4 shrink-0" />
             ) : (
-              <Circle className="w-4 h-4 shrink-0 text-[#BFC7D5]" />
+              <Circle className="w-4 h-4 shrink-0 text-pq-neutral-400" />
             )}
             <span>
               {canOffer
@@ -338,20 +338,20 @@ export default function SupplierProductDetailPage() {
           )}
 
           {isWithdrawn && (
-            <div className="rounded-[4px] border border-[#D8E2FF] bg-[#F7F9FC] px-4 py-3 text-sm text-[#40527A]">
+            <div className="rounded-md border border-pq-neutral-200 bg-pq-neutral-50 px-4 py-3 text-sm text-pq-neutral-500">
               This product was withdrawn. It remains on file for audit; documents below are view-only.
             </div>
           )}
 
           {/* ── Product details card ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#D8E2FF]">
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Product Details</h2>
+          <div className="bg-white rounded-md border border-pq-neutral-200">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">Product Details</h2>
               {isDraft && !editing && !isWithdrawn && (
                 <button
                   type="button"
                   onClick={() => { setEditing(true); setActionSuccess(''); }}
-                  className="flex items-center gap-1.5 text-xs font-medium text-[#1E4BFF] hover:text-[#0F1F3A] transition"
+                  className="flex items-center gap-1.5 text-xs font-medium text-pq-primary-600 hover:text-pq-neutral-900 transition"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                   Edit
@@ -361,7 +361,7 @@ export default function SupplierProductDetailPage() {
                 <button
                   type="button"
                   onClick={handleCancelEdit}
-                  className="flex items-center gap-1.5 text-xs font-medium text-[#40527A] hover:text-[#0F1F3A] transition"
+                  className="flex items-center gap-1.5 text-xs font-medium text-pq-neutral-500 hover:text-pq-neutral-900 transition"
                 >
                   <X className="w-3.5 h-3.5" />
                   Cancel
@@ -374,7 +374,7 @@ export default function SupplierProductDetailPage() {
               {isDraft && editing ? (
                 <>
                   {formError && (
-                    <div className="bg-red-50 border border-red-200 rounded-[4px] p-3 text-sm text-red-700">
+                    <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
                       {formError}
                     </div>
                   )}
@@ -385,7 +385,7 @@ export default function SupplierProductDetailPage() {
                       name="product_name"
                       value={form.product_name}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+                      className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
                     />
                   </FormField>
 
@@ -396,7 +396,7 @@ export default function SupplierProductDetailPage() {
                         name="product_code"
                         value={form.product_code}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
                       />
                     </FormField>
                     <FormField label="Category">
@@ -405,7 +405,7 @@ export default function SupplierProductDetailPage() {
                         name="category"
                         value={form.category}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
                       />
                     </FormField>
                   </div>
@@ -416,7 +416,7 @@ export default function SupplierProductDetailPage() {
                       value={form.description}
                       onChange={handleChange}
                       rows={3}
-                      className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                      className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                     />
                   </FormField>
 
@@ -426,7 +426,7 @@ export default function SupplierProductDetailPage() {
                       value={form.specifications}
                       onChange={handleChange}
                       rows={5}
-                      className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                      className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                     />
                   </FormField>
 
@@ -434,7 +434,7 @@ export default function SupplierProductDetailPage() {
                     type="button"
                     onClick={handleSave}
                     disabled={busy}
-                    className="px-5 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                    className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                   >
                     {busy ? 'Saving…' : 'Save Changes'}
                   </button>
@@ -443,7 +443,7 @@ export default function SupplierProductDetailPage() {
                 /* Read-only view */
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <InfoField label="Product Code" value={product.product_code ?? '—'} />
-                  <InfoField label="Category"     value={product.category     ?? '—'} />
+                  <InfoField label="Category" value={product.category ?? '—'} />
                   {product.description && (
                     <div className="sm:col-span-2">
                       <InfoField label="Description" value={product.description} />
@@ -479,12 +479,12 @@ export default function SupplierProductDetailPage() {
             {/* Procurement review notes */}
             {product.review_notes && (
               <div className="px-5 pb-5">
-                <div className="bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] p-3">
-                  <p className="text-xs font-semibold text-[#40527A] mb-1 flex items-center gap-1.5">
+                <div className="bg-pq-neutral-50 border border-pq-neutral-200 rounded-md p-3">
+                  <p className="text-xs font-semibold text-pq-neutral-500 mb-1 flex items-center gap-1.5">
                     <AlertCircle className="w-3.5 h-3.5" />
                     Procurement Review Notes
                   </p>
-                  <p className="text-sm text-[#0F1F3A]">{product.review_notes}</p>
+                  <p className="text-sm text-pq-neutral-900">{product.review_notes}</p>
                 </div>
               </div>
             )}
@@ -492,14 +492,14 @@ export default function SupplierProductDetailPage() {
 
           {/* ── Submit for review (draft only) ── */}
           {isDraft && !editing && !isWithdrawn && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-3">
+            <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-3">
               {actionError && (
-                <div className="bg-red-50 border border-red-200 rounded-[4px] p-3 text-sm text-red-700">
+                <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
                   {actionError}
                 </div>
               )}
               {actionSuccess && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] p-3 text-sm text-emerald-700 flex items-center gap-2">
+                <div className="bg-pq-success-100 border border-pq-success-100 rounded-md p-3 text-sm text-pq-success-600 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   {actionSuccess}
                 </div>
@@ -509,40 +509,40 @@ export default function SupplierProductDetailPage() {
                   type="button"
                   onClick={handleSubmitForReview}
                   disabled={busy}
-                  className="flex items-center gap-1.5 px-5 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                 >
                   <Package className="w-4 h-4" />
                   {busy ? 'Submitting…' : 'Submit for Procurement Review'}
                 </button>
               </div>
-              <p className="text-xs text-[#BFC7D5]">
+              <p className="text-xs text-pq-neutral-400">
                 Upload supporting documents below before submitting. Once submitted, you cannot
                 edit this product until the review is complete.
               </p>
               {canWithdraw && profile && (
-                <div className="pt-2 border-t border-[#D8E2FF] mt-3">
+                <div className="pt-2 border-t border-pq-neutral-200 mt-3">
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button
                         type="button"
                         disabled={busy}
-                        className="px-4 py-2 text-sm font-semibold text-[#40527A] bg-white border border-[#D8E2FF] rounded-[4px] hover:bg-[#F7F9FC] transition disabled:opacity-50"
+                        className="px-4 py-2 text-sm font-semibold text-pq-neutral-500 bg-white border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-50 transition disabled:opacity-50"
                       >
                         Withdraw Product
                       </button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent className="bg-white border-[#D8E2FF]">
+                    <AlertDialogContent className="bg-white border-pq-neutral-200">
                       <AlertDialogHeader>
                         <AlertDialogTitle>Withdraw this product?</AlertDialogTitle>
-                        <AlertDialogDescription className="text-[#40527A]">
+                        <AlertDialogDescription className="text-pq-neutral-500">
                           Your product record and uploaded documents stay on file for audit. Procurement will not
                           validate or award this listing while it is withdrawn.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel className="border-[#D8E2FF]">Back</AlertDialogCancel>
+                        <AlertDialogCancel className="border-pq-neutral-200">Back</AlertDialogCancel>
                         <AlertDialogAction
-                          className="bg-red-600 hover:bg-red-700 text-white"
+                          className="bg-pq-danger-600 hover:bg-pq-danger-600 text-white"
                           onClick={async () => {
                             if (!profile || !product) return;
                             setBusy(true);
@@ -573,29 +573,29 @@ export default function SupplierProductDetailPage() {
 
           {/* Withdraw — submitted (not in draft submit card) */}
           {!isDraft && product.status === 'submitted' && profile && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-3">
+            <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-3">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <button
                     type="button"
                     disabled={busy}
-                    className="px-4 py-2 text-sm font-semibold text-[#40527A] bg-white border border-[#D8E2FF] rounded-[4px] hover:bg-[#F7F9FC] transition disabled:opacity-50"
+                    className="px-4 py-2 text-sm font-semibold text-pq-neutral-500 bg-white border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-50 transition disabled:opacity-50"
                   >
                     Withdraw Product
                   </button>
                 </AlertDialogTrigger>
-                <AlertDialogContent className="bg-white border-[#D8E2FF]">
+                <AlertDialogContent className="bg-white border-pq-neutral-200">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Withdraw this product?</AlertDialogTitle>
-                    <AlertDialogDescription className="text-[#40527A]">
+                    <AlertDialogDescription className="text-pq-neutral-500">
                       Your product record and uploaded documents stay on file for audit. It will be removed from
                       the Procurement review queue.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel className="border-[#D8E2FF]">Back</AlertDialogCancel>
+                    <AlertDialogCancel className="border-pq-neutral-200">Back</AlertDialogCancel>
                     <AlertDialogAction
-                      className="bg-red-600 hover:bg-red-700 text-white"
+                      className="bg-pq-danger-600 hover:bg-pq-danger-600 text-white"
                       onClick={async () => {
                         if (!profile || !product) return;
                         setBusy(true);
@@ -619,7 +619,7 @@ export default function SupplierProductDetailPage() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              <p className="text-xs text-[#BFC7D5]">
+              <p className="text-xs text-pq-neutral-400">
                 Available while the product is a draft or awaiting Procurement review.
               </p>
             </div>
@@ -627,33 +627,33 @@ export default function SupplierProductDetailPage() {
 
           {/* Success / errors for non-draft (e.g. after submit or withdraw from submitted) */}
           {!isDraft && actionError && (
-            <div className="bg-red-50 border border-red-200 rounded-[4px] p-3 text-sm text-red-700">
+            <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
               {actionError}
             </div>
           )}
           {!isDraft && actionSuccess && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] p-3 text-sm text-emerald-700 flex items-center gap-2">
+            <div className="bg-pq-success-100 border border-pq-success-100 rounded-md p-3 text-sm text-pq-success-600 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               {actionSuccess}
             </div>
           )}
 
           {/* ── Product documents ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Product Documents</h2>
-              <span className="text-xs text-[#BFC7D5]">
+          <div className="bg-white rounded-md border border-pq-neutral-200">
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">Product Documents</h2>
+              <span className="text-xs text-pq-neutral-400">
                 {documents.length} file{documents.length !== 1 ? 's' : ''}
               </span>
             </div>
 
             {/* Upload form */}
-            <div className="p-5 border-b border-[#D8E2FF] space-y-3">
-              <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+            <div className="p-5 border-b border-pq-neutral-200 space-y-3">
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                 Upload Document
               </p>
               {isWithdrawn ? (
-                <p className="text-sm text-[#40527A]">
+                <p className="text-sm text-pq-neutral-500">
                   Uploads are disabled for withdrawn products. You can still view documents below.
                 </p>
               ) : (
@@ -661,7 +661,7 @@ export default function SupplierProductDetailPage() {
                   <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center flex-wrap">
                     <div className="w-full sm:w-52">
                       <Select value={docType} onValueChange={setDocType}>
-                        <SelectTrigger className="text-sm border-[#D8E2FF]">
+                        <SelectTrigger className="text-sm border-pq-neutral-200">
                           <SelectValue placeholder="Document type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -674,35 +674,40 @@ export default function SupplierProductDetailPage() {
                       </Select>
                     </div>
 
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      className="sr-only"
-                      onChange={handleFileChange}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition whitespace-nowrap"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      {docFile ? docFile.name : 'Choose File'}
-                    </button>
+                    <div className="flex-1 w-full min-w-[200px]">
+                      <FileUpload
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        selectedFileName={docFile?.name}
+                        onFileSelect={(file) => {
+                          const err = validateDocFile(file);
+                          if (err) {
+                            setUploadError(err);
+                            setDocFile(null);
+                          } else {
+                            setUploadError('');
+                            setDocFile(file);
+                          }
+                        }}
+                        onFileRemove={() => {
+                          setDocFile(null);
+                          setUploadError('');
+                        }}
+                        error={uploadError}
+                        isLoading={uploadBusy}
+                      />
+                    </div>
 
                     {docFile && (
-                      <button
+                      <Button
                         type="button"
                         onClick={handleUpload}
                         disabled={uploadBusy}
-                        className="px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+                        className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition whitespace-nowrap self-end"
                       >
                         {uploadBusy ? 'Uploading…' : 'Upload'}
-                      </button>
+                      </Button>
                     )}
                   </div>
-                  {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
-                  <p className="text-xs text-[#BFC7D5]">Accepted: PDF, JPG, PNG · Max 20 MB</p>
                 </>
               )}
             </div>
@@ -714,17 +719,17 @@ export default function SupplierProductDetailPage() {
               </div>
             ) : documents.length === 0 ? (
               <div className="p-8 text-center">
-                <FileText className="w-6 h-6 text-[#BFC7D5] mx-auto mb-2" />
-                <p className="text-sm text-[#40527A]">No documents uploaded yet.</p>
+                <FileText className="w-6 h-6 text-pq-neutral-400 mx-auto mb-2" />
+                <p className="text-sm text-pq-neutral-500">No documents uploaded yet.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {documents.map(doc => (
                   <div key={doc.id} className="flex items-center gap-3 px-5 py-3.5">
-                    <FileText className="w-4 h-4 text-[#BFC7D5] shrink-0" />
+                    <FileText className="w-4 h-4 text-pq-neutral-400 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[#0F1F3A] truncate">{doc.file_name}</p>
-                      <p className="text-xs text-[#BFC7D5]">
+                      <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
+                      <p className="text-xs text-pq-neutral-400">
                         {DOC_TYPE_OPTIONS.find(o => o.value === doc.document_type)?.label ??
                           doc.document_type}
                         {' · '}
@@ -734,7 +739,7 @@ export default function SupplierProductDetailPage() {
                     <button
                       type="button"
                       onClick={() => handleViewDocument(doc.file_path)}
-                      className="shrink-0 flex items-center gap-1 text-xs text-[#1E4BFF] hover:text-[#0F1F3A] transition"
+                      className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       View
@@ -747,11 +752,11 @@ export default function SupplierProductDetailPage() {
 
           {/* ── TSQA / RSE evaluation section (read-only for supplier) ── */}
           {rseRecords.length > 0 && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-              <div className="px-5 py-3.5 border-b border-[#D8E2FF]">
-                <h2 className="text-sm font-semibold text-[#0F1F3A]">Technical Evaluation (RSE)</h2>
+            <div className="bg-white rounded-md border border-pq-neutral-200">
+              <div className="px-5 py-3.5 border-b border-pq-neutral-200">
+                <h2 className="text-sm font-semibold text-pq-neutral-900">Technical Evaluation (RSE)</h2>
               </div>
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {rseRecords.map(rse => (
                   <SupplierRSERow key={rse.id} rse={rse} />
                 ))}
@@ -760,7 +765,7 @@ export default function SupplierProductDetailPage() {
           )}
 
           {product?.status === 'pending_tsqa' && rseRecords.length === 0 && (
-            <div className="bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-4 py-3 text-sm text-[#40527A]">
+            <div className="bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-4 py-3 text-sm text-pq-neutral-500">
               This product is currently under technical evaluation by TSQA. Results will be reflected here once complete.
             </div>
           )}
@@ -776,8 +781,8 @@ export default function SupplierProductDetailPage() {
 function InfoField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-[#BFC7D5] mb-0.5">{label}</p>
-      <p className="text-sm text-[#0F1F3A] whitespace-pre-wrap">{value}</p>
+      <p className="text-xs text-pq-neutral-400 mb-0.5">{label}</p>
+      <p className="text-sm text-pq-neutral-900 whitespace-pre-wrap">{value}</p>
     </div>
   );
 }
@@ -787,15 +792,15 @@ function FormField({
   required,
   children,
 }: {
-  label:    string;
+  label: string;
   required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+      <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-pq-danger-600 ml-0.5">*</span>}
       </label>
       {children}
     </div>
@@ -805,18 +810,18 @@ function FormField({
 function SupplierRSERow({ rse }: { rse: RSEWithReview }) {
   const resultColor =
     rse.tsqa_result === 'passed'
-      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+      ? 'text-pq-success-600 bg-pq-success-100 border-pq-success-100'
       : rse.tsqa_result === 'failed'
-      ? 'text-red-700 bg-red-50 border-red-200'
-      : 'text-[#40527A] bg-[#F7F9FC] border-[#D8E2FF]';
+        ? 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100'
+        : 'text-pq-neutral-500 bg-pq-neutral-50 border-pq-neutral-200';
 
   return (
     <div className="px-5 py-4 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="font-mono text-xs font-bold text-[#0F1F3A]">
+        <span className="font-mono text-xs font-bold text-pq-neutral-900">
           {rse.rse_number ?? rse.id.slice(0, 8).toUpperCase()}
         </span>
-        <span className="text-xs text-[#BFC7D5]">RSE Status: {rse.status.replace(/_/g, ' ')}</span>
+        <span className="text-xs text-pq-neutral-400">RSE Status: {rse.status.replace(/_/g, ' ')}</span>
         {rse.tsqa_result && (
           <span className={`inline-flex items-center gap-1 text-xs font-medium border rounded-full px-2.5 py-1 ${resultColor}`}>
             {rse.tsqa_result === 'passed' ? (
@@ -829,17 +834,17 @@ function SupplierRSERow({ rse }: { rse: RSEWithReview }) {
         )}
       </div>
       {rse.tsqa_remarks && (
-        <p className="text-xs text-[#40527A]">
+        <p className="text-xs text-pq-neutral-500">
           <span className="font-semibold">Remarks:</span> {rse.tsqa_remarks}
         </p>
       )}
       {rse.tsqa_test_findings && (
-        <p className="text-xs text-[#40527A]">
+        <p className="text-xs text-pq-neutral-500">
           <span className="font-semibold">Test Findings:</span> {rse.tsqa_test_findings}
         </p>
       )}
       {rse.completed_at && (
-        <p className="text-xs text-[#BFC7D5]">
+        <p className="text-xs text-pq-neutral-400">
           Completed {format(new Date(rse.completed_at), 'MMM d, yyyy')}
         </p>
       )}

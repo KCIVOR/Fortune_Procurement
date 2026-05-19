@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+﻿import { cn } from '@/lib/utils';
 
 interface LoadingStateProps {
   message?: string;
@@ -11,9 +11,9 @@ export default function LoadingState({ message, className, size = 'md' }: Loadin
 
   return (
     <div className={cn('flex flex-col items-center justify-center gap-3', className)}>
-      <div className={cn('border-2 border-[#D8E2FF] border-t-[#1E4BFF] rounded-full animate-spin', spinnerSize)} />
+      <div className={cn('border-2 border-pq-neutral-200 border-t-pq-primary-600 rounded-full animate-spin', spinnerSize)} />
       {message && (
-        <p className="text-sm text-[#40527A]">{message}</p>
+        <p className="text-sm text-pq-neutral-500">{message}</p>
       )}
     </div>
   );

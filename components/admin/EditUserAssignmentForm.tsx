@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -75,9 +75,9 @@ export default function EditUserAssignmentForm({
 
   if (success) {
     return (
-      <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-        <h3 className="font-semibold text-green-900 mb-2">Success</h3>
-        <p className="text-sm text-green-800">User assignment updated successfully. Redirecting...</p>
+      <div className="bg-pq-success-100 border border-pq-success-100 rounded-lg p-6">
+        <h3 className="font-semibold text-pq-success-600 mb-2">Success</h3>
+        <p className="text-sm text-pq-success-600">User assignment updated successfully. Redirecting...</p>
       </div>
     );
   }
@@ -86,22 +86,22 @@ export default function EditUserAssignmentForm({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h3 className="text-lg font-semibold text-[#0F1F3A]">Edit Assignment</h3>
-        <p className="text-sm text-[#40527A] mt-1">{user.full_name}</p>
+        <h3 className="text-lg font-semibold text-pq-neutral-900">Edit Assignment</h3>
+        <p className="text-sm text-pq-neutral-500 mt-1">{user.full_name}</p>
       </div>
 
       {/* Error Alert */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-sm text-red-800">{error}</p>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-4">
+          <p className="text-sm text-pq-danger-600">{error}</p>
         </div>
       )}
 
       {/* Inactive Assignment Warning */}
       {(inactivePosition || inactiveDepartment) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <p className="text-xs font-semibold text-amber-900 mb-2">Inactive Assignment</p>
-          <p className="text-xs text-amber-800">
+        <div className="bg-pq-warning-100 border border-pq-warning-100 rounded-lg p-4">
+          <p className="text-xs font-semibold text-pq-warning-600 mb-2">Inactive Assignment</p>
+          <p className="text-xs text-pq-warning-600">
             This user is assigned to an inactive {inactivePosition ? 'position' : ''}{inactivePosition && inactiveDepartment ? ' and ' : ''}{inactiveDepartment ? 'department' : ''}. Choose an active replacement if needed.
           </p>
         </div>
@@ -111,7 +111,7 @@ export default function EditUserAssignmentForm({
       <div className="space-y-4">
         {/* Role */}
         <div className="space-y-2">
-          <Label htmlFor="role" className="text-xs font-medium text-[#40527A]">
+          <Label htmlFor="role" className="text-xs font-medium text-pq-neutral-500">
             Role
           </Label>
           <Select value={selectedRole} onValueChange={setSelectedRole} disabled={isSaving}>
@@ -131,7 +131,7 @@ export default function EditUserAssignmentForm({
 
         {/* Position */}
         <div className="space-y-2">
-          <Label htmlFor="position" className="text-xs font-medium text-[#40527A]">
+          <Label htmlFor="position" className="text-xs font-medium text-pq-neutral-500">
             Position
           </Label>
           <Select value={selectedPosition} onValueChange={setSelectedPosition} disabled={isSaving}>
@@ -152,14 +152,14 @@ export default function EditUserAssignmentForm({
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-[#BFC7D5] mt-1">
+          <p className="text-xs text-pq-neutral-400 mt-1">
             Note: Active positions shown. Verify role compatibility when assigning.
           </p>
         </div>
 
         {/* Department */}
         <div className="space-y-2">
-          <Label htmlFor="dept" className="text-xs font-medium text-[#40527A]">
+          <Label htmlFor="dept" className="text-xs font-medium text-pq-neutral-500">
             Department
           </Label>
           <Select value={selectedDept} onValueChange={setSelectedDept} disabled={isSaving}>
@@ -184,9 +184,9 @@ export default function EditUserAssignmentForm({
       </div>
 
       {/* Current Values */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="text-xs font-semibold text-blue-900 mb-2">Current Assignment</h4>
-        <div className="space-y-1 text-xs text-blue-800">
+      <div className="bg-pq-primary-50 border border-pq-primary-200 rounded-lg p-4">
+        <h4 className="text-xs font-semibold text-pq-primary-900 mb-2">Current Assignment</h4>
+        <div className="space-y-1 text-xs text-pq-primary-600">
           <p>Role: {user.role_name || '—'}</p>
           <p>Position: {user.position_title || '—'}</p>
           <p>Department: {user.department_name || '—'}</p>
@@ -198,7 +198,7 @@ export default function EditUserAssignmentForm({
         <Button
           onClick={handleSave}
           disabled={isSaving || !hasChanges}
-          className="bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-medium"
+          className="bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-medium"
         >
           {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>

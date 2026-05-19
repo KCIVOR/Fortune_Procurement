@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { cn } from '@/lib/utils';
 
 export default function DetailInfoField({
@@ -25,12 +25,12 @@ export default function DetailInfoField({
       <div className={cn('flex items-start gap-2.5', className)}>
         {icon}
         <div className="min-w-0">
-          <div className="text-xs text-[#BFC7D5] uppercase tracking-wide font-semibold">
+          <div className="text-xs text-pq-neutral-400 uppercase tracking-wide font-semibold">
             {label}
           </div>
           <div
             className={cn(
-              'text-sm text-[#0F1F3A] mt-0.5 font-medium',
+              'text-sm text-pq-neutral-900 mt-0.5 font-medium',
               valueClassName
             )}
           >
@@ -53,13 +53,13 @@ export default function DetailInfoField({
         <div
           className={cn(
             'text-xs font-semibold uppercase tracking-wide',
-            labelTone === 'muted' ? 'text-[#BFC7D5]' : 'text-[#40527A]'
+            labelTone === 'muted' ? 'text-pq-neutral-400' : 'text-pq-neutral-500'
           )}
         >
           {label}
         </div>
       </div>
-      <div className={cn('text-sm text-[#0F1F3A] font-medium', valueClassName)}>
+      <div className={cn('text-sm text-pq-neutral-900 font-medium', valueClassName)}>
         {value}
       </div>
     </div>

@@ -1,5 +1,6 @@
 'use client';
 
+// ProcureIQ v2.0: Toaster component integration with mapped White Mode theme structures
 import { useToast } from '@/hooks/use-toast';
 import {
   Toast,

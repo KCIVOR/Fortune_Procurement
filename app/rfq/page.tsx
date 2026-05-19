@@ -6,6 +6,7 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
+import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
 import { fetchCanvassingQueuePaged, createRfq } from '@/lib/canvassing';
 import { useAuth } from '@/context/AuthContext';
@@ -23,10 +24,10 @@ const RFQ_STATUS_LABEL: Record<string, string> = {
 };
 
 const RFQ_STATUS_COLOR: Record<string, string> = {
-  draft:     'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]',
-  open:      'bg-amber-50 text-amber-700 border-amber-200',
-  closed:    'bg-emerald-50 text-emerald-700 border-emerald-200',
-  cancelled: 'bg-red-50 text-red-600 border-red-200',
+  draft:     'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
+  open:      'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
+  closed:    'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
+  cancelled: 'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
 };
 
 export default function RFQQueuePage() {
@@ -100,13 +101,13 @@ export default function RFQQueuePage() {
         description="PR1s approved for canvassing. Create and manage RFQs to collect supplier quotations."
       />
 
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-4">
-        <Label htmlFor="rfq-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide block mb-1.5">
+      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-4">
+        <Label htmlFor="rfq-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide block mb-1.5">
           Search
         </Label>
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BFC7D5]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
             <input
               id="rfq-search"
               type="text"
@@ -115,14 +116,14 @@ export default function RFQQueuePage() {
               onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
               placeholder="PR1 number, purpose, department, requester, or RFQ number…"
               disabled={loading}
-              className="w-full pl-9 pr-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+              className="w-full pl-9 pr-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
             />
           </div>
           <button
             type="button"
             onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
             disabled={loading}
-            className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+            className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
           >
             Apply
           </button>
@@ -130,7 +131,7 @@ export default function RFQQueuePage() {
             type="button"
             onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
             disabled={loading}
-            className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] disabled:opacity-50 transition whitespace-nowrap"
+            className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
           >
             Clear
           </button>
@@ -138,13 +139,11 @@ export default function RFQQueuePage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <LoadingState message="Loading queue..." />
-        </div>
+        <TableSkeleton rows={5} cols={5} />
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">{error}</div>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">{error}</div>
       ) : rows.length === 0 ? (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
+        <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title={appliedSearch.trim() ? 'No matching PR1s' : 'No PR1s for canvassing'}
             description={
@@ -165,7 +164,7 @@ export default function RFQQueuePage() {
 
           {noRfq.length > 0 && (
             <Section title="Awaiting RFQ" accent="amber" count={noRfq.length}>
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {noRfq.map(row => (
                   <QueueRow key={row.pr1_id} row={row} onCreateRfq={handleOpenCreate} />
                 ))}
@@ -175,7 +174,7 @@ export default function RFQQueuePage() {
 
           {hasRfq.length > 0 && (
             <Section title="RFQ Issued" accent="slate" count={hasRfq.length}>
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {hasRfq.map(row => (
                   <QueueRow key={row.pr1_id} row={row} onCreateRfq={handleOpenCreate} />
                 ))}
@@ -202,54 +201,54 @@ export default function RFQQueuePage() {
 
       {creating && selectedPr1 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[4px] w-full max-w-md mx-4 overflow-hidden">
-            <div className="px-6 py-5 border-b border-[#D8E2FF]">
-              <h2 className="text-base font-semibold text-[#0F1F3A]">Create RFQ</h2>
-              <p className="text-xs text-[#40527A] mt-0.5">
+          <div className="bg-white rounded-md w-full max-w-md mx-4 overflow-hidden">
+            <div className="px-6 py-5 border-b border-pq-neutral-200">
+              <h2 className="text-base font-semibold text-pq-neutral-900">Create RFQ</h2>
+              <p className="text-xs text-pq-neutral-500 mt-0.5">
                 For PR1 <span className="font-mono font-semibold">{selectedPr1.pr1_number}</span>
                 {' '}— {selectedPr1.purpose}
               </p>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-                  Quotation Deadline <span className="text-[#BFC7D5] font-normal normal-case">(optional)</span>
+                <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                  Quotation Deadline <span className="text-pq-neutral-400 font-normal normal-case">(optional)</span>
                 </label>
                 <input
                   type="date"
                   value={deadline}
                   onChange={e => setDeadline(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
+                  className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-                  Notes <span className="text-[#BFC7D5] font-normal normal-case">(optional)</span>
+                <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                  Notes <span className="text-pq-neutral-400 font-normal normal-case">(optional)</span>
                 </label>
                 <textarea
                   rows={3}
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   placeholder="Specifications, brand preferences, delivery requirements..."
-                  className="w-full px-3 py-2.5 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
+                  className="w-full px-3 py-2.5 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
                 />
               </div>
               {createError && (
-                <p className="text-sm text-red-600">{createError}</p>
+                <p className="text-sm text-pq-danger-600">{createError}</p>
               )}
             </div>
             <div className="px-6 pb-5 flex items-center justify-end gap-3">
               <button
                 onClick={() => setCreating(false)}
                 disabled={submitting}
-                className="px-4 py-2 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
+                className="px-4 py-2 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreate}
                 disabled={submitting}
-                className="px-5 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
               >
                 {submitting ? 'Creating...' : 'Create RFQ'}
               </button>
@@ -269,13 +268,13 @@ function QueueRow({
   onCreateRfq: (row: CanvassingQueueRow) => void;
 }) {
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-[#F7F9FC] transition">
+    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="font-mono text-xs font-bold text-[#0F1F3A]">{row.pr1_number}</span>
+          <span className="font-mono text-xs font-bold text-pq-neutral-900">{row.pr1_number}</span>
           <PriorityChip priority={row.priority || 'normal'} />
           {row.rfq_number && (
-            <span className="font-mono text-xs text-[#1E4BFF] font-semibold">→ {row.rfq_number}</span>
+            <span className="font-mono text-xs text-pq-primary-600 font-semibold">→ {row.rfq_number}</span>
           )}
           {row.rfq_status && (
             <span className={`inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 ${RFQ_STATUS_COLOR[row.rfq_status] ?? ''}`}>
@@ -283,13 +282,13 @@ function QueueRow({
             </span>
           )}
         </div>
-        <p className="text-sm text-[#0F1F3A] truncate">{row.purpose}</p>
+        <p className="text-sm text-pq-neutral-900 truncate">{row.purpose}</p>
         <div className="flex items-center gap-3 mt-1">
-          <span className="inline-flex items-center gap-1 text-xs text-[#BFC7D5]">
+          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
             <Building2 className="w-3 h-3" />
             {row.department_name_snapshot}
           </span>
-          <span className="inline-flex items-center gap-1 text-xs text-[#BFC7D5]">
+          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
             <CalendarDays className="w-3 h-3" />
             Need by {format(new Date(row.date_required), 'MMM d, yyyy')}
           </span>
@@ -299,7 +298,7 @@ function QueueRow({
         {!row.rfq_id ? (
           <button
             onClick={() => onCreateRfq(row)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition"
           >
             <Plus className="w-3.5 h-3.5" />
             Create RFQ
@@ -307,7 +306,7 @@ function QueueRow({
         ) : (
           <Link
             href={`/rfq/${row.rfq_id}`}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#1E4BFF] hover:text-[#0F1F3A] transition"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-pq-primary-600 hover:text-pq-neutral-900 transition"
           >
             Open RFQ
             <ArrowRight className="w-3.5 h-3.5" />
@@ -330,16 +329,16 @@ function Section({
   children: React.ReactNode;
 }) {
   const accentClass = {
-    amber:   'border-amber-300 bg-amber-50 text-amber-700',
-    slate:   'border-[#D8E2FF] bg-[#F7F9FC] text-[#40527A]',
-    blue:    'border-blue-200 bg-blue-50 text-blue-700',
-    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    amber:   'border-amber-300 bg-pq-warning-100 text-pq-warning-600',
+    slate:   'border-pq-neutral-200 bg-pq-neutral-50 text-pq-neutral-500',
+    blue:    'border-pq-primary-200 bg-pq-primary-50 text-pq-primary-700',
+    emerald: 'border-pq-success-100 bg-pq-success-100 text-pq-success-600',
   }[accent];
 
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
-        <h2 className="text-sm font-semibold text-[#0F1F3A]">{title}</h2>
+    <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
+        <h2 className="text-sm font-semibold text-pq-neutral-900">{title}</h2>
         <span className={`text-xs font-semibold border rounded-full px-2 py-0.5 ${accentClass}`}>{count}</span>
       </div>
       {children}
@@ -359,19 +358,19 @@ function StatCard({
   icon: React.ElementType;
 }) {
   const colorClass = {
-    amber:   'text-amber-600 bg-amber-50',
-    blue:    'text-blue-600 bg-blue-50',
-    emerald: 'text-emerald-600 bg-emerald-50',
-    slate:   'text-[#40527A] bg-[#F7F9FC]',
+    amber:   'text-pq-warning-600 bg-pq-warning-100',
+    blue:    'text-pq-primary-600 bg-pq-primary-50',
+    emerald: 'text-pq-success-600 bg-pq-success-100',
+    slate:   'text-pq-neutral-500 bg-pq-neutral-50',
   }[color];
 
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4">
-      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-[4px] mb-3 ${colorClass}`}>
+    <div className="bg-white rounded-md border border-pq-neutral-200 p-4">
+      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-md mb-3 ${colorClass}`}>
         <Icon className="w-5 h-5" />
       </div>
-      <p className="text-2xl font-bold text-[#0F1F3A]">{value}</p>
-      <p className="text-xs text-[#40527A] mt-0.5">{label}</p>
+      <p className="text-2xl font-bold text-pq-neutral-900">{value}</p>
+      <p className="text-xs text-pq-neutral-500 mt-0.5">{label}</p>
     </div>
   );
 }

@@ -118,7 +118,7 @@ export default function PR2PrintPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-sm text-[#40527A]">Preparing print view...</p>
+        <p className="text-sm text-pq-neutral-500">Preparing print view...</p>
       </div>
     );
   }
@@ -126,7 +126,7 @@ export default function PR2PrintPage() {
   if (!pr2) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-sm text-[#40527A]">PR2 not found.</p>
+        <p className="text-sm text-pq-neutral-500">PR2 not found.</p>
       </div>
     );
   }
@@ -174,18 +174,18 @@ export default function PR2PrintPage() {
       `}</style>
 
       {/* Print toolbar */}
-      <div className="no-print fixed top-0 left-0 right-0 bg-[#0F1F3A] text-white px-6 py-3 flex items-center justify-between z-10">
+      <div className="no-print fixed top-0 left-0 right-0 bg-pq-neutral-900 text-white px-6 py-3 flex items-center justify-between z-10">
         <span className="text-sm font-medium">Print Preview — {pr2.pr2_number}</span>
         <div className="flex items-center gap-3">
           <button
             onClick={() => window.history.back()}
-            className="text-xs text-[#BFC7D5] hover:text-white transition"
+            className="text-xs text-pq-neutral-400 hover:text-white transition"
           >
             Back
           </button>
           <button
             onClick={() => window.print()}
-            className="px-4 py-1.5 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition"
+            className="px-4 py-1.5 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition"
           >
             Print / Save PDF
           </button>

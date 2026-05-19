@@ -17,12 +17,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 const STATUS_CONFIG: Record<DeliveryStatus, {
   bg: string; text: string; border: string; icon: React.ElementType; actionLabel: string;
 }> = {
-  pending:    { bg: 'bg-slate-100',   text: 'text-slate-600',   border: 'border-slate-200',   icon: Clock,         actionLabel: 'Update Status' },
-  scheduled:  { bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200',    icon: Calendar,      actionLabel: 'Update Status' },
-  in_transit: { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   icon: Navigation,    actionLabel: 'Update Status' },
-  delayed:    { bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     icon: AlertTriangle, actionLabel: 'Provide Update' },
-  delivered:  { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: CheckCircle2,  actionLabel: 'View' },
-  cancelled:  { bg: 'bg-slate-100',  text: 'text-slate-500',   border: 'border-slate-200',   icon: Ban,           actionLabel: 'View' },
+  pending:    { bg: 'bg-pq-neutral-100',   text: 'text-pq-neutral-600',   border: 'border-pq-neutral-200',   icon: Clock,         actionLabel: 'Update Status' },
+  scheduled:  { bg: 'bg-pq-primary-50',    text: 'text-pq-primary-700',    border: 'border-pq-primary-200',    icon: Calendar,      actionLabel: 'Update Status' },
+  in_transit: { bg: 'bg-pq-warning-100',   text: 'text-pq-warning-600',   border: 'border-pq-warning-100',   icon: Navigation,    actionLabel: 'Update Status' },
+  delayed:    { bg: 'bg-pq-danger-100',     text: 'text-pq-danger-600',     border: 'border-pq-danger-100',     icon: AlertTriangle, actionLabel: 'Provide Update' },
+  delivered:  { bg: 'bg-pq-success-100', text: 'text-pq-success-600', border: 'border-pq-success-100', icon: CheckCircle2,  actionLabel: 'View' },
+  cancelled:  { bg: 'bg-pq-neutral-100',  text: 'text-pq-neutral-500',   border: 'border-pq-neutral-200',   icon: Ban,           actionLabel: 'View' },
 };
 
 export default function SupplierDeliveryQueuePage() {
@@ -85,19 +85,19 @@ export default function SupplierDeliveryQueuePage() {
       <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Truck className="w-5 h-5 text-[#40527A]" />
-            <h1 className="text-xl font-bold text-[#0F1F3A]">My Deliveries</h1>
+            <Truck className="w-5 h-5 text-pq-neutral-500" />
+            <h1 className="text-xl font-bold text-pq-neutral-900">My Deliveries</h1>
           </div>
-          <p className="text-sm text-[#40527A]">Update delivery status for your purchase orders.</p>
+          <p className="text-sm text-pq-neutral-500">Update delivery status for your purchase orders.</p>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-[#40527A]">{statCounts.active} active</span>
-          <span className="text-[#BFC7D5]">·</span>
-          <span className="text-[#BFC7D5]">{statCounts.completed} completed</span>
+          <span className="text-pq-neutral-500">{statCounts.active} active</span>
+          <span className="text-pq-neutral-400">·</span>
+          <span className="text-pq-neutral-400">{statCounts.completed} completed</span>
           {statCounts.total > 0 && (
             <>
-              <span className="text-[#BFC7D5]">·</span>
-              <span className="text-[#BFC7D5]">{statCounts.total} total</span>
+              <span className="text-pq-neutral-400">·</span>
+              <span className="text-pq-neutral-400">{statCounts.total} total</span>
             </>
           )}
         </div>
@@ -107,25 +107,25 @@ export default function SupplierDeliveryQueuePage() {
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
         <div className="relative flex-1 flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BFC7D5]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
             <input
               type="text"
               placeholder="Search PO number or purpose..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
             />
           </div>
           <button
             onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
-            className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition whitespace-nowrap"
+            className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition whitespace-nowrap"
           >
             Apply
           </button>
           <button
             onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
-            className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition whitespace-nowrap"
+            className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition whitespace-nowrap"
           >
             Clear
           </button>
@@ -134,7 +134,7 @@ export default function SupplierDeliveryQueuePage() {
           value={selectedStatus}
           onValueChange={(v) => { setSelectedStatus(v); setCurrentPage(1); }}
         >
-          <SelectTrigger className="w-full sm:w-44 text-sm border-[#D8E2FF]">
+          <SelectTrigger className="w-full sm:w-44 text-sm border-pq-neutral-200">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -149,7 +149,7 @@ export default function SupplierDeliveryQueuePage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700 mb-4">{error}</div>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600 mb-4">{error}</div>
       )}
 
       {deliveries.length === 0 ? (
@@ -162,7 +162,7 @@ export default function SupplierDeliveryQueuePage() {
         <div className="space-y-6">
           {active.length > 0 && (
             <section>
-              <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide mb-3">Active Deliveries</h2>
+              <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide mb-3">Active Deliveries</h2>
               <div className="space-y-3">
                 {active.map(d => <SupplierDeliveryCard key={d.id} delivery={d} />)}
               </div>
@@ -170,7 +170,7 @@ export default function SupplierDeliveryQueuePage() {
           )}
           {completed.length > 0 && (
             <section>
-              <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide mb-3">Completed</h2>
+              <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide mb-3">Completed</h2>
               <div className="space-y-3">
                 {completed.map(d => <SupplierDeliveryCard key={d.id} delivery={d} />)}
               </div>
@@ -211,31 +211,31 @@ function SupplierDeliveryCard({ delivery: d }: { delivery: Delivery }) {
 
   return (
     <Link href={`/supplier/delivery/${d.id}`} className="block group">
-      <div className="bg-white border border-[#D8E2FF] rounded-[4px] p-5 hover:border-[#0F1F3A] transition flex items-center gap-4">
+      <div className="bg-white border border-pq-neutral-200 rounded-md p-5 hover:border-pq-primary-600 transition flex items-center gap-4">
         <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${cfg.bg} border ${cfg.border}`}>
           <Icon className={`w-4.5 h-4.5 ${cfg.text}`} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span className="font-mono font-bold text-[#0F1F3A] text-sm">{d.po_number_snapshot}</span>
+            <span className="font-mono font-bold text-pq-neutral-900 text-sm">{d.po_number_snapshot}</span>
             <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 ${cfg.bg} ${cfg.text} ${cfg.border}`}>
               <Icon className="w-3 h-3" />
               {DELIVERY_STATUS_LABELS[d.status]}
             </span>
           </div>
-          <p className="text-sm text-[#0F1F3A] font-medium truncate">{d.purpose}</p>
-          <div className="flex items-center gap-3 mt-1 text-xs text-[#BFC7D5] flex-wrap">
+          <p className="text-sm text-pq-neutral-900 font-medium truncate">{d.purpose}</p>
+          <div className="flex items-center gap-3 mt-1 text-xs text-pq-neutral-400 flex-wrap">
             <span className="flex items-center gap-1"><Package className="w-3 h-3" />{d.warehouse}</span>
             <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{dateLabel}</span>
           </div>
         </div>
         <div className="flex-shrink-0 text-right">
-          <p className="text-sm font-bold text-[#0F1F3A] font-mono">
+          <p className="text-sm font-bold text-pq-neutral-900 font-mono">
             ₱{d.grand_total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-xs font-medium text-[#1E4BFF] mt-1">{cfg.actionLabel}</p>
+          <p className="text-xs font-medium text-pq-primary-600 mt-1">{cfg.actionLabel}</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0 group-hover:text-slate-600 transition" />
+        <ChevronRight className="w-4 h-4 text-pq-neutral-400 flex-shrink-0 group-hover:text-pq-neutral-600 transition" />
       </div>
     </Link>
   );

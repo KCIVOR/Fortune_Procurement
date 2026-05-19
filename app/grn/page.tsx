@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
-import LoadingState from '@/components/shared/LoadingState';
+import { CardListSkeleton } from '@/components/shared/structural-skeletons';
 import EmptyState from '@/components/shared/EmptyState';
 import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
@@ -18,8 +18,8 @@ import { Label } from '@/components/ui/label';
 const STATUS_CONFIG: Record<GRNStatus, {
   bg: string; text: string; border: string; icon: React.ElementType;
 }> = {
-  open:   { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   icon: Clock },
-  closed: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: CheckCircle2 },
+  open:   { bg: 'bg-pq-warning-100',   text: 'text-pq-warning-600',   border: 'border-pq-warning-100',   icon: Clock },
+  closed: { bg: 'bg-pq-success-100', text: 'text-pq-success-600', border: 'border-pq-success-100', icon: CheckCircle2 },
 };
 
 export default function GRNListPage() {
@@ -75,9 +75,7 @@ export default function GRNListPage() {
   if (!profile) {
     return (
       <AppShell title="Goods Receipt">
-        <div className="flex items-center justify-center h-64">
-          <LoadingState message="Loading GRNs..." />
-        </div>
+        <CardListSkeleton cards={4} />
       </AppShell>
     );
   }
@@ -88,25 +86,25 @@ export default function GRNListPage() {
       <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <PackageCheck className="w-5 h-5 text-[#40527A]" />
-            <h1 className="text-xl font-bold text-[#0F1F3A]">Goods Receipt Notes</h1>
+            <PackageCheck className="w-5 h-5 text-pq-neutral-500" />
+            <h1 className="text-xl font-bold text-pq-neutral-900">Goods Receipt Notes</h1>
           </div>
-          <p className="text-sm text-[#40527A]">Record and close incoming deliveries from suppliers.</p>
+          <p className="text-sm text-pq-neutral-500">Record and close incoming deliveries from suppliers.</p>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700 mb-4">{error}</div>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600 mb-4">{error}</div>
       )}
 
       {/* Search filter */}
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-4">
-        <Label htmlFor="grn-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide block mb-1.5">
+      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-4">
+        <Label htmlFor="grn-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide block mb-1.5">
           Search
         </Label>
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BFC7D5]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
             <input
               id="grn-search"
               type="text"
@@ -115,14 +113,14 @@ export default function GRNListPage() {
               onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
               placeholder="GRN number, PO, supplier, department, warehouse…"
               disabled={loading}
-              className="w-full pl-9 pr-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+              className="w-full pl-9 pr-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
             />
           </div>
           <button
             type="button"
             onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
             disabled={loading}
-            className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+            className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
           >
             Apply
           </button>
@@ -130,7 +128,7 @@ export default function GRNListPage() {
             type="button"
             onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
             disabled={loading}
-            className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] disabled:opacity-50 transition whitespace-nowrap"
+            className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
           >
             Clear
           </button>
@@ -147,15 +145,15 @@ export default function GRNListPage() {
               key={s}
               type="button"
               onClick={() => setFilterAndResetPage(s)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-xs font-semibold border transition ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition ${
                 active
-                  ? 'bg-[#0F1F3A] text-white border-[#0F1F3A]'
-                  : 'bg-white text-[#40527A] border-[#D8E2FF] hover:border-[#0F1F3A] hover:bg-[#F7F9FC]'
+                  ? 'bg-pq-neutral-900 text-white border-pq-primary-600'
+                  : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:border-pq-primary-600 hover:bg-pq-neutral-50'
               }`}
             >
               {s === 'all' ? 'All GRNs' : GRN_STATUS_LABELS[s]}
               <span className={`inline-flex items-center justify-center rounded-full text-xs min-w-[18px] h-[18px] px-1 ${
-                active ? 'bg-white/20 text-white' : 'bg-[#F7F9FC] text-[#40527A]'
+                active ? 'bg-white/20 text-white' : 'bg-pq-neutral-50 text-pq-neutral-500'
               }`}>{count}</span>
             </button>
           );
@@ -163,9 +161,7 @@ export default function GRNListPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <LoadingState message="Loading GRNs..." />
-        </div>
+        <CardListSkeleton cards={4} />
       ) : totalCount === 0 ? (
         <EmptyState
           icon={PackageCheck}
@@ -194,7 +190,7 @@ export default function GRNListPage() {
                 if (page < currentPage) setCurrentPage((p) => Math.max(1, p - 1));
                 else setCurrentPage((p) => p + 1);
               }}
-              className="rounded-[4px] border border-[#D8E2FF]"
+              className="rounded-md border border-pq-neutral-200"
             />
           )}
         </div>
@@ -209,21 +205,21 @@ function GRNCard({ grn: g }: { grn: GRNQueueRow }) {
 
   return (
     <Link href={`/grn/${g.id}`} className="block group">
-      <div className="bg-white border border-[#D8E2FF] rounded-[4px] p-5 hover:border-[#0F1F3A] transition flex items-center gap-4">
+      <div className="bg-white border border-pq-neutral-200 rounded-md p-5 hover:border-pq-primary-600 transition flex items-center gap-4">
         <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${cfg.bg} border ${cfg.border}`}>
           <Icon className={`w-4 h-4 ${cfg.text}`} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span className="font-mono font-bold text-[#0F1F3A] text-sm">{g.grn_number}</span>
-            <span className="text-xs text-[#BFC7D5] font-mono">PO {g.po_number_snapshot}</span>
+            <span className="font-mono font-bold text-pq-neutral-900 text-sm">{g.grn_number}</span>
+            <span className="text-xs text-pq-neutral-400 font-mono">PO {g.po_number_snapshot}</span>
             <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 ${cfg.bg} ${cfg.text} ${cfg.border}`}>
               <Icon className="w-3 h-3" />
               {GRN_STATUS_LABELS[g.status]}
             </span>
           </div>
-          <p className="text-sm text-[#0F1F3A] font-medium truncate">{g.supplier_name_snapshot}</p>
-          <div className="flex items-center gap-3 mt-1 text-xs text-[#BFC7D5] flex-wrap">
+          <p className="text-sm text-pq-neutral-900 font-medium truncate">{g.supplier_name_snapshot}</p>
+          <div className="flex items-center gap-3 mt-1 text-xs text-pq-neutral-400 flex-wrap">
             <span className="flex items-center gap-1">
               <Building2 className="w-3 h-3" />
               {g.department_name_snapshot} · {g.warehouse}
@@ -242,14 +238,14 @@ function GRNCard({ grn: g }: { grn: GRNQueueRow }) {
         </div>
         <div className="flex-shrink-0 text-right">
           {g.closed_at ? (
-            <p className="text-xs text-emerald-600 font-medium">
+            <p className="text-xs text-pq-success-600 font-medium">
               Closed {format(new Date(g.closed_at), 'MMM d, yyyy')}
             </p>
           ) : (
-            <p className="text-xs text-amber-600 font-medium">Pending close</p>
+            <p className="text-xs text-pq-warning-600 font-medium">Pending close</p>
           )}
         </div>
-        <ChevronRight className="w-4 h-4 text-[#BFC7D5] flex-shrink-0 group-hover:text-[#40527A] transition" />
+        <ChevronRight className="w-4 h-4 text-pq-neutral-400 flex-shrink-0 group-hover:text-pq-neutral-500 transition" />
       </div>
     </Link>
   );

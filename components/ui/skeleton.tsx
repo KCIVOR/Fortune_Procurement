@@ -6,10 +6,12 @@ function Skeleton({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('animate-pulse rounded-md bg-muted', className)}
+      /* v2.0: Shifted from legacy HSL bg-muted to crisp neutral token bg-pq-neutral-200 */
+      className={cn('animate-pulse rounded-md bg-pq-neutral-200', className)}
       {...props}
     />
   );
 }
 
 export { Skeleton };
+

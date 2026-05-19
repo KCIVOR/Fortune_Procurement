@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -57,13 +57,13 @@ export default function AuditFilterPanel({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-[#E5EAFF] p-6 space-y-4">
-      <h3 className="font-semibold text-[#0F1F3A] mb-4">Filters</h3>
+    <div className="bg-white rounded-lg border border-pq-neutral-200 p-6 space-y-4">
+      <h3 className="font-semibold text-pq-neutral-900 mb-4">Filters</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Action Search */}
         <div className="space-y-2">
-          <Label htmlFor="action" className="text-xs font-medium text-[#40527A]">
+          <Label htmlFor="action" className="text-xs font-medium text-pq-neutral-500">
             Action
           </Label>
           <Input
@@ -78,7 +78,7 @@ export default function AuditFilterPanel({
 
         {/* Document Type */}
         <div className="space-y-2">
-          <Label htmlFor="doc-type" className="text-xs font-medium text-[#40527A]">
+          <Label htmlFor="doc-type" className="text-xs font-medium text-pq-neutral-500">
             Document Type
           </Label>
           <Select value={documentType} onValueChange={setDocumentType} disabled={isLoading}>
@@ -98,7 +98,7 @@ export default function AuditFilterPanel({
 
         {/* Date From */}
         <div className="space-y-2">
-          <Label htmlFor="date-from" className="text-xs font-medium text-[#40527A]">
+          <Label htmlFor="date-from" className="text-xs font-medium text-pq-neutral-500">
             From
           </Label>
           <Input
@@ -113,7 +113,7 @@ export default function AuditFilterPanel({
 
         {/* Date To */}
         <div className="space-y-2">
-          <Label htmlFor="date-to" className="text-xs font-medium text-[#40527A]">
+          <Label htmlFor="date-to" className="text-xs font-medium text-pq-neutral-500">
             To
           </Label>
           <Input
@@ -128,7 +128,7 @@ export default function AuditFilterPanel({
 
         {/* Rows Per Page */}
         <div className="space-y-2">
-          <Label htmlFor="rows-per-page" className="text-xs font-medium text-[#40527A]">
+          <Label htmlFor="rows-per-page" className="text-xs font-medium text-pq-neutral-500">
             Rows per page
           </Label>
           <Select value={localRowsPerPage} onValueChange={handleRowsPerPageChange} disabled={isLoading}>
@@ -149,7 +149,7 @@ export default function AuditFilterPanel({
         <Button
           onClick={handleFilter}
           disabled={isLoading}
-          className="bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-medium"
+          className="bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-medium"
         >
           Apply Filters
         </Button>

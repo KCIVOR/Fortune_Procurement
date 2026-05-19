@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -65,17 +65,17 @@ export default function PositionForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <p className="text-xs text-red-800">{error}</p>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-3">
+          <p className="text-xs text-pq-danger-600">{error}</p>
         </div>
       )}
 
       {workflowWarning && mode === 'edit' && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+        <div className="bg-pq-warning-100 border border-pq-warning-100 rounded-lg p-3 flex gap-2">
+          <AlertCircle className="w-4 h-4 text-pq-warning-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs font-medium text-amber-900">Workflow Impact</p>
-            <p className="text-xs text-amber-800 mt-1">
+            <p className="text-xs font-medium text-pq-warning-600">Workflow Impact</p>
+            <p className="text-xs text-pq-warning-600 mt-1">
               This position may be used by approval workflows. Changing the title may affect future approval matching.
             </p>
           </div>
@@ -83,7 +83,7 @@ export default function PositionForm({
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="title" className="text-xs font-medium text-[#40527A]">
+        <Label htmlFor="title" className="text-xs font-medium text-pq-neutral-500">
           Position Title *
         </Label>
         <Input
@@ -97,7 +97,7 @@ export default function PositionForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="role" className="text-xs font-medium text-[#40527A]">
+        <Label htmlFor="role" className="text-xs font-medium text-pq-neutral-500">
           Role *
         </Label>
         <Select value={roleId} onValueChange={setRoleId} disabled={isLoading || isSaving}>

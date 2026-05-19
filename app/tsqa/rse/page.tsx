@@ -7,6 +7,7 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
+import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { useAuth } from '@/context/AuthContext';
@@ -80,7 +81,7 @@ export default function TSQARSEQueuePage() {
       <div className="flex items-center gap-2 mb-4">
         <div className="w-52">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="text-sm border-[#D8E2FF]">
+            <SelectTrigger className="text-sm border-pq-neutral-200">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -93,21 +94,19 @@ export default function TSQARSEQueuePage() {
             </SelectContent>
           </Select>
         </div>
-        <span className="text-xs text-[#BFC7D5]">
+        <span className="text-xs text-pq-neutral-400">
           {filtered.length} record{filtered.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <LoadingState message="Loading RSE queue…" />
-        </div>
+        <TableSkeleton rows={5} cols={4} />
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
+        <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title={statusFilter === 'all' ? 'No RSE records found' : `No ${statusFilter} records`}
             description={
@@ -119,15 +118,15 @@ export default function TSQARSEQueuePage() {
           />
         </div>
       ) : (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
+        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
           {/* Column headers */}
-          <div className="hidden md:grid grid-cols-[1fr_1fr_140px_120px] gap-4 px-5 py-2.5 bg-[#F7F9FC] border-b border-[#D8E2FF]">
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">RSE / Product</p>
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Supplier</p>
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Status</p>
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Date</p>
+          <div className="hidden md:grid grid-cols-[1fr_1fr_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">RSE / Product</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Date</p>
           </div>
-          <div className="divide-y divide-[#D8E2FF]">
+          <div className="divide-y divide-pq-neutral-200">
             {filtered.map(row => (
               <RSERow key={row.id} row={row} />
             ))}
@@ -150,27 +149,27 @@ function RSERow({ row }: { row: RSEQueueRow }) {
     : `Created ${format(new Date(row.created_at), 'MMM d, yyyy')}`;
 
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-[#F7F9FC] transition">
+    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="font-mono text-xs font-bold text-[#0F1F3A]">
+          <span className="font-mono text-xs font-bold text-pq-neutral-900">
             {row.rse_number ?? row.id.slice(0, 8).toUpperCase()}
           </span>
           <StatusChip status={chip.variant} label={chip.label} size="sm" />
         </div>
-        <p className="text-sm text-[#0F1F3A] truncate">{row.product_name ?? '—'}</p>
+        <p className="text-sm text-pq-neutral-900 truncate">{row.product_name ?? '—'}</p>
         <div className="flex items-center gap-3 mt-0.5 flex-wrap">
           {row.supplier_full_name && (
-            <span className="text-xs text-[#BFC7D5]">{row.supplier_full_name}</span>
+            <span className="text-xs text-pq-neutral-400">{row.supplier_full_name}</span>
           )}
-          <span className="text-xs text-[#BFC7D5]">{dateStr}</span>
+          <span className="text-xs text-pq-neutral-400">{dateStr}</span>
         </div>
       </div>
 
       <Link
         href={`/tsqa/rse/${row.id}`}
         className={`shrink-0 flex items-center gap-1 text-xs font-semibold transition ${
-          isActive ? 'text-[#1E4BFF] hover:text-[#0F1F3A]' : 'text-[#40527A] hover:text-[#0F1F3A]'
+          isActive ? 'text-pq-primary-600 hover:text-pq-neutral-900' : 'text-pq-neutral-500 hover:text-pq-neutral-900'
         }`}
       >
         {isActive ? 'Evaluate' : 'View'}

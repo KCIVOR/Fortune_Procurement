@@ -63,9 +63,9 @@ export default function RolesPage() {
       <AppShell title="Roles">
         <div className="space-y-6">
           <PageHeader title="Roles" description="System roles and their information" />
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
             <h3 className="font-semibold text-red-900 mb-2">Access Denied</h3>
-            <p className="text-sm text-red-800">
+            <p className="text-sm text-pq-danger-600">
               You do not have permission to view roles. Only administrators can access this feature.
             </p>
           </div>
@@ -79,9 +79,9 @@ export default function RolesPage() {
       <AppShell title="Roles">
         <div className="space-y-6">
           <PageHeader title="Roles" description="System roles and their information" />
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
             <h3 className="font-semibold text-red-900 mb-2">Error</h3>
-            <p className="text-sm text-red-800">{error}</p>
+            <p className="text-sm text-pq-danger-600">{error}</p>
           </div>
         </div>
       </AppShell>

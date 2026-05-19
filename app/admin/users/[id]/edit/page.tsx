@@ -98,9 +98,9 @@ export default function EditUserPage() {
               Back to Users
             </Button>
           </Link>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
             <h3 className="font-semibold text-red-900 mb-2">Access Denied</h3>
-            <p className="text-sm text-red-800">
+            <p className="text-sm text-pq-danger-600">
               You do not have permission to edit user assignments. Only administrators can access this feature.
             </p>
           </div>
@@ -127,9 +127,9 @@ export default function EditUserPage() {
               Back to Users
             </Button>
           </Link>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
             <h3 className="font-semibold text-red-900 mb-2">Error</h3>
-            <p className="text-sm text-red-800">{error}</p>
+            <p className="text-sm text-pq-danger-600">{error}</p>
           </div>
         </div>
       </AppShell>
@@ -146,9 +146,9 @@ export default function EditUserPage() {
               Back to Users
             </Button>
           </Link>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
             <h3 className="font-semibold text-red-900 mb-2">Not Found</h3>
-            <p className="text-sm text-red-800">This user could not be found.</p>
+            <p className="text-sm text-pq-danger-600">This user could not be found.</p>
           </div>
         </div>
       </AppShell>
@@ -165,7 +165,7 @@ export default function EditUserPage() {
           </Button>
         </Link>
 
-        <div className="bg-white rounded-lg border border-[#E5EAFF] p-6">
+        <div className="bg-white rounded-lg border border-pq-neutral-200 p-6">
           <EditUserAssignmentForm
             user={user}
             roles={roles}

@@ -14,9 +14,9 @@ import { Tag, ArrowRight, Clock, CircleCheck as CheckCircle2, CalendarDays, Buil
 import { format } from 'date-fns';
 
 const SUPPLIER_STATUS_BADGE: Record<string, string> = {
-  invited:   'bg-amber-50 text-amber-700 border-amber-200',
-  submitted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  declined:  'bg-red-50 text-red-600 border-red-200',
+  invited:   'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
+  submitted: 'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
+  declined:  'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
 };
 const SUPPLIER_STATUS_LABEL: Record<string, string> = {
   invited:   'Awaiting Response',
@@ -25,9 +25,9 @@ const SUPPLIER_STATUS_LABEL: Record<string, string> = {
 };
 
 const RFQ_STATUS_BADGE: Record<string, string> = {
-  open:   'bg-[#F7F9FC] text-[#0F1F3A] border-[#D8E2FF]',
-  closed: 'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]',
-  draft:  'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]',
+  open:   'bg-pq-neutral-50 text-pq-neutral-900 border-pq-neutral-200',
+  closed: 'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
+  draft:  'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
 };
 
 export default function SupplierQuotationsPage() {
@@ -69,9 +69,9 @@ export default function SupplierQuotationsPage() {
           <LoadingState message="Loading RFQs..." />
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">{error}</div>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">{error}</div>
       ) : inbox.length === 0 ? (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
+        <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title="No RFQs yet"
             description="When procurement sends you an RFQ, it will appear here for your response."
@@ -130,10 +130,10 @@ function InboxRow({ row }: { row: SupplierRfqInboxRow }) {
   const hasPartial = row.quotes_submitted > 0 && row.quotes_submitted < row.item_count;
 
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-[#F7F9FC] transition">
+    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="font-mono text-xs font-bold text-[#0F1F3A]">{row.rfq_number}</span>
+          <span className="font-mono text-xs font-bold text-pq-neutral-900">{row.rfq_number}</span>
           <span className={`inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 ${RFQ_STATUS_BADGE[row.rfq_status] ?? ''}`}>
             {row.rfq_status.charAt(0).toUpperCase() + row.rfq_status.slice(1)}
           </span>
@@ -146,18 +146,18 @@ function InboxRow({ row }: { row: SupplierRfqInboxRow }) {
             </span>
           )}
         </div>
-        <p className="text-sm text-[#0F1F3A] truncate">{row.purpose}</p>
+        <p className="text-sm text-pq-neutral-900 truncate">{row.purpose}</p>
         <div className="flex items-center gap-3 mt-1">
-          <span className="inline-flex items-center gap-1 text-xs text-[#BFC7D5]">
+          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
             <Building2 className="w-3 h-3" />
             {row.department_name}
           </span>
-          <span className="inline-flex items-center gap-1 text-xs text-[#BFC7D5]">
+          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
             <PackageSearch className="w-3 h-3" />
             {row.item_count} item{row.item_count !== 1 ? 's' : ''}
           </span>
           {row.rfq_deadline && (
-            <span className="inline-flex items-center gap-1 text-xs text-[#BFC7D5]">
+            <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
               <CalendarDays className="w-3 h-3" />
               Deadline: {format(new Date(row.rfq_deadline), 'MMM d, yyyy')}
             </span>
@@ -170,15 +170,15 @@ function InboxRow({ row }: { row: SupplierRfqInboxRow }) {
             href={`/supplier/quotations/${row.rfq_supplier_id}`}
             className={`inline-flex items-center gap-1 text-xs font-semibold transition ${
               canRespond
-                ? 'text-[#1E4BFF] hover:text-[#0F1F3A]'
-                : 'text-[#40527A] hover:text-[#0F1F3A]'
+                ? 'text-pq-primary-600 hover:text-pq-neutral-900'
+                : 'text-pq-neutral-500 hover:text-pq-neutral-900'
             }`}
           >
             {canRespond ? 'Submit Quote' : 'View Quote'}
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         ) : (
-          <span className="text-xs text-[#BFC7D5]">Closed</span>
+          <span className="text-xs text-pq-neutral-400">Closed</span>
         )}
       </div>
     </div>
@@ -197,18 +197,18 @@ function InboxSection({
   children: React.ReactNode;
 }) {
   const accentClass = {
-    amber:   'border-amber-300 bg-amber-50 text-amber-700',
-    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    slate:   'border-[#D8E2FF] bg-[#F7F9FC] text-[#40527A]',
+    amber:   'border-amber-300 bg-pq-warning-100 text-pq-warning-600',
+    emerald: 'border-pq-success-100 bg-pq-success-100 text-pq-success-600',
+    slate:   'border-pq-neutral-200 bg-pq-neutral-50 text-pq-neutral-500',
   }[accent];
 
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
-        <h2 className="text-sm font-semibold text-[#0F1F3A]">{title}</h2>
+    <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
+        <h2 className="text-sm font-semibold text-pq-neutral-900">{title}</h2>
         <span className={`text-xs font-semibold border rounded-full px-2 py-0.5 ${accentClass}`}>{count}</span>
       </div>
-      <div className="divide-y divide-[#D8E2FF]">{children}</div>
+      <div className="divide-y divide-pq-neutral-200">{children}</div>
     </div>
   );
 }
@@ -225,18 +225,18 @@ function StatCard({
   icon: React.ElementType;
 }) {
   const colorClass = {
-    amber:   'text-amber-600 bg-amber-50',
-    emerald: 'text-emerald-600 bg-emerald-50',
-    slate:   'text-[#40527A] bg-[#F7F9FC]',
+    amber:   'text-pq-warning-600 bg-pq-warning-100',
+    emerald: 'text-pq-success-600 bg-pq-success-100',
+    slate:   'text-pq-neutral-500 bg-pq-neutral-50',
   }[color];
 
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4">
-      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-[4px] mb-3 ${colorClass}`}>
+    <div className="bg-white rounded-md border border-pq-neutral-200 p-4">
+      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-md mb-3 ${colorClass}`}>
         <Icon className="w-5 h-5" />
       </div>
-      <p className="text-2xl font-bold text-[#0F1F3A]">{value}</p>
-      <p className="text-xs text-[#40527A] mt-0.5">{label}</p>
+      <p className="text-2xl font-bold text-pq-neutral-900">{value}</p>
+      <p className="text-xs text-pq-neutral-500 mt-0.5">{label}</p>
     </div>
   );
 }

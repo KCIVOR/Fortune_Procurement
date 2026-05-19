@@ -488,7 +488,7 @@ export default function SupplierQuotationPage() {
 
   if (error || !detail) return (
     <AppShell title="Submit Quotation">
-      <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+      <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
         {error || 'RFQ not found.'}
       </div>
     </AppShell>
@@ -504,7 +504,7 @@ export default function SupplierQuotationPage() {
       <div className="mb-2">
         <Link
           href="/supplier/quotations"
-          className="inline-flex items-center gap-1 text-xs text-[#40527A] hover:text-[#0F1F3A] transition"
+          className="inline-flex items-center gap-1 text-xs text-pq-neutral-500 hover:text-pq-neutral-900 transition"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
           Back to RFQ Inbox
@@ -515,22 +515,22 @@ export default function SupplierQuotationPage() {
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">{rfq.rfq_number}</h1>
+            <h1 className="text-xl font-bold text-pq-neutral-900 font-mono">{rfq.rfq_number}</h1>
             <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${
-              rfq.status === 'open'   ? 'bg-amber-50 text-amber-700 border-amber-200' :
-              rfq.status === 'closed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-              'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]'
+              rfq.status === 'open'   ? 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100' :
+              rfq.status === 'closed' ? 'bg-pq-success-100 text-pq-success-600 border-pq-success-100' :
+              'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200'
             }`}>
               {rfq.status.charAt(0).toUpperCase() + rfq.status.slice(1)}
             </span>
             {submitted && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-1 bg-emerald-50 text-emerald-700 border-emerald-200">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-1 bg-pq-success-100 text-pq-success-600 border-pq-success-100">
                 <CheckCircle2 className="w-3 h-3" />
                 Quotation Submitted
               </span>
             )}
           </div>
-          <p className="text-sm text-[#40527A]">
+          <p className="text-sm text-pq-neutral-500">
             {pr1.department_name_snapshot} · {pr1.purpose}
           </p>
         </div>
@@ -538,20 +538,20 @@ export default function SupplierQuotationPage() {
 
       {/* Status banners */}
       {submitted && canSubmit && (
-        <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-[4px] px-5 py-4 mb-6">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+        <div className="flex items-start gap-3 bg-pq-success-100 border border-pq-success-100 rounded-md px-5 py-4 mb-6">
+          <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-emerald-800">Quotation submitted successfully</p>
-            <p className="text-xs text-emerald-700 mt-0.5">
+            <p className="text-sm font-semibold text-pq-success-600">Quotation submitted successfully</p>
+            <p className="text-xs text-pq-success-600 mt-0.5">
               You can update your prices below and resubmit before the deadline.
             </p>
           </div>
         </div>
       )}
       {isClosed && (
-        <div className="flex items-start gap-3 bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-5 py-4 mb-6">
-          <Info className="w-4 h-4 text-[#40527A] mt-0.5 shrink-0" />
-          <p className="text-sm text-[#40527A]">
+        <div className="flex items-start gap-3 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-5 py-4 mb-6">
+          <Info className="w-4 h-4 text-pq-neutral-500 mt-0.5 shrink-0" />
+          <p className="text-sm text-pq-neutral-500">
             This RFQ is closed. Procurement has finalised their selection.
           </p>
         </div>
@@ -560,8 +560,8 @@ export default function SupplierQuotationPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar */}
         <div className="space-y-4">
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-3">
-            <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">RFQ Details</h2>
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-3">
+            <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">RFQ Details</h2>
             <InfoField icon={FileText}    label="PR1 Number" value={pr1.pr1_number} mono />
             <InfoField icon={FileText}    label="Purpose"    value={pr1.purpose} />
             {rfq.deadline && (
@@ -573,18 +573,18 @@ export default function SupplierQuotationPage() {
             )}
             {rfq.notes && (
               <div>
-                <p className="text-xs font-semibold text-[#BFC7D5] uppercase tracking-wide mb-0.5">
+                <p className="text-xs font-semibold text-pq-neutral-400 uppercase tracking-wide mb-0.5">
                   Procurement Notes
                 </p>
-                <p className="text-sm text-[#0F1F3A] leading-snug">{rfq.notes}</p>
+                <p className="text-sm text-pq-neutral-900 leading-snug">{rfq.notes}</p>
               </div>
             )}
           </div>
 
           {!isReadOnly && (
-            <div className="bg-amber-50 border border-amber-200 rounded-[4px] p-4">
-              <p className="text-xs font-semibold text-amber-700 mb-1">Instructions</p>
-              <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
+            <div className="bg-pq-warning-100 border border-pq-warning-100 rounded-md p-4">
+              <p className="text-xs font-semibold text-pq-warning-600 mb-1">Instructions</p>
+              <ul className="text-xs text-pq-warning-600 space-y-1 list-disc list-inside">
                 <li>For each item, verify a catalog product, propose a new one, or mark <strong>No Quote</strong> with a reason</li>
                 <li>Quoted lines need price and lead time</li>
                 <li>Proposed products await Procurement validation before award</li>
@@ -594,14 +594,14 @@ export default function SupplierQuotationPage() {
           )}
 
           {productsLoaded && verifiedProducts.length > 0 && !isReadOnly && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4">
+            <div className="bg-white rounded-md border border-pq-neutral-200 p-4">
               <div className="flex items-center gap-1.5 mb-1">
-                <Package className="w-3.5 h-3.5 text-[#BFC7D5]" />
-                <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                <Package className="w-3.5 h-3.5 text-pq-neutral-400" />
+                <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                   Verified Products
                 </p>
               </div>
-              <p className="text-xs text-[#BFC7D5]">
+              <p className="text-xs text-pq-neutral-400">
                 {verifiedProducts.length} available for selection
               </p>
             </div>
@@ -632,16 +632,16 @@ export default function SupplierQuotationPage() {
             return (
               <div
                 key={item.id}
-                className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden"
+                className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden"
               >
                 {/* Item header */}
-                <div className="flex items-center gap-3 px-5 py-3.5 bg-[#F7F9FC] border-b border-[#D8E2FF]">
-                  <span className="w-6 h-6 rounded-full bg-[#D8E2FF] text-[#40527A] text-xs font-bold flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-3 px-5 py-3.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
+                  <span className="w-6 h-6 rounded-full bg-pq-neutral-200 text-pq-neutral-500 text-xs font-bold flex items-center justify-center shrink-0">
                     {item.item_order}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[#0F1F3A]">{item.description}</p>
-                    <p className="text-xs text-[#BFC7D5]">
+                    <p className="text-sm font-semibold text-pq-neutral-900">{item.description}</p>
+                    <p className="text-xs text-pq-neutral-400">
                       {item.item_code && <span className="font-mono">{item.item_code} · </span>}
                       Qty: <strong>{item.quantity_requested}</strong> {item.unit_of_measure}
                     </p>
@@ -651,10 +651,10 @@ export default function SupplierQuotationPage() {
                 <div className="p-5 space-y-4">
 
                   {isReadOnly && draft.response_status === 'no_quote' && (
-                    <div className="rounded-[4px] border border-rose-100 bg-rose-50/80 px-4 py-3">
+                    <div className="rounded-md border border-rose-100 bg-rose-50/80 px-4 py-3">
                       <p className="text-[10px] font-semibold text-rose-800 uppercase tracking-wide">No Quote</p>
                       <p className="text-xs text-rose-900 mt-0.5 font-semibold">Cannot supply</p>
-                      <p className="text-sm text-[#0F1F3A] mt-2">{draft.no_quote_reason?.trim() || '—'}</p>
+                      <p className="text-sm text-pq-neutral-900 mt-2">{draft.no_quote_reason?.trim() || '—'}</p>
                     </div>
                   )}
 
@@ -666,10 +666,10 @@ export default function SupplierQuotationPage() {
                         <button
                           type="button"
                           onClick={() => switchToVerifiedSelect(index)}
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
                             mode === 'select_verified'
-                              ? 'bg-[#1E4BFF] text-white border-[#1E4BFF]'
-                              : 'bg-white text-[#40527A] border-[#D8E2FF] hover:bg-[#F7F9FC]'
+                              ? 'bg-pq-primary-600 text-white border-pq-primary-600'
+                              : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:bg-pq-neutral-50'
                           }`}
                         >
                           <Package className="inline w-3 h-3 mr-1" />
@@ -678,10 +678,10 @@ export default function SupplierQuotationPage() {
                         <button
                           type="button"
                           onClick={() => switchToProposeNew(index)}
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
                             mode === 'propose_new'
-                              ? 'bg-[#1E4BFF] text-white border-[#1E4BFF]'
-                              : 'bg-white text-[#40527A] border-[#D8E2FF] hover:bg-[#F7F9FC]'
+                              ? 'bg-pq-primary-600 text-white border-pq-primary-600'
+                              : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:bg-pq-neutral-50'
                           }`}
                         >
                           <PlusCircle className="inline w-3 h-3 mr-1" />
@@ -690,10 +690,10 @@ export default function SupplierQuotationPage() {
                         <button
                           type="button"
                           onClick={() => switchToNoQuote(index)}
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
                             mode === 'no_quote'
                               ? 'bg-slate-700 text-white border-slate-700'
-                              : 'bg-white text-[#40527A] border-[#D8E2FF] hover:bg-[#F7F9FC]'
+                              : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:bg-pq-neutral-50'
                           }`}
                         >
                           <Ban className="inline w-3 h-3 mr-1" />
@@ -705,7 +705,7 @@ export default function SupplierQuotationPage() {
                       {mode === 'select_verified' && (
                         <div>
                           {verifiedProducts.length === 0 ? (
-                            <div className="flex items-center gap-2 px-3 py-2 border border-amber-200 bg-amber-50 rounded-[4px] text-xs text-amber-700">
+                            <div className="flex items-center gap-2 px-3 py-2 border border-pq-warning-100 bg-pq-warning-100 rounded-md text-xs text-pq-warning-600">
                               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                               No verified products available. Submit products for validation before
                               offering items in RFQ.{' '}
@@ -717,33 +717,33 @@ export default function SupplierQuotationPage() {
                           ) : (
                             <div className="space-y-3">
                               {selectedVerified ? (
-                                <div className="rounded-[4px] border border-emerald-200 bg-emerald-50/80 px-4 py-3">
-                                  <p className="text-[10px] font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
+                                <div className="rounded-md border border-pq-success-100 bg-pq-success-100/80 px-4 py-3">
+                                  <p className="text-[10px] font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
                                     Selected product
                                   </p>
-                                  <div className="flex flex-wrap items-center gap-2 text-sm text-[#0F1F3A]">
+                                  <div className="flex flex-wrap items-center gap-2 text-sm text-pq-neutral-900">
                                     <span className="font-semibold">{selectedVerified.product_name}</span>
                                     {selectedVerified.product_code && (
                                       <>
-                                        <span className="text-[#BFC7D5]">·</span>
-                                        <span className="font-mono text-xs text-[#40527A]">
+                                        <span className="text-pq-neutral-400">·</span>
+                                        <span className="font-mono text-xs text-pq-neutral-500">
                                           {selectedVerified.product_code}
                                         </span>
                                       </>
                                     )}
-                                    <span className="text-[#BFC7D5]">·</span>
-                                    <span className="text-xs text-[#40527A]">
+                                    <span className="text-pq-neutral-400">·</span>
+                                    <span className="text-xs text-pq-neutral-500">
                                       {categoryOptionLabel(supplierProductCategoryKey(selectedVerified))}
                                     </span>
-                                    <span className="text-[#BFC7D5]">·</span>
+                                    <span className="text-pq-neutral-400">·</span>
                                     <Badge
                                       variant="outline"
-                                      className="text-[10px] border-emerald-300 text-emerald-800 bg-white"
+                                      className="text-[10px] border-pq-success-200 text-pq-success-600 bg-white"
                                     >
                                       Verified
                                     </Badge>
                                   </div>
-                                  <p className="text-xs text-emerald-700 mt-2 flex items-center gap-1">
+                                  <p className="text-xs text-pq-success-600 mt-2 flex items-center gap-1">
                                     <CheckCircle2 className="w-3 h-3" />
                                     Can be awarded when procurement selects this line.
                                   </p>
@@ -751,7 +751,7 @@ export default function SupplierQuotationPage() {
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    className="mt-3 h-8 text-xs border-[#D8E2FF]"
+                                    className="mt-3 h-8 text-xs border-pq-neutral-200"
                                     onClick={() => openProductPicker(index)}
                                   >
                                     Change Product
@@ -760,7 +760,7 @@ export default function SupplierQuotationPage() {
                               ) : (
                                 <Button
                                   type="button"
-                                  className="w-full sm:w-auto h-10 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold"
+                                  className="w-full sm:w-auto h-10 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold"
                                   onClick={() => openProductPicker(index)}
                                 >
                                   <Package className="w-4 h-4 mr-2" />
@@ -774,13 +774,13 @@ export default function SupplierQuotationPage() {
 
                       {/* Propose new product panel */}
                       {mode === 'propose_new' && (
-                        <div className="border border-[#D8E2FF] rounded-[4px] overflow-hidden">
-                          <div className="px-4 py-3 bg-blue-50 border-b border-[#D8E2FF] flex items-center justify-between">
-                            <p className="text-xs font-semibold text-blue-800">
+                        <div className="border border-pq-neutral-200 rounded-md overflow-hidden">
+                          <div className="px-4 py-3 bg-pq-primary-50 border-b border-pq-neutral-200 flex items-center justify-between">
+                            <p className="text-xs font-semibold text-pq-primary-600">
                               <PlusCircle className="inline w-3.5 h-3.5 mr-1" />
                               Propose New Product for Validation
                             </p>
-                            <p className="text-xs text-blue-600">
+                            <p className="text-xs text-pq-primary-600">
                               Product will be submitted to Procurement for review.
                               Award is blocked until verified.
                             </p>
@@ -793,10 +793,10 @@ export default function SupplierQuotationPage() {
                                 <div className="flex items-center gap-2">
                                   <Clock className="w-4 h-4 text-amber-500 shrink-0" />
                                   <div>
-                                    <p className="text-sm font-semibold text-[#0F1F3A]">
+                                    <p className="text-sm font-semibold text-pq-neutral-900">
                                       {pendingProduct.product_name}
                                     </p>
-                                    <p className="text-xs text-amber-600 font-medium">
+                                    <p className="text-xs text-pq-warning-600 font-medium">
                                       Pending Procurement/TSQA validation · Cannot be awarded yet
                                     </p>
                                   </div>
@@ -804,12 +804,12 @@ export default function SupplierQuotationPage() {
                                 <button
                                   type="button"
                                   onClick={() => cancelProposal(index)}
-                                  className="text-xs text-[#BFC7D5] hover:text-red-500 transition flex items-center gap-0.5"
+                                  className="text-xs text-pq-neutral-400 hover:text-pq-danger-600 transition flex items-center gap-0.5"
                                 >
                                   <X className="w-3.5 h-3.5" /> Remove
                                 </button>
                               </div>
-                              <p className="text-xs text-[#BFC7D5]">
+                              <p className="text-xs text-pq-neutral-400">
                                 This proposal has been submitted to your Product Catalog.
                                 Procurement will review and may verify directly or request a TSQA evaluation.
                               </p>
@@ -822,7 +822,7 @@ export default function SupplierQuotationPage() {
                                   value={proposalForm.product_name}
                                   onChange={e => updateProposalForm(index, 'product_name', e.target.value)}
                                   placeholder="e.g. Rust Inhibitor Primer Type B"
-                                  className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
+                                  className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
                                 />
                               </ProposalField>
                               <div className="grid grid-cols-2 gap-3">
@@ -832,7 +832,7 @@ export default function SupplierQuotationPage() {
                                     value={proposalForm.product_code}
                                     onChange={e => updateProposalForm(index, 'product_code', e.target.value)}
                                     placeholder="SKU or part number"
-                                    className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
+                                    className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
                                   />
                                 </ProposalField>
                                 <ProposalField label="Category (optional)">
@@ -841,7 +841,7 @@ export default function SupplierQuotationPage() {
                                     value={proposalForm.category}
                                     onChange={e => updateProposalForm(index, 'category', e.target.value)}
                                     placeholder="e.g. Chemicals, Hardware"
-                                    className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
+                                    className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
                                   />
                                 </ProposalField>
                               </div>
@@ -851,7 +851,7 @@ export default function SupplierQuotationPage() {
                                   value={proposalForm.description}
                                   onChange={e => updateProposalForm(index, 'description', e.target.value)}
                                   placeholder="Brief product description..."
-                                  className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
+                                  className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
                                 />
                               </ProposalField>
                               <ProposalField label="Specifications (optional)">
@@ -860,12 +860,12 @@ export default function SupplierQuotationPage() {
                                   value={proposalForm.specifications}
                                   onChange={e => updateProposalForm(index, 'specifications', e.target.value)}
                                   placeholder="Technical specs, standards, grades..."
-                                  className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
+                                  className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
                                 />
                               </ProposalField>
 
                               {proposalErrors[index] && (
-                                <p className="text-xs text-red-600 flex items-center gap-1">
+                                <p className="text-xs text-pq-danger-600 flex items-center gap-1">
                                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                                   {proposalErrors[index]}
                                 </p>
@@ -875,7 +875,7 @@ export default function SupplierQuotationPage() {
                                 type="button"
                                 onClick={() => handlePropose(index)}
                                 disabled={proposalBusy[index]}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
                               >
                                 {proposalBusy[index] ? (
                                   <><Loader className="w-3.5 h-3.5 animate-spin" /> Submitting…</>
@@ -890,8 +890,8 @@ export default function SupplierQuotationPage() {
 
                       {/* No quote / cannot supply */}
                       {mode === 'no_quote' && (
-                        <div className="rounded-[4px] border border-slate-200 bg-slate-50 px-4 py-4 space-y-3">
-                          <p className="text-xs font-semibold text-slate-800">
+                        <div className="rounded-md border border-pq-neutral-200 bg-pq-neutral-50 px-4 py-4 space-y-3">
+                          <p className="text-xs font-semibold text-pq-neutral-800">
                             <Ban className="inline w-3.5 h-3.5 mr-1" />
                             Cannot supply this line — procurement will see your reason.
                           </p>
@@ -906,7 +906,7 @@ export default function SupplierQuotationPage() {
                                   updateDraft(index, 'no_quote_reason', v);
                                 }
                               }}
-                              className="w-full h-10 rounded-[4px] border border-[#D8E2FF] bg-white px-3 text-sm text-[#0F1F3A]"
+                              className="w-full h-10 rounded-md border border-pq-neutral-200 bg-white px-3 text-sm text-pq-neutral-900"
                               aria-label="Reason for no quote"
                             >
                               <option value="">Select a reason…</option>
@@ -925,7 +925,7 @@ export default function SupplierQuotationPage() {
                                 value={draft.no_quote_reason ?? ''}
                                 onChange={e => updateDraft(index, 'no_quote_reason', e.target.value)}
                                 placeholder="Brief explanation…"
-                                className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
+                                className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
                               />
                             </ProposalField>
                           )}
@@ -936,10 +936,10 @@ export default function SupplierQuotationPage() {
 
                   {/* Read-only: show linked product */}
                   {isReadOnly && draft.supplier_product_id && (
-                    <div className={`flex items-center gap-2 text-xs rounded-[4px] px-3 py-2 border ${
+                    <div className={`flex items-center gap-2 text-xs rounded-md px-3 py-2 border ${
                       isProposedCatalogLine
-                        ? 'text-amber-700 bg-amber-50 border-amber-200'
-                        : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        ? 'text-pq-warning-600 bg-pq-warning-100 border-pq-warning-100'
+                        : 'text-pq-success-600 bg-pq-success-100 border-pq-success-100'
                     }`}>
                       <Package className="w-3.5 h-3.5 shrink-0" />
                       <span className="font-semibold">
@@ -965,10 +965,10 @@ export default function SupplierQuotationPage() {
                           disabled={isReadOnly || mode === 'propose_new'}
                           className="sr-only"
                         />
-                        <div className={`w-10 h-5 rounded-full transition ${draft.is_alternative ? 'bg-orange-500' : 'bg-[#D8E2FF]'}`} />
+                        <div className={`w-10 h-5 rounded-full transition ${draft.is_alternative ? 'bg-orange-500' : 'bg-pq-neutral-200'}`} />
                         <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${draft.is_alternative ? 'translate-x-5' : ''}`} />
                       </div>
-                      <span className="text-sm font-medium text-[#0F1F3A]">
+                      <span className="text-sm font-medium text-pq-neutral-900">
                         Alternative / substitute item
                         {draft.is_alternative && (
                           <span className="ml-1 text-orange-600 font-semibold">
@@ -981,8 +981,8 @@ export default function SupplierQuotationPage() {
 
                   {/* Quoted description */}
                   <div>
-                    <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-                      Quoted Item / Specification <span className="text-red-500">*</span>
+                    <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                      Quoted Item / Specification <span className="text-pq-danger-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -990,17 +990,17 @@ export default function SupplierQuotationPage() {
                       onChange={e => updateDraft(index, 'quoted_description', e.target.value)}
                       disabled={isReadOnly}
                       placeholder="Brand, model, exact specification..."
-                      className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-[#F7F9FC] disabled:text-[#40527A]"
+                      className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-pq-neutral-50 disabled:text-pq-neutral-500"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-                        Unit Price (₱) <span className="text-red-500">*</span>
+                      <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                        Unit Price (₱) <span className="text-pq-danger-600">*</span>
                       </label>
                       <div className="relative">
-                        <span className="absolute left-3 top-2 text-sm text-[#BFC7D5] pointer-events-none">₱</span>
+                        <span className="absolute left-3 top-2 text-sm text-pq-neutral-400 pointer-events-none">₱</span>
                         <input
                           type="number"
                           min="0"
@@ -1009,18 +1009,18 @@ export default function SupplierQuotationPage() {
                           onChange={e => updateDraft(index, 'unit_price', parseFloat(e.target.value) || 0)}
                           disabled={isReadOnly}
                           placeholder="0.00"
-                          className="w-full pl-7 pr-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-[#F7F9FC]"
+                          className="w-full pl-7 pr-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-pq-neutral-50"
                         />
                       </div>
                       {draft.unit_price > 0 && (
-                        <p className="text-xs text-[#BFC7D5] mt-1">
+                        <p className="text-xs text-pq-neutral-400 mt-1">
                           Total: ₱{(draft.unit_price * item.quantity_requested).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                         </p>
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-                        Lead Time (days) <span className="text-red-500">*</span>
+                      <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                        Lead Time (days) <span className="text-pq-danger-600">*</span>
                       </label>
                       <input
                         type="number"
@@ -1029,7 +1029,7 @@ export default function SupplierQuotationPage() {
                         onChange={e => updateDraft(index, 'lead_time_days', parseInt(e.target.value, 10) || 0)}
                         disabled={isReadOnly}
                         placeholder="0"
-                        className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-[#F7F9FC]"
+                        className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-pq-neutral-50"
                       />
                     </div>
                   </div>
@@ -1037,8 +1037,8 @@ export default function SupplierQuotationPage() {
                   )}
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-                      Remarks <span className="text-[#BFC7D5] font-normal normal-case">(optional)</span>
+                    <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                      Remarks <span className="text-pq-neutral-400 font-normal normal-case">(optional)</span>
                     </label>
                     <textarea
                       rows={2}
@@ -1046,7 +1046,7 @@ export default function SupplierQuotationPage() {
                       onChange={e => updateDraft(index, 'remarks', e.target.value)}
                       disabled={isReadOnly}
                       placeholder="Warranty, MOQ, delivery conditions..."
-                      className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none disabled:bg-[#F7F9FC] disabled:text-[#40527A]"
+                      className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none disabled:bg-pq-neutral-50 disabled:text-pq-neutral-500"
                     />
                   </div>
                 </div>
@@ -1056,21 +1056,21 @@ export default function SupplierQuotationPage() {
 
           {/* Submit */}
           {canSubmit && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF] px-5 py-4">
+            <div className="bg-white rounded-md border border-pq-neutral-200 px-5 py-4">
               {submitError && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-[4px] px-4 py-3 mb-4">
+                <div className="flex items-center gap-2 bg-pq-danger-100 border border-pq-danger-100 text-pq-danger-600 text-sm rounded-md px-4 py-3 mb-4">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   {submitError}
                 </div>
               )}
               {!everyLineResponded && productsLoaded && (
-                <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-[4px] px-4 py-3 mb-4">
+                <div className="flex items-center gap-2 bg-pq-warning-100 border border-pq-warning-100 text-pq-warning-600 text-xs rounded-md px-4 py-3 mb-4">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                   Each line needs a complete response: quote with product and price, propose a product, or No Quote with a reason.
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <p className="text-sm text-[#40527A]">
+                <p className="text-sm text-pq-neutral-500">
                   {submitted
                     ? 'Your quotation is on record. You may update and resubmit.'
                     : 'Review all items above before submitting.'}
@@ -1078,7 +1078,7 @@ export default function SupplierQuotationPage() {
                 <button
                   onClick={handleSubmit}
                   disabled={submitting || !everyLineResponded}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
                   {submitting ? 'Submitting...' : submitted ? 'Update Quotation' : 'Submit Quotation'}
@@ -1095,28 +1095,28 @@ export default function SupplierQuotationPage() {
           if (!open) closeProductPicker();
         }}
       >
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden sm:rounded-lg border-[#D8E2FF] bg-white">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#D8E2FF] shrink-0 text-left space-y-1.5">
-            <DialogTitle className="text-lg font-semibold text-[#0F1F3A]">
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden sm:rounded-lg border-pq-neutral-200 bg-white">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-pq-neutral-200 shrink-0 text-left space-y-1.5">
+            <DialogTitle className="text-lg font-semibold text-pq-neutral-900">
               Select Verified Product
             </DialogTitle>
-            <DialogDescription className="text-sm text-[#40527A]">
+            <DialogDescription className="text-sm text-pq-neutral-500">
               Choose a validated product from your catalog for this RFQ line.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="px-6 py-3 border-b border-[#D8E2FF] shrink-0 flex flex-col sm:flex-row gap-3">
+          <div className="px-6 py-3 border-b border-pq-neutral-200 shrink-0 flex flex-col sm:flex-row gap-3">
             <Input
               placeholder="Search name, code, category, description, specifications…"
               value={pickerSearch}
               onChange={e => setPickerSearch(e.target.value)}
-              className="text-sm border-[#D8E2FF] flex-1"
+              className="text-sm border-pq-neutral-200 flex-1"
               aria-label="Search verified products"
             />
             <select
               value={pickerCategory}
               onChange={e => setPickerCategory(e.target.value)}
-              className="h-10 rounded-md border border-[#D8E2FF] bg-white px-3 text-sm text-[#0F1F3A] min-w-[11rem]"
+              className="h-10 rounded-md border border-pq-neutral-200 bg-white px-3 text-sm text-pq-neutral-900 min-w-[11rem]"
               aria-label="Filter by category"
             >
               <option value="__all__">All categories</option>
@@ -1130,66 +1130,66 @@ export default function SupplierQuotationPage() {
 
           <div className="flex-1 min-h-0 overflow-auto px-6 py-3">
             {pickerFilteredProducts.length === 0 ? (
-              <p className="text-sm text-[#40527A] text-center py-10">
+              <p className="text-sm text-pq-neutral-500 text-center py-10">
                 No matching verified products found.
               </p>
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent border-[#D8E2FF]">
-                    <TableHead className="text-[10px] uppercase text-[#40527A] font-semibold">
+                  <TableRow className="hover:bg-transparent border-pq-neutral-200">
+                    <TableHead className="text-[10px] uppercase text-pq-neutral-500 font-semibold">
                       Product name
                     </TableHead>
-                    <TableHead className="text-[10px] uppercase text-[#40527A] font-semibold w-[100px]">
+                    <TableHead className="text-[10px] uppercase text-pq-neutral-500 font-semibold w-[100px]">
                       Code
                     </TableHead>
-                    <TableHead className="text-[10px] uppercase text-[#40527A] font-semibold hidden md:table-cell">
+                    <TableHead className="text-[10px] uppercase text-pq-neutral-500 font-semibold hidden md:table-cell">
                       Category
                     </TableHead>
-                    <TableHead className="text-[10px] uppercase text-[#40527A] font-semibold hidden lg:table-cell max-w-[140px]">
+                    <TableHead className="text-[10px] uppercase text-pq-neutral-500 font-semibold hidden lg:table-cell max-w-[140px]">
                       Description
                     </TableHead>
-                    <TableHead className="text-[10px] uppercase text-[#40527A] font-semibold hidden lg:table-cell max-w-[140px]">
+                    <TableHead className="text-[10px] uppercase text-pq-neutral-500 font-semibold hidden lg:table-cell max-w-[140px]">
                       Specifications
                     </TableHead>
-                    <TableHead className="text-[10px] uppercase text-[#40527A] font-semibold w-[88px]">
+                    <TableHead className="text-[10px] uppercase text-pq-neutral-500 font-semibold w-[88px]">
                       Status
                     </TableHead>
-                    <TableHead className="text-[10px] uppercase text-[#40527A] font-semibold w-[104px] hidden sm:table-cell">
+                    <TableHead className="text-[10px] uppercase text-pq-neutral-500 font-semibold w-[104px] hidden sm:table-cell">
                       Verified
                     </TableHead>
-                    <TableHead className="w-[100px] text-right text-[10px] uppercase text-[#40527A] font-semibold">
+                    <TableHead className="w-[100px] text-right text-[10px] uppercase text-pq-neutral-500 font-semibold">
                       Action
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pickerPageItems.map(p => (
-                    <TableRow key={p.id} className="border-[#D8E2FF]">
-                      <TableCell className="font-medium text-[#0F1F3A] align-top">
+                    <TableRow key={p.id} className="border-pq-neutral-200">
+                      <TableCell className="font-medium text-pq-neutral-900 align-top">
                         {p.product_name}
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-[#40527A] align-top">
+                      <TableCell className="font-mono text-xs text-pq-neutral-500 align-top">
                         {p.product_code?.trim() ? p.product_code : '—'}
                       </TableCell>
-                      <TableCell className="text-xs text-[#40527A] align-top hidden md:table-cell">
+                      <TableCell className="text-xs text-pq-neutral-500 align-top hidden md:table-cell">
                         {categoryOptionLabel(supplierProductCategoryKey(p))}
                       </TableCell>
-                      <TableCell className="text-xs text-[#40527A] align-top hidden lg:table-cell max-w-[140px]">
+                      <TableCell className="text-xs text-pq-neutral-500 align-top hidden lg:table-cell max-w-[140px]">
                         {previewField(p.description, 80)}
                       </TableCell>
-                      <TableCell className="text-xs text-[#40527A] align-top hidden lg:table-cell max-w-[140px]">
+                      <TableCell className="text-xs text-pq-neutral-500 align-top hidden lg:table-cell max-w-[140px]">
                         {previewField(p.specifications, 80)}
                       </TableCell>
                       <TableCell className="align-top">
                         <Badge
                           variant="outline"
-                          className="text-[10px] border-emerald-300 text-emerald-800 whitespace-nowrap"
+                          className="text-[10px] border-pq-success-200 text-pq-success-600 whitespace-nowrap"
                         >
                           Verified
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs text-[#40527A] align-top hidden sm:table-cell tabular-nums whitespace-nowrap">
+                      <TableCell className="text-xs text-pq-neutral-500 align-top hidden sm:table-cell tabular-nums whitespace-nowrap">
                         {p.verified_at
                           ? format(new Date(p.verified_at), 'MMM d, yyyy')
                           : '—'}
@@ -1199,7 +1199,7 @@ export default function SupplierQuotationPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 text-xs border-[#D8E2FF]"
+                          className="h-8 text-xs border-pq-neutral-200"
                           onClick={() => confirmPickerProduct(p.id)}
                         >
                           Select
@@ -1212,10 +1212,10 @@ export default function SupplierQuotationPage() {
             )}
           </div>
 
-          <div className="px-6 py-3 border-t border-[#D8E2FF] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 bg-[#F7F9FC]">
-            <p className="text-xs text-[#40527A]">
+          <div className="px-6 py-3 border-t border-pq-neutral-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 bg-pq-neutral-50">
+            <p className="text-xs text-pq-neutral-500">
               Page {pickerPageClamped} of {pickerTotalPages}
-              <span className="text-[#BFC7D5] mx-1">·</span>
+              <span className="text-pq-neutral-400 mx-1">·</span>
               {pickerFilteredProducts.length} product
               {pickerFilteredProducts.length !== 1 ? 's' : ''}
             </p>
@@ -1224,7 +1224,7 @@ export default function SupplierQuotationPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 border-[#D8E2FF]"
+                className="h-9 border-pq-neutral-200"
                 disabled={pickerPageClamped <= 1}
                 onClick={() => setPickerPage(pp => Math.max(1, pp - 1))}
               >
@@ -1234,7 +1234,7 @@ export default function SupplierQuotationPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 border-[#D8E2FF]"
+                className="h-9 border-pq-neutral-200"
                 disabled={pickerPageClamped >= pickerTotalPages}
                 onClick={() => setPickerPage(pp => pp + 1)}
               >
@@ -1264,10 +1264,10 @@ function InfoField({
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-0.5">
-        <Icon className="w-3.5 h-3.5 text-[#BFC7D5]" />
-        <p className="text-xs font-semibold text-[#BFC7D5] uppercase tracking-wide">{label}</p>
+        <Icon className="w-3.5 h-3.5 text-pq-neutral-400" />
+        <p className="text-xs font-semibold text-pq-neutral-400 uppercase tracking-wide">{label}</p>
       </div>
-      <p className={`text-sm text-[#0F1F3A] ${mono ? 'font-mono font-semibold' : 'font-medium'}`}>
+      <p className={`text-sm text-pq-neutral-900 ${mono ? 'font-mono font-semibold' : 'font-medium'}`}>
         {value}
       </p>
     </div>
@@ -1283,7 +1283,7 @@ function ProposalField({
 }) {
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+      <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
         {label}
       </label>
       {children}

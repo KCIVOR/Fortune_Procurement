@@ -44,14 +44,14 @@ export default function ForgotPasswordPage() {
             <Image src={LightmodeLogo} alt="Fortune Procurement" className="w-full h-auto" priority />
           </div>
         </div>
-        <h1 className="text-2xl font-bold text-[#0F1F3A] text-center mb-1">Forgot password</h1>
-        <p className="text-sm text-[#40527A] text-center mb-8">
+        <h1 className="text-2xl font-bold text-pq-neutral-900 text-center mb-1">Forgot password</h1>
+        <p className="text-sm text-pq-neutral-500 text-center mb-8">
           Enter your work email. If an account exists for this address, a reset link will be sent.
         </p>
 
-        <div className="bg-white rounded-lg border border-[#E5EAFF] p-6 shadow-sm">
+        <div className="bg-white rounded-lg border border-pq-neutral-200 p-6 shadow-sm">
           {submitted ? (
-            <div className="flex gap-2 bg-[#F0F9FF] border border-[#BAE6FD] text-[#0369A1] text-sm rounded-lg px-4 py-3">
+            <div className="flex gap-2 bg-pq-primary-50 border border-pq-primary-200 text-pq-primary-600 text-sm rounded-lg px-4 py-3">
               <span>
                 If an account exists for this email, a reset link has been sent. Check your inbox
                 and spam folder.
@@ -60,11 +60,11 @@ export default function ForgotPasswordPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <label htmlFor="email" className="block text-sm font-medium text-[#0F1F3A]">
+                <label htmlFor="email" className="block text-sm font-medium text-pq-neutral-900">
                   Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BFC7D5]" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
                   <input
                     id="email"
                     type="email"
@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-[#D8E2FF] bg-[#F7F9FC] text-sm"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-pq-neutral-200 bg-pq-neutral-50 text-sm"
                   />
                 </div>
               </div>
@@ -80,7 +80,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 bg-[#1E4BFF] hover:bg-[#0F1F3A] disabled:opacity-50 text-white text-sm font-semibold rounded-lg"
+                className="w-full py-2.5 bg-pq-primary-600 hover:bg-pq-neutral-900 disabled:opacity-50 text-white text-sm font-semibold rounded-lg"
               >
                 {loading ? 'Sending…' : 'Send reset link'}
               </button>
@@ -88,8 +88,8 @@ export default function ForgotPasswordPage() {
           )}
         </div>
 
-        <p className="text-center text-xs text-[#7A8BA8] mt-6">
-          <Link href="/login" className="text-[#1E4BFF] hover:underline">
+        <p className="text-center text-xs text-pq-neutral-500 mt-6">
+          <Link href="/login" className="text-pq-primary-600 hover:underline">
             Back to login
           </Link>
         </p>

@@ -5,6 +5,11 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
+import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
+import { FileUpload } from '@/components/shared/FileUpload';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { fetchDeliveryById, supplierUpdateDelivery } from '@/lib/delivery';
 import { uploadDeliveryReceipt } from '@/lib/delivery-receipt-storage';
@@ -16,12 +21,12 @@ import { ChevronLeft, Truck, Building2, Package, CalendarDays, MapPin, Clock, Ci
 const STATUS_CONFIG: Record<DeliveryStatus, {
   bg: string; text: string; border: string; icon: React.ElementType;
 }> = {
-  pending:    { bg: 'bg-slate-100',   text: 'text-slate-600',   border: 'border-slate-200',   icon: Clock },
-  scheduled:  { bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200',    icon: Calendar },
-  in_transit: { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   icon: Navigation },
-  delayed:    { bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     icon: AlertTriangle },
-  delivered:  { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: CheckCircle2 },
-  cancelled:  { bg: 'bg-slate-100',  text: 'text-slate-500',   border: 'border-slate-200',   icon: Ban },
+  pending:    { bg: 'bg-pq-neutral-100',   text: 'text-pq-neutral-600',   border: 'border-pq-neutral-200',   icon: Clock },
+  scheduled:  { bg: 'bg-pq-primary-50',    text: 'text-pq-primary-700',    border: 'border-pq-primary-200',    icon: Calendar },
+  in_transit: { bg: 'bg-pq-warning-100',   text: 'text-pq-warning-600',   border: 'border-pq-warning-100',   icon: Navigation },
+  delayed:    { bg: 'bg-pq-danger-100',     text: 'text-pq-danger-600',     border: 'border-pq-danger-100',     icon: AlertTriangle },
+  delivered:  { bg: 'bg-pq-success-100', text: 'text-pq-success-600', border: 'border-pq-success-100', icon: CheckCircle2 },
+  cancelled:  { bg: 'bg-pq-neutral-100',  text: 'text-pq-neutral-500',   border: 'border-pq-neutral-200',   icon: Ban },
 };
 
 // Statuses a supplier can transition to from each current status
@@ -35,7 +40,7 @@ const ALLOWED_NEXT: Record<DeliveryStatus, DeliveryStatus[]> = {
 };
 
 const ROLE_ACTOR_STYLE: Record<string, string> = {
-  supplier:    'bg-blue-50 text-blue-700 border-blue-200',
+  supplier:    'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200',
   procurement: 'bg-teal-50 text-teal-700 border-teal-200',
   warehouse:   'bg-violet-50 text-violet-600 border-violet-200',
 };
@@ -135,15 +140,13 @@ export default function SupplierDeliveryDetailPage() {
 
   if (loading) return (
     <AppShell title="Delivery Update">
-      <div className="flex items-center justify-center h-64">
-        <LoadingState message="Loading delivery..." />
-      </div>
+      <DetailPageSkeleton />
     </AppShell>
   );
 
   if (error || !delivery) return (
     <AppShell title="Delivery Update">
-      <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+      <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
         {error || 'Delivery not found.'}
       </div>
     </AppShell>
@@ -157,7 +160,7 @@ export default function SupplierDeliveryDetailPage() {
   return (
     <AppShell title={`Delivery — PO ${delivery.po_number_snapshot}`}>
       <div className="mb-2">
-        <Link href="/supplier/delivery" className="inline-flex items-center gap-1 text-xs text-[#40527A] hover:text-[#0F1F3A] transition">
+        <Link href="/supplier/delivery" className="inline-flex items-center gap-1 text-xs text-pq-neutral-500 hover:text-pq-neutral-900 transition">
           <ChevronLeft className="w-3.5 h-3.5" />
           Back to Deliveries
         </Link>
@@ -167,19 +170,19 @@ export default function SupplierDeliveryDetailPage() {
       <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-3 flex-wrap mb-1">
-            <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">{delivery.po_number_snapshot}</h1>
+            <h1 className="text-xl font-bold text-pq-neutral-900 font-mono">{delivery.po_number_snapshot}</h1>
             <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-3 py-1 ${cfg.bg} ${cfg.text} ${cfg.border}`}>
               <Icon className="w-3.5 h-3.5" />
               {DELIVERY_STATUS_LABELS[delivery.status]}
             </span>
           </div>
-          <p className="text-sm text-[#40527A]">{delivery.department_name_snapshot} · {delivery.purpose}</p>
+          <p className="text-sm text-pq-neutral-500">{delivery.department_name_snapshot} · {delivery.purpose}</p>
         </div>
         <div className="text-right">
-          <p className="text-lg font-bold text-[#0F1F3A] font-mono">
+          <p className="text-lg font-bold text-pq-neutral-900 font-mono">
             ₱{delivery.grand_total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-[#BFC7D5]">Grand Total</p>
+          <p className="text-xs text-pq-neutral-400">Grand Total</p>
         </div>
       </div>
 
@@ -188,18 +191,18 @@ export default function SupplierDeliveryDetailPage() {
         <div className="lg:col-span-2 space-y-4">
 
           {/* Order Info */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4 order-2 lg:order-none">
-            <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">Order Info</h2>
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4 order-2 lg:order-none">
+            <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">Order Info</h2>
             <InfoField icon={User}         label="Buyer"         value={delivery.requisitioner_name_snapshot} />
             <InfoField icon={Building2}    label="Department"    value={delivery.department_name_snapshot} />
             <InfoField icon={Package}      label="Deliver To"    value={delivery.warehouse} />
             <InfoField icon={MapPin}       label="Address"       value={delivery.delivery_address} />
             {delivery.dr_document_filename && (
               <div className="flex items-start gap-2.5 pt-1">
-                <FileText className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                <FileText className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">Delivery receipt</p>
-                  <p className="text-sm text-slate-800 mt-0.5 font-medium">
+                  <p className="text-xs text-pq-neutral-400 uppercase tracking-wide font-semibold">Delivery receipt</p>
+                  <p className="text-sm text-pq-neutral-800 mt-0.5 font-medium">
                     Attached DR: {delivery.dr_document_filename}
                   </p>
                 </div>
@@ -208,8 +211,8 @@ export default function SupplierDeliveryDetailPage() {
           </div>
 
           {/* Key Dates */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4 order-3 lg:order-none">
-            <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">Key Dates</h2>
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4 order-3 lg:order-none">
+            <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">Key Dates</h2>
             {delivery.commitment_date && (
               <InfoField icon={CalendarDays} label="Commitment"
                 value={format(new Date(delivery.commitment_date), 'MMMM d, yyyy')} />
@@ -223,26 +226,26 @@ export default function SupplierDeliveryDetailPage() {
                 value={format(new Date(delivery.actual_delivery_date), 'MMMM d, yyyy')} />
             )}
             {!delivery.commitment_date && !delivery.scheduled_date && (
-              <p className="text-xs text-[#BFC7D5]">No dates yet.</p>
+              <p className="text-xs text-pq-neutral-400">No dates yet.</p>
             )}
           </div>
 
           {/* References */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-2 order-4 lg:order-none">
-            <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide mb-2">References</h2>
-            <p className="text-xs text-[#40527A] font-mono">PO: {delivery.po_number_snapshot}</p>
-            <p className="text-xs text-[#40527A] font-mono">PR2: {delivery.pr2_number_snapshot}</p>
-            <p className="text-xs text-[#40527A] font-mono">PR1: {delivery.pr1_number_snapshot}</p>
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-2 order-4 lg:order-none">
+            <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide mb-2">References</h2>
+            <p className="text-xs text-pq-neutral-500 font-mono">PO Ref: {delivery.po_number_snapshot}</p>
+            <p className="text-xs text-pq-neutral-500 font-mono">PR2 Ref: {delivery.pr2_number_snapshot}</p>
+            <p className="text-xs text-pq-neutral-500 font-mono">PR1 Ref: {delivery.pr1_number_snapshot}</p>
           </div>
 
           {/* Delivered banner */}
           {delivery.status === 'delivered' && (
-            <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-[4px] px-5 py-4">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+            <div className="flex items-start gap-3 bg-pq-success-100 border border-pq-success-100 rounded-md px-5 py-4">
+              <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-emerald-800">Delivery Completed</p>
+                <p className="text-sm font-semibold text-pq-success-600">Delivery Completed</p>
                 {delivery.actual_delivery_date && (
-                  <p className="text-xs text-emerald-700 mt-0.5">
+                  <p className="text-xs text-pq-success-600 mt-0.5">
                     Delivered on {format(new Date(delivery.actual_delivery_date), 'MMMM d, yyyy')}.
                   </p>
                 )}
@@ -252,18 +255,18 @@ export default function SupplierDeliveryDetailPage() {
 
           {/* Supplier update form */}
           {canUpdate && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC]">
+            <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-pq-neutral-200 bg-pq-neutral-50">
                 <div className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-[#40527A]" />
-                  <h2 className="text-xs font-semibold text-[#0F1F3A] uppercase tracking-wide">Update Delivery Status</h2>
+                  <Truck className="w-4 h-4 text-pq-neutral-500" />
+                  <h2 className="text-xs font-semibold text-pq-neutral-900 uppercase tracking-wide">Update Delivery Status</h2>
                 </div>
-                <p className="text-xs text-[#40527A] mt-0.5">Keep procurement informed about your delivery progress.</p>
+                <p className="text-xs text-pq-neutral-500 mt-0.5">Keep procurement informed about your delivery progress.</p>
               </div>
               <div className="p-5 space-y-4">
                 {/* Status select */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+                  <label className="block text-xs font-semibold text-pq-neutral-600 uppercase tracking-wide mb-1.5">
                     New Status
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -282,7 +285,7 @@ export default function SupplierDeliveryDetailPage() {
                           className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition ${
                             sel
                               ? `${scfg.bg} ${scfg.text} ${scfg.border} ring-2 ring-offset-1 ring-current`
-                              : 'bg-white text-[#40527A] border-[#D8E2FF] hover:border-[#0F1F3A]'
+                              : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:border-pq-primary-600'
                           }`}
                         >
                           <SIcon className="w-3.5 h-3.5" />
@@ -295,56 +298,59 @@ export default function SupplierDeliveryDetailPage() {
 
                 {form.new_status === 'in_transit' && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
-                      Delivery receipt (DR) <span className="text-red-600">*</span>
+                    <label className="block text-xs font-semibold text-pq-neutral-600 uppercase tracking-wide mb-1.5">
+                      Delivery receipt (DR) <span className="text-pq-danger-600">*</span>
                     </label>
-                    <input
-                      ref={drInputRef}
-                      type="file"
+                    <FileUpload
                       accept="application/pdf,image/jpeg,image/png"
-                      disabled={busy}
-                      onChange={(e) => {
+                      selectedFileName={drFile?.name}
+                      onFileSelect={(file) => {
                         setFormError('');
-                        const f = e.target.files?.[0] ?? null;
-                        setDrFile(f);
-                        if (f) {
-                          const msg = validateDrFileLocal(f);
-                          if (msg) setFormError(msg);
+                        const msg = validateDrFileLocal(file);
+                        if (msg) {
+                          setFormError(msg);
+                          setDrFile(null);
+                        } else {
+                          setDrFile(file);
                         }
                       }}
-                      className="block w-full max-w-md text-sm text-[#40527A] file:mr-3 file:rounded-[4px] file:border file:border-[#D8E2FF] file:bg-[#F7F9FC] file:px-3 file:py-2 file:text-xs file:font-semibold disabled:opacity-50"
+                      onFileRemove={() => {
+                        setDrFile(null);
+                        setFormError('');
+                      }}
+                      error={formError}
+                      isLoading={busy}
                     />
-                    <p className="text-xs text-[#BFC7D5] mt-1">PDF, JPG, or PNG — max 10 MB.</p>
                   </div>
                 )}
 
                 {/* Scheduled date — show when scheduling or moving to in_transit */}
                 {(form.new_status === 'scheduled' || form.new_status === 'in_transit') && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+                    <label className="block text-xs font-semibold text-pq-neutral-600 uppercase tracking-wide mb-1.5">
                       {form.new_status === 'scheduled' ? 'Expected Delivery Date' : 'Updated Delivery Date'}
-                      <span className="font-normal text-slate-400 normal-case ml-1">(optional)</span>
+                      <span className="font-normal text-pq-neutral-400 normal-case ml-1">(optional)</span>
                     </label>
-                    <input
+                    <Input
                       type="date"
                       value={form.scheduled_date}
                       onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
                       min={new Date().toISOString().split('T')[0]}
                       disabled={busy}
-                      className="w-full max-w-xs px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+                      className="w-full max-w-xs text-sm border-pq-neutral-200"
                     />
                   </div>
                 )}
 
                 {/* Note */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+                  <label className="block text-xs font-semibold text-pq-neutral-600 uppercase tracking-wide mb-1.5">
                     Update Note
                     {form.new_status === 'delayed'
                       ? ' (required — explain delay reason)'
                       : ' (optional)'}
                   </label>
-                  <textarea
+                  <Textarea
                     rows={3}
                     value={form.note}
                     onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
@@ -355,30 +361,30 @@ export default function SupplierDeliveryDetailPage() {
                       form.new_status === 'delivered'  ? 'Goods handed to warehouse staff.' :
                       'Add any relevant notes...'
                     }
-                    className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none disabled:opacity-50"
+                    className="w-full border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none disabled:opacity-50"
                   />
                 </div>
 
-                {formError && (
-                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+                {formError && form.new_status !== 'in_transit' && (
+                  <div className="flex items-start gap-2 bg-pq-danger-100 border border-pq-danger-100 text-pq-danger-600 text-sm rounded-lg px-4 py-3">
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                     {formError}
                   </div>
                 )}
 
-                <div className="flex justify-end pt-2 border-t border-[#D8E2FF]">
-                  <button
+                <div className="flex justify-end pt-2 border-t border-pq-neutral-200">
+                  <Button
                     onClick={handleUpdate}
                     disabled={
                       busy ||
                       (form.new_status === 'delayed' && !form.note.trim()) ||
                       (form.new_status === 'in_transit' && (!drFile || !!validateDrFileLocal(drFile)))
                     }
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                   >
                     <Send className="w-4 h-4" />
                     {busy ? 'Saving...' : 'Submit Update'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -388,53 +394,53 @@ export default function SupplierDeliveryDetailPage() {
         {/* Right column: Update History */}
         <div className="lg:col-span-1 order-1 lg:order-none">
           <div className="lg:sticky lg:top-20">
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC] flex items-center gap-2">
-                <FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />
-                <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+            <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5 text-pq-neutral-400" />
+                <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                   Update History ({delivery.history.length})
                 </h2>
               </div>
               {delivery.history.length === 0 ? (
                 <div className="px-5 py-8 text-center">
-                  <p className="text-sm text-[#BFC7D5]">No updates yet. Submit your first status update below.</p>
+                  <p className="text-sm text-pq-neutral-400">No updates yet. Submit your first status update below.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-[#D8E2FF] max-h-96 overflow-y-auto">
+                <div className="divide-y divide-pq-neutral-200 max-h-96 overflow-y-auto">
                   {[...delivery.history].reverse().map((entry, idx) => {
-                    const roleCfg = ROLE_ACTOR_STYLE[entry.actor_role] ?? 'bg-slate-100 text-slate-600 border-slate-200';
+                    const roleCfg = ROLE_ACTOR_STYLE[entry.actor_role] ?? 'bg-pq-neutral-100 text-pq-neutral-600 border-pq-neutral-200';
                     return (
-                      <div key={entry.id} className={`px-5 py-4 ${idx === 0 ? 'bg-[#F7F9FC]/60' : ''}`}>
+                      <div key={entry.id} className={`px-5 py-4 ${idx === 0 ? 'bg-pq-neutral-50/60' : ''}`}>
                         <div className="flex items-start gap-3">
                           <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${
-                            entry.status_to === 'delivered' ? 'bg-emerald-500' :
-                            entry.status_to === 'delayed'   ? 'bg-red-500' :
-                            entry.status_to === 'in_transit'? 'bg-amber-500' :
-                            entry.status_to === 'scheduled' ? 'bg-blue-500' :
-                            'bg-slate-300'
+                            entry.status_to === 'delivered' ? 'bg-pq-success-1000' :
+                            entry.status_to === 'delayed'   ? 'bg-pq-danger-1000' :
+                            entry.status_to === 'in_transit'? 'bg-pq-warning-1000' :
+                            entry.status_to === 'scheduled' ? 'bg-pq-primary-500' :
+                            'bg-pq-neutral-300'
                           }`} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <span className="text-sm font-semibold text-[#0F1F3A]">{entry.actor_name}</span>
+                              <span className="text-sm font-semibold text-pq-neutral-900">{entry.actor_name}</span>
                               <span className={`text-xs border rounded px-1.5 py-0.5 font-medium ${roleCfg}`}>
                                 {entry.actor_role}
                               </span>
                               {entry.status_to && (
-                                <span className="text-xs text-[#40527A]">
-                                  → <strong className="text-[#0F1F3A]">{DELIVERY_STATUS_LABELS[entry.status_to]}</strong>
+                                <span className="text-xs text-pq-neutral-500">
+                                  → <strong className="text-pq-neutral-900">{DELIVERY_STATUS_LABELS[entry.status_to]}</strong>
                                 </span>
                               )}
                             </div>
                             {entry.note && (
-                              <p className="text-sm text-slate-600 leading-relaxed">{entry.note}</p>
+                              <p className="text-sm text-pq-neutral-600 leading-relaxed">{entry.note}</p>
                             )}
                             {entry.scheduled_date && (
-                              <p className="text-xs text-[#1E4BFF] mt-1 flex items-center gap-1">
+                              <p className="text-xs text-pq-primary-600 mt-1 flex items-center gap-1">
                                 <CalendarDays className="w-3 h-3" />
                                 {format(new Date(entry.scheduled_date), 'MMMM d, yyyy')}
                               </p>
                             )}
-                            <p className="text-xs text-[#BFC7D5] mt-1">
+                            <p className="text-xs text-pq-neutral-400 mt-1">
                               {format(new Date(entry.created_at), 'MMM d, yyyy h:mm a')}
                             </p>
                           </div>
@@ -463,10 +469,10 @@ function InfoField({
 }) {
   return (
     <div className="flex items-start gap-2.5">
-      <Icon className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+      <Icon className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />
       <div className="min-w-0">
-        <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">{label}</p>
-        <p className="text-sm text-slate-800 mt-0.5 font-medium">{value}</p>
+        <p className="text-xs text-pq-neutral-400 uppercase tracking-wide font-semibold">{label}</p>
+        <p className="text-sm text-pq-neutral-800 mt-0.5 font-medium">{value}</p>
       </div>
     </div>
   );

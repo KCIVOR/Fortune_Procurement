@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
@@ -124,21 +124,21 @@ export default function ResetPasswordModal({
         {step === 'form' ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <p className="text-xs text-red-800">{error}</p>
+              <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-3 flex gap-2">
+                <AlertCircle className="w-4 h-4 text-pq-danger-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-pq-danger-600">{error}</p>
               </div>
             )}
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs text-blue-800">
+            <div className="bg-pq-primary-50 border border-pq-primary-200 rounded-lg p-3">
+              <p className="text-xs text-pq-primary-600">
                 <strong>Resetting password for:</strong> {userEmail}
               </p>
             </div>
 
             {/* Password */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-xs font-medium text-[#40527A]">
+              <Label htmlFor="password" className="text-xs font-medium text-pq-neutral-500">
                 New Temporary Password
               </Label>
               <div className="flex gap-2 items-end">
@@ -155,7 +155,7 @@ export default function ResetPasswordModal({
                   <button
                     type="button"
                     onClick={() => setPasswordDisplay({ ...passwordDisplay, show: !passwordDisplay.show })}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#40527A] hover:text-[#0F1F3A] transition"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-pq-neutral-500 hover:text-pq-neutral-900 transition"
                     title={passwordDisplay.show ? 'Hide' : 'Show'}
                   >
                     {passwordDisplay.show ? (
@@ -176,13 +176,13 @@ export default function ResetPasswordModal({
                   <RefreshCw className="w-4 h-4" />
                 </Button>
               </div>
-              <p className="text-xs text-[#7A8BA8]">
+              <p className="text-xs text-pq-neutral-500">
                 {password ? `${password.length} characters` : 'Will be auto-generated if left empty'}
               </p>
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-xs text-yellow-800">
+            <div className="bg-pq-warning-100 border border-pq-warning-100 rounded-lg p-3">
+              <p className="text-xs text-pq-warning-600">
                 <strong>Warning:</strong> User will need to change this temporary password on first login for security.
               </p>
             </div>
@@ -201,7 +201,7 @@ export default function ResetPasswordModal({
               <Button
                 type="submit"
                 disabled={loading || !password || password.length < 8}
-                className="flex-1 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white"
+                className="flex-1 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white"
               >
                 {loading ? 'Resetting...' : 'Reset Password'}
               </Button>
@@ -209,22 +209,22 @@ export default function ResetPasswordModal({
           </form>
         ) : (
           <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-sm text-green-800 font-medium">Password reset successfully!</p>
+            <div className="bg-pq-success-100 border border-pq-success-100 rounded-lg p-4">
+              <p className="text-sm text-pq-success-600 font-medium">Password reset successfully!</p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-medium text-[#40527A]">New Temporary Password</Label>
+              <Label className="text-xs font-medium text-pq-neutral-500">New Temporary Password</Label>
               <div className="flex items-center gap-2">
-                <div className="flex-1 p-3 bg-[#F7F9FC] border border-[#D8E2FF] rounded-lg">
-                  <p className="text-sm font-mono text-[#0F1F3A] break-all">
+                <div className="flex-1 p-3 bg-pq-neutral-50 border border-pq-neutral-200 rounded-lg">
+                  <p className="text-sm font-mono text-pq-neutral-900 break-all">
                     {newPasswordDisplay.show ? newPassword : '•'.repeat(newPassword.length)}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setNewPasswordDisplay({ ...newPasswordDisplay, show: !newPasswordDisplay.show })}
-                  className="p-2 text-[#40527A] hover:bg-[#F7F9FC] rounded transition"
+                  className="p-2 text-pq-neutral-500 hover:bg-pq-neutral-50 rounded transition"
                   title={newPasswordDisplay.show ? 'Hide' : 'Show'}
                 >
                   {newPasswordDisplay.show ? (
@@ -236,8 +236,8 @@ export default function ResetPasswordModal({
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs text-blue-800">
+            <div className="bg-pq-primary-50 border border-pq-primary-200 rounded-lg p-3">
+              <p className="text-xs text-pq-primary-600">
                 <strong>Share this password with the user.</strong> It will be hidden after you close this modal and cannot be recovered. The user must change their password on first login.
               </p>
             </div>
@@ -254,7 +254,7 @@ export default function ResetPasswordModal({
               <Button
                 type="button"
                 onClick={handleCopyPassword}
-                className="flex-1 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white flex items-center gap-2 justify-center"
+                className="flex-1 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white flex items-center gap-2 justify-center"
               >
                 {newPasswordDisplay.copied ? (
                   <>

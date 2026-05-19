@@ -58,11 +58,11 @@ export default function AccreditationQueuePage() {
           <LoadingState message="Loading accreditation queue…" />
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
       ) : rows.length === 0 ? (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
+        <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title="No accreditation applications"
             description="Submitted supplier accreditation applications will appear here for review."
@@ -70,15 +70,15 @@ export default function AccreditationQueuePage() {
           />
         </div>
       ) : (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
+        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
           {/* Column headers */}
-          <div className="hidden md:grid grid-cols-[1fr_180px_140px_120px] gap-4 px-5 py-2.5 bg-[#F7F9FC] border-b border-[#D8E2FF]">
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Supplier</p>
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Status</p>
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Submitted</p>
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Reviewed</p>
+          <div className="hidden md:grid grid-cols-[1fr_180px_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Reviewed</p>
           </div>
-          <div className="divide-y divide-[#D8E2FF]">
+          <div className="divide-y divide-pq-neutral-200">
             {rows.map(row => (
               <QueueRow key={row.id} row={row} />
             ))}
@@ -95,14 +95,14 @@ function QueueRow({ row }: { row: AccreditationQueueRow }) {
   const chip = accreditationChip(row.status);
 
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-[#F7F9FC] transition">
+    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="font-medium text-sm text-[#0F1F3A]">
+          <span className="font-medium text-sm text-pq-neutral-900">
             {row.supplier_full_name ?? 'Unknown Supplier'}
           </span>
           {row.status === 'missing_documents' && (
-            <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+            <span className="inline-flex items-center gap-1 text-xs text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-full px-2 py-0.5">
               <AlertCircle className="w-3 h-3" />
               Action Required
             </span>
@@ -110,15 +110,15 @@ function QueueRow({ row }: { row: AccreditationQueueRow }) {
         </div>
         <div className="flex items-center gap-3 mt-0.5 flex-wrap">
           {row.supplier_email && (
-            <span className="text-xs text-[#BFC7D5]">{row.supplier_email}</span>
+            <span className="text-xs text-pq-neutral-400">{row.supplier_email}</span>
           )}
           {row.submitted_at && (
-            <span className="text-xs text-[#BFC7D5]">
+            <span className="text-xs text-pq-neutral-400">
               Submitted {format(new Date(row.submitted_at), 'MMM d, yyyy')}
             </span>
           )}
           {row.reviewed_at && (
-            <span className="text-xs text-[#BFC7D5]">
+            <span className="text-xs text-pq-neutral-400">
               Reviewed {format(new Date(row.reviewed_at), 'MMM d, yyyy')}
             </span>
           )}
@@ -131,7 +131,7 @@ function QueueRow({ row }: { row: AccreditationQueueRow }) {
 
       <Link
         href={`/accreditation/${row.id}`}
-        className="shrink-0 flex items-center gap-1 text-xs font-semibold text-[#40527A] hover:text-[#0F1F3A] transition"
+        className="shrink-0 flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition"
       >
         Review
         <ArrowRight className="w-3.5 h-3.5" />

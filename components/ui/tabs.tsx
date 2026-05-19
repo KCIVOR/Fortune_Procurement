@@ -13,8 +13,9 @@ const TabsList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
+    /* v2.0: Migrated background container to neutral-100 token */
     className={cn(
-      'inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground',
+      'inline-flex h-10 items-center justify-center rounded-md bg-pq-neutral-100 p-1 text-pq-neutral-500',
       className
     )}
     {...props}
@@ -28,8 +29,9 @@ const TabsTrigger = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
+    /* v2.0: Migrated active state backing to white canvas and text to primary-600 */
     className={cn(
-      'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm',
+      'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-pq-white data-[state=active]:text-pq-primary-600 data-[state=active]:shadow-sm',
       className
     )}
     {...props}
@@ -43,8 +45,9 @@ const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
+    /* v2.0: Replaced old ring-offset focus state with modern focus ring token shadow */
     className={cn(
-      'mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+      'mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25',
       className
     )}
     {...props}

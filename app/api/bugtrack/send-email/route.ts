@@ -6,8 +6,11 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { bugTitle, bugDescription, severity, location, reporterName } = body;
 
-    const { data: settings } = await supabase.from('bugtrack_settings').select('notification_email').single();
-    const email = (settings as any)?.notification_email;
+    const { data: settings } = await supabase
+      .from('bugtrack_settings')
+      .select('notification_email')
+      .single();
+    const email = (settings as { notification_email?: string } | null)?.notification_email;
 
     if (!email) {
       console.log('No bugtrack notification email configured.');

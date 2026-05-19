@@ -52,7 +52,7 @@ export default function PR1EditPage() {
   if (error || !pr1) {
     return (
       <AppShell title="Edit PR1">
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error || 'PR1 not found.'}
         </div>
       </AppShell>
@@ -64,10 +64,10 @@ export default function PR1EditPage() {
       <div className="mb-2">
         <Link
           href={`/pr1/${id}`}
-          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition"
+          className="inline-flex items-center gap-1 text-xs text-pq-neutral-500 hover:text-pq-neutral-500 transition"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
-          Back to PR1 {pr1.pr1_number}
+          Back to {pr1.pr1_number}
         </Link>
       </div>
       <PageHeader

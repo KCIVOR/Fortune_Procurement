@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
@@ -261,7 +261,7 @@ export default function CreateUserModal({
             setInviteStep('form');
           }}
         >
-          <TabsList className="grid w-full grid-cols-2 mb-2 h-auto p-1 bg-[#F7F9FC]">
+          <TabsList className="grid w-full grid-cols-2 mb-2 h-auto p-1 bg-pq-neutral-50">
             <TabsTrigger value="create" className="text-xs">
               Create user
             </TabsTrigger>
@@ -274,14 +274,14 @@ export default function CreateUserModal({
         {step === 'form' ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-xs text-red-800">{error}</p>
+              <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-3">
+                <p className="text-xs text-pq-danger-600">{error}</p>
               </div>
             )}
 
             {/* Full Name */}
             <div className="space-y-2">
-              <Label htmlFor="full-name" className="text-xs font-medium text-[#40527A]">
+              <Label htmlFor="full-name" className="text-xs font-medium text-pq-neutral-500">
                 Full Name
               </Label>
               <Input
@@ -298,7 +298,7 @@ export default function CreateUserModal({
 
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs font-medium text-[#40527A]">
+              <Label htmlFor="email" className="text-xs font-medium text-pq-neutral-500">
                 Email
               </Label>
               <Input
@@ -315,7 +315,7 @@ export default function CreateUserModal({
 
             {/* Role */}
             <div className="space-y-2">
-              <Label htmlFor="role" className="text-xs font-medium text-[#40527A]">
+              <Label htmlFor="role" className="text-xs font-medium text-pq-neutral-500">
                 Role
               </Label>
               <Select
@@ -338,7 +338,7 @@ export default function CreateUserModal({
 
             {/* Position */}
             <div className="space-y-2">
-              <Label htmlFor="position" className="text-xs font-medium text-[#40527A]">
+              <Label htmlFor="position" className="text-xs font-medium text-pq-neutral-500">
                 Position
               </Label>
               <Select
@@ -361,7 +361,7 @@ export default function CreateUserModal({
 
             {/* Department */}
             <div className="space-y-2">
-              <Label htmlFor="department" className="text-xs font-medium text-[#40527A]">
+              <Label htmlFor="department" className="text-xs font-medium text-pq-neutral-500">
                 Department
               </Label>
               <Select
@@ -384,7 +384,7 @@ export default function CreateUserModal({
 
             {/* Password */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-xs font-medium text-[#40527A]">
+              <Label htmlFor="password" className="text-xs font-medium text-pq-neutral-500">
                 Temporary Password
               </Label>
               <div className="flex gap-2 items-end">
@@ -401,7 +401,7 @@ export default function CreateUserModal({
                   <button
                     type="button"
                     onClick={() => setPasswordFieldDisplay({ ...passwordFieldDisplay, show: !passwordFieldDisplay.show })}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#40527A] hover:text-[#0F1F3A] transition"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-pq-neutral-500 hover:text-pq-neutral-900 transition"
                     title={passwordFieldDisplay.show ? 'Hide' : 'Show'}
                   >
                     {passwordFieldDisplay.show ? (
@@ -422,7 +422,7 @@ export default function CreateUserModal({
                   <RefreshCw className="w-4 h-4" />
                 </Button>
               </div>
-              <p className="text-xs text-[#7A8BA8]">
+              <p className="text-xs text-pq-neutral-500">
                 {formData.password ? `${formData.password.length} characters` : 'Will be auto-generated if left empty'}
               </p>
             </div>
@@ -441,7 +441,7 @@ export default function CreateUserModal({
               <Button
                 type="submit"
                 disabled={loading || !formData.full_name || !formData.email || !formData.role_id || !formData.position_id || !formData.department_id || Boolean(formData.password && formData.password.length < 8)}
-                className="flex-1 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white"
+                className="flex-1 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white"
               >
                 {loading ? 'Creating...' : 'Create User'}
               </Button>
@@ -449,29 +449,29 @@ export default function CreateUserModal({
           </form>
         ) : (
           <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-sm text-green-800 font-medium">User created successfully!</p>
+            <div className="bg-pq-success-100 border border-pq-success-100 rounded-lg p-4">
+              <p className="text-sm text-pq-success-600 font-medium">User created successfully!</p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-medium text-[#40527A]">Email</Label>
-              <div className="p-3 bg-[#F7F9FC] border border-[#D8E2FF] rounded-lg">
-                <p className="text-sm font-mono text-[#0F1F3A]">{userEmail}</p>
+              <Label className="text-xs font-medium text-pq-neutral-500">Email</Label>
+              <div className="p-3 bg-pq-neutral-50 border border-pq-neutral-200 rounded-lg">
+                <p className="text-sm font-mono text-pq-neutral-900">{userEmail}</p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-medium text-[#40527A]">Temporary Password</Label>
+              <Label className="text-xs font-medium text-pq-neutral-500">Temporary Password</Label>
               <div className="flex items-center gap-2">
-                <div className="flex-1 p-3 bg-[#F7F9FC] border border-[#D8E2FF] rounded-lg">
-                  <p className="text-sm font-mono text-[#0F1F3A] break-all">
+                <div className="flex-1 p-3 bg-pq-neutral-50 border border-pq-neutral-200 rounded-lg">
+                  <p className="text-sm font-mono text-pq-neutral-900 break-all">
                     {passwordDisplay.show ? tempPassword : '•'.repeat(tempPassword.length)}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setPasswordDisplay({ ...passwordDisplay, show: !passwordDisplay.show })}
-                  className="p-2 text-[#40527A] hover:bg-[#F7F9FC] rounded transition"
+                  className="p-2 text-pq-neutral-500 hover:bg-pq-neutral-50 rounded transition"
                   title={passwordDisplay.show ? 'Hide' : 'Show'}
                 >
                   {passwordDisplay.show ? (
@@ -483,8 +483,8 @@ export default function CreateUserModal({
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs text-blue-800">
+            <div className="bg-pq-primary-50 border border-pq-primary-200 rounded-lg p-3">
+              <p className="text-xs text-pq-primary-600">
                 <strong>Share this password with the user.</strong> It will be hidden after you close this modal and cannot be recovered. The user must change their password on first login.
               </p>
             </div>
@@ -501,7 +501,7 @@ export default function CreateUserModal({
               <Button
                 type="button"
                 onClick={handleCopyPassword}
-                className="flex-1 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white flex items-center gap-2 justify-center"
+                className="flex-1 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white flex items-center gap-2 justify-center"
               >
                 {passwordDisplay.copied ? (
                   <>
@@ -524,13 +524,13 @@ export default function CreateUserModal({
             {inviteStep === 'form' ? (
               <form onSubmit={handleInviteSubmit} className="space-y-4">
                 {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-xs text-red-800">{error}</p>
+                  <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-3">
+                    <p className="text-xs text-pq-danger-600">{error}</p>
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="invite-full-name" className="text-xs font-medium text-[#40527A]">
+                  <Label htmlFor="invite-full-name" className="text-xs font-medium text-pq-neutral-500">
                     Full Name
                   </Label>
                   <Input
@@ -546,7 +546,7 @@ export default function CreateUserModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="invite-email" className="text-xs font-medium text-[#40527A]">
+                  <Label htmlFor="invite-email" className="text-xs font-medium text-pq-neutral-500">
                     Email
                   </Label>
                   <Input
@@ -562,7 +562,7 @@ export default function CreateUserModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="invite-role" className="text-xs font-medium text-[#40527A]">
+                  <Label htmlFor="invite-role" className="text-xs font-medium text-pq-neutral-500">
                     Role
                   </Label>
                   <Select
@@ -584,7 +584,7 @@ export default function CreateUserModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="invite-position" className="text-xs font-medium text-[#40527A]">
+                  <Label htmlFor="invite-position" className="text-xs font-medium text-pq-neutral-500">
                     Position
                   </Label>
                   <Select
@@ -608,7 +608,7 @@ export default function CreateUserModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="invite-dept" className="text-xs font-medium text-[#40527A]">
+                  <Label htmlFor="invite-dept" className="text-xs font-medium text-pq-neutral-500">
                     Department
                   </Label>
                   <Select
@@ -629,7 +629,7 @@ export default function CreateUserModal({
                   </Select>
                 </div>
 
-                <p className="text-xs text-[#7A8BA8]">
+                <p className="text-xs text-pq-neutral-500">
                   The user will receive an email to set their own password. No temporary password is
                   shown here.
                 </p>
@@ -654,7 +654,7 @@ export default function CreateUserModal({
                       !inviteForm.position_id ||
                       !inviteForm.department_id
                     }
-                    className="flex-1 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white"
+                    className="flex-1 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white"
                   >
                     {loading ? 'Sending…' : 'Send invitation'}
                   </Button>
@@ -662,14 +662,14 @@ export default function CreateUserModal({
               </form>
             ) : (
               <div className="space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-sm text-green-800 font-medium">
+                <div className="bg-pq-success-100 border border-pq-success-100 rounded-lg p-4">
+                  <p className="text-sm text-pq-success-600 font-medium">
                     Invitation sent to{' '}
                     <span className="font-mono">{inviteSentToEmail}</span>. The user will set their
                     password from the email link.
                   </p>
                 </div>
-                <Button type="button" onClick={handleClose} className="w-full bg-[#1E4BFF] hover:bg-[#0F1F3A]">
+                <Button type="button" onClick={handleClose} className="w-full bg-pq-primary-600 hover:bg-pq-neutral-900">
                   Close
                 </Button>
               </div>

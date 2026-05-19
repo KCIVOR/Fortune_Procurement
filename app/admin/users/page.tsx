@@ -115,9 +115,9 @@ export default function UsersPage() {
       <AppShell title="Users">
         <div className="space-y-6">
           <PageHeader title="Users" description="View all system users and their details" />
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
             <h3 className="font-semibold text-red-900 mb-2">Access Denied</h3>
-            <p className="text-sm text-red-800">
+            <p className="text-sm text-pq-danger-600">
               You do not have permission to view users. Only administrators can access this feature.
             </p>
           </div>
@@ -131,9 +131,9 @@ export default function UsersPage() {
       <AppShell title="Users">
         <div className="space-y-6">
           <PageHeader title="Users" description="View all system users and their details" />
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
             <h3 className="font-semibold text-red-900 mb-2">Error</h3>
-            <p className="text-sm text-red-800">{error}</p>
+            <p className="text-sm text-pq-danger-600">{error}</p>
           </div>
         </div>
       </AppShell>
@@ -147,7 +147,7 @@ export default function UsersPage() {
           <PageHeader title="Users" description="View all system users and their details" />
           <Button
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-medium"
+            className="bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-medium"
           >
             <Plus className="w-4 h-4 mr-2" />
             Create User
@@ -155,8 +155,8 @@ export default function UsersPage() {
         </div>
 
         {/* Filter Panel */}
-        <div className="bg-white rounded-lg border border-[#E5EAFF] p-6 space-y-4">
-          <h3 className="font-semibold text-[#0F1F3A] mb-4">Filters</h3>
+        <div className="bg-white rounded-lg border border-pq-neutral-200 p-6 space-y-4">
+          <h3 className="font-semibold text-pq-neutral-900 mb-4">Filters</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search */}
@@ -171,7 +171,7 @@ export default function UsersPage() {
 
             {/* Role Filter */}
             <div className="space-y-2">
-              <Label htmlFor="role-filter" className="text-xs font-medium text-[#40527A]">
+              <Label htmlFor="role-filter" className="text-xs font-medium text-pq-neutral-500">
                 Role
               </Label>
               <Select value={selectedRole} onValueChange={setSelectedRole} disabled={isLoading}>
@@ -191,7 +191,7 @@ export default function UsersPage() {
 
             {/* Department Filter */}
             <div className="space-y-2">
-              <Label htmlFor="dept-filter" className="text-xs font-medium text-[#40527A]">
+              <Label htmlFor="dept-filter" className="text-xs font-medium text-pq-neutral-500">
                 Department
               </Label>
               <Select value={selectedDept} onValueChange={setSelectedDept} disabled={isLoading}>
@@ -215,7 +215,7 @@ export default function UsersPage() {
             <Button
               onClick={handleApplyFilters}
               disabled={isLoading}
-              className="bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-medium"
+              className="bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-medium"
             >
               Apply Filters
             </Button>

@@ -6,6 +6,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
+import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
+import { FileUpload } from '@/components/shared/FileUpload';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 import ComplianceTraceability from '@/components/shared/ComplianceTraceability';
 import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
@@ -37,12 +41,12 @@ import {
 
 function rseChip(status: string): { variant: StatusVariant; label: string } {
   const map: Record<string, { variant: StatusVariant; label: string }> = {
-    created:      { variant: 'pending',   label: 'Created' },
-    assigned:     { variant: 'pending',   label: 'Assigned' },
+    created: { variant: 'pending', label: 'Created' },
+    assigned: { variant: 'pending', label: 'Assigned' },
     under_review: { variant: 'in_review', label: 'Under Review' },
-    passed:       { variant: 'approved',  label: 'Passed' },
-    failed:       { variant: 'rejected',  label: 'Failed' },
-    cancelled:    { variant: 'cancelled', label: 'Cancelled' },
+    passed: { variant: 'approved', label: 'Passed' },
+    failed: { variant: 'rejected', label: 'Failed' },
+    cancelled: { variant: 'cancelled', label: 'Cancelled' },
   };
   return map[status] ?? { variant: 'draft', label: status };
 }
@@ -50,40 +54,40 @@ function rseChip(status: string): { variant: StatusVariant; label: string } {
 function validateDocFile(file: File): string | null {
   const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png']);
   if (!allowed.has(file.type || '')) return 'Allowed types: PDF, JPG, or PNG only.';
-  if (file.size > 20 * 1024 * 1024)   return 'File must be 20 MB or smaller.';
+  if (file.size > 20 * 1024 * 1024) return 'File must be 20 MB or smaller.';
   return null;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TSQARSEDetailPage() {
-  const { id }      = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
-  const router      = useRouter();
+  const router = useRouter();
 
-  const [rse, setRse]         = useState<RseRecord | null>(null);
-  const [review, setReview]   = useState<TsqaReview | null>(null);
+  const [rse, setRse] = useState<RseRecord | null>(null);
+  const [review, setReview] = useState<TsqaReview | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
+  const [error, setError] = useState('');
 
   // Action state
-  const [busy, setBusy]                       = useState(false);
-  const [actionError, setActionError]         = useState('');
-  const [actionSuccess, setActionSuccess]     = useState('');
-  const [remarks, setRemarks]                 = useState('');
-  const [testFindings, setTestFindings]       = useState('');
-  const [submitPanel, setSubmitPanel]         = useState<'none' | 'passed' | 'failed'>('none');
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [actionSuccess, setActionSuccess] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [testFindings, setTestFindings] = useState('');
+  const [submitPanel, setSubmitPanel] = useState<'none' | 'passed' | 'failed'>('none');
 
   // Upload state
-  const [uploadFile, setUploadFile]     = useState<File | null>(null);
-  const [uploadBusy, setUploadBusy]     = useState(false);
-  const [uploadError, setUploadError]   = useState('');
-  const fileInputRef                    = useRef<HTMLInputElement>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Document state
-  const [productDocs, setProductDocs]   = useState<SupplierDocument[]>([]);
-  const [rseDocs, setRseDocs]           = useState<SupplierDocument[]>([]);
-  const [docsLoading, setDocsLoading]   = useState(false);
+  const [productDocs, setProductDocs] = useState<SupplierDocument[]>([]);
+  const [rseDocs, setRseDocs] = useState<SupplierDocument[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
 
   // ── Guards ────────────────────────────────────────────────────────────────────
 
@@ -145,9 +149,18 @@ export default function TSQARSEDetailPage() {
     try {
       await startRSEReview(rse.id, profile);
       await load();
-      setActionSuccess('Review started. You can now submit your findings.');
-    } catch (err: unknown) {
-      setActionError((err as Error)?.message || 'Failed to start review.');
+      const updated = await getRSEById(rse.id);
+      if (updated?.status !== 'under_review' || updated?.assigned_to !== profile.id) {
+        setActionError('Unable to start review. The record status did not update successfully.');
+      } else {
+        setActionSuccess('Review started. You can now submit your findings.');
+      }
+    } catch (err: any) {
+      if (err?.code === 'PGRST116') {
+        setActionError('Unable to start review. This record may have already been claimed, reassigned, or your session may no longer have permission.');
+      } else {
+        setActionError(err?.message || 'Failed to start review.');
+      }
     } finally {
       setBusy(false);
     }
@@ -190,10 +203,10 @@ export default function TSQARSEDetailPage() {
     try {
       await submitTSQAResult(
         {
-          rse_id:        rse.id,
+          rse_id: rse.id,
           result,
-          remarks:       remarks.trim()       || null,
-          test_findings: testFindings.trim()  || null,
+          remarks: remarks.trim() || null,
+          test_findings: testFindings.trim() || null,
         },
         profile
       );
@@ -220,11 +233,11 @@ export default function TSQARSEDetailPage() {
 
   // ── Derived ───────────────────────────────────────────────────────────────────
 
-  const status      = rse?.status ?? '';
-  const chip        = rseChip(status);
-  const canStart    = status === 'created' || status === 'assigned';
-  const canUpload   = status === 'assigned' || status === 'under_review';
-  const canSubmit   = status === 'under_review';
+  const status = rse?.status ?? '';
+  const chip = rseChip(status);
+  const canStart = status === 'created' || status === 'assigned';
+  const canUpload = status === 'assigned' || status === 'under_review';
+  const canSubmit = status === 'under_review';
   const isCompleted = status === 'passed' || status === 'failed' || status === 'cancelled';
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -235,7 +248,7 @@ export default function TSQARSEDetailPage() {
       <div className="mb-4">
         <Link
           href="/tsqa/rse"
-          className="inline-flex items-center gap-1 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
+          className="inline-flex items-center gap-1 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
         >
           <ChevronLeft className="w-4 h-4" />
           Back to RSE Queue
@@ -243,11 +256,9 @@ export default function TSQARSEDetailPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <LoadingState message="Loading RSE record…" />
-        </div>
+        <DetailPageSkeleton />
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
       ) : !rse ? null : (
@@ -256,10 +267,10 @@ export default function TSQARSEDetailPage() {
           {/* ── Header ── */}
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-[#0F1F3A] font-mono">
+              <h1 className="text-xl font-bold text-pq-neutral-900 font-mono">
                 {rse.rse_number ?? rse.id.slice(0, 8).toUpperCase()}
               </h1>
-              <p className="text-sm text-[#40527A] mt-0.5">
+              <p className="text-sm text-pq-neutral-500 mt-0.5">
                 RSE Evaluation Record
               </p>
             </div>
@@ -271,9 +282,9 @@ export default function TSQARSEDetailPage() {
           )}
 
           {/* ── RSE info ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4">
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <InfoField label="Status"  value={chip.label} />
+              <InfoField label="Status" value={chip.label} />
               <InfoField
                 label="Created"
                 value={format(new Date(rse.created_at), 'MMM d, yyyy')}
@@ -293,7 +304,7 @@ export default function TSQARSEDetailPage() {
             </div>
 
             {(rse.reason || rse.procurement_notes) && (
-              <div className="border-t border-[#D8E2FF] pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="border-t border-pq-neutral-200 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {rse.reason && (
                   <InfoField label="Reason / Purpose" value={rse.reason} />
                 )}
@@ -307,21 +318,19 @@ export default function TSQARSEDetailPage() {
           {/* ── Existing review result (if completed) ── */}
           {review && isCompleted && (
             <div
-              className={`rounded-[4px] border p-5 space-y-3 ${
-                review.result === 'passed'
-                  ? 'bg-emerald-50 border-emerald-200'
-                  : 'bg-red-50 border-red-200'
-              }`}
+              className={`rounded-md border p-5 space-y-3 ${review.result === 'passed'
+                  ? 'bg-pq-success-100 border-pq-success-100'
+                  : 'bg-pq-danger-100 border-pq-danger-100'
+                }`}
             >
               <div className="flex items-center gap-2">
                 {review.result === 'passed' ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <CheckCircle2 className="w-5 h-5 text-pq-success-600 shrink-0" />
                 ) : (
-                  <XCircle className="w-5 h-5 text-red-600 shrink-0" />
+                  <XCircle className="w-5 h-5 text-pq-danger-600 shrink-0" />
                 )}
-                <p className={`text-sm font-semibold ${
-                  review.result === 'passed' ? 'text-emerald-700' : 'text-red-700'
-                }`}>
+                <p className={`text-sm font-semibold ${review.result === 'passed' ? 'text-pq-success-600' : 'text-pq-danger-600'
+                  }`}>
                   Result: {review.result === 'passed' ? 'Passed' : 'Failed'}
                   {review.reviewed_at
                     ? ` — ${format(new Date(review.reviewed_at), 'MMM d, yyyy')}`
@@ -330,18 +339,18 @@ export default function TSQARSEDetailPage() {
               </div>
               {review.remarks && (
                 <div>
-                  <p className="text-xs font-semibold text-[#40527A] mb-1">Remarks</p>
-                  <p className="text-sm text-[#0F1F3A] whitespace-pre-wrap">{review.remarks}</p>
+                  <p className="text-xs font-semibold text-pq-neutral-500 mb-1">Remarks</p>
+                  <p className="text-sm text-pq-neutral-900 whitespace-pre-wrap">{review.remarks}</p>
                 </div>
               )}
               {review.test_findings && (
                 <div>
-                  <p className="text-xs font-semibold text-[#40527A] mb-1">Test Findings</p>
-                  <p className="text-sm text-[#0F1F3A] whitespace-pre-wrap">{review.test_findings}</p>
+                  <p className="text-xs font-semibold text-pq-neutral-500 mb-1">Test Findings</p>
+                  <p className="text-sm text-pq-neutral-900 whitespace-pre-wrap">{review.test_findings}</p>
                 </div>
               )}
               <div className="pt-1 border-t border-current/10">
-                <p className="text-xs text-[#40527A]">
+                <p className="text-xs text-pq-neutral-500">
                   Note: Supplier accreditation status is managed separately by Procurement.
                   This evaluation only affects the product and RSE records.
                 </p>
@@ -351,7 +360,7 @@ export default function TSQARSEDetailPage() {
 
           {/* ── Action result banner ── */}
           {actionSuccess && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] p-3 text-sm text-emerald-700 flex items-center gap-2">
+            <div className="bg-pq-success-100 border border-pq-success-100 rounded-md p-3 text-sm text-pq-success-600 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               {actionSuccess}
             </div>
@@ -359,15 +368,15 @@ export default function TSQARSEDetailPage() {
 
           {/* ── Action card: Start Review + Upload + Submit result ── */}
           {!isCompleted && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-              <div className="flex items-center gap-2 px-5 py-3.5 border-b border-[#D8E2FF] flex-wrap">
-                <p className="text-sm font-semibold text-[#0F1F3A] mr-2">Actions</p>
+            <div className="bg-white rounded-md border border-pq-neutral-200">
+              <div className="flex items-center gap-2 px-5 py-3.5 border-b border-pq-neutral-200 flex-wrap">
+                <p className="text-sm font-semibold text-pq-neutral-900 mr-2">Actions</p>
 
                 {canStart && (
                   <button
                     onClick={handleStartReview}
                     disabled={busy}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-[4px] hover:bg-blue-100 transition disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-pq-primary-700 bg-pq-primary-50 border border-pq-primary-200 rounded-md hover:bg-pq-primary-100 transition disabled:opacity-50"
                   >
                     <Play className="w-3.5 h-3.5" />
                     {busy ? 'Starting…' : 'Start Review'}
@@ -378,22 +387,20 @@ export default function TSQARSEDetailPage() {
                   <>
                     <button
                       onClick={() => setSubmitPanel(submitPanel === 'passed' ? 'none' : 'passed')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
-                        submitPanel === 'passed'
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
-                      }`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${submitPanel === 'passed'
+                          ? 'bg-pq-success-100 text-pq-success-600 border-pq-success-200'
+                          : 'text-pq-success-600 bg-pq-success-100 border-pq-success-100 hover:bg-pq-success-100'
+                        }`}
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Mark Passed
                     </button>
                     <button
                       onClick={() => setSubmitPanel(submitPanel === 'failed' ? 'none' : 'failed')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
-                        submitPanel === 'failed'
-                          ? 'bg-red-100 text-red-800 border-red-300'
-                          : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100'
-                      }`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${submitPanel === 'failed'
+                          ? 'bg-pq-danger-100 text-pq-danger-600 border-red-300'
+                          : 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100 hover:bg-pq-danger-100'
+                        }`}
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       Mark Failed
@@ -404,19 +411,18 @@ export default function TSQARSEDetailPage() {
 
               {/* Submit result panel */}
               {submitPanel !== 'none' && (
-                <div className="p-5 space-y-4 border-b border-[#D8E2FF]">
+                <div className="p-5 space-y-4 border-b border-pq-neutral-200">
                   {actionError && (
-                    <div className="bg-red-50 border border-red-200 rounded-[4px] p-3 text-sm text-red-700">
+                    <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
                       {actionError}
                     </div>
                   )}
 
                   <div
-                    className={`rounded-[4px] border px-4 py-2.5 flex items-center gap-2 text-sm font-medium ${
-                      submitPanel === 'passed'
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        : 'bg-red-50 border-red-200 text-red-700'
-                    }`}
+                    className={`rounded-md border px-4 py-2.5 flex items-center gap-2 text-sm font-medium ${submitPanel === 'passed'
+                        ? 'bg-pq-success-100 border-pq-success-100 text-pq-success-600'
+                        : 'bg-pq-danger-100 border-pq-danger-100 text-pq-danger-600'
+                      }`}
                   >
                     {submitPanel === 'passed' ? (
                       <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -427,47 +433,46 @@ export default function TSQARSEDetailPage() {
                     <strong>{submitPanel === 'passed' ? 'PASSED' : 'FAILED'}</strong>
                   </div>
 
-                  <p className="text-xs text-[#BFC7D5]">
+                  <p className="text-xs text-pq-neutral-400">
                     At least one of Remarks or Test Findings is required.
                     This will update the RSE and product status. Accreditation is not affected.
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                      <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                         Remarks
                       </label>
-                      <textarea
+                      <Textarea
                         value={remarks}
                         onChange={e => setRemarks(e.target.value)}
                         rows={4}
                         placeholder="Summary of evaluation findings and conclusion."
-                        className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                        className="w-full text-sm border-pq-neutral-200 bg-white"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                      <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                         Test Findings
                       </label>
-                      <textarea
+                      <Textarea
                         value={testFindings}
                         onChange={e => setTestFindings(e.target.value)}
                         rows={4}
                         placeholder="Detailed test results: values, measurements, observations."
-                        className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                        className="w-full text-sm border-pq-neutral-200 bg-white"
                       />
                     </div>
                   </div>
 
                   <div className="flex gap-2">
-                    <button
+                    <Button
                       onClick={() => handleSubmitResult(submitPanel)}
                       disabled={busy}
-                      className={`flex items-center gap-1.5 px-4 py-2 text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 ${
-                        submitPanel === 'passed'
-                          ? 'bg-emerald-600 hover:bg-emerald-700'
-                          : 'bg-red-600 hover:bg-red-700'
-                      }`}
+                      className={`flex items-center gap-1.5 px-4 py-2 text-white text-xs font-semibold rounded-md transition ${submitPanel === 'passed'
+                          ? 'bg-pq-success-600 hover:bg-pq-success-600'
+                          : 'bg-pq-danger-600 hover:bg-pq-danger-600'
+                        }`}
                     >
                       {submitPanel === 'passed' ? (
                         <CheckCircle2 className="w-3.5 h-3.5" />
@@ -477,22 +482,23 @@ export default function TSQARSEDetailPage() {
                       {busy
                         ? 'Submitting…'
                         : submitPanel === 'passed'
-                        ? 'Confirm Pass'
-                        : 'Confirm Fail'}
-                    </button>
-                    <button
+                          ? 'Confirm Pass'
+                          : 'Confirm Fail'}
+                    </Button>
+                    <Button
                       onClick={() => { setSubmitPanel('none'); setActionError(''); }}
-                      className="px-4 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition"
+                      variant="ghost"
+                      className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
 
               {/* Start review success */}
               {!submitPanel && actionSuccess && (
-                <div className="px-5 py-3.5 bg-emerald-50 text-sm text-emerald-700 flex items-center gap-2">
+                <div className="px-5 py-3.5 bg-pq-success-100 text-sm text-pq-success-600 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   {actionSuccess}
                 </div>
@@ -501,48 +507,53 @@ export default function TSQARSEDetailPage() {
           )}
 
           {/* ── RSE Report upload (available when assigned or under_review) ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">RSE Reports</h2>
-              <span className="text-xs text-[#BFC7D5]">
+          <div className="bg-white rounded-md border border-pq-neutral-200">
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">RSE Reports</h2>
+              <span className="text-xs text-pq-neutral-400">
                 {rseDocs.length} file{rseDocs.length !== 1 ? 's' : ''}
               </span>
             </div>
 
             {canUpload && (
-              <div className="p-5 border-b border-[#D8E2FF] space-y-3">
-                <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+              <div className="p-5 border-b border-pq-neutral-200 space-y-3">
+                <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                   Upload Report
                 </p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="sr-only"
-                    onChange={handleFileChange}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition whitespace-nowrap"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    {uploadFile ? uploadFile.name : 'Choose Report File'}
-                  </button>
+                <div className="flex flex-col gap-2 items-start">
+                  <div className="w-full max-w-md">
+                    <FileUpload
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      selectedFileName={uploadFile?.name}
+                      onFileSelect={(file) => {
+                        const err = validateDocFile(file);
+                        if (err) {
+                          setUploadError(err);
+                          setUploadFile(null);
+                        } else {
+                          setUploadError('');
+                          setUploadFile(file);
+                        }
+                      }}
+                      onFileRemove={() => {
+                        setUploadFile(null);
+                        setUploadError('');
+                      }}
+                      error={uploadError}
+                      isLoading={uploadBusy}
+                    />
+                  </div>
                   {uploadFile && (
-                    <button
+                    <Button
                       type="button"
                       onClick={handleUploadReport}
                       disabled={uploadBusy}
-                      className="px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+                      className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition whitespace-nowrap"
                     >
                       {uploadBusy ? 'Uploading…' : 'Upload Report'}
-                    </button>
+                    </Button>
                   )}
                 </div>
-                {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
-                <p className="text-xs text-[#BFC7D5]">Accepted: PDF, JPG, PNG · Max 20 MB</p>
               </div>
             )}
 
@@ -550,11 +561,11 @@ export default function TSQARSEDetailPage() {
               <div className="p-5"><LoadingState message="Loading documents…" /></div>
             ) : rseDocs.length === 0 ? (
               <div className="p-8 text-center">
-                <FlaskConical className="w-6 h-6 text-[#BFC7D5] mx-auto mb-2" />
-                <p className="text-sm text-[#40527A]">No reports uploaded yet.</p>
+                <FlaskConical className="w-6 h-6 text-pq-neutral-400 mx-auto mb-2" />
+                <p className="text-sm text-pq-neutral-500">No reports uploaded yet.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {rseDocs.map(doc => (
                   <DocRow key={doc.id} doc={doc} onView={handleViewDoc} />
                 ))}
@@ -563,10 +574,10 @@ export default function TSQARSEDetailPage() {
           </div>
 
           {/* ── Supplier product documents (read-only reference) ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Product Documents</h2>
-              <span className="text-xs text-[#BFC7D5]">
+          <div className="bg-white rounded-md border border-pq-neutral-200">
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">Product Documents</h2>
+              <span className="text-xs text-pq-neutral-400">
                 Submitted by supplier · {productDocs.length} file{productDocs.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -575,11 +586,11 @@ export default function TSQARSEDetailPage() {
               <div className="p-5"><LoadingState message="Loading documents…" /></div>
             ) : productDocs.length === 0 ? (
               <div className="p-8 text-center">
-                <FileText className="w-6 h-6 text-[#BFC7D5] mx-auto mb-2" />
-                <p className="text-sm text-[#40527A]">No product documents uploaded by supplier.</p>
+                <FileText className="w-6 h-6 text-pq-neutral-400 mx-auto mb-2" />
+                <p className="text-sm text-pq-neutral-500">No product documents uploaded by supplier.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {productDocs.map(doc => (
                   <DocRow key={doc.id} doc={doc} onView={handleViewDoc} />
                 ))}
@@ -598,8 +609,8 @@ export default function TSQARSEDetailPage() {
 function InfoField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-[#BFC7D5] mb-0.5">{label}</p>
-      <p className="text-sm text-[#0F1F3A] whitespace-pre-wrap">{value}</p>
+      <p className="text-xs text-pq-neutral-400 mb-0.5">{label}</p>
+      <p className="text-sm text-pq-neutral-900 whitespace-pre-wrap">{value}</p>
     </div>
   );
 }
@@ -608,7 +619,7 @@ function DocRow({
   doc,
   onView,
 }: {
-  doc:    SupplierDocument;
+  doc: SupplierDocument;
   onView: (path: string) => void;
 }) {
   const [viewBusy, setViewBusy] = useState(false);
@@ -621,10 +632,10 @@ function DocRow({
 
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
-      <FileText className="w-4 h-4 text-[#BFC7D5] shrink-0" />
+      <FileText className="w-4 h-4 text-pq-neutral-400 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#0F1F3A] truncate">{doc.file_name}</p>
-        <p className="text-xs text-[#BFC7D5]">
+        <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
+        <p className="text-xs text-pq-neutral-400">
           {doc.document_type.replace(/_/g, ' ')}
           {' · '}
           {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}
@@ -634,7 +645,7 @@ function DocRow({
         type="button"
         onClick={handleView}
         disabled={viewBusy}
-        className="shrink-0 flex items-center gap-1 text-xs text-[#1E4BFF] hover:text-[#0F1F3A] transition disabled:opacity-50"
+        className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition disabled:opacity-50"
       >
         <ExternalLink className="w-3.5 h-3.5" />
         {viewBusy ? 'Opening…' : 'View'}

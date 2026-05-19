@@ -110,7 +110,8 @@ export default function BugDetailPage() {
   if (!bug) return null;
 
   const aiPrompt = generateAIReadyPrompt(bug);
-  const isAdmin = profile?.role === 'admin';
+  const role = profile?.role as string | undefined;
+  const isAdmin = role === 'admin' || role === 'superadmin';
 
   return (
     <AppShell title={bug.title}>
@@ -173,11 +174,8 @@ export default function BugDetailPage() {
         <div className="lg:col-span-3 space-y-8">
           
           {/* Technical Analysis Card */}
-          <DetailCard className="border-[#D8E2FF] shadow-none bg-white">
-            <div className="px-6 py-4 border-b border-[#D8E2FF]">
-              <h3 className="text-sm font-semibold text-[#40527A]">Technical Analysis</h3>
-            </div>
-            <div className="space-y-10 py-2 px-6">
+          <DetailCard title="Technical Analysis" className="border-[#D8E2FF] shadow-none bg-white">
+            <div className="space-y-10 py-2">
               
               {/* What I See */}
               <section className="relative pl-6 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-[#1E4BFF]/20 before:rounded-full">
@@ -305,7 +303,8 @@ export default function BugDetailPage() {
                 <StatusChip 
                   status={bug.status === 'open' ? 'pending' : bug.status === 'in_progress' ? 'in_review' : bug.status === 'resolved' ? 'approved' : 'rejected'} 
                   label={bug.status.replace('_', ' ').toUpperCase()} 
-                  size="md"
+                  size="lg" 
+                  className="w-full justify-center py-3 text-sm font-black tracking-widest"
                 />
               </div>
 

@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
+import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import { format } from 'date-fns';
 import { Eye } from 'lucide-react';
 import type { AdminUser } from '@/lib/admin-users';
@@ -16,62 +17,58 @@ interface UserTableProps {
 
 export default function UserTable({ users, isLoading = false }: UserTableProps) {
   if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg border border-[#E5EAFF] p-8">
-        <LoadingState message="Loading users..." size="sm" className="!flex-row !gap-2" />
-      </div>
-    );
+    return <TableSkeleton rows={5} cols={7} />;
   }
 
   if (users.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-[#E5EAFF] p-8 text-center">
+      <div className="bg-white rounded-lg border border-pq-neutral-200 p-8 text-center">
         <EmptyState title="No users found" className="py-0 px-0" />
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg border border-[#E5EAFF] overflow-hidden">
+    <div className="bg-white rounded-lg border border-pq-neutral-200 overflow-hidden">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-[#E5EAFF] bg-[#F7F9FC]">
-              <TableHead className="text-xs font-semibold text-[#40527A]">Name</TableHead>
-              <TableHead className="text-xs font-semibold text-[#40527A]">Email</TableHead>
-              <TableHead className="text-xs font-semibold text-[#40527A]">Role</TableHead>
-              <TableHead className="text-xs font-semibold text-[#40527A]">Position</TableHead>
-              <TableHead className="text-xs font-semibold text-[#40527A]">Department</TableHead>
-              <TableHead className="text-xs font-semibold text-[#40527A]">Created</TableHead>
-              <TableHead className="text-xs font-semibold text-[#40527A] text-right">Action</TableHead>
+            <TableRow className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+              <TableHead className="text-xs font-semibold text-pq-neutral-500">Name</TableHead>
+              <TableHead className="text-xs font-semibold text-pq-neutral-500">Email</TableHead>
+              <TableHead className="text-xs font-semibold text-pq-neutral-500">Role</TableHead>
+              <TableHead className="text-xs font-semibold text-pq-neutral-500">Position</TableHead>
+              <TableHead className="text-xs font-semibold text-pq-neutral-500">Department</TableHead>
+              <TableHead className="text-xs font-semibold text-pq-neutral-500">Created</TableHead>
+              <TableHead className="text-xs font-semibold text-pq-neutral-500 text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.map((user) => (
               <TableRow
                 key={user.id}
-                className="border-b border-[#E5EAFF] hover:bg-[#F7F9FC] transition"
+                className="border-b border-pq-neutral-200 hover:bg-pq-neutral-50 transition"
               >
-                <TableCell className="text-xs text-[#0F1F3A] font-medium">
+                <TableCell className="text-xs text-pq-neutral-900 font-medium">
                   {user.full_name}
                 </TableCell>
-                <TableCell className="text-xs text-[#40527A] font-mono">{user.email}</TableCell>
-                <TableCell className="text-xs text-[#0F1F3A]">
+                <TableCell className="text-xs text-pq-neutral-500 font-mono">{user.email}</TableCell>
+                <TableCell className="text-xs text-pq-neutral-900">
                   {user.role_name ? (
-                    <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+                    <span className="px-2 py-1 bg-pq-primary-50 text-pq-primary-700 rounded text-xs">
                       {user.role_name}
                     </span>
                   ) : (
-                    <span className="text-[#BFC7D5]">—</span>
+                    <span className="text-pq-neutral-400">—</span>
                   )}
                 </TableCell>
-                <TableCell className="text-xs text-[#40527A]">
+                <TableCell className="text-xs text-pq-neutral-500">
                   {user.position_title || '—'}
                 </TableCell>
-                <TableCell className="text-xs text-[#40527A]">
+                <TableCell className="text-xs text-pq-neutral-500">
                   {user.department_name || '—'}
                 </TableCell>
-                <TableCell className="text-xs text-[#40527A]">
+                <TableCell className="text-xs text-pq-neutral-500">
                   {user.created_at ? format(new Date(user.created_at), 'MMM d, yyyy') : '—'}
                 </TableCell>
                 <TableCell className="text-right">
@@ -79,7 +76,7 @@ export default function UserTable({ users, isLoading = false }: UserTableProps) 
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-[#1E4BFF] hover:text-[#0F1F3A] hover:bg-blue-50"
+                      className="text-pq-primary-600 hover:text-pq-neutral-900 hover:bg-pq-primary-50"
                     >
                       <Eye className="w-4 h-4" />
                     </Button>

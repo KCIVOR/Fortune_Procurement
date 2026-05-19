@@ -77,7 +77,7 @@ export default function TSQADashboardPage() {
         action={
           <Link
             href="/tsqa/rse"
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition"
+            className="flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
           >
             <ClipboardList className="w-4 h-4" />
             View RSE Queue
@@ -90,7 +90,7 @@ export default function TSQADashboardPage() {
           <LoadingState message="Loading dashboard…" />
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
       ) : (
@@ -105,12 +105,12 @@ export default function TSQADashboardPage() {
           </div>
 
           {/* ── Recent active RSE ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#D8E2FF]">
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Active RSE Records</h2>
+          <div className="bg-white rounded-md border border-pq-neutral-200">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">Active RSE Records</h2>
               <Link
                 href="/tsqa/rse"
-                className="text-xs text-[#1E4BFF] hover:text-[#0F1F3A] font-medium transition"
+                className="text-xs text-pq-primary-600 hover:text-pq-neutral-900 font-medium transition"
               >
                 View all
               </Link>
@@ -118,14 +118,14 @@ export default function TSQADashboardPage() {
 
             {rows.length === 0 ? (
               <div className="p-10 text-center">
-                <FlaskConical className="w-6 h-6 text-[#BFC7D5] mx-auto mb-2" />
-                <p className="text-sm text-[#40527A]">No active RSE records assigned to you.</p>
-                <p className="text-xs text-[#BFC7D5] mt-1">
+                <FlaskConical className="w-6 h-6 text-pq-neutral-400 mx-auto mb-2" />
+                <p className="text-sm text-pq-neutral-500">No active RSE records assigned to you.</p>
+                <p className="text-xs text-pq-neutral-400 mt-1">
                   Procurement will assign RSE records when product evaluation is required.
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {recentRows.map(row => (
                   <RSEMiniRow key={row.id} row={row} />
                 ))}
@@ -133,7 +133,7 @@ export default function TSQADashboardPage() {
                   <div className="px-5 py-3.5 text-center">
                     <Link
                       href="/tsqa/rse"
-                      className="text-xs text-[#1E4BFF] hover:text-[#0F1F3A] font-medium transition"
+                      className="text-xs text-pq-primary-600 hover:text-pq-neutral-900 font-medium transition"
                     >
                       View {rows.length - 5} more →
                     </Link>
@@ -153,22 +153,22 @@ export default function TSQADashboardPage() {
 function RSEMiniRow({ row }: { row: RSEQueueRow }) {
   const chip = rseChip(row.status);
   return (
-    <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-[#F7F9FC] transition">
+    <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-pq-neutral-50 transition">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-xs font-bold text-[#0F1F3A]">
+          <span className="font-mono text-xs font-bold text-pq-neutral-900">
             {row.rse_number ?? row.id.slice(0, 8).toUpperCase()}
           </span>
           <StatusChip status={chip.variant} label={chip.label} size="sm" />
         </div>
-        <p className="text-sm text-[#40527A] truncate mt-0.5">
+        <p className="text-sm text-pq-neutral-500 truncate mt-0.5">
           {row.product_name ?? '—'}
           {row.supplier_full_name ? ` · ${row.supplier_full_name}` : ''}
         </p>
       </div>
       <Link
         href={`/tsqa/rse/${row.id}`}
-        className="shrink-0 flex items-center gap-1 text-xs font-semibold text-[#40527A] hover:text-[#0F1F3A] transition"
+        className="shrink-0 flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition"
       >
         Evaluate
         <ArrowRight className="w-3.5 h-3.5" />
@@ -189,20 +189,20 @@ function StatCard({
   icon: React.ElementType;
 }) {
   const colorClass = {
-    slate:   'text-[#40527A] bg-[#F7F9FC]',
-    amber:   'text-amber-600 bg-amber-50',
-    blue:    'text-blue-600 bg-blue-50',
-    emerald: 'text-emerald-600 bg-emerald-50',
-    red:     'text-red-600 bg-red-50',
+    slate:   'text-pq-neutral-500 bg-pq-neutral-50',
+    amber:   'text-pq-warning-600 bg-pq-warning-100',
+    blue:    'text-pq-primary-600 bg-pq-primary-50',
+    emerald: 'text-pq-success-600 bg-pq-success-100',
+    red:     'text-pq-danger-600 bg-pq-danger-100',
   }[color];
 
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4">
-      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-[4px] mb-3 ${colorClass}`}>
+    <div className="bg-white rounded-md border border-pq-neutral-200 p-4">
+      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-md mb-3 ${colorClass}`}>
         <Icon className="w-5 h-5" />
       </div>
-      <p className="text-2xl font-bold text-[#0F1F3A]">{value}</p>
-      <p className="text-xs text-[#40527A] mt-0.5">{label}</p>
+      <p className="text-2xl font-bold text-pq-neutral-900">{value}</p>
+      <p className="text-xs text-pq-neutral-500 mt-0.5">{label}</p>
     </div>
   );
 }

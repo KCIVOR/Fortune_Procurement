@@ -183,7 +183,7 @@ export default function ModuleVisibilityPage() {
     return (
       <AppShell>
         <div className="p-6">
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-pq-danger-600">{error}</p>
         </div>
       </AppShell>
     );
@@ -198,17 +198,17 @@ export default function ModuleVisibilityPage() {
         />
 
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-[4px] px-3 py-2">{error}</p>
+          <p className="text-sm text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded-md px-3 py-2">{error}</p>
         )}
         {success && (
-          <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-[4px] px-3 py-2">{success}</p>
+          <p className="text-sm text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-md px-3 py-2">{success}</p>
         )}
 
         <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
           <div className="space-y-2 flex-1 min-w-[200px]">
-            <label className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Role</label>
+            <label className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Role</label>
             <Select value={roleId || undefined} onValueChange={(v) => { setRoleId(v); setScope('role'); setSuccess(null); }}>
-              <SelectTrigger className="bg-white border-[#D8E2FF]">
+              <SelectTrigger className="bg-white border-pq-neutral-200">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
@@ -222,13 +222,13 @@ export default function ModuleVisibilityPage() {
           </div>
 
           <div className="space-y-2 flex-1 min-w-[200px]">
-            <label className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Position scope</label>
+            <label className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Position scope</label>
             <Select
               value={scope}
               onValueChange={(v) => { setScope(v); setSuccess(null); }}
               disabled={!roleId || !appRole}
             >
-              <SelectTrigger className="bg-white border-[#D8E2FF]">
+              <SelectTrigger className="bg-white border-pq-neutral-200">
                 <SelectValue placeholder="Role default or position" />
               </SelectTrigger>
               <SelectContent>
@@ -246,27 +246,27 @@ export default function ModuleVisibilityPage() {
             type="button"
             onClick={handleSave}
             disabled={saving || !roleId || !appRole}
-            className="bg-[#1E4BFF] hover:bg-[#0F1F3A] shrink-0"
+            className="bg-pq-primary-600 hover:bg-pq-neutral-900 shrink-0"
           >
             {saving ? 'Saving…' : 'Save changes'}
           </Button>
         </div>
 
         {!appRole && roleId && (
-          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-[4px] px-3 py-2">
+          <p className="text-sm text-pq-warning-600 bg-pq-warning-100 border border-amber-100 rounded-md px-3 py-2">
             Selected role name is not in app navigation mapping. Choose another role.
           </p>
         )}
 
         {appRole && navItems.length > 0 && (
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-[#F7F9FC] hover:bg-[#F7F9FC]">
-                  <TableHead className="text-xs font-semibold text-[#40527A]">Visible</TableHead>
-                  <TableHead className="text-xs font-semibold text-[#40527A]">Label</TableHead>
-                  <TableHead className="text-xs font-semibold text-[#40527A]">href</TableHead>
-                  <TableHead className="text-xs font-semibold text-[#40527A]">module_key</TableHead>
+                <TableRow className="bg-pq-neutral-50 hover:bg-pq-neutral-50">
+                  <TableHead className="text-xs font-semibold text-pq-neutral-500">Visible</TableHead>
+                  <TableHead className="text-xs font-semibold text-pq-neutral-500">Label</TableHead>
+                  <TableHead className="text-xs font-semibold text-pq-neutral-500">href</TableHead>
+                  <TableHead className="text-xs font-semibold text-pq-neutral-500">module_key</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -285,9 +285,9 @@ export default function ModuleVisibilityPage() {
                         aria-label={`Toggle ${item.label}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-sm text-[#0F1F3A]">{item.label}</TableCell>
-                    <TableCell className="text-xs font-mono text-[#40527A]">{item.href}</TableCell>
-                    <TableCell className={cn('text-xs font-mono text-[#40527A]')}>{item.module_key}</TableCell>
+                    <TableCell className="font-medium text-sm text-pq-neutral-900">{item.label}</TableCell>
+                    <TableCell className="text-xs font-mono text-pq-neutral-500">{item.href}</TableCell>
+                    <TableCell className={cn('text-xs font-mono text-pq-neutral-500')}>{item.module_key}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -295,7 +295,7 @@ export default function ModuleVisibilityPage() {
           </div>
         )}
 
-        <p className="text-[10px] text-[#BFC7D5] max-w-2xl">
+        <p className="text-[10px] text-pq-neutral-400 max-w-2xl">
           Role default rows use an empty position (applies when no position-specific rule exists). Position-specific rules override the role default for users assigned to that position. If no rule exists for a module, it stays visible. Removing a rule (by setting visible again at role default) restores the default.
         </p>
       </div>

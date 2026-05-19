@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { cn } from '@/lib/utils';
 
 export default function DetailTableCard({
@@ -19,14 +19,14 @@ export default function DetailTableCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden',
+        'bg-white rounded-md border border-pq-neutral-200 overflow-hidden',
         className
       )}
     >
       {hasHeader && (
         <div
           className={cn(
-            'px-6 py-4 border-b border-[#D8E2FF] flex items-center justify-between',
+            'px-6 py-4 border-b border-pq-neutral-200 flex items-center justify-between',
             headerClassName
           )}
         >

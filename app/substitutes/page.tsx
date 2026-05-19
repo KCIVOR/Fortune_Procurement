@@ -66,14 +66,14 @@ export default function SubstitutesIndexPage() {
       />
 
       {/* Filter bar */}
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="sub-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+          <Label htmlFor="sub-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
             Search
           </Label>
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BFC7D5]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
               <input
                 id="sub-search"
                 type="text"
@@ -82,27 +82,27 @@ export default function SubstitutesIndexPage() {
                 onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
                 placeholder="PR1 number, purpose, or supplier..."
                 disabled={loading}
-                className="w-full pl-9 pr-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+                className="w-full pl-9 pr-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
               />
             </div>
             <button
               onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
               disabled={loading}
-              className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+              className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
             >
               Apply
             </button>
             <button
               onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
               disabled={loading}
-              className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] disabled:opacity-50 transition whitespace-nowrap"
+              className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
             >
               Clear
             </button>
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="sub-status" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+          <Label htmlFor="sub-status" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
             Status
           </Label>
           <Select
@@ -130,7 +130,7 @@ export default function SubstitutesIndexPage() {
           <LoadingState message="Loading substitutes..." />
         </div>
       ) : filteredBundles.length === 0 ? (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
+        <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title="No substitutes to review"
             description={
@@ -173,33 +173,33 @@ export default function SubstitutesIndexPage() {
                 <Link
                   key={bundle.pr1.id}
                   href={`/substitutes/${bundle.pr1.id}`}
-                  className="block bg-white rounded-[4px] border border-[#D8E2FF] hover:border-[#0F1F3A] transition"
+                  className="block bg-white rounded-md border border-pq-neutral-200 hover:border-pq-primary-600 transition"
                 >
                   <div className="flex items-center gap-4 px-5 py-4">
-                    <div className={`w-10 h-10 rounded-[4px] flex items-center justify-center shrink-0 ${
-                      pending > 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
+                    <div className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${
+                      pending > 0 ? 'bg-pq-warning-100 text-pq-warning-600' : 'bg-pq-success-100 text-pq-success-600'
                     }`}>
                       <Replace className="w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-mono text-sm font-bold text-[#0F1F3A]">{bundle.pr1.pr1_number}</span>
+                        <span className="font-mono text-sm font-bold text-pq-neutral-900">{bundle.pr1.pr1_number}</span>
                         {pending > 0 ? (
-                          <span className="text-xs font-semibold border rounded-full px-2 py-0.5 bg-amber-50 text-amber-700 border-amber-200">
+                          <span className="text-xs font-semibold border rounded-full px-2 py-0.5 bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100">
                             {pending} pending
                           </span>
                         ) : (
-                          <span className="text-xs font-semibold border rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-700 border-emerald-200">
+                          <span className="text-xs font-semibold border rounded-full px-2 py-0.5 bg-pq-success-100 text-pq-success-600 border-pq-success-100">
                             All decided
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-[#40527A] truncate">{bundle.pr1.purpose}</p>
-                      <p className="text-xs text-[#BFC7D5] mt-0.5">
+                      <p className="text-sm text-pq-neutral-500 truncate">{bundle.pr1.purpose}</p>
+                      <p className="text-xs text-pq-neutral-400 mt-0.5">
                         {bundle.pr1.department_name_snapshot} · {total} substitute{total !== 1 ? 's' : ''} offered
                       </p>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-[#BFC7D5] shrink-0" />
+                    <ArrowRight className="w-4 h-4 text-pq-neutral-400 shrink-0" />
                   </div>
                 </Link>
               );
@@ -238,18 +238,18 @@ function StatCard({
   icon: React.ElementType;
 }) {
   const colorClass = {
-    amber:   'text-amber-600 bg-amber-50',
-    emerald: 'text-emerald-600 bg-emerald-50',
+    amber:   'text-pq-warning-600 bg-pq-warning-100',
+    emerald: 'text-pq-success-600 bg-pq-success-100',
     rose:    'text-rose-600 bg-rose-50',
   }[tone];
 
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4">
-      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-[4px] mb-3 ${colorClass}`}>
+    <div className="bg-white rounded-md border border-pq-neutral-200 p-4">
+      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-md mb-3 ${colorClass}`}>
         <Icon className="w-5 h-5" />
       </div>
-      <p className="text-2xl font-bold text-[#0F1F3A]">{value}</p>
-      <p className="text-xs text-[#40527A] mt-0.5">{label}</p>
+      <p className="text-2xl font-bold text-pq-neutral-900">{value}</p>
+      <p className="text-xs text-pq-neutral-500 mt-0.5">{label}</p>
     </div>
   );
 }

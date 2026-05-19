@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { cn } from '@/lib/utils';
 
 export function FormFieldLabel({
@@ -11,9 +11,9 @@ export function FormFieldLabel({
   className?: string;
 }) {
   return (
-    <label className={cn('text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5', className)}>
+    <label className={cn('text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5', className)}>
       {label}
-      {required && <span className="text-red-500 ml-1">*</span>}
+      {required && <span className="text-pq-danger-600 ml-1">*</span>}
     </label>
   );
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { cn } from '@/lib/utils';
 
 export function ApprovalQueueHeaderRow({
@@ -9,7 +9,7 @@ export function ApprovalQueueHeaderRow({
   className?: string;
 }) {
   return (
-    <tr className={cn('border-b border-[#D8E2FF] bg-[#F7F9FC]/50', className)}>
+    <tr className={cn('border-b border-pq-neutral-200 bg-pq-neutral-50/50', className)}>
       {children}
     </tr>
   );
@@ -29,7 +29,7 @@ export function ApprovalQueueHeadCell({
   return (
     <th
       className={cn(
-        'px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide',
+        'px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide',
         alignClass,
         className
       )}

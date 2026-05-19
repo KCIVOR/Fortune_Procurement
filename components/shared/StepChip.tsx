@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -17,11 +17,11 @@ export default function StepChip({
     return (
       <span
         className={cn(
-          'inline-flex items-center gap-1.5 text-xs font-medium text-[#0F1F3A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-full px-2.5 py-1',
+          'inline-flex items-center gap-1.5 text-xs font-medium text-pq-neutral-900 bg-pq-neutral-50 border border-pq-neutral-200 rounded-full px-2.5 py-1',
           className
         )}
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-[#1E4BFF] animate-pulse" />
+        <span className="w-1.5 h-1.5 rounded-full bg-pq-primary-600 animate-pulse" />
         {stepName}
       </span>
     );
@@ -30,7 +30,7 @@ export default function StepChip({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-full px-2.5 py-1',
+        'inline-flex items-center gap-1.5 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-full px-2.5 py-1',
         className
       )}
     >

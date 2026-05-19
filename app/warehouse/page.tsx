@@ -6,6 +6,7 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
+import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
 import {
   fetchWarehouseQueuePaged,
@@ -72,9 +73,9 @@ export default function WarehouseQueuePage() {
         description="Review incoming purchase requests and validate stock availability."
       />
 
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="wh-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+          <Label htmlFor="wh-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
             Search
           </Label>
           <div className="flex gap-2">
@@ -86,26 +87,26 @@ export default function WarehouseQueuePage() {
               onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
               placeholder="Search PR1, requestor, department, or purpose..."
               disabled={loading}
-              className="flex-1 px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+              className="flex-1 px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
             />
             <button
               onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
               disabled={loading}
-              className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+              className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
             >
               Apply
             </button>
             <button
               onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
               disabled={loading}
-              className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] disabled:opacity-50 transition whitespace-nowrap"
+              className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
             >
               Clear
             </button>
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="wh-priority" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+          <Label htmlFor="wh-priority" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
             Priority
           </Label>
           <Select
@@ -130,13 +131,11 @@ export default function WarehouseQueuePage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <LoadingState message="Loading queue..." />
-        </div>
+        <TableSkeleton rows={5} cols={9} />
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">{error}</div>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">{error}</div>
       ) : totalCount === 0 ? (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
+        <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title="No items pending validation"
             description={
@@ -172,36 +171,36 @@ export default function WarehouseQueuePage() {
           </div>
 
           {/* Queue table */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
             <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR1 No.</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Requestor</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Department</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Purpose</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Priority</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Date Required</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Submitted</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Validation</th>
+                <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">PR1 No.</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Requestor</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Department</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Purpose</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Priority</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Date Required</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Validation</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#D8E2FF]">
+              <tbody className="divide-y divide-pq-neutral-200">
                 {queue.map((row) => (
-                  <tr key={row.id} className="hover:bg-[#F7F9FC] transition-colors">
-                    <td className="px-5 py-3.5 font-mono font-semibold text-[#0F1F3A]">{row.pr1_number}</td>
-                    <td className="px-5 py-3.5 text-[#0F1F3A]">{row.requisitioner_name_snapshot}</td>
-                    <td className="px-5 py-3.5 text-[#40527A]">{row.department_name_snapshot}</td>
-                    <td className="px-5 py-3.5 text-[#40527A] max-w-[180px] truncate">{row.purpose || '—'}</td>
+                  <tr key={row.id} className="hover:bg-pq-neutral-50 transition-colors">
+                    <td className="px-5 py-3.5 font-mono font-semibold text-pq-neutral-900">{row.pr1_number}</td>
+                    <td className="px-5 py-3.5 text-pq-neutral-900">{row.requisitioner_name_snapshot}</td>
+                    <td className="px-5 py-3.5 text-pq-neutral-500">{row.department_name_snapshot}</td>
+                    <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[180px] truncate">{row.purpose || '—'}</td>
                     <td className="px-5 py-3.5">
                       <PriorityChip priority={row.priority || 'normal'} />
                     </td>
-                    <td className="px-5 py-3.5 text-[#40527A]">
+                    <td className="px-5 py-3.5 text-pq-neutral-500">
                       {row.date_required ? format(new Date(row.date_required), 'MMM d, yyyy') : '—'}
                     </td>
-                    <td className="px-5 py-3.5 text-[#40527A] text-xs">
+                    <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">
                       {row.submitted_at ? format(new Date(row.submitted_at), 'MMM d, yyyy') : '—'}
                     </td>
                     <td className="px-5 py-3.5">
@@ -210,7 +209,7 @@ export default function WarehouseQueuePage() {
                     <td className="px-5 py-3.5 text-right">
                       <Link
                         href={`/warehouse/${row.id}`}
-                        className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-xs font-medium transition"
+                        className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-primary-600 text-xs font-medium transition"
                       >
                         <ClipboardCheck className="w-3.5 h-3.5" />
                         {row.validation_decision ? 'Review' : 'Validate'}
@@ -235,7 +234,7 @@ export default function WarehouseQueuePage() {
                 if (page < currentPage) setCurrentPage((p) => Math.max(1, p - 1));
                 else setCurrentPage((p) => p + 1);
               }}
-              className="rounded-[4px] border border-[#D8E2FF]"
+              className="rounded-md border border-pq-neutral-200"
             />
           )}
         </div>
@@ -256,18 +255,18 @@ function StatCard({
   icon: React.ElementType;
 }) {
   const colors = {
-    amber:   'bg-amber-50 border-amber-200 text-amber-700',
-    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-    blue:    'bg-blue-50 border-blue-200 text-blue-700',
+    amber:   'bg-pq-warning-100 border-pq-warning-100 text-pq-warning-600',
+    emerald: 'bg-pq-success-100 border-pq-success-100 text-pq-success-600',
+    blue:    'bg-pq-primary-50 border-pq-primary-200 text-pq-primary-700',
   };
   const iconColors = {
     amber:   'text-amber-500',
     emerald: 'text-emerald-500',
-    blue:    'text-blue-500',
+    blue:    'text-pq-primary-600',
   };
 
   return (
-    <div className={`rounded-[4px] border px-5 py-4 flex items-center gap-4 ${colors[color]}`}>
+    <div className={`rounded-md border px-5 py-4 flex items-center gap-4 ${colors[color]}`}>
       <Icon className={`w-5 h-5 shrink-0 ${iconColors[color]}`} />
       <div>
         <p className="text-2xl font-bold">{value}</p>
@@ -280,22 +279,22 @@ function StatCard({
 function ValidationBadge({ decision }: { decision: string | null }) {
   if (!decision) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-full px-2.5 py-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-pq-warning-1000" />
         Pending
       </span>
     );
   }
   if (decision === 'sufficient') {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2.5 py-1">
         <CheckCircle2 className="w-3 h-3" />
         Sufficient
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2.5 py-1">
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-pq-primary-700 bg-pq-primary-50 border border-pq-primary-200 rounded-full px-2.5 py-1">
       <XCircle className="w-3 h-3" />
       Insufficient
     </span>

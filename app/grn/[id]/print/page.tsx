@@ -23,11 +23,11 @@ export default function GRNPrintPage() {
   }, [id]);
 
   if (error) return (
-    <div className="p-8 text-red-600 text-sm">{error}</div>
+    <div className="p-8 text-pq-danger-600 text-sm">{error}</div>
   );
 
   if (!grn) return (
-    <div className="p-8 text-[#BFC7D5] text-sm">Loading...</div>
+    <div className="p-8 text-pq-neutral-400 text-sm">Loading...</div>
   );
 
   const receivedTotal = grn.items.reduce(
@@ -57,13 +57,13 @@ export default function GRNPrintPage() {
       <div className="no-print fixed top-4 right-4 z-50 flex gap-2">
         <button
           onClick={() => window.print()}
-          className="px-4 py-2 bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] hover:bg-[#0F1F3A] transition"
+          className="px-4 py-2 bg-pq-neutral-900 text-white text-sm font-semibold rounded-md hover:bg-pq-neutral-900 transition"
         >
           Print / Save PDF
         </button>
         <button
           onClick={() => window.close()}
-          className="px-4 py-2 bg-white border border-[#D8E2FF] text-[#0F1F3A] text-sm font-semibold rounded-[4px] hover:border-[#0F1F3A] transition"
+          className="px-4 py-2 bg-white border border-pq-neutral-200 text-pq-neutral-900 text-sm font-semibold rounded-md hover:border-pq-primary-600 transition"
         >
           Close
         </button>

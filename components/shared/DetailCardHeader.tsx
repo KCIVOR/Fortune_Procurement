@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { cn } from '@/lib/utils';
 
 export default function DetailCardHeader({
@@ -13,7 +13,7 @@ export default function DetailCardHeader({
   return (
     <div
       className={cn(
-        'px-6 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC] flex items-center justify-between',
+        'px-6 py-4 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center justify-between',
         className
       )}
     >

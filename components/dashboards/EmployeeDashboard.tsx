@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import { StatCard } from '@/components/shared/StatCard';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { UserProfile } from '@/types/auth';
 import type { PR1Request } from '@/types/pr1';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
@@ -12,6 +14,7 @@ import { useModuleVisibility } from '@/hooks/use-module-visibility';
 import EmptyState from '@/components/shared/EmptyState';
 import StatusChip from '@/components/shared/StatusChip';
 import LoadingState from '@/components/shared/LoadingState';
+import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import { fetchPendingSubstituteCount } from '@/lib/canvassing';
 import { fetchMyPR1s } from '@/lib/pr1';
 import PriorityChip from '@/components/shared/PriorityChip';
@@ -72,7 +75,7 @@ export default function EmployeeDashboard({ profile }: Props) {
         action={
           <a
             href="/pr1/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
           >
             <FileText className="w-4 h-4" />
             New PR1
@@ -83,56 +86,64 @@ export default function EmployeeDashboard({ profile }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 mt-1">
         {stats.map((stat) => {
           const Icon = stat.icon;
+          const lowerLabel = stat.label.toLowerCase();
+          const accent = lowerLabel.includes('approved')
+            ? 'green'
+            : lowerLabel.includes('rejected')
+            ? 'red'
+            : lowerLabel.includes('pending')
+            ? 'amber'
+            : 'blue';
+
           return (
-            <div key={stat.label} className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex items-center gap-3">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
-                <Icon className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xl font-bold text-[#0F1F3A] leading-tight">{stat.value}</p>
-                <p className="text-xs text-[#40527A] leading-tight">{stat.label}</p>
-              </div>
-            </div>
+            <StatCard
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              icon={<Icon className="w-5 h-5" />}
+              accent={accent}
+              isLoading={loading}
+            />
           );
         })}
       </div>
 
       {rulesLoading ? (
         <div
-          className="h-[4.75rem] mb-4 rounded-[4px] border border-[#D8E2FF] bg-[#F7F9FC] animate-pulse"
+          className="h-[4.75rem] mb-4 rounded-md border border-pq-neutral-200 bg-pq-neutral-50 animate-pulse"
           aria-hidden
         />
       ) : null}
       {!rulesLoading && isModuleVisible('substitute_review') && pendingSubs > 0 && (
         <Link
           href="/substitutes"
-          className="flex items-center gap-4 bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-5 py-4 mb-4 transition group"
+          className="flex items-center gap-4 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-5 py-4 mb-4 transition group"
         >
-          <div className="w-10 h-10 rounded-[4px] bg-white border border-[#D8E2FF] text-[#40527A] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-md bg-white border border-pq-neutral-200 text-pq-neutral-500 flex items-center justify-center shrink-0">
             <Replace className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-[#0F1F3A]">
+            <p className="text-sm font-semibold text-pq-neutral-900">
               {pendingSubs} substitute item{pendingSubs !== 1 ? 's' : ''} awaiting your decision
             </p>
-            <p className="text-xs text-[#40527A] mt-0.5">
+            <p className="text-xs text-pq-neutral-500 mt-0.5">
               A supplier proposed an alternative to what you requested. Review before procurement finalises selection.
             </p>
           </div>
-          <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#1E4BFF] group-hover:text-[#0F1F3A] transition">
+          <span className="inline-flex items-center gap-1 text-sm font-semibold text-pq-primary-600 group-hover:text-pq-neutral-900 transition">
             Review now <ArrowRight className="w-3.5 h-3.5" />
           </span>
         </Link>
       )}
 
       {/* Recent Requests */}
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] mb-4">
-        <div className="px-5 py-4 border-b border-[#D8E2FF]">
-          <h2 className="text-sm font-semibold text-[#0F1F3A]">Recent Requests</h2>
+      <div className="bg-white rounded-md border border-pq-neutral-200 mb-4">
+        <div className="px-5 py-4 border-b border-pq-neutral-200">
+          <h2 className="text-sm font-semibold text-pq-neutral-900">Recent Requests</h2>
         </div>
         {loading ? (
-          <div className="flex items-center justify-center h-48">
-            <LoadingState message="Loading requests..." />
+          <div className="p-4">
+            <TableSkeleton rows={3} cols={5} showHeader={false} />
           </div>
         ) : recentRequests.length === 0 ? (
           <EmptyState
@@ -142,48 +153,48 @@ export default function EmployeeDashboard({ profile }: Props) {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR1 No.</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Purpose</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Submitted</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Priority</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Status</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#D8E2FF]">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+                  <TableHead className="px-5 py-3 text-xs font-semibold text-pq-neutral-500">PR1 No.</TableHead>
+                  <TableHead className="px-5 py-3 text-xs font-semibold text-pq-neutral-500">Purpose</TableHead>
+                  <TableHead className="px-5 py-3 text-xs font-semibold text-pq-neutral-500">Submitted</TableHead>
+                  <TableHead className="px-5 py-3 text-xs font-semibold text-pq-neutral-500">Priority</TableHead>
+                  <TableHead className="px-5 py-3 text-xs font-semibold text-pq-neutral-500">Status</TableHead>
+                  <TableHead className="px-5 py-3 text-right" />
+                </TableRow>
+              </TableHeader>
+              <TableBody className="bg-pq-white">
                 {recentRequests.map((r) => (
-                  <tr key={r.id} className="hover:bg-[#F7F9FC] transition-colors">
-                    <td className="px-5 py-3.5 font-mono font-medium text-[#0F1F3A]">{r.pr1_number}</td>
-                    <td className="px-5 py-3.5 text-[#40527A] max-w-xs truncate">{r.purpose || '—'}</td>
-                    <td className="px-5 py-3.5 text-[#40527A]">
+                  <TableRow key={r.id} className="hover:bg-pq-neutral-50 border-b border-pq-neutral-200 transition">
+                    <TableCell className="px-5 py-3.5 font-mono font-medium text-pq-neutral-900">{r.pr1_number}</TableCell>
+                    <TableCell className="px-5 py-3.5 text-pq-neutral-500 max-w-xs truncate">{r.purpose || '—'}</TableCell>
+                    <TableCell className="px-5 py-3.5 text-pq-neutral-500">
                       {r.submitted_at ? format(new Date(r.submitted_at), 'MMM d, yyyy') : '—'}
-                    </td>
-                    <td className="px-5 py-3.5">
+                    </TableCell>
+                    <TableCell className="px-5 py-3.5">
                       <PriorityChip priority={r.priority} />
-                    </td>
-                    <td className="px-5 py-3.5">
+                    </TableCell>
+                    <TableCell className="px-5 py-3.5">
                       <StatusChip
                         status={STATUS_MAP[r.status] ?? 'draft'}
                         label={PR1_STATUS_LABELS[r.status]}
                         size="sm"
                       />
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
+                    </TableCell>
+                    <TableCell className="px-5 py-3.5 text-right">
                       <Link
                         href={`/pr1/${r.id}`}
-                        className="inline-flex items-center gap-1.5 text-[#1E4BFF] hover:text-[#0F1F3A] text-xs font-medium transition"
+                        className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         View
                       </Link>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>

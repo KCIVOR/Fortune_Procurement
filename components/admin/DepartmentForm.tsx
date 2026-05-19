@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -54,13 +54,13 @@ export default function DepartmentForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <p className="text-xs text-red-800">{error}</p>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-3">
+          <p className="text-xs text-pq-danger-600">{error}</p>
         </div>
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="name" className="text-xs font-medium text-[#40527A]">
+        <Label htmlFor="name" className="text-xs font-medium text-pq-neutral-500">
           Department Name *
         </Label>
         <Input
@@ -74,7 +74,7 @@ export default function DepartmentForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="code" className="text-xs font-medium text-[#40527A]">
+        <Label htmlFor="code" className="text-xs font-medium text-pq-neutral-500">
           Department Code *
         </Label>
         <Input
@@ -85,7 +85,7 @@ export default function DepartmentForm({
           disabled={isLoading || isSaving}
           className="text-sm font-mono"
         />
-        <p className="text-xs text-[#40527A]">Must be unique</p>
+        <p className="text-xs text-pq-neutral-500">Must be unique</p>
       </div>
 
       <div className="flex items-center justify-end gap-2 pt-4">

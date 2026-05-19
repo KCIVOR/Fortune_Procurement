@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
-import LoadingState from '@/components/shared/LoadingState';
+import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
 import { fetchMyWarehouseValidationHistoryPaged } from '@/lib/warehouse-history';
@@ -19,8 +19,8 @@ import { ClipboardList, Eye, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 const DECISION_BADGE: Record<string, string> = {
-  sufficient: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  insufficient: 'bg-amber-50 text-amber-800 border-amber-200',
+  sufficient: 'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
+  insufficient: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
 };
 
 const DECISION_OPTIONS: { value: WarehouseHistoryDecisionFilter; label: string }[] = [
@@ -133,9 +133,7 @@ export default function WarehouseHistoryPage() {
   if (!profile) {
     return (
       <AppShell title="Warehouse History">
-        <div className="flex justify-center py-24">
-          <LoadingState message="Loading..." />
-        </div>
+        <TableSkeleton rows={5} cols={8} />
       </AppShell>
     );
   }
@@ -151,10 +149,10 @@ export default function WarehouseHistoryPage() {
         description="PR1 stock validations you have completed."
       />
 
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-5 space-y-3">
+      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-5 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="md:col-span-2">
-            <label htmlFor="warehouse-history-search" className="block text-xs font-semibold text-[#40527A] mb-1">
+            <label htmlFor="warehouse-history-search" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
               Search
             </label>
             <input
@@ -163,19 +161,19 @@ export default function WarehouseHistoryPage() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="PR1 number, purpose, department, or notes…"
-              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] placeholder:text-[#BFC7D5] focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 placeholder:text-pq-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
               disabled={loading}
             />
           </div>
           <div>
-            <label htmlFor="warehouse-history-decision" className="block text-xs font-semibold text-[#40527A] mb-1">
+            <label htmlFor="warehouse-history-decision" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
               Decision
             </label>
             <select
               id="warehouse-history-decision"
               value={decisionFilter}
               onChange={(e) => setDecisionFilter(e.target.value as WarehouseHistoryDecisionFilter)}
-              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
               disabled={loading}
             >
               {DECISION_OPTIONS.map((o) => (
@@ -190,7 +188,7 @@ export default function WarehouseHistoryPage() {
               type="button"
               onClick={clearFilters}
               disabled={loading}
-              className="w-full md:w-auto px-4 py-2 rounded-[4px] border border-[#D8E2FF] text-sm font-semibold text-[#40527A] hover:bg-[#F7F9FC] hover:border-[#0F1F3A] transition disabled:opacity-50"
+              className="w-full md:w-auto px-4 py-2 rounded-md border border-pq-neutral-200 text-sm font-semibold text-pq-neutral-500 hover:bg-pq-neutral-50 hover:border-pq-primary-600 transition disabled:opacity-50"
             >
               Clear filters
             </button>
@@ -198,14 +196,14 @@ export default function WarehouseHistoryPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div className="lg:col-span-1">
-            <label htmlFor="warehouse-history-pr1-status" className="block text-xs font-semibold text-[#40527A] mb-1">
+            <label htmlFor="warehouse-history-pr1-status" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
               PR1 status
             </label>
             <select
               id="warehouse-history-pr1-status"
               value={pr1StatusFilter}
               onChange={(e) => setPr1StatusFilter(e.target.value as PR1Status | 'all')}
-              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
               disabled={loading}
             >
               {PR1_STATUS_OPTIONS.map((o) => (
@@ -216,7 +214,7 @@ export default function WarehouseHistoryPage() {
             </select>
           </div>
           <div>
-            <label htmlFor="warehouse-history-from" className="block text-xs font-semibold text-[#40527A] mb-1">
+            <label htmlFor="warehouse-history-from" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
               Validated from
             </label>
             <input
@@ -224,12 +222,12 @@ export default function WarehouseHistoryPage() {
               type="date"
               value={validatedFrom}
               onChange={(e) => setValidatedFrom(e.target.value)}
-              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
               disabled={loading}
             />
           </div>
           <div>
-            <label htmlFor="warehouse-history-to" className="block text-xs font-semibold text-[#40527A] mb-1">
+            <label htmlFor="warehouse-history-to" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
               Validated to
             </label>
             <input
@@ -237,29 +235,27 @@ export default function WarehouseHistoryPage() {
               type="date"
               value={validatedTo}
               onChange={(e) => setValidatedTo(e.target.value)}
-              className="w-full rounded-[4px] border border-[#D8E2FF] px-3 py-2 text-sm text-[#0F1F3A] focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-[#1E4BFF]"
+              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
               disabled={loading}
             />
           </div>
         </div>
         {!loading && !error ? (
-          <p className="text-xs text-[#40527A]">
-            <span className="font-semibold text-[#0F1F3A]">{totalCount}</span> validation
+          <p className="text-xs text-pq-neutral-500">
+            <span className="font-semibold text-pq-neutral-900">{totalCount}</span> validation
             {totalCount !== 1 ? 's' : ''} found
           </p>
         ) : null}
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-24">
-          <LoadingState message="Loading history..." />
-        </div>
+        <TableSkeleton rows={5} cols={8} />
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
       ) : totalCount === 0 ? (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
+        <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title="No warehouse validations yet."
             description="When you submit a warehouse validation decision, it will appear here."
@@ -268,70 +264,70 @@ export default function WarehouseHistoryPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                       PR1
                     </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                       Purpose
                     </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                       Department
                     </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                       Decision
                     </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                       Validated
                     </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                       PR1 status
                     </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                       Notes
                     </th>
                     <th className="px-5 py-3" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#D8E2FF]">
+                <tbody className="divide-y divide-pq-neutral-200">
                   {rows.map((r) => (
-                    <tr key={r.validation_id} className="hover:bg-[#F7F9FC]">
-                      <td className="px-5 py-3.5 font-mono font-semibold text-[#0F1F3A]">
+                    <tr key={r.validation_id} className="hover:bg-pq-neutral-50">
+                      <td className="px-5 py-3.5 font-mono font-semibold text-pq-neutral-900">
                         {r.pr1_number}
                       </td>
-                      <td className="px-5 py-3.5 text-[#40527A] max-w-[220px]" title={r.purpose}>
+                      <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[220px]" title={r.purpose}>
                         <span className="line-clamp-2">{r.purpose}</span>
                       </td>
-                      <td className="px-5 py-3.5 text-[#40527A]">{r.department}</td>
+                      <td className="px-5 py-3.5 text-pq-neutral-500">{r.department}</td>
                       <td className="px-5 py-3.5">
                         <span
                           className={`inline-flex text-xs font-semibold border rounded-full px-2 py-0.5 capitalize ${
                             DECISION_BADGE[r.decision] ??
-                            'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]'
+                            'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200'
                           }`}
                         >
                           {r.decision}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-[#40527A] whitespace-nowrap">
+                      <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">
                         {format(new Date(r.validated_at), 'MMM d, yyyy h:mm a')}
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className="inline-flex text-xs font-semibold border rounded px-2 py-0.5 border-[#D8E2FF] bg-[#F7F9FC] text-[#40527A]">
+                        <span className="inline-flex text-xs font-semibold border rounded px-2 py-0.5 border-pq-neutral-200 bg-pq-neutral-50 text-pq-neutral-500">
                           {PR1_STATUS_LABELS[r.pr1_status as PR1Status] ?? r.pr1_status.replace(/_/g, ' ')}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-[#40527A] max-w-[200px] truncate" title={r.notes || undefined}>
+                      <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[200px] truncate" title={r.notes || undefined}>
                         {r.notes?.trim() ? r.notes : '—'}
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <Link
                           href={r.action_url}
-                          className="inline-flex items-center gap-1.5 text-[#1E4BFF] hover:text-[#0F1F3A] text-xs font-semibold transition"
+                          className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-semibold transition"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           View
@@ -356,7 +352,7 @@ export default function WarehouseHistoryPage() {
               onPageChange={(page) =>
                 setCurrentPage(Math.max(1, Math.min(totalPages, page)))
               }
-              className="rounded-[4px] border border-[#D8E2FF]"
+              className="rounded-md border border-pq-neutral-200"
             />
           )}
         </div>

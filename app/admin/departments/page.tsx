@@ -237,9 +237,9 @@ export default function DepartmentsPage() {
       <AppShell title="Departments">
         <div className="space-y-6">
           <PageHeader title="Departments" description="Organization departments" />
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
             <h3 className="font-semibold text-red-900 mb-2">Access Denied</h3>
-            <p className="text-sm text-red-800">
+            <p className="text-sm text-pq-danger-600">
               You do not have permission to view departments. Only administrators can access this feature.
             </p>
           </div>
@@ -253,9 +253,9 @@ export default function DepartmentsPage() {
       <AppShell title="Departments">
         <div className="space-y-6">
           <PageHeader title="Departments" description="Organization departments" />
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
             <h3 className="font-semibold text-red-900 mb-2">Error</h3>
-            <p className="text-sm text-red-800">{error}</p>
+            <p className="text-sm text-pq-danger-600">{error}</p>
           </div>
         </div>
       </AppShell>
@@ -278,8 +278,8 @@ export default function DepartmentsPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-xs text-red-800">{error}</p>
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-4">
+            <p className="text-xs text-pq-danger-600">{error}</p>
           </div>
         )}
 

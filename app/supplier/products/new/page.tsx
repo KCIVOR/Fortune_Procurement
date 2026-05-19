@@ -64,7 +64,7 @@ export default function NewSupplierProductPage() {
         <div className="mb-4">
           <Link
             href="/supplier/products"
-            className="inline-flex items-center gap-1 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
+            className="inline-flex items-center gap-1 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
           >
             <ChevronLeft className="w-4 h-4" />
             Back to Products
@@ -76,9 +76,9 @@ export default function NewSupplierProductPage() {
           description="Add a new product to your catalog. Save as draft, upload documents, then submit for Procurement verification when ready."
         />
 
-        <div className="w-full bg-white rounded-[4px] border border-[#D8E2FF] p-6 sm:p-8">
+        <div className="w-full bg-white rounded-md border border-pq-neutral-200 p-6 sm:p-8">
         {formError && (
-          <div className="bg-red-50 border border-red-200 rounded-[4px] p-3 text-sm text-red-700 mb-5">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600 mb-5">
             {formError}
           </div>
         )}
@@ -91,7 +91,7 @@ export default function NewSupplierProductPage() {
               value={form.product_name}
               onChange={handleChange}
               placeholder="e.g. Sodium Chloride ACS Grade"
-              className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+              className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
             />
           </FormField>
 
@@ -103,7 +103,7 @@ export default function NewSupplierProductPage() {
                 value={form.product_code}
                 onChange={handleChange}
                 placeholder="e.g. NaCl-ACS-001"
-                className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+                className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
               />
             </FormField>
             <FormField label="Category">
@@ -113,7 +113,7 @@ export default function NewSupplierProductPage() {
                 value={form.category}
                 onChange={handleChange}
                 placeholder="e.g. Chemicals, Reagents"
-                className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+                className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
               />
             </FormField>
           </div>
@@ -125,7 +125,7 @@ export default function NewSupplierProductPage() {
               onChange={handleChange}
               rows={3}
               placeholder="Short description of the product"
-              className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+              className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
             />
           </FormField>
 
@@ -136,7 +136,7 @@ export default function NewSupplierProductPage() {
               onChange={handleChange}
               rows={5}
               placeholder="Technical specifications: purity, grade, packaging, storage conditions, etc."
-              className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+              className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
             />
           </FormField>
 
@@ -144,13 +144,13 @@ export default function NewSupplierProductPage() {
             <button
               type="submit"
               disabled={busy}
-              className="px-5 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+              className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
             >
               {busy ? 'Saving…' : 'Save as Draft'}
             </button>
             <Link
               href="/supplier/products"
-              className="px-5 py-2 text-sm font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition"
+              className="px-5 py-2 text-sm font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
             >
               Cancel
             </Link>
@@ -175,9 +175,9 @@ function FormField({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+      <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-pq-danger-600 ml-0.5">*</span>}
       </label>
       {children}
     </div>

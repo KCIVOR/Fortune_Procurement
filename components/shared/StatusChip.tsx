@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+﻿import { cn } from '@/lib/utils';
 
 export type StatusVariant =
   | 'draft'
@@ -28,26 +28,27 @@ const VARIANT_LABELS: Record<StatusVariant, string> = {
 };
 
 const VARIANT_COLORS: Record<StatusVariant, { bg: string; text: string; border: string; dot: string }> = {
-  draft:             { bg: 'bg-[#F7F9FC]', text: 'text-[#40527A]', border: 'border-[#D8E2FF]', dot: 'bg-[#BFC7D5]' },
-  pending:           { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', dot: 'bg-amber-600' },
-  in_review:         { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-600' },
-  approved:          { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-600' },
-  rejected:          { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', dot: 'bg-red-600' },
-  validated:         { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-600' },
-  failed_validation: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', dot: 'bg-red-600' },
-  sent:              { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-600' },
-  received:          { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-600' },
-  completed:         { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-600' },
-  cancelled:         { bg: 'bg-[#F7F9FC]', text: 'text-[#40527A]', border: 'border-[#D8E2FF]', dot: 'bg-[#BFC7D5]' },
+  draft:             { bg: 'bg-pq-neutral-50', text: 'text-pq-neutral-500', border: 'border-pq-neutral-200', dot: 'bg-pq-neutral-400' },
+  pending:           { bg: 'bg-pq-warning-100', text: 'text-pq-warning-600', border: 'border-pq-warning-100', dot: 'bg-pq-warning-600' },
+  in_review:         { bg: 'bg-pq-primary-50', text: 'text-pq-primary-700', border: 'border-pq-primary-200', dot: 'bg-pq-primary-600' },
+  approved:          { bg: 'bg-pq-success-100', text: 'text-pq-success-600', border: 'border-pq-success-100', dot: 'bg-pq-success-600' },
+  rejected:          { bg: 'bg-pq-danger-100', text: 'text-pq-danger-600', border: 'border-pq-danger-100', dot: 'bg-pq-danger-600' },
+  validated:         { bg: 'bg-pq-success-100', text: 'text-pq-success-600', border: 'border-pq-success-100', dot: 'bg-pq-success-600' },
+  failed_validation: { bg: 'bg-pq-danger-100', text: 'text-pq-danger-600', border: 'border-pq-danger-100', dot: 'bg-pq-danger-600' },
+  sent:              { bg: 'bg-pq-primary-50', text: 'text-pq-primary-700', border: 'border-pq-primary-200', dot: 'bg-pq-primary-600' },
+  received:          { bg: 'bg-pq-success-100', text: 'text-pq-success-600', border: 'border-pq-success-100', dot: 'bg-pq-success-600' },
+  completed:         { bg: 'bg-pq-success-100', text: 'text-pq-success-600', border: 'border-pq-success-100', dot: 'bg-pq-success-600' },
+  cancelled:         { bg: 'bg-pq-neutral-50', text: 'text-pq-neutral-500', border: 'border-pq-neutral-200', dot: 'bg-pq-neutral-400' },
 };
 
 interface StatusChipProps {
   status: StatusVariant;
   label?: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
 }
 
-export default function StatusChip({ status, label, size = 'md' }: StatusChipProps) {
+export default function StatusChip({ status, label, size = 'md', className }: StatusChipProps) {
   const colors = VARIANT_COLORS[status];
 
   return (
@@ -57,7 +58,12 @@ export default function StatusChip({ status, label, size = 'md' }: StatusChipPro
         colors.bg,
         colors.text,
         colors.border,
-        size === 'sm' ? 'text-xs px-2.5 py-1' : 'text-xs px-3 py-1.5'
+        size === 'sm'
+          ? 'text-xs px-2.5 py-1'
+          : size === 'lg'
+            ? 'text-sm px-3.5 py-2'
+            : 'text-xs px-3 py-1.5',
+        className
       )}
     >
       <span className={cn('w-1.5 h-1.5 rounded-full', colors.dot)} />

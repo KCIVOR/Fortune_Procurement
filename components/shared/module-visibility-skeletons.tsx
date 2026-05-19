@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+﻿import { cn } from '@/lib/utils';
 
 const KPI_AUTO_FIT = 'grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]';
 
@@ -6,7 +6,7 @@ function PulseCard({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'rounded-[4px] border border-[#D8E2FF] animate-pulse bg-[#F7F9FC]',
+        'rounded-md border border-pq-neutral-200 animate-pulse bg-pq-neutral-50',
         className,
       )}
     />
@@ -29,7 +29,7 @@ export function SidebarNavSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
         <div
           key={i}
           className={cn(
-            'rounded-[4px] bg-white/5 animate-pulse',
+            'rounded-md bg-white/5 animate-pulse',
             isCollapsed ? 'h-10 w-10 mx-auto' : 'h-10 w-full',
           )}
         />
@@ -43,7 +43,7 @@ export function ProcurementDashboardVisibilitySkeleton() {
     <div className="mb-4 mt-1 space-y-4" aria-busy="true" aria-label="Loading dashboard modules">
       <div className="space-y-2">
         <div className="h-3 w-56 rounded bg-[#E8EDF7] animate-pulse" />
-        <div className="h-2.5 w-full max-w-md rounded bg-[#F7F9FC] animate-pulse" />
+        <div className="h-2.5 w-full max-w-md rounded bg-pq-neutral-50 animate-pulse" />
       </div>
       <div className={KPI_AUTO_FIT}>
         {Array.from({ length: 8 }, (_, i) => (

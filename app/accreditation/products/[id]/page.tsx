@@ -273,7 +273,7 @@ export default function ProductReviewDetailPage() {
       <div className="mb-4">
         <Link
           href="/accreditation/products"
-          className="inline-flex items-center gap-1 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
+          className="inline-flex items-center gap-1 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
         >
           <ChevronLeft className="w-4 h-4" />
           Back to Product Queue
@@ -285,7 +285,7 @@ export default function ProductReviewDetailPage() {
           <LoadingState message="Loading product…" />
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
       ) : !product ? null : (
@@ -294,9 +294,9 @@ export default function ProductReviewDetailPage() {
           {/* ── Header ── */}
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-[#0F1F3A]">{product.product_name}</h1>
+              <h1 className="text-xl font-bold text-pq-neutral-900">{product.product_name}</h1>
               {product.category && (
-                <p className="text-sm text-[#40527A] mt-0.5">{product.category}</p>
+                <p className="text-sm text-pq-neutral-500 mt-0.5">{product.category}</p>
               )}
             </div>
             {chip && <StatusChip status={chip.variant} label={chip.label} />}
@@ -304,16 +304,16 @@ export default function ProductReviewDetailPage() {
 
           {/* ── Can Offer banner ── */}
           <div
-            className={`rounded-[4px] border px-4 py-3 flex items-center gap-2.5 text-sm font-medium ${
+            className={`rounded-md border px-4 py-3 flex items-center gap-2.5 text-sm font-medium ${
               canOffer
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                : 'bg-[#F7F9FC] border-[#D8E2FF] text-[#40527A]'
+                ? 'bg-pq-success-100 border-pq-success-100 text-pq-success-600'
+                : 'bg-pq-neutral-50 border-pq-neutral-200 text-pq-neutral-500'
             }`}
           >
             {canOffer ? (
               <CheckCircle2 className="w-4 h-4 shrink-0" />
             ) : (
-              <Circle className="w-4 h-4 shrink-0 text-[#BFC7D5]" />
+              <Circle className="w-4 h-4 shrink-0 text-pq-neutral-400" />
             )}
             <span>
               Verified = Can Offer / Can Award (when linked on an RFQ quote and substitute rules are met). Pending validation = not awardable until verified.
@@ -325,10 +325,10 @@ export default function ProductReviewDetailPage() {
           )}
 
           {/* ── Product detail card ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4">
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4">
             {status === 'withdrawn' && (
-              <div className="rounded-[4px] border border-[#D8E2FF] bg-[#F7F9FC] px-4 py-3 text-sm text-[#40527A]">
-                <span className="font-semibold text-[#0F1F3A]">Withdrawn by supplier.</span>{' '}
+              <div className="rounded-md border border-pq-neutral-200 bg-pq-neutral-50 px-4 py-3 text-sm text-pq-neutral-500">
+                <span className="font-semibold text-pq-neutral-900">Withdrawn by supplier.</span>{' '}
                 This listing is read-only. Documents remain on file for audit.
               </div>
             )}
@@ -347,7 +347,7 @@ export default function ProductReviewDetailPage() {
               )}
             </div>
 
-            <div className="border-t border-[#D8E2FF] pt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="border-t border-pq-neutral-200 pt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
               {product.submitted_at && (
                 <InfoField label="Submitted" value={format(new Date(product.submitted_at), 'MMM d, yyyy')} />
               )}
@@ -363,27 +363,27 @@ export default function ProductReviewDetailPage() {
             </div>
 
             {product.review_notes && (
-              <div className="bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] p-3">
-                <p className="text-xs font-semibold text-[#40527A] mb-1 flex items-center gap-1.5">
+              <div className="bg-pq-neutral-50 border border-pq-neutral-200 rounded-md p-3">
+                <p className="text-xs font-semibold text-pq-neutral-500 mb-1 flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5" />
                   Review Notes
                 </p>
-                <p className="text-sm text-[#0F1F3A]">{product.review_notes}</p>
+                <p className="text-sm text-pq-neutral-900">{product.review_notes}</p>
               </div>
             )}
           </div>
 
           {/* ── Action bar + panels ── */}
           {!isTerminal && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-              <div className="flex items-center gap-2 px-5 py-3.5 border-b border-[#D8E2FF] flex-wrap">
-                <p className="text-sm font-semibold text-[#0F1F3A] mr-2">Actions</p>
+            <div className="bg-white rounded-md border border-pq-neutral-200">
+              <div className="flex items-center gap-2 px-5 py-3.5 border-b border-pq-neutral-200 flex-wrap">
+                <p className="text-sm font-semibold text-pq-neutral-900 mr-2">Actions</p>
 
                 {canMarkReview && (
                   <button
                     onClick={handleMarkUnderReview}
                     disabled={busy}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-[4px] hover:bg-blue-100 transition disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-pq-primary-700 bg-pq-primary-50 border border-pq-primary-200 rounded-md hover:bg-pq-primary-100 transition disabled:opacity-50"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     Mark Under Review
@@ -393,10 +393,10 @@ export default function ProductReviewDetailPage() {
                 {canVerify && (
                   <button
                     onClick={() => openPanel(activePanel === 'verify' ? 'none' : 'verify')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
                       activePanel === 'verify'
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                        : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+                        ? 'bg-pq-success-100 text-pq-success-600 border-pq-success-200'
+                        : 'text-pq-success-600 bg-pq-success-100 border-pq-success-100 hover:bg-pq-success-100'
                     }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -407,10 +407,10 @@ export default function ProductReviewDetailPage() {
                 {canRejectProd && (
                   <button
                     onClick={() => openPanel(activePanel === 'reject' ? 'none' : 'reject')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
                       activePanel === 'reject'
-                        ? 'bg-red-100 text-red-800 border-red-300'
-                        : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100'
+                        ? 'bg-pq-danger-100 text-pq-danger-600 border-red-300'
+                        : 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100 hover:bg-pq-danger-100'
                     }`}
                   >
                     <XCircle className="w-3.5 h-3.5" />
@@ -421,7 +421,7 @@ export default function ProductReviewDetailPage() {
                 {canCreateRSE && (
                   <button
                     onClick={() => openPanel(activePanel === 'rse' ? 'none' : 'rse')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
                       activePanel === 'rse'
                         ? 'bg-violet-100 text-violet-800 border-violet-300'
                         : 'text-violet-700 bg-violet-50 border-violet-200 hover:bg-violet-100'
@@ -435,9 +435,9 @@ export default function ProductReviewDetailPage() {
 
               {/* Inline action panels */}
               {activePanel !== 'none' && (
-                <div className="p-5 space-y-3 border-b border-[#D8E2FF]">
+                <div className="p-5 space-y-3 border-b border-pq-neutral-200">
                   {actionError && (
-                    <div className="bg-red-50 border border-red-200 rounded-[4px] p-3 text-sm text-red-700">
+                    <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
                       {actionError}
                     </div>
                   )}
@@ -445,10 +445,10 @@ export default function ProductReviewDetailPage() {
                   {/* Verify panel */}
                   {activePanel === 'verify' && (
                     <>
-                      <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                         Verification Notes (optional)
                       </p>
-                      <p className="text-xs text-[#BFC7D5]">
+                      <p className="text-xs text-pq-neutral-400">
                         Use this only when TSQA evaluation is not required for this product.
                         After verification, Can Offer = Yes.
                       </p>
@@ -457,19 +457,19 @@ export default function ProductReviewDetailPage() {
                         onChange={e => setNoteInput(e.target.value)}
                         rows={2}
                         placeholder="Optional notes for the supplier."
-                        className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={handleVerify}
                           disabled={busy}
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50"
+                          className="px-4 py-2 bg-pq-success-600 hover:bg-pq-success-600 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
                         >
                           {busy ? 'Verifying…' : 'Confirm Verification'}
                         </button>
                         <button
                           onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition"
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
                         >
                           Cancel
                         </button>
@@ -480,7 +480,7 @@ export default function ProductReviewDetailPage() {
                   {/* Reject panel */}
                   {activePanel === 'reject' && (
                     <>
-                      <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                         Rejection Reason (optional)
                       </p>
                       <textarea
@@ -488,19 +488,19 @@ export default function ProductReviewDetailPage() {
                         onChange={e => setNoteInput(e.target.value)}
                         rows={2}
                         placeholder="Reason for rejection."
-                        className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={handleReject}
                           disabled={busy}
-                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50"
+                          className="px-4 py-2 bg-pq-danger-600 hover:bg-pq-danger-600 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
                         >
                           {busy ? 'Rejecting…' : 'Confirm Rejection'}
                         </button>
                         <button
                           onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition"
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
                         >
                           Cancel
                         </button>
@@ -511,10 +511,10 @@ export default function ProductReviewDetailPage() {
                   {/* RSE creation panel */}
                   {activePanel === 'rse' && (
                     <>
-                      <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                         Create RSE for TSQA Evaluation
                       </p>
-                      <p className="text-xs text-[#BFC7D5]">
+                      <p className="text-xs text-pq-neutral-400">
                         This will create an RSE record and set the product to{' '}
                         <strong>Under Technical Evaluation</strong>. TSQA will conduct the
                         pass/fail evaluation. Procurement retains accreditation approval authority.
@@ -522,7 +522,7 @@ export default function ProductReviewDetailPage() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                             Reason / Purpose
                           </label>
                           <textarea
@@ -530,11 +530,11 @@ export default function ProductReviewDetailPage() {
                             onChange={e => setRseReason(e.target.value)}
                             rows={2}
                             placeholder="Why is TSQA evaluation required?"
-                            className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                            className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                          <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                             Procurement Notes
                           </label>
                           <textarea
@@ -542,20 +542,20 @@ export default function ProductReviewDetailPage() {
                             onChange={e => setRseProcNotes(e.target.value)}
                             rows={2}
                             placeholder="Internal notes for TSQA."
-                            className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                            className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                           />
                         </div>
                       </div>
 
                       {/* TSQA assignee dropdown */}
                       <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                        <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                           Assign to TSQA User (optional)
                         </label>
                         {tsqaUsers.length > 0 ? (
                           <div className="w-full sm:w-72">
                             <Select value={rseAssignedTo} onValueChange={setRseAssignedTo}>
-                              <SelectTrigger className="text-sm border-[#D8E2FF]">
+                              <SelectTrigger className="text-sm border-pq-neutral-200">
                                 <SelectValue placeholder="Leave unassigned" />
                               </SelectTrigger>
                               <SelectContent>
@@ -569,7 +569,7 @@ export default function ProductReviewDetailPage() {
                             </Select>
                           </div>
                         ) : (
-                          <p className="text-xs text-[#BFC7D5]">
+                          <p className="text-xs text-pq-neutral-400">
                             No TSQA users found. RSE will be created unassigned and can be assigned
                             later from the RSE queue.
                           </p>
@@ -580,14 +580,14 @@ export default function ProductReviewDetailPage() {
                         <button
                           onClick={handleCreateRSE}
                           disabled={busy}
-                          className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
                         >
                           <FlaskConical className="w-3.5 h-3.5" />
                           {busy ? 'Creating RSE…' : 'Create RSE'}
                         </button>
                         <button
                           onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition"
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
                         >
                           Cancel
                         </button>
@@ -599,7 +599,7 @@ export default function ProductReviewDetailPage() {
 
               {/* Success banner */}
               {actionSuccess && (
-                <div className="px-5 py-3.5 bg-emerald-50 border-b border-emerald-200 text-sm text-emerald-700 flex items-center gap-2">
+                <div className="px-5 py-3.5 bg-pq-success-100 border-b border-pq-success-100 text-sm text-pq-success-600 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   {actionSuccess}
                 </div>
@@ -609,17 +609,17 @@ export default function ProductReviewDetailPage() {
 
           {/* Terminal success banner */}
           {isTerminal && actionSuccess && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] p-3 text-sm text-emerald-700 flex items-center gap-2">
+            <div className="bg-pq-success-100 border border-pq-success-100 rounded-md p-3 text-sm text-pq-success-600 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               {actionSuccess}
             </div>
           )}
 
           {/* ── Product documents ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Product Documents</h2>
-              <span className="text-xs text-[#BFC7D5]">
+          <div className="bg-white rounded-md border border-pq-neutral-200">
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">Product Documents</h2>
+              <span className="text-xs text-pq-neutral-400">
                 {documents.length} file{documents.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -630,11 +630,11 @@ export default function ProductReviewDetailPage() {
               </div>
             ) : documents.length === 0 ? (
               <div className="p-8 text-center">
-                <FileText className="w-6 h-6 text-[#BFC7D5] mx-auto mb-2" />
-                <p className="text-sm text-[#40527A]">No documents uploaded by the supplier yet.</p>
+                <FileText className="w-6 h-6 text-pq-neutral-400 mx-auto mb-2" />
+                <p className="text-sm text-pq-neutral-500">No documents uploaded by the supplier yet.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {documents.map(doc => (
                   <DocumentRow key={doc.id} doc={doc} />
                 ))}
@@ -644,11 +644,11 @@ export default function ProductReviewDetailPage() {
 
           {/* ── RSE / TSQA evaluation records ── */}
           {rseRecords.length > 0 && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-              <div className="px-5 py-3.5 border-b border-[#D8E2FF]">
-                <h2 className="text-sm font-semibold text-[#0F1F3A]">RSE / TSQA Evaluation Records</h2>
+            <div className="bg-white rounded-md border border-pq-neutral-200">
+              <div className="px-5 py-3.5 border-b border-pq-neutral-200">
+                <h2 className="text-sm font-semibold text-pq-neutral-900">RSE / TSQA Evaluation Records</h2>
               </div>
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {rseRecords.map(rse => (
                   <ProcurementRSERow
                     key={rse.id}
@@ -670,8 +670,8 @@ export default function ProductReviewDetailPage() {
 function InfoField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-[#BFC7D5] mb-0.5">{label}</p>
-      <p className="text-sm text-[#0F1F3A] whitespace-pre-wrap">{value}</p>
+      <p className="text-xs text-pq-neutral-400 mb-0.5">{label}</p>
+      <p className="text-sm text-pq-neutral-900 whitespace-pre-wrap">{value}</p>
     </div>
   );
 }
@@ -690,10 +690,10 @@ function DocumentRow({ doc }: { doc: SupplierDocument }) {
 
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
-      <FileText className="w-4 h-4 text-[#BFC7D5] shrink-0" />
+      <FileText className="w-4 h-4 text-pq-neutral-400 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#0F1F3A] truncate">{doc.file_name}</p>
-        <p className="text-xs text-[#BFC7D5]">
+        <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
+        <p className="text-xs text-pq-neutral-400">
           {doc.document_type.replace(/_/g, ' ')}
           {' · '}
           {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}
@@ -703,7 +703,7 @@ function DocumentRow({ doc }: { doc: SupplierDocument }) {
         type="button"
         onClick={handleView}
         disabled={loading}
-        className="shrink-0 flex items-center gap-1 text-xs text-[#1E4BFF] hover:text-[#0F1F3A] transition disabled:opacity-50"
+        className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition disabled:opacity-50"
       >
         <ExternalLink className="w-3.5 h-3.5" />
         {loading ? 'Opening…' : 'View'}
@@ -721,19 +721,19 @@ function ProcurementRSERow({
 }) {
   const resultColor =
     rse.tsqa_result === 'passed'
-      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+      ? 'text-pq-success-600 bg-pq-success-100 border-pq-success-100'
       : rse.tsqa_result === 'failed'
-      ? 'text-red-700 bg-red-50 border-red-200'
-      : 'text-[#40527A] bg-[#F7F9FC] border-[#D8E2FF]';
+      ? 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100'
+      : 'text-pq-neutral-500 bg-pq-neutral-50 border-pq-neutral-200';
 
   return (
     <div className="px-5 py-4 space-y-2">
       {/* RSE header row */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="font-mono text-xs font-bold text-[#0F1F3A]">
+        <span className="font-mono text-xs font-bold text-pq-neutral-900">
           {rse.rse_number ?? rse.id.slice(0, 8).toUpperCase()}
         </span>
-        <span className="text-xs px-2 py-0.5 rounded-full border border-[#D8E2FF] text-[#40527A]">
+        <span className="text-xs px-2 py-0.5 rounded-full border border-pq-neutral-200 text-pq-neutral-500">
           RSE: {rse.status.replace(/_/g, ' ')}
         </span>
         {rse.tsqa_result && (
@@ -745,26 +745,26 @@ function ProcurementRSERow({
 
       {/* Assignee */}
       {rse.assigned_to_name && (
-        <p className="text-xs text-[#40527A]">
+        <p className="text-xs text-pq-neutral-500">
           <span className="font-semibold">Assigned to:</span> {rse.assigned_to_name}
         </p>
       )}
 
       {/* TSQA findings */}
       {rse.tsqa_remarks && (
-        <p className="text-xs text-[#40527A]">
+        <p className="text-xs text-pq-neutral-500">
           <span className="font-semibold">Remarks:</span> {rse.tsqa_remarks}
         </p>
       )}
       {rse.tsqa_test_findings && (
-        <p className="text-xs text-[#40527A]">
+        <p className="text-xs text-pq-neutral-500">
           <span className="font-semibold">Test Findings:</span> {rse.tsqa_test_findings}
         </p>
       )}
 
       {/* Completion date */}
       {rse.completed_at && (
-        <p className="text-xs text-[#BFC7D5]">
+        <p className="text-xs text-pq-neutral-400">
           Completed {format(new Date(rse.completed_at), 'MMM d, yyyy')}
         </p>
       )}
@@ -772,7 +772,7 @@ function ProcurementRSERow({
       {/* RSE report documents */}
       {rseDocs.length > 0 && (
         <div className="pt-1 space-y-1">
-          <p className="text-xs font-semibold text-[#40527A]">RSE Reports</p>
+          <p className="text-xs font-semibold text-pq-neutral-500">RSE Reports</p>
           {rseDocs.map(doc => (
             <DocumentRow key={doc.id} doc={doc} />
           ))}

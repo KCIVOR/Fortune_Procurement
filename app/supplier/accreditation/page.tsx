@@ -35,6 +35,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { FileUpload } from '@/components/shared/FileUpload';
+import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -244,31 +246,31 @@ export default function SupplierAccreditationPage() {
           <LoadingState message="Loading accreditation..." />
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
       ) : !accreditation ? (
         /* ── No application yet ── */
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-10 text-center max-w-lg mx-auto mt-4">
-          <div className="w-12 h-12 rounded-[4px] bg-[#F7F9FC] border border-[#D8E2FF] flex items-center justify-center mb-4 mx-auto">
-            <BadgeCheck className="w-6 h-6 text-[#BFC7D5]" />
+        <div className="bg-white rounded-md border border-pq-neutral-200 p-10 text-center max-w-lg mx-auto mt-4">
+          <div className="w-12 h-12 rounded-md bg-pq-neutral-50 border border-pq-neutral-200 flex items-center justify-center mb-4 mx-auto">
+            <BadgeCheck className="w-6 h-6 text-pq-neutral-400" />
           </div>
-          <h3 className="text-base font-semibold text-[#0F1F3A] mb-1">
+          <h3 className="text-base font-semibold text-pq-neutral-900 mb-1">
             No accreditation application yet
           </h3>
-          <p className="text-sm text-[#40527A] mb-6 max-w-xs mx-auto">
+          <p className="text-sm text-pq-neutral-500 mb-6 max-w-xs mx-auto">
             Start your accreditation application to become a verified supplier. You will upload
             supporting documents and submit for Procurement review.
           </p>
           {actionError && (
-            <div className="bg-red-50 border border-red-200 rounded-[4px] p-3 text-sm text-red-700 text-left mb-4">
+            <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600 text-left mb-4">
               {actionError}
             </div>
           )}
           <button
             onClick={handleStart}
             disabled={busy}
-            className="px-5 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+            className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
           >
             {busy ? 'Starting…' : 'Start Accreditation Application'}
           </button>
@@ -278,11 +280,11 @@ export default function SupplierAccreditationPage() {
         <div className="space-y-4">
 
           {/* ── Status + notes + submit action ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4">
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4">
 
             {/* Status row */}
             <div>
-              <p className="text-xs font-semibold text-[#BFC7D5] uppercase tracking-wide mb-2">
+              <p className="text-xs font-semibold text-pq-neutral-400 uppercase tracking-wide mb-2">
                 Accreditation Status
               </p>
               <StatusChip
@@ -292,25 +294,25 @@ export default function SupplierAccreditationPage() {
             </div>
 
             {/* Status description */}
-            <p className="text-sm text-[#40527A]">
+            <p className="text-sm text-pq-neutral-500">
               {STATUS_DESCRIPTION[accreditation.status] ?? ''}
             </p>
 
             {actionError && (
-              <div className="bg-red-50 border border-red-200 rounded-[4px] p-3 text-sm text-red-700">
+              <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
                 {actionError}
               </div>
             )}
             {actionSuccess && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] p-3 text-sm text-emerald-700 flex items-center gap-2">
+              <div className="bg-pq-success-100 border border-pq-success-100 rounded-md p-3 text-sm text-pq-success-600 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 {actionSuccess}
               </div>
             )}
 
             {canStartNewAfterClose && (
-              <div className="rounded-[4px] border border-[#D8E2FF] bg-[#F7F9FC] p-4 space-y-3">
-                <p className="text-sm text-[#0F1F3A]">
+              <div className="rounded-md border border-pq-neutral-200 bg-pq-neutral-50 p-4 space-y-3">
+                <p className="text-sm text-pq-neutral-900">
                   {accreditation.status === 'withdrawn'
                     ? 'This application was withdrawn. You may start a new accreditation application.'
                     : 'You may start a new accreditation application.'}
@@ -319,7 +321,7 @@ export default function SupplierAccreditationPage() {
                   type="button"
                   onClick={handleStart}
                   disabled={busy}
-                  className="px-5 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                  className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                 >
                   {busy ? 'Starting…' : 'Start New Application'}
                 </button>
@@ -361,20 +363,20 @@ export default function SupplierAccreditationPage() {
 
             {/* Procurement notes / missing documents request */}
             {(accreditation.missing_documents_note || accreditation.review_notes) && (
-              <div className="border-t border-[#D8E2FF] pt-4 space-y-3">
+              <div className="border-t border-pq-neutral-200 pt-4 space-y-3">
                 {accreditation.missing_documents_note && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-[4px] p-3">
-                    <p className="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1.5">
+                  <div className="bg-pq-warning-100 border border-pq-warning-100 rounded-md p-3">
+                    <p className="text-xs font-semibold text-pq-warning-600 mb-1 flex items-center gap-1.5">
                       <AlertCircle className="w-3.5 h-3.5" />
                       Missing Documents Requested
                     </p>
-                    <p className="text-sm text-amber-900">{accreditation.missing_documents_note}</p>
+                    <p className="text-sm text-pq-warning-600">{accreditation.missing_documents_note}</p>
                   </div>
                 )}
                 {accreditation.review_notes && (
-                  <div className="bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] p-3">
-                    <p className="text-xs font-semibold text-[#40527A] mb-1">Reviewer Notes</p>
-                    <p className="text-sm text-[#0F1F3A]">{accreditation.review_notes}</p>
+                  <div className="bg-pq-neutral-50 border border-pq-neutral-200 rounded-md p-3">
+                    <p className="text-xs font-semibold text-pq-neutral-500 mb-1">Reviewer Notes</p>
+                    <p className="text-sm text-pq-neutral-900">{accreditation.review_notes}</p>
                   </div>
                 )}
               </div>
@@ -382,46 +384,46 @@ export default function SupplierAccreditationPage() {
 
             {/* Submit action — only when supplier can act */}
             {canSubmit && (
-              <div className="border-t border-[#D8E2FF] pt-4 space-y-3">
+              <div className="border-t border-pq-neutral-200 pt-4 space-y-3">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleSubmit}
                     disabled={busy}
-                    className="px-5 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                    className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                   >
                     {busy ? 'Submitting…' : 'Submit for Procurement Review'}
                   </button>
                 </div>
-                <p className="text-xs text-[#BFC7D5]">
+                <p className="text-xs text-pq-neutral-400">
                   Ensure all required documents are uploaded before submitting.
                 </p>
               </div>
             )}
 
             {canWithdraw && profile && (
-              <div className="border-t border-[#D8E2FF] pt-4">
+              <div className="border-t border-pq-neutral-200 pt-4">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <button
                       type="button"
                       disabled={busy}
-                      className="px-4 py-2 text-sm font-semibold text-[#40527A] bg-white border border-[#D8E2FF] rounded-[4px] hover:bg-[#F7F9FC] transition disabled:opacity-50"
+                      className="px-4 py-2 text-sm font-semibold text-pq-neutral-500 bg-white border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-50 transition disabled:opacity-50"
                     >
                       Withdraw Application
                     </button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent className="bg-white border-[#D8E2FF]">
+                  <AlertDialogContent className="bg-white border-pq-neutral-200">
                     <AlertDialogHeader>
                       <AlertDialogTitle>Withdraw this application?</AlertDialogTitle>
-                      <AlertDialogDescription className="text-[#40527A]">
+                      <AlertDialogDescription className="text-pq-neutral-500">
                         Your uploaded documents and history will be kept for audit purposes. Procurement
                         will no longer process this application. You can start a new application afterward.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel className="border-[#D8E2FF]">Back</AlertDialogCancel>
+                      <AlertDialogCancel className="border-pq-neutral-200">Back</AlertDialogCancel>
                       <AlertDialogAction
-                        className="bg-red-600 hover:bg-red-700 text-white"
+                        className="bg-pq-danger-600 hover:bg-pq-danger-600 text-white"
                         onClick={async () => {
                           if (!profile || !accreditation) return;
                           setBusy(true);
@@ -443,7 +445,7 @@ export default function SupplierAccreditationPage() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                <p className="text-xs text-[#BFC7D5] mt-2">
+                <p className="text-xs text-pq-neutral-400 mt-2">
                   Available while the application is a draft, submitted, or awaiting missing documents.
                 </p>
               </div>
@@ -451,21 +453,21 @@ export default function SupplierAccreditationPage() {
           </div>
 
           {/* ── Documents ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Accreditation Documents</h2>
-              <span className="text-xs text-[#BFC7D5]">
+          <div className="bg-white rounded-md border border-pq-neutral-200">
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">Accreditation Documents</h2>
+              <span className="text-xs text-pq-neutral-400">
                 {documents.length} file{documents.length !== 1 ? 's' : ''}
               </span>
             </div>
 
             {/* Upload form */}
-            <div className="p-5 border-b border-[#D8E2FF] space-y-3">
-              <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+            <div className="p-5 border-b border-pq-neutral-200 space-y-3">
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                 Upload Document
               </p>
               {docUploadDisabled ? (
-                <p className="text-sm text-[#40527A]">
+                <p className="text-sm text-pq-neutral-500">
                   Document uploads are not available for this closed application. Start a new application to submit documents.
                 </p>
               ) : (
@@ -473,7 +475,7 @@ export default function SupplierAccreditationPage() {
                   <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center flex-wrap">
                     <div className="w-full sm:w-52">
                       <Select value={docType} onValueChange={setDocType}>
-                        <SelectTrigger className="text-sm border-[#D8E2FF]">
+                        <SelectTrigger className="text-sm border-pq-neutral-200">
                           <SelectValue placeholder="Document type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -486,37 +488,40 @@ export default function SupplierAccreditationPage() {
                       </Select>
                     </div>
 
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      className="sr-only"
-                      onChange={handleFileChange}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition whitespace-nowrap"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      {docFile ? docFile.name : 'Choose File'}
-                    </button>
+                    <div className="flex-1 w-full min-w-[200px]">
+                      <FileUpload
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        selectedFileName={docFile?.name}
+                        onFileSelect={(file) => {
+                          const err = validateDocFile(file);
+                          if (err) {
+                            setUploadError(err);
+                            setDocFile(null);
+                          } else {
+                            setUploadError('');
+                            setDocFile(file);
+                          }
+                        }}
+                        onFileRemove={() => {
+                          setDocFile(null);
+                          setUploadError('');
+                        }}
+                        error={uploadError}
+                        isLoading={uploadBusy}
+                      />
+                    </div>
 
                     {docFile && (
-                      <button
+                      <Button
                         type="button"
                         onClick={handleUpload}
                         disabled={uploadBusy}
-                        className="px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+                        className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition whitespace-nowrap self-end"
                       >
                         {uploadBusy ? 'Uploading…' : 'Upload'}
-                      </button>
+                      </Button>
                     )}
                   </div>
-                  {uploadError && (
-                    <p className="text-xs text-red-600">{uploadError}</p>
-                  )}
-                  <p className="text-xs text-[#BFC7D5]">Accepted: PDF, JPG, PNG · Max 20 MB</p>
                 </>
               )}
             </div>
@@ -528,17 +533,17 @@ export default function SupplierAccreditationPage() {
               </div>
             ) : documents.length === 0 ? (
               <div className="p-8 text-center">
-                <FileText className="w-6 h-6 text-[#BFC7D5] mx-auto mb-2" />
-                <p className="text-sm text-[#40527A]">No documents uploaded yet.</p>
+                <FileText className="w-6 h-6 text-pq-neutral-400 mx-auto mb-2" />
+                <p className="text-sm text-pq-neutral-500">No documents uploaded yet.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {documents.map(doc => (
                   <div key={doc.id} className="flex items-center gap-3 px-5 py-3.5">
-                    <FileText className="w-4 h-4 text-[#BFC7D5] shrink-0" />
+                    <FileText className="w-4 h-4 text-pq-neutral-400 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[#0F1F3A] truncate">{doc.file_name}</p>
-                      <p className="text-xs text-[#BFC7D5]">
+                      <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
+                      <p className="text-xs text-pq-neutral-400">
                         {DOC_TYPE_OPTIONS.find(o => o.value === doc.document_type)?.label ??
                           doc.document_type}
                         {' · '}
@@ -548,7 +553,7 @@ export default function SupplierAccreditationPage() {
                     <button
                       type="button"
                       onClick={() => handleViewDocument(doc.file_path)}
-                      className="shrink-0 flex items-center gap-1 text-xs text-[#1E4BFF] hover:text-[#0F1F3A] transition"
+                      className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       View
@@ -569,8 +574,8 @@ export default function SupplierAccreditationPage() {
 function InfoField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-[#BFC7D5] mb-0.5">{label}</p>
-      <p className="text-sm font-medium text-[#0F1F3A]">{value}</p>
+      <p className="text-xs text-pq-neutral-400 mb-0.5">{label}</p>
+      <p className="text-sm font-medium text-pq-neutral-900">{value}</p>
     </div>
   );
 }

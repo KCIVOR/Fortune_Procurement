@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
+import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
 import { fetchPR2ById, savePR2Items, calcPR2GrandTotal } from '@/lib/pr2';
 import { submitPR2ForApproval, canActOnPR2Step, fetchPR2ApprovalDetail } from '@/lib/pr2-approvals';
@@ -26,12 +27,12 @@ import DetailPrintButton from '@/components/shared/DetailPrintButton';
 import DetailTableCard from '@/components/shared/DetailTableCard';
 
 const STATUS_STYLES: Record<string, string> = {
-  draft:                   'bg-[#F7F9FC] text-[#40527A] border-[#D8E2FF]',
-  pending_phase1_approval: 'bg-amber-50 text-amber-700 border-amber-200',
-  phase1_approved:         'bg-blue-50 text-blue-700 border-blue-200',
+  draft:                   'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
+  pending_phase1_approval: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
+  phase1_approved:         'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200',
   pending_phase2_approval: 'bg-orange-50 text-orange-700 border-orange-200',
-  phase2_approved:         'bg-emerald-50 text-emerald-700 border-emerald-200',
-  cancelled:               'bg-red-50 text-red-600 border-red-200',
+  phase2_approved:         'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
+  cancelled:               'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
 };
 
 interface EditableItem {
@@ -248,15 +249,13 @@ export default function PR2DetailPage() {
 
   if (loading) return (
     <AppShell title="PR2 Detail">
-      <div className="flex items-center justify-center h-64">
-        <LoadingState message="Loading PR2..." />
-      </div>
+      <DetailPageSkeleton />
     </AppShell>
   );
 
   if (error || !pr2) return (
     <AppShell title="PR2 Detail">
-      <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+      <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
         {error || 'PR2 not found.'}
       </div>
     </AppShell>
@@ -282,12 +281,12 @@ export default function PR2DetailPage() {
         left={
           <div>
             <DetailTitleRow mb>
-              <h1 className="text-2xl font-bold text-[#0F1F3A] font-mono">{pr2.pr2_number}</h1>
+              <h1 className="text-2xl font-bold text-pq-neutral-900 font-mono">{pr2.pr2_number}</h1>
               <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_STYLES[pr2.status] ?? STATUS_STYLES.draft}`}>
                 {PR2_STATUS_LABELS[pr2.status]}
               </span>
             </DetailTitleRow>
-            <p className="text-sm text-[#40527A]">
+            <p className="text-sm text-pq-neutral-500">
               {pr2.department_name_snapshot} · {pr2.purpose}
             </p>
           </div>
@@ -297,7 +296,7 @@ export default function PR2DetailPage() {
             {canEdit && !editing && (
               <button
                 onClick={handleEditToggle}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-[#D8E2FF] text-[#0F1F3A] text-sm font-semibold rounded-[4px] hover:bg-[#F7F9FC] transition"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-pq-neutral-200 text-pq-neutral-900 text-sm font-semibold rounded-md hover:bg-pq-neutral-50 transition"
               >
                 <Pencil className="w-4 h-4" />
                 Edit Inventory
@@ -307,7 +306,7 @@ export default function PR2DetailPage() {
               <button
                 onClick={handleSubmitForApproval}
                 disabled={submitting}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
               >
                 {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 Submit for Approval
@@ -318,7 +317,7 @@ export default function PR2DetailPage() {
                 <button
                   onClick={handleCancelEdit}
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-[#D8E2FF] text-[#40527A] text-sm font-semibold rounded-[4px] hover:bg-[#F7F9FC] transition"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-pq-neutral-200 text-pq-neutral-500 text-sm font-semibold rounded-md hover:bg-pq-neutral-50 transition"
                 >
                   <XIcon className="w-4 h-4" />
                   Cancel
@@ -326,7 +325,7 @@ export default function PR2DetailPage() {
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                 >
                   {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Save
@@ -336,14 +335,14 @@ export default function PR2DetailPage() {
             <DetailPrintButton
               href={`/pr2/${pr2.id}/print`}
               label="Print"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-[4px] transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-pq-neutral-800 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
             />
           </div>
         }
       />
 
       {(saveError || submitError) && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-[4px] px-4 py-3 mb-4">
+        <div className="flex items-center gap-2 bg-pq-danger-100 border border-pq-danger-100 text-pq-danger-600 text-sm rounded-md px-4 py-3 mb-4">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           {saveError || submitError}
         </div>
@@ -351,19 +350,19 @@ export default function PR2DetailPage() {
 
       {/* Action required banner for procurement actors */}
       {userCanActNow && activeInstanceId && (
-        <div className="flex items-center justify-between gap-4 bg-amber-50 border border-amber-200 rounded-[4px] px-5 py-4 mb-4">
+        <div className="flex items-center justify-between gap-4 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-4">
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-amber-600 shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-pq-warning-600 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-amber-800">Your action is required</p>
-              <p className="text-xs text-amber-700 mt-0.5">
+              <p className="text-sm font-semibold text-pq-warning-600">Your action is required</p>
+              <p className="text-xs text-pq-warning-600 mt-0.5">
                 {activeStepLabel} — {activeStepPosition}
               </p>
             </div>
           </div>
           <Link
             href={`/approvals/pr2/${activeInstanceId}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-[4px] transition shrink-0"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-md transition shrink-0"
           >
             Review & Act
             <ArrowRight className="w-4 h-4" />
@@ -377,20 +376,20 @@ export default function PR2DetailPage() {
           {existingPOs.map(po => (
             <div
               key={po.id}
-              className="flex items-center justify-between gap-4 bg-emerald-50 border border-emerald-200 rounded-[4px] px-5 py-4"
+              className="flex items-center justify-between gap-4 bg-pq-success-100 border border-pq-success-100 rounded-md px-5 py-4"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <ShoppingCart className="w-5 h-5 text-emerald-600 shrink-0" />
+                <ShoppingCart className="w-5 h-5 text-pq-success-600 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-emerald-800">Purchase Order</p>
-                  <p className="text-xs text-emerald-700 mt-0.5 truncate">
+                  <p className="text-sm font-semibold text-pq-success-600">Purchase Order</p>
+                  <p className="text-xs text-pq-success-600 mt-0.5 truncate">
                     {po.po_number} · {po.supplier_name_snapshot}
                   </p>
                 </div>
               </div>
               <Link
                 href={`/po/${po.id}`}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-[4px] transition shrink-0"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-pq-success-600 hover:bg-pq-success-600 text-white text-sm font-semibold rounded-md transition shrink-0"
               >
                 View PO
                 <ArrowRight className="w-4 h-4" />
@@ -400,14 +399,14 @@ export default function PR2DetailPage() {
         </div>
       )}
       {pr2.status === 'phase2_approved' && hasPendingPOGroups && profile?.position === 'Buyer' && (
-        <div className="flex items-center justify-between gap-4 bg-blue-50 border border-blue-200 rounded-[4px] px-5 py-4 mb-4">
+        <div className="flex items-center justify-between gap-4 bg-pq-primary-50 border border-pq-primary-200 rounded-md px-5 py-4 mb-4">
           <div className="flex items-center gap-3">
-            <ShoppingCart className="w-5 h-5 text-blue-600 shrink-0" />
+            <ShoppingCart className="w-5 h-5 text-pq-primary-600 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-blue-800">
+              <p className="text-sm font-semibold text-pq-primary-600">
                 {existingPOs.length > 0 ? 'Generate remaining Purchase Orders' : 'Ready for Purchase Order'}
               </p>
-              <p className="text-xs text-blue-700 mt-0.5">
+              <p className="text-xs text-pq-primary-700 mt-0.5">
                 {existingPOs.length > 0
                   ? 'One or more awarded suppliers still need a PO for this PR2.'
                   : 'This PR2 is fully approved. Generate a PO for each awarded supplier.'}
@@ -416,7 +415,7 @@ export default function PR2DetailPage() {
           </div>
           <Link
             href={`/po/new?pr2=${pr2.id}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition shrink-0"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition shrink-0"
           >
             Generate PO
             <ArrowRight className="w-4 h-4" />
@@ -425,9 +424,9 @@ export default function PR2DetailPage() {
       )}
 
       {editing && (
-        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-[4px] px-5 py-4 mb-6">
-          <Pencil className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-blue-800">
+        <div className="flex items-start gap-3 bg-pq-primary-50 border border-pq-primary-200 rounded-md px-5 py-4 mb-6">
+          <Pencil className="w-4 h-4 text-pq-primary-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-pq-primary-600">
             Enter current Qty on Hand and Qty In-Transit for each item. Quantity to Purchase is calculated automatically.
           </p>
         </div>
@@ -444,8 +443,8 @@ export default function PR2DetailPage() {
         {/* Left column: metadata and items */}
         <div className="lg:col-span-2 space-y-6">
           {/* PR2 Details summary */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4">
-            <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide">PR2 Details</h2>
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4">
+            <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">PR2 Details</h2>
 
             <Field icon={FileText} label="PR2 Number"  value={pr2.pr2_number}     mono />
             <Field icon={FileText} label="PR1 Ref."    value={pr2.pr1_number_snapshot} mono />
@@ -458,36 +457,36 @@ export default function PR2DetailPage() {
           </div>
 
           {/* Remarks */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5">
-            <h2 className="text-xs font-bold text-[#40527A] uppercase tracking-wide mb-3">Remarks</h2>
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5">
+            <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide mb-3">Remarks</h2>
             {editing ? (
               <textarea
                 value={editRemarks}
                 onChange={e => setEditRemarks(e.target.value)}
                 rows={3}
                 placeholder="Optional procurement remarks..."
-                className="w-full text-sm border border-[#D8E2FF] rounded-[4px] px-3 py-2 text-[#0F1F3A] placeholder-[#BFC7D5] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full text-sm border border-pq-neutral-200 rounded-md px-3 py-2 text-pq-neutral-900 placeholder-[#BFC7D5] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             ) : (
-              <p className="text-sm text-[#0F1F3A]">{pr2.remarks || <span className="text-[#BFC7D5] italic">None</span>}</p>
+              <p className="text-sm text-pq-neutral-900">{pr2.remarks || <span className="text-pq-neutral-400 italic">None</span>}</p>
             )}
           </div>
 
           {/* Grand total */}
-          <div className="bg-slate-900 rounded-[4px] p-5">
-            <p className="text-xs font-bold text-[#BFC7D5] uppercase tracking-wide mb-1">Grand Total</p>
+          <div className="bg-pq-neutral-900 rounded-md p-5">
+            <p className="text-xs font-bold text-pq-neutral-400 uppercase tracking-wide mb-1">Grand Total</p>
             <p className="text-2xl font-bold text-white">
               ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
             </p>
-            <p className="text-xs text-[#BFC7D5] mt-1">{displayItems.length} item{displayItems.length !== 1 ? 's' : ''}</p>
+            <p className="text-xs text-pq-neutral-400 mt-1">{displayItems.length} item{displayItems.length !== 1 ? 's' : ''}</p>
           </div>
 
         {/* Items table */}
           <DetailTableCard
             title={
               <div className="flex items-center gap-3">
-                <Package className="w-4 h-4 text-[#BFC7D5]" />
-                <h2 className="text-sm font-semibold text-[#0F1F3A]">Items ({pr2.items.length})</h2>
+                <Package className="w-4 h-4 text-pq-neutral-400" />
+                <h2 className="text-sm font-semibold text-pq-neutral-900">Items ({pr2.items.length})</h2>
               </div>
             }
             headerClassName="px-5 py-3.5"
@@ -495,27 +494,27 @@ export default function PR2DetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#F7F9FC] border-b border-[#D8E2FF]">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#40527A] w-6">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#40527A]">Description</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[#40527A] w-14">Unit</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-[#40527A] w-16">Req.</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-[#40527A] w-20">SOH</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-[#40527A] w-20">In-Transit</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-[#40527A] w-20">To Buy</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#40527A]">Supplier</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-[#40527A] w-24">Unit Price</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-[#40527A] w-28">Total</th>
+                  <tr className="bg-pq-neutral-50 border-b border-pq-neutral-200">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500 w-6">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500">Description</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-pq-neutral-500 w-14">Unit</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-16">Req.</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-20">SOH</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-20">In-Transit</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-20">To Buy</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500">Supplier</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-24">Unit Price</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-28">Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#D8E2FF]">
+                <tbody className="divide-y divide-pq-neutral-200">
                   {displayItems.map((item, idx) => (
-                    <tr key={item.id} className="hover:bg-[#F7F9FC] transition">
-                      <td className="px-4 py-3 text-xs text-[#BFC7D5]">{item.item_order}</td>
+                    <tr key={item.id} className="hover:bg-pq-neutral-50 transition">
+                      <td className="px-4 py-3 text-xs text-pq-neutral-400">{item.item_order}</td>
                       <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-[#0F1F3A]">{item.description}</p>
+                        <p className="text-sm font-medium text-pq-neutral-900">{item.description}</p>
                         {item.quoted_description && item.quoted_description !== item.description && (
-                          <p className="text-xs text-[#BFC7D5] mt-0.5">Quote: {item.quoted_description}</p>
+                          <p className="text-xs text-pq-neutral-400 mt-0.5">Quote: {item.quoted_description}</p>
                         )}
                         {item.is_alternative && (
                           <span className="inline-block mt-1 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
@@ -523,11 +522,11 @@ export default function PR2DetailPage() {
                           </span>
                         )}
                         {item.lead_time_days > 0 && (
-                          <p className="text-xs text-[#BFC7D5] mt-0.5">Lead: {item.lead_time_days}d</p>
+                          <p className="text-xs text-pq-neutral-400 mt-0.5">Lead: {item.lead_time_days}d</p>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-xs text-center text-[#40527A]">{item.unit_of_measure}</td>
-                      <td className="px-4 py-3 text-right text-sm text-[#0F1F3A]">{item.quantity_requested}</td>
+                      <td className="px-4 py-3 text-xs text-center text-pq-neutral-500">{item.unit_of_measure}</td>
+                      <td className="px-4 py-3 text-right text-sm text-pq-neutral-900">{item.quantity_requested}</td>
 
                       {/* Editable inventory fields */}
                       <td className="px-4 py-3 text-right">
@@ -537,10 +536,10 @@ export default function PR2DetailPage() {
                             min="0"
                             value={editItems[idx].qty_on_hand}
                             onChange={e => handleQtyChange(idx, 'qty_on_hand', e.target.value)}
-                            className="w-16 text-right text-sm border border-[#D8E2FF] rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-16 text-right text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         ) : (
-                          <span className="text-sm text-[#0F1F3A]">{item.qty_on_hand}</span>
+                          <span className="text-sm text-pq-neutral-900">{item.qty_on_hand}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -550,26 +549,26 @@ export default function PR2DetailPage() {
                             min="0"
                             value={editItems[idx].qty_incoming}
                             onChange={e => handleQtyChange(idx, 'qty_incoming', e.target.value)}
-                            className="w-16 text-right text-sm border border-[#D8E2FF] rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-16 text-right text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         ) : (
-                          <span className="text-sm text-[#0F1F3A]">{item.qty_incoming}</span>
+                          <span className="text-sm text-pq-neutral-900">{item.qty_incoming}</span>
                         )}
                       </td>
 
                       <td className="px-4 py-3 text-right">
-                        <span className={`text-sm font-semibold ${item.quantity_to_purchase === 0 ? 'text-[#BFC7D5]' : 'text-[#0F1F3A]'}`}>
+                        <span className={`text-sm font-semibold ${item.quantity_to_purchase === 0 ? 'text-pq-neutral-400' : 'text-pq-neutral-900'}`}>
                           {item.quantity_to_purchase}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-xs font-medium text-[#0F1F3A]">{item.supplier_name_snapshot}</p>
+                        <p className="text-xs font-medium text-pq-neutral-900">{item.supplier_name_snapshot}</p>
                       </td>
-                      <td className="px-4 py-3 text-right text-sm text-[#0F1F3A]">
+                      <td className="px-4 py-3 text-right text-sm text-pq-neutral-900">
                         ₱{item.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-semibold text-[#0F1F3A]">
+                        <span className="text-sm font-semibold text-pq-neutral-900">
                           ₱{(item.unit_price * item.quantity_to_purchase).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                         </span>
                       </td>
@@ -577,11 +576,11 @@ export default function PR2DetailPage() {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-[#F7F9FC] border-t-2 border-[#D8E2FF]">
-                    <td colSpan={9} className="px-4 py-3 text-right text-sm font-semibold text-[#0F1F3A]">
+                  <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
+                    <td colSpan={9} className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">
                       Grand Total
                     </td>
-                    <td className="px-4 py-3 text-right text-sm font-bold text-[#0F1F3A]">
+                    <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
                       ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
@@ -592,36 +591,36 @@ export default function PR2DetailPage() {
 
           {/* Ready for approval notice */}
           {pr2.status === 'draft' && !editing && isProcurement && (
-            <div className="mt-4 flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-[4px] px-5 py-4">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+            <div className="mt-4 flex items-start gap-3 bg-pq-success-100 border border-pq-success-100 rounded-md px-5 py-4">
+              <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-emerald-800">PR2 is ready for approval routing</p>
-                <p className="text-xs text-emerald-700 mt-0.5">
+                <p className="text-sm font-semibold text-pq-success-600">PR2 is ready for approval routing</p>
+                <p className="text-xs text-pq-success-600 mt-0.5">
                   Review the inventory figures above, then click &ldquo;Submit for Approval&rdquo; to start Phase 1.
                 </p>
               </div>
             </div>
           )}
           {pr2.status === 'pending_phase1_approval' && (
-            <div className="mt-4 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-[4px] px-5 py-4">
-              <Send className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+            <div className="mt-4 flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4">
+              <Send className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-amber-800">Awaiting Phase 1 Approval</p>
-                <p className="text-xs text-amber-700 mt-0.5">This PR2 is routing through Phase 1 signatories.</p>
+                <p className="text-sm font-semibold text-pq-warning-600">Awaiting Phase 1 Approval</p>
+                <p className="text-xs text-pq-warning-600 mt-0.5">This PR2 is routing through Phase 1 signatories.</p>
               </div>
             </div>
           )}
           {pr2.status === 'phase1_approved' && (
-            <div className="mt-4 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-[4px] px-5 py-4">
-              <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+            <div className="mt-4 flex items-start gap-3 bg-pq-primary-50 border border-pq-primary-200 rounded-md px-5 py-4">
+              <CheckCircle2 className="w-4 h-4 text-pq-primary-600 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-blue-800">Phase 1 Approved — Awaiting Phase 2</p>
-                <p className="text-xs text-blue-700 mt-0.5">Phase 2 routing has been automatically started.</p>
+                <p className="text-sm font-semibold text-pq-primary-600">Phase 1 Approved — Awaiting Phase 2</p>
+                <p className="text-xs text-pq-primary-700 mt-0.5">Phase 2 routing has been automatically started.</p>
               </div>
             </div>
           )}
           {pr2.status === 'pending_phase2_approval' && (
-            <div className="mt-4 flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-[4px] px-5 py-4">
+            <div className="mt-4 flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-md px-5 py-4">
               <Send className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-orange-800">Awaiting Phase 2 Approval</p>
@@ -630,11 +629,11 @@ export default function PR2DetailPage() {
             </div>
           )}
           {pr2.status === 'phase2_approved' && (
-            <div className="mt-4 flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-[4px] px-5 py-4">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+            <div className="mt-4 flex items-start gap-3 bg-pq-success-100 border border-pq-success-100 rounded-md px-5 py-4">
+              <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-emerald-800">Fully Approved</p>
-                <p className="text-xs text-emerald-700 mt-0.5">Both approval phases complete. Ready for Purchase Order.</p>
+                <p className="text-sm font-semibold text-pq-success-600">Fully Approved</p>
+                <p className="text-xs text-pq-success-600 mt-0.5">Both approval phases complete. Ready for Purchase Order.</p>
               </div>
             </div>
           )}
@@ -669,8 +668,8 @@ export default function PR2DetailPage() {
                 )}
               </div>
             ) : (
-              <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5">
-                <p className="text-sm text-[#BFC7D5]">Approval timeline will appear once submitted for approval.</p>
+              <div className="bg-white rounded-md border border-pq-neutral-200 p-5">
+                <p className="text-sm text-pq-neutral-400">Approval timeline will appear once submitted for approval.</p>
               </div>
             )}
           </div>
@@ -694,10 +693,10 @@ function Field({
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-0.5">
-        <Icon className="w-3.5 h-3.5 text-[#BFC7D5]" />
-        <p className="text-xs font-semibold text-[#BFC7D5] uppercase tracking-wide">{label}</p>
+        <Icon className="w-3.5 h-3.5 text-pq-neutral-400" />
+        <p className="text-xs font-semibold text-pq-neutral-400 uppercase tracking-wide">{label}</p>
       </div>
-      <p className={`text-sm text-[#0F1F3A] ${mono ? 'font-mono font-semibold' : 'font-medium'}`}>{value}</p>
+      <p className={`text-sm text-pq-neutral-900 ${mono ? 'font-mono font-semibold' : 'font-medium'}`}>{value}</p>
     </div>
   );
 }
@@ -720,28 +719,28 @@ function PhaseTimeline({
   notStarted?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-      <div className="px-6 py-4 border-b border-[#D8E2FF]">
+    <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+      <div className="px-6 py-4 border-b border-pq-neutral-200">
         <div className="flex items-center gap-2">
-          <ClipboardList className="w-3.5 h-3.5 text-[#BFC7D5]" />
+          <ClipboardList className="w-3.5 h-3.5 text-pq-neutral-400" />
           <div>
-            <h2 className="text-xs font-semibold text-[#0F1F3A] uppercase tracking-wide">{phaseLabel}</h2>
-            <p className="text-xs text-[#BFC7D5] mt-0.5">{phaseSubLabel}</p>
+            <h2 className="text-xs font-semibold text-pq-neutral-900 uppercase tracking-wide">{phaseLabel}</h2>
+            <p className="text-xs text-pq-neutral-400 mt-0.5">{phaseSubLabel}</p>
           </div>
           {notStarted && (
-            <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-[#BFC7D5] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-2.5 py-1">
+            <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-pq-neutral-400 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-2.5 py-1">
               <Lock className="w-3 h-3" />
               Not started
             </span>
           )}
           {!notStarted && instanceStatus === 'approved' && (
-            <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
+            <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2.5 py-1">
               <CheckCircle2 className="w-3 h-3" /> Complete
             </span>
           )}
           {!notStarted && instanceStatus === 'active' && (
-            <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-[#0F1F3A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-2.5 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1E4BFF] animate-pulse" />
+            <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-pq-neutral-900 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-2.5 py-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-pq-primary-600 animate-pulse" />
               In Progress
             </span>
           )}
@@ -749,7 +748,7 @@ function PhaseTimeline({
       </div>
       <div className="p-6">
         {notStarted ? (
-          <p className="text-sm text-[#BFC7D5] italic">Phase 2 begins automatically after Phase 1 is fully approved.</p>
+          <p className="text-sm text-pq-neutral-400 italic">Phase 2 begins automatically after Phase 1 is fully approved.</p>
         ) : (
           <WorkflowTimeline
             steps={steps}
@@ -789,13 +788,13 @@ function WorkflowTimeline({
                 className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 ${
                   isComplete
                     ? action!.action === 'approved'
-                      ? 'bg-emerald-600 border-emerald-600'
+                      ? 'bg-pq-success-600 border-pq-success-600'
                       : action!.action === 'rejected'
-                        ? 'bg-red-600 border-red-600'
+                        ? 'bg-pq-danger-600 border-pq-danger-600'
                         : 'bg-orange-500 border-orange-500'
                     : isCurrent
-                      ? 'bg-[#F7F9FC] border-[#1E4BFF]'
-                      : 'bg-[#F7F9FC] border-[#D8E2FF]'
+                      ? 'bg-pq-neutral-50 border-pq-primary-600'
+                      : 'bg-pq-neutral-50 border-pq-neutral-200'
                 }`}
               >
                 {isComplete ? (
@@ -807,41 +806,41 @@ function WorkflowTimeline({
                     <RotateCcw className="w-3.5 h-3.5 text-white" />
                   )
                 ) : isCurrent ? (
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#1E4BFF] animate-pulse" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-pq-primary-600 animate-pulse" />
                 ) : (
-                  <span className="w-2 h-2 rounded-full bg-[#BFC7D5]" />
+                  <span className="w-2 h-2 rounded-full bg-pq-neutral-400" />
                 )}
               </div>
               {idx < steps.length - 1 && (
-                <div className={`w-0.5 flex-1 my-1 min-h-[24px] ${isComplete ? 'bg-[#D8E2FF]' : 'bg-[#D8E2FF]'}`} />
+                <div className={`w-0.5 flex-1 my-1 min-h-[24px] ${isComplete ? 'bg-pq-neutral-200' : 'bg-pq-neutral-200'}`} />
               )}
             </div>
 
             <div className="pb-5 flex-1 min-w-0">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-sm font-semibold text-[#0F1F3A]">
+                <span className="text-sm font-semibold text-pq-neutral-900">
                   Step {step.step_order}: {step.position_required}
                 </span>
-                <span className="text-xs text-[#BFC7D5]">{step.action_label}</span>
-                {step.is_final && <span className="text-xs text-[#BFC7D5] italic">· Final</span>}
+                <span className="text-xs text-pq-neutral-400">{step.action_label}</span>
+                {step.is_final && <span className="text-xs text-pq-neutral-400 italic">· Final</span>}
               </div>
 
               {isComplete && (
                 <div className="mt-1.5 space-y-0.5">
                   <div className="flex items-center gap-2">
                     <ActionPill action={action!.action} />
-                    <span className="text-xs text-[#40527A] font-medium">{action!.actor_name_snapshot}</span>
-                    <span className="text-xs text-[#BFC7D5]">· {format(new Date(action!.acted_at), 'MMM d, yyyy h:mm a')}</span>
+                    <span className="text-xs text-pq-neutral-500 font-medium">{action!.actor_name_snapshot}</span>
+                    <span className="text-xs text-pq-neutral-400">· {format(new Date(action!.acted_at), 'MMM d, yyyy h:mm a')}</span>
                   </div>
                   {action!.remarks && (
-                    <p className="text-xs text-[#40527A] italic ml-0.5">
+                    <p className="text-xs text-pq-neutral-500 italic ml-0.5">
                       &ldquo;{action!.remarks}&rdquo;
                     </p>
                   )}
                 </div>
               )}
-              {isCurrent && <p className="mt-1 text-xs text-[#1E4BFF] font-medium">Awaiting action</p>}
-              {isPending && <p className="mt-1 text-xs text-[#BFC7D5]">Not yet reached</p>}
+              {isCurrent && <p className="mt-1 text-xs text-pq-primary-600 font-medium">Awaiting action</p>}
+              {isPending && <p className="mt-1 text-xs text-pq-neutral-400">Not yet reached</p>}
             </div>
           </li>
         );

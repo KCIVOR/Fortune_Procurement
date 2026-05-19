@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/utils';
 import {
   saveDraftPR1,
   submitPR1,
@@ -12,6 +13,9 @@ import type { PR1WithItems, PR1FormValues, PR1ItemDraft } from '@/types/pr1';
 import { EMPTY_ITEM, PURPOSE_OPTIONS, UNIT_OPTIONS } from '@/types/pr1';
 import { Plus, Trash2, TriangleAlert as AlertTriangle, Save, Send, ChevronUp, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface PR1FormProps {
   existing?: PR1WithItems;
@@ -102,8 +106,28 @@ export default function PR1Form({ existing }: PR1FormProps) {
 
   const isEdit = Boolean(existing);
 
-  const currentYear = new Date().getFullYear();
-  const pr1Prefix = `PR1-${currentYear}-`;
+  const pr1Prefix = useMemo(() => {
+    if (existing?.pr1_number) {
+      const match = existing.pr1_number.match(/^PR1-(\d{4})-/i);
+      if (match) {
+        return `PR1-${match[1]}-`;
+      }
+    }
+    return `PR1-${new Date().getFullYear()}-`;
+  }, [existing]);
+
+  const normalizePR1SequenceInput = useCallback((value: string) => {
+    return value
+      .trim()
+      .replace(/^PR1-\d{4}-/i, "")
+      .replace(/^PR1-/i, "")
+      .replace(/^PR-/i, "");
+  }, []);
+
+  const getPR1SequenceDisplayValue = useCallback((value: string) => {
+    if (!value) return "";
+    return normalizePR1SequenceInput(value);
+  }, [normalizePR1SequenceInput]);
 
   // ── Resolved final values for submission ──────────────────────────────────
 
@@ -119,9 +143,8 @@ export default function PR1Form({ existing }: PR1FormProps) {
 
   const setHeader = (field: keyof Omit<PR1FormValues, 'items'>, val: string) => {
     if (field === 'pr1_number') {
-      if (!val.startsWith(pr1Prefix)) {
-        val = pr1Prefix;
-      }
+      const cleaned = normalizePR1SequenceInput(val);
+      val = `${pr1Prefix}${cleaned}`;
     }
     setValues(v => ({ ...v, [field]: val }));
     setErrors(e => ({ ...e, [field]: undefined }));
@@ -276,69 +299,73 @@ export default function PR1Form({ existing }: PR1FormProps) {
 
   if (!profile) return null;
 
-  const selectBase = 'w-full px-2.5 py-1.5 border rounded-[4px] text-xs focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] focus:border-[#1E4BFF] transition bg-white appearance-none';
-  const selectBaseHeader = 'w-full px-3 py-2.5 border rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition bg-white appearance-none';
+  const selectBase = 'w-full px-2.5 py-1.5 border rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] focus:border-pq-primary-600 transition bg-white appearance-none';
+  const selectBaseHeader = 'w-full px-3 py-2.5 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition bg-white appearance-none';
 
   return (
     <div className="space-y-6">
       {/* ── Header card ── */}
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC]">
+      <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-pq-neutral-200 bg-pq-neutral-50">
           <div>
-            <h2 className="text-sm font-semibold text-[#0F1F3A] uppercase tracking-wide">
+            <h2 className="text-sm font-semibold text-pq-neutral-900 uppercase tracking-wide">
               Purchase Request — PR1
             </h2>
-            <p className="text-xs text-[#BFC7D5] mt-0.5">Fortune Procurement Automation System</p>
+            <p className="text-xs text-pq-neutral-400 mt-0.5">Fortune Procurement Automation System</p>
           </div>
-          <div className="text-xs text-[#BFC7D5]">Form No. PR1-v1</div>
+          <div className="text-xs text-pq-neutral-400">Form No. PR1-v1</div>
         </div>
 
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Requisitioner (read-only) */}
           <div>
-            <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
+            <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
               Requisitioner / User
             </label>
-            <div className="px-3 py-2.5 bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] text-sm text-[#0F1F3A] font-medium">
+            <div className="px-3 py-2.5 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md text-sm text-pq-neutral-900 font-medium">
               {profile.full_name}
             </div>
           </div>
 
           {/* Department (read-only) */}
           <div>
-            <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
+            <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
               Department
             </label>
-            <div className="px-3 py-2.5 bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] text-sm text-[#0F1F3A] font-medium">
+            <div className="px-3 py-2.5 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md text-sm text-pq-neutral-900 font-medium">
               {profile.department}
             </div>
           </div>
 
           {/* PR1 Number */}
           <div>
-            <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-              PR1 Number <span className="text-red-500">*</span>
+            <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+              PR1 Number <span className="text-pq-danger-600">*</span>
             </label>
-            <div className={`flex items-center border rounded-[4px] overflow-hidden transition ${
-              errors.pr1_number ? 'border-red-300 bg-red-50' : 'border-[#D8E2FF]'
-            } focus-within:ring-2 focus-within:ring-[#1E4BFF] focus-within:border-transparent`}>
-              <div className="px-3 py-2.5 bg-[#F7F9FC] border-r border-[#D8E2FF] text-sm font-mono text-[#BFC7D5] whitespace-nowrap pointer-events-none select-none">
+            <div className={cn(
+              'flex items-center border rounded-md overflow-hidden transition bg-pq-white focus-within:ring-2 focus-within:ring-pq-primary-500/25 focus-within:border-pq-primary-500',
+              errors.pr1_number ? 'border-pq-danger-300 bg-pq-danger-50' : 'border-pq-neutral-300'
+            )}>
+              <div className="px-3 py-2.5 bg-pq-neutral-50 border-r border-pq-neutral-200 text-sm font-mono text-pq-neutral-400 whitespace-nowrap pointer-events-none select-none">
                 {pr1Prefix}
               </div>
-              <input
+              <Input
                 type="text"
-                value={values.pr1_number.startsWith(pr1Prefix) ? values.pr1_number.slice(pr1Prefix.length) : values.pr1_number}
-                onChange={e => setHeader('pr1_number', pr1Prefix + e.target.value)}
+                value={getPR1SequenceDisplayValue(values.pr1_number)}
+                onChange={e => {
+                  const cleaned = normalizePR1SequenceInput(e.target.value);
+                  setHeader('pr1_number', `${pr1Prefix}${cleaned}`);
+                }}
                 onBlur={handlePR1NumberBlur}
                 placeholder="e.g. 001"
-                className="flex-1 px-3 py-2.5 border-0 text-sm font-mono focus:outline-none bg-inherit"
+                className="flex-1 border-0 rounded-none rounded-r-md font-mono focus-visible:ring-0 focus-visible:border-0 bg-transparent h-10"
               />
             </div>
             {errors.pr1_number && (
-              <p className="mt-1 text-xs text-red-600">{errors.pr1_number}</p>
+              <p className="mt-1 text-xs text-pq-danger-600">{errors.pr1_number}</p>
             )}
             {duplicateWarning && !errors.pr1_number && (
-              <div className="mt-1.5 flex items-start gap-1.5 text-[#40527A] text-xs bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-2.5 py-1.5">
+              <div className="mt-1.5 flex items-start gap-1.5 text-pq-neutral-500 text-xs bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-2.5 py-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                 <span>This PR1 number already exists. You may still submit, but please verify.</span>
               </div>
@@ -347,18 +374,18 @@ export default function PR1Form({ existing }: PR1FormProps) {
 
           {/* Date (read-only today's date) */}
           <div>
-            <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
+            <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
               Date
             </label>
-            <div className="px-3 py-2.5 bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] text-sm text-[#0F1F3A]">
+            <div className="px-3 py-2.5 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md text-sm text-pq-neutral-900">
               {format(new Date(), 'MMMM d, yyyy')}
             </div>
           </div>
 
           {/* Purpose */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-              Purpose <span className="text-red-500">*</span>
+            <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+              Purpose <span className="text-pq-danger-600">*</span>
             </label>
             <select
               value={purposeSel}
@@ -366,7 +393,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
                 setPurposeSel(e.target.value);
                 setErrors(err => ({ ...err, purpose: undefined }));
               }}
-              className={`${selectBaseHeader} ${errors.purpose && !purposeSel ? 'border-red-300 bg-red-50' : 'border-[#D8E2FF]'}`}
+              className={`${selectBaseHeader} ${errors.purpose && !purposeSel ? 'border-red-300 bg-pq-danger-100' : 'border-pq-neutral-200'}`}
             >
               <option value="">— Select purpose —</option>
               {PURPOSE_OPTIONS.map(opt => (
@@ -374,7 +401,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
               ))}
             </select>
             {purposeSel === 'Other' && (
-              <input
+              <Input
                 type="text"
                 value={purposeCustom}
                 onChange={e => {
@@ -382,40 +409,42 @@ export default function PR1Form({ existing }: PR1FormProps) {
                   setErrors(err => ({ ...err, purpose: undefined }));
                 }}
                 placeholder="Describe the reason for this purchase request..."
-                className={`mt-2 w-full px-3 py-2.5 border rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition ${
-                  errors.purpose ? 'border-red-300 bg-red-50' : 'border-[#D8E2FF]'
-                }`}
+                className={cn(
+                  'mt-2 text-sm',
+                  errors.purpose ? 'border-pq-danger-300 bg-pq-danger-50' : 'border-pq-neutral-300'
+                )}
               />
             )}
-            {errors.purpose && <p className="mt-1 text-xs text-red-600">{errors.purpose}</p>}
+            {errors.purpose && <p className="mt-1 text-xs text-pq-danger-600">{errors.purpose}</p>}
           </div>
 
           {/* Date Required */}
           <div>
-            <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-              Date Required <span className="text-red-500">*</span>
+            <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+              Date Required <span className="text-pq-danger-600">*</span>
             </label>
-            <input
+            <Input
               type="date"
               value={values.date_required}
               onChange={e => setHeader('date_required', e.target.value)}
-              className={`w-full px-3 py-2.5 border rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition ${
-                errors.date_required ? 'border-red-300 bg-red-50' : 'border-[#D8E2FF]'
-              }`}
+              className={cn(
+                'text-sm',
+                errors.date_required ? 'border-pq-danger-300 bg-pq-danger-50' : 'border-pq-neutral-300'
+              )}
             />
-            {errors.date_required && <p className="mt-1 text-xs text-red-600">{errors.date_required}</p>}
+            {errors.date_required && <p className="mt-1 text-xs text-pq-danger-600">{errors.date_required}</p>}
           </div>
         </div>
       </div>
 
       {/* ── Items grid ── */}
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#D8E2FF]">
-          <h3 className="text-sm font-semibold text-[#0F1F3A]">Items Requested</h3>
+      <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-pq-neutral-200">
+          <h3 className="text-sm font-semibold text-pq-neutral-900">Items Requested</h3>
           <button
             type="button"
             onClick={addItem}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#1E4BFF] hover:text-[#0F1F3A] transition"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-pq-primary-600 hover:text-pq-neutral-900 transition"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Item
@@ -423,68 +452,68 @@ export default function PR1Form({ existing }: PR1FormProps) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
-                <th className="text-center px-3 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-8">#</th>
-                <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-28">Item Code</th>
-                <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Description</th>
-                <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-36">Unit</th>
-                <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">SOH</th>
-                <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-28">Req. Qty</th>
-                <th className="w-16 px-3 py-2.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#D8E2FF]">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+                <TableHead className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-8">#</TableHead>
+                <TableHead className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-28">Item Code</TableHead>
+                <TableHead className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Description</TableHead>
+                <TableHead className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-36">Unit</TableHead>
+                <TableHead className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-24">SOH</TableHead>
+                <TableHead className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-28">Req. Qty</TableHead>
+                <TableHead className="w-16 px-3 py-2.5" />
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-pq-neutral-200 bg-pq-white">
               {values.items.map((item, idx) => {
                 const uState = itemUnitStates[idx] ?? { sel: '', custom: '' };
                 const uomError = errors[`item_uom_${idx}`];
                 return (
-                  <tr key={idx} className="group">
-                    <td className="px-3 py-2 text-center">
+                  <TableRow key={idx} className="group hover:bg-pq-neutral-50 transition border-b border-pq-neutral-200">
+                    <TableCell className="px-3 py-2 text-center align-middle">
                       <div className="flex flex-col items-center gap-0.5">
                         <button
                           type="button"
                           onClick={() => moveItem(idx, -1)}
                           disabled={idx === 0}
-                          className="text-[#BFC7D5] hover:text-[#40527A] disabled:opacity-0 transition"
+                          className="text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
                         >
                           <ChevronUp className="w-3 h-3" />
                         </button>
-                        <span className="text-xs text-[#BFC7D5] font-mono">{idx + 1}</span>
+                        <span className="text-xs text-pq-neutral-400 font-mono">{idx + 1}</span>
                         <button
                           type="button"
                           onClick={() => moveItem(idx, 1)}
                           disabled={idx === values.items.length - 1}
-                          className="text-[#BFC7D5] hover:text-[#40527A] disabled:opacity-0 transition"
+                          className="text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
                         >
                           <ChevronDown className="w-3 h-3" />
                         </button>
                       </div>
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
+                    </TableCell>
+                    <TableCell className="px-2 py-2 align-middle">
+                      <Input
                         type="text"
                         value={item.item_code}
                         onChange={e => setItem(idx, 'item_code', e.target.value)}
                         placeholder="Optional"
-                        className="w-full px-2.5 py-1.5 border border-[#D8E2FF] rounded-[4px] text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] focus:border-[#1E4BFF] transition"
+                        className="w-full h-8 px-2 py-1 text-xs font-mono"
                       />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
+                    </TableCell>
+                    <TableCell className="px-2 py-2 align-middle">
+                      <Input
                         type="text"
                         value={item.description}
                         onChange={e => setItem(idx, 'description', e.target.value)}
                         placeholder="Item description"
-                        className="w-full px-2.5 py-1.5 border border-[#D8E2FF] rounded-[4px] text-xs focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] focus:border-[#1E4BFF] transition"
+                        className="w-full h-8 px-2 py-1 text-xs"
                       />
-                    </td>
-                    <td className="px-2 py-2">
+                    </TableCell>
+                    <TableCell className="px-2 py-2 align-middle">
                       <select
                         value={uState.sel}
                         onChange={e => setUnitSel(idx, e.target.value)}
-                        className={`${selectBase} ${uomError && !uState.sel ? 'border-red-300 bg-red-50' : 'border-[#D8E2FF]'}`}
+                        className={`${selectBase} ${uomError && !uState.sel ? 'border-red-300 bg-pq-danger-100' : 'border-pq-neutral-200'}`}
                       >
                         <option value="">— Unit —</option>
                         {UNIT_OPTIONS.map(opt => (
@@ -492,61 +521,63 @@ export default function PR1Form({ existing }: PR1FormProps) {
                         ))}
                       </select>
                       {uState.sel === 'Other' && (
-                        <input
+                        <Input
                           type="text"
                           value={uState.custom}
                           onChange={e => setUnitCustom(idx, e.target.value)}
                           placeholder="e.g. sack"
-                          className={`mt-1 w-full px-2.5 py-1.5 border rounded-[4px] text-xs focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] focus:border-[#1E4BFF] transition ${
-                            uomError ? 'border-red-300 bg-red-50' : 'border-[#D8E2FF]'
-                          }`}
+                          className={cn(
+                            'mt-1 w-full h-8 px-2 py-1 text-xs',
+                            uomError ? 'border-pq-danger-300 bg-pq-danger-50' : 'border-pq-neutral-200'
+                          )}
                         />
                       )}
                       {uomError && (
-                        <p className="mt-0.5 text-[10px] text-red-600 leading-tight">{uomError}</p>
+                        <p className="mt-0.5 text-[10px] text-pq-danger-600 leading-tight">{uomError}</p>
                       )}
-                    </td>
-                    <td className="px-2 py-2 text-right text-xs text-[#BFC7D5] font-mono">
+                    </TableCell>
+                    <TableCell className="px-2 py-2 text-right text-xs text-pq-neutral-400 font-mono align-middle">
                       —
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
+                    </TableCell>
+                    <TableCell className="px-2 py-2 align-middle">
+                      <Input
                         type="number"
                         min="0.01"
                         step="0.01"
                         value={item.quantity_requested}
                         onChange={e => setItem(idx, 'quantity_requested', e.target.value === '' ? '' : Number(e.target.value))}
                         placeholder="1"
-                        className={`w-full px-2.5 py-1.5 border rounded-[4px] text-xs text-right focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] focus:border-[#1E4BFF] transition ${
-                          errors[`item_qty_${idx}`] ? 'border-red-300' : 'border-[#D8E2FF]'
-                        }`}
+                        className={cn(
+                          'w-full h-8 px-2 py-1 text-xs text-right',
+                          errors[`item_qty_${idx}`] ? 'border-pq-danger-300 bg-pq-danger-50' : 'border-pq-neutral-200'
+                        )}
                       />
-                    </td>
-                    <td className="px-2 py-2 text-center">
+                    </TableCell>
+                    <TableCell className="px-2 py-2 text-center align-middle">
                       {values.items.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeItem(idx)}
-                          className="text-[#BFC7D5] hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+                          className="text-pq-neutral-400 hover:text-pq-danger-600 transition opacity-0 group-hover:opacity-100"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         {errors.items && (
-          <div className="px-6 py-3 border-t border-[#D8E2FF] text-xs text-red-600">{errors.items}</div>
+          <div className="px-6 py-3 border-t border-pq-neutral-200 text-xs text-pq-danger-600">{errors.items}</div>
         )}
       </div>
 
       {/* ── Error banner ── */}
       {globalError && (
-        <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-[4px] px-4 py-3">
+        <div className="flex items-start gap-3 bg-pq-danger-100 border border-pq-danger-100 text-pq-danger-600 text-sm rounded-md px-4 py-3">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>{globalError}</span>
         </div>
@@ -554,32 +585,35 @@ export default function PR1Form({ existing }: PR1FormProps) {
 
       {/* ── Actions ── */}
       <div className="flex items-center justify-between">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => router.back()}
-          className="text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
+          className="text-pq-neutral-500 hover:text-pq-neutral-900 transition text-sm"
         >
           Cancel
-        </button>
+        </Button>
         <div className="flex items-center gap-3">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={handleSaveDraft}
             disabled={saving || submitting}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#D8E2FF] hover:border-[#0F1F3A] text-[#0F1F3A] text-sm font-medium rounded-[4px] transition disabled:opacity-50"
+            className="inline-flex items-center gap-2 hover:border-pq-primary-600 transition"
           >
             {saving ? (
-              <span className="w-4 h-4 border-2 border-[#D8E2FF] border-t-[#40527A] rounded-full animate-spin" />
+              <span className="w-4 h-4 border-2 border-pq-neutral-200 border-t-pq-primary-600 rounded-full animate-spin" />
             ) : (
               <Save className="w-4 h-4" />
             )}
             Save Draft
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="default"
             onClick={handleSubmit}
             disabled={saving || submitting}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] disabled:opacity-50 text-white text-sm font-semibold rounded-[4px] transition"
+            className="inline-flex items-center gap-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-pq-white transition"
           >
             {submitting ? (
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -587,7 +621,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
               <Send className="w-4 h-4" />
             )}
             Submit PR1
-          </button>
+          </Button>
         </div>
       </div>
     </div>

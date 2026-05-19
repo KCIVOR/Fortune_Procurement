@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { StatCard } from '@/components/shared/StatCard';
 import type { UserProfile } from '@/types/auth';
 import PageHeader from '@/components/shared/PageHeader';
 import { WarehouseDashboardVisibilitySkeleton } from '@/components/shared/module-visibility-skeletons';
@@ -13,6 +14,7 @@ import type { PR1QueueRow } from '@/types/warehouse';
 import type { GRNQueueRow } from '@/types/grn';
 import { PackageSearch, PackageCheck, Clock, CircleCheck as CheckCircle2, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { DashboardQueueSkeleton } from '@/components/shared/structural-skeletons';
 
 interface Props { profile: UserProfile; }
 
@@ -107,16 +109,22 @@ export default function WarehouseDashboard({ profile }: Props) {
       <div className={STAT_GRID_CLASS}>
         {visibleStatCards.map((stat) => {
           const Icon = stat.icon;
+          const lowerLabel = stat.label.toLowerCase();
+          const accent = lowerLabel.includes('completed')
+            ? 'green'
+            : lowerLabel.includes('pending')
+            ? 'amber'
+            : 'blue';
+
           return (
-            <div key={stat.label} className="bg-white rounded-[4px] border border-[#D8E2FF] p-3 flex items-center gap-3">
-              <div className="inline-flex items-center justify-center w-8 h-8 rounded-[4px] shrink-0 bg-[#F7F9FC] text-[#40527A]">
-                <Icon className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xl font-bold text-[#0F1F3A] leading-tight">{stat.value}</p>
-                <p className="text-xs text-[#40527A] leading-tight">{stat.label}</p>
-              </div>
-            </div>
+            <StatCard
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              icon={<Icon className="w-5 h-5" />}
+              accent={accent}
+              isLoading={loading}
+            />
           );
         })}
       </div>
@@ -127,40 +135,40 @@ export default function WarehouseDashboard({ profile }: Props) {
 
         {/* Pending Validation Queue */}
         {showWarehousePanel && (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#D8E2FF] flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[#0F1F3A]">Pending Validation Queue</h2>
-            <Link href="/warehouse" className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-pq-neutral-200 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-pq-neutral-900">Pending Validation Queue</h2>
+            <Link href="/warehouse" className="text-xs text-pq-primary-600 hover:text-pq-primary-600 font-medium flex items-center gap-1">
               View all <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
           {loading ? (
-            <div className="px-5 py-8 text-xs text-[#BFC7D5] text-center">Loading...</div>
+            <DashboardQueueSkeleton rows={3} />
           ) : pendingPRs.length === 0 ? (
-            <div className="px-5 py-8 text-xs text-[#BFC7D5] text-center">No items pending validation.</div>
+            <div className="px-5 py-8 text-xs text-pq-neutral-400 text-center">No items pending validation.</div>
           ) : (
-            <div className="divide-y divide-[#D8E2FF]">
+            <div className="divide-y divide-pq-neutral-200">
               {pendingPRs.map(row => (
                 <Link
                   key={row.id}
                   href={`/warehouse/${row.id}`}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-[#F7F9FC] transition-colors group"
+                  className="flex items-center justify-between px-5 py-3 hover:bg-pq-neutral-50 transition-colors group"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-mono font-semibold text-[#0F1F3A]">{row.pr1_number}</p>
-                    <p className="text-xs text-[#40527A] truncate">{row.requisitioner_name_snapshot} · {row.department_name_snapshot}</p>
+                    <p className="text-sm font-mono font-semibold text-pq-neutral-900">{row.pr1_number}</p>
+                    <p className="text-xs text-pq-neutral-500 truncate">{row.requisitioner_name_snapshot} · {row.department_name_snapshot}</p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 ml-3">
                     {row.validation_decision ? (
-                      <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-0.5 capitalize">
+                      <span className="text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2.5 py-0.5 capitalize">
                         {row.validation_decision}
                       </span>
                     ) : (
-                      <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-0.5">
+                      <span className="text-xs font-medium text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-full px-2.5 py-0.5">
                         Pending
                       </span>
                     )}
-                    <ArrowRight className="w-3.5 h-3.5 text-[#BFC7D5] group-hover:text-[#0F1F3A] transition-colors" />
+                    <ArrowRight className="w-3.5 h-3.5 text-pq-neutral-400 group-hover:text-pq-neutral-900 transition-colors" />
                   </div>
                 </Link>
               ))}
@@ -171,34 +179,34 @@ export default function WarehouseDashboard({ profile }: Props) {
 
         {/* Open Goods Receipts */}
         {showGrnPanel && (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#D8E2FF] flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[#0F1F3A]">Open Goods Receipts</h2>
-            <Link href="/grn" className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-pq-neutral-200 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-pq-neutral-900">Open Goods Receipts</h2>
+            <Link href="/grn" className="text-xs text-pq-primary-600 hover:text-pq-primary-600 font-medium flex items-center gap-1">
               View all <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
           {loading ? (
-            <div className="px-5 py-8 text-xs text-[#BFC7D5] text-center">Loading...</div>
+            <DashboardQueueSkeleton rows={3} />
           ) : openGRNs.length === 0 ? (
-            <div className="px-5 py-8 text-xs text-[#BFC7D5] text-center">No open GRNs at this time.</div>
+            <div className="px-5 py-8 text-xs text-pq-neutral-400 text-center">No open GRNs at this time.</div>
           ) : (
-            <div className="divide-y divide-[#D8E2FF]">
+            <div className="divide-y divide-pq-neutral-200">
               {openGRNs.map(row => (
                 <Link
                   key={row.id}
                   href={`/grn/${row.id}`}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-[#F7F9FC] transition-colors group"
+                  className="flex items-center justify-between px-5 py-3 hover:bg-pq-neutral-50 transition-colors group"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-mono font-semibold text-[#0F1F3A]">{row.grn_number}</p>
-                    <p className="text-xs text-[#40527A] truncate">{row.supplier_name_snapshot} · {row.po_number_snapshot}</p>
+                    <p className="text-sm font-mono font-semibold text-pq-neutral-900">{row.grn_number}</p>
+                    <p className="text-xs text-pq-neutral-500 truncate">{row.supplier_name_snapshot} · {row.po_number_snapshot}</p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 ml-3">
-                    <span className="text-xs text-[#40527A]">
+                    <span className="text-xs text-pq-neutral-500">
                       {row.transaction_date ? format(new Date(row.transaction_date), 'MMM d') : '—'}
                     </span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#BFC7D5] group-hover:text-[#0F1F3A] transition-colors" />
+                    <ArrowRight className="w-3.5 h-3.5 text-pq-neutral-400 group-hover:text-pq-neutral-900 transition-colors" />
                   </div>
                 </Link>
               ))}

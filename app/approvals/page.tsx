@@ -5,7 +5,7 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
-import LoadingState from '@/components/shared/LoadingState';
+import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
 import { fetchApprovalQueue, canActOnStep } from '@/lib/approvals';
@@ -95,13 +95,11 @@ export default function ApprovalsPage() {
       />
 
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <LoadingState message="Loading queue..." />
-        </div>
+        <TableSkeleton rows={5} cols={8} />
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">{error}</div>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">{error}</div>
       ) : totalQueue === 0 ? (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
+        <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title="No pending approvals"
             description="PR1 and PR2 documents routed for approval will appear here."
@@ -125,7 +123,7 @@ export default function ApprovalsPage() {
                   <PR1QueueTable rows={pr1ActSlice} canAct={() => true} />
                   <div className="w-full pt-2 pb-4">
                     <PaginationControls
-                      className="border-[#D8E2FF] rounded-[4px]"
+                      className="border-pq-neutral-200 rounded-md"
                       currentPage={pr1ActPage}
                       totalPages={Math.max(1, Math.ceil(actionablePR1.length / PAGE_SIZE))}
                       pageSize={PAGE_SIZE}
@@ -145,7 +143,7 @@ export default function ApprovalsPage() {
                   <PR2QueueTable rows={pr2ActSlice} canAct={() => true} />
                   <div className="w-full pt-2 pb-4">
                     <PaginationControls
-                      className="border-[#D8E2FF] rounded-[4px]"
+                      className="border-pq-neutral-200 rounded-md"
                       currentPage={pr2ActPage}
                       totalPages={Math.max(1, Math.ceil(actionablePR2.length / PAGE_SIZE))}
                       pageSize={PAGE_SIZE}
@@ -165,7 +163,7 @@ export default function ApprovalsPage() {
                   <POQueueTable rows={poActSlice} canAct={() => true} />
                   <div className="w-full pt-2 pb-4">
                     <PaginationControls
-                      className="border-[#D8E2FF] rounded-[4px]"
+                      className="border-pq-neutral-200 rounded-md"
                       currentPage={poActPage}
                       totalPages={Math.max(1, Math.ceil(actionablePO.length / PAGE_SIZE))}
                       pageSize={PAGE_SIZE}
@@ -195,7 +193,7 @@ export default function ApprovalsPage() {
                   <PR1QueueTable rows={pr1ReadSlice} canAct={() => false} />
                   <div className="w-full pt-2 pb-4">
                     <PaginationControls
-                      className="border-[#D8E2FF] rounded-[4px]"
+                      className="border-pq-neutral-200 rounded-md"
                       currentPage={pr1ReadPage}
                       totalPages={Math.max(1, Math.ceil(readonlyPR1Rows.length / PAGE_SIZE))}
                       pageSize={PAGE_SIZE}
@@ -215,7 +213,7 @@ export default function ApprovalsPage() {
                   <PR2QueueTable rows={pr2ReadSlice} canAct={() => false} />
                   <div className="w-full pt-2 pb-4">
                     <PaginationControls
-                      className="border-[#D8E2FF] rounded-[4px]"
+                      className="border-pq-neutral-200 rounded-md"
                       currentPage={pr2ReadPage}
                       totalPages={Math.max(1, Math.ceil(readonlyPR2Rows.length / PAGE_SIZE))}
                       pageSize={PAGE_SIZE}
@@ -235,7 +233,7 @@ export default function ApprovalsPage() {
                   <POQueueTable rows={poReadSlice} canAct={() => false} />
                   <div className="w-full pt-2 pb-4">
                     <PaginationControls
-                      className="border-[#D8E2FF] rounded-[4px]"
+                      className="border-pq-neutral-200 rounded-md"
                       currentPage={poReadPage}
                       totalPages={Math.max(1, Math.ceil(readonlyPORows.length / PAGE_SIZE))}
                       pageSize={PAGE_SIZE}
@@ -270,7 +268,7 @@ function PR1QueueTable({
   return (
     <ApprovalQueueTableShell
       title="PR1 — Purchase Requests"
-      icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+      icon={<FileText className="w-3.5 h-3.5 text-pq-neutral-400" />}
     >
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -286,16 +284,16 @@ function PR1QueueTable({
             <ApprovalQueueHeadCell className="px-5 py-3" />
           </ApprovalQueueHeaderRow>
         </thead>
-        <tbody className="divide-y divide-[#D8E2FF]">
+        <tbody className="divide-y divide-pq-neutral-200">
           {rows.map((row) => {
             const active = canAct(row);
             return (
-              <tr key={row.instance_id} className={`transition-colors ${active ? 'hover:bg-[#F7F9FC]' : 'opacity-60'}`}>
-                <td className="px-5 py-3.5 font-mono font-semibold text-[#0F1F3A]">{row.pr1_number}</td>
-                <td className="px-5 py-3.5 text-[#0F1F3A]">{row.requisitioner_name_snapshot}</td>
-                <td className="px-5 py-3.5 text-[#40527A]">{row.department_name_snapshot}</td>
-                <td className="px-5 py-3.5 text-[#40527A] max-w-[180px] truncate">{row.purpose}</td>
-                <td className="px-5 py-3.5 text-[#40527A] text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
+              <tr key={row.instance_id} className={`transition-colors ${active ? 'hover:bg-pq-neutral-50' : 'opacity-60'}`}>
+                <td className="px-5 py-3.5 font-mono font-semibold text-pq-neutral-900">{row.pr1_number}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-900">{row.requisitioner_name_snapshot}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-500">{row.department_name_snapshot}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[180px] truncate">{row.purpose}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                 <td className="px-5 py-3.5 text-center">
                   <PriorityChip priority={row.priority} />
                 </td>
@@ -304,11 +302,11 @@ function PR1QueueTable({
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   {active ? (
-                    <Link href={`/approvals/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-[#1E4BFF] hover:text-[#0F1F3A] text-xs font-semibold transition">
+                    <Link href={`/approvals/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
                       <ArrowRight className="w-3.5 h-3.5" /> Review
                     </Link>
                   ) : (
-                    <Link href={`/approvals/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-[#BFC7D5] hover:text-[#40527A] text-xs font-medium transition">
+                    <Link href={`/approvals/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-neutral-400 hover:text-pq-neutral-500 text-xs font-medium transition">
                       View
                     </Link>
                   )}
@@ -340,7 +338,7 @@ function PR2QueueTable({
   return (
     <ApprovalQueueTableShell
       title="PR2 — Procurement Purchase Requests"
-      icon={<ClipboardList className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+      icon={<ClipboardList className="w-3.5 h-3.5 text-pq-neutral-400" />}
     >
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -356,20 +354,20 @@ function PR2QueueTable({
             <ApprovalQueueHeadCell className="px-5 py-3" />
           </ApprovalQueueHeaderRow>
         </thead>
-        <tbody className="divide-y divide-[#D8E2FF]">
+        <tbody className="divide-y divide-pq-neutral-200">
           {rows.map((row) => {
             const active = canAct(row);
             const phaseLabel = PHASE_LABELS[row.workflow_code] ?? row.workflow_code;
             return (
-              <tr key={row.instance_id} className={`transition-colors ${active ? 'hover:bg-[#F7F9FC]' : 'opacity-60'}`}>
+              <tr key={row.instance_id} className={`transition-colors ${active ? 'hover:bg-pq-neutral-50' : 'opacity-60'}`}>
                 <td className="px-5 py-3.5">
-                  <span className="font-mono font-semibold text-[#0F1F3A]">{row.pr2_number}</span>
-                  <span className="ml-2 text-xs text-[#BFC7D5]">{phaseLabel}</span>
+                  <span className="font-mono font-semibold text-pq-neutral-900">{row.pr2_number}</span>
+                  <span className="ml-2 text-xs text-pq-neutral-400">{phaseLabel}</span>
                 </td>
-                <td className="px-5 py-3.5 text-[#0F1F3A]">{row.requisitioner_name_snapshot}</td>
-                <td className="px-5 py-3.5 text-[#40527A]">{row.department_name_snapshot}</td>
-                <td className="px-5 py-3.5 text-[#40527A] max-w-[180px] truncate">{row.purpose}</td>
-                <td className="px-5 py-3.5 text-[#40527A] text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-900">{row.requisitioner_name_snapshot}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-500">{row.department_name_snapshot}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[180px] truncate">{row.purpose}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                 <td className="px-5 py-3.5 text-center">
                   <PriorityChip priority={row.pr1_priority} />
                 </td>
@@ -378,11 +376,11 @@ function PR2QueueTable({
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   {active ? (
-                    <Link href={`/approvals/pr2/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-[#1E4BFF] hover:text-[#0F1F3A] text-xs font-semibold transition">
+                    <Link href={`/approvals/pr2/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
                       <ArrowRight className="w-3.5 h-3.5" /> Review
                     </Link>
                   ) : (
-                    <Link href={`/approvals/pr2/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-[#BFC7D5] hover:text-[#40527A] text-xs font-medium transition">
+                    <Link href={`/approvals/pr2/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-neutral-400 hover:text-pq-neutral-500 text-xs font-medium transition">
                       View
                     </Link>
                   )}
@@ -409,7 +407,7 @@ function POQueueTable({
   return (
     <ApprovalQueueTableShell
       title="PO — Purchase Orders"
-      icon={<ShoppingCart className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+      icon={<ShoppingCart className="w-3.5 h-3.5 text-pq-neutral-400" />}
     >
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -425,16 +423,16 @@ function POQueueTable({
             <ApprovalQueueHeadCell className="px-5 py-3" />
           </ApprovalQueueHeaderRow>
         </thead>
-        <tbody className="divide-y divide-[#D8E2FF]">
+        <tbody className="divide-y divide-pq-neutral-200">
           {rows.map((row) => {
             const active = canAct(row);
             return (
-              <tr key={row.instance_id} className={`transition-colors ${active ? 'hover:bg-[#F7F9FC]' : 'opacity-60'}`}>
-                <td className="px-5 py-3.5 font-mono font-semibold text-[#0F1F3A]">{row.po_number}</td>
-                <td className="px-5 py-3.5 text-[#0F1F3A]">{row.supplier_name_snapshot}</td>
-                <td className="px-5 py-3.5 text-[#40527A]">{row.department_name_snapshot}</td>
-                <td className="px-5 py-3.5 text-[#40527A] max-w-[180px] truncate">{row.purpose}</td>
-                <td className="px-5 py-3.5 text-[#40527A] text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
+              <tr key={row.instance_id} className={`transition-colors ${active ? 'hover:bg-pq-neutral-50' : 'opacity-60'}`}>
+                <td className="px-5 py-3.5 font-mono font-semibold text-pq-neutral-900">{row.po_number}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-900">{row.supplier_name_snapshot}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-500">{row.department_name_snapshot}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[180px] truncate">{row.purpose}</td>
+                <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                 <td className="px-5 py-3.5 text-center">
                   <PriorityChip priority={row.pr1_priority} />
                 </td>
@@ -443,11 +441,11 @@ function POQueueTable({
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   {active ? (
-                    <Link href={`/approvals/po/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-[#1E4BFF] hover:text-[#0F1F3A] text-xs font-semibold transition">
+                    <Link href={`/approvals/po/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
                       <ArrowRight className="w-3.5 h-3.5" /> Review
                     </Link>
                   ) : (
-                    <Link href={`/approvals/po/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-[#BFC7D5] hover:text-[#40527A] text-xs font-medium transition">
+                    <Link href={`/approvals/po/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-neutral-400 hover:text-pq-neutral-500 text-xs font-medium transition">
                       View
                     </Link>
                   )}
@@ -469,14 +467,14 @@ function Section({
 }: {
   title: string; subtitle?: string; accent: 'amber' | 'slate'; children: React.ReactNode;
 }) {
-  const bar = accent === 'amber' ? 'bg-[#1E4BFF]' : 'bg-[#D8E2FF]';
+  const bar = accent === 'amber' ? 'bg-pq-primary-600' : 'bg-pq-neutral-200';
   return (
     <div>
       <div className="flex items-center gap-3 mb-2">
         <div className={`w-1 h-5 rounded-full ${bar}`} />
         <div>
-          <h2 className="text-sm font-semibold text-[#0F1F3A]">{title}</h2>
-          {subtitle && <p className="text-xs text-[#40527A]">{subtitle}</p>}
+          <h2 className="text-sm font-semibold text-pq-neutral-900">{title}</h2>
+          {subtitle && <p className="text-xs text-pq-neutral-500">{subtitle}</p>}
         </div>
       </div>
       {children}
@@ -489,10 +487,10 @@ function StatCard({
 }: {
   label: string; value: number; color: 'amber' | 'slate'; icon: React.ElementType;
 }) {
-  const styles = { amber: 'bg-[#F7F9FC] border-[#D8E2FF] text-[#0F1F3A]', slate: 'bg-white border-[#D8E2FF] text-[#0F1F3A]' };
-  const iconStyles = { amber: 'text-[#40527A]', slate: 'text-[#BFC7D5]' };
+  const styles = { amber: 'bg-pq-neutral-50 border-pq-neutral-200 text-pq-neutral-900', slate: 'bg-white border-pq-neutral-200 text-pq-neutral-900' };
+  const iconStyles = { amber: 'text-pq-neutral-500', slate: 'text-pq-neutral-400' };
   return (
-    <div className={`rounded-[4px] border px-5 py-4 flex items-center gap-4 ${styles[color]}`}>
+    <div className={`rounded-md border px-5 py-4 flex items-center gap-4 ${styles[color]}`}>
       <Icon className={`w-5 h-5 shrink-0 ${iconStyles[color]}`} />
       <div>
         <p className="text-2xl font-bold">{value}</p>

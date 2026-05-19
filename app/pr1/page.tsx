@@ -7,6 +7,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import StatusChip from '@/components/shared/StatusChip';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
+import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -76,7 +77,7 @@ export default function PR1ListPage() {
         action={
           <Link
             href="/pr1/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
           >
             <Plus className="w-4 h-4" />
             New PR1
@@ -84,9 +85,9 @@ export default function PR1ListPage() {
         }
       />
 
-      <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="pr1-search" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+          <Label htmlFor="pr1-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
             Search
           </Label>
           <div className="flex gap-2">
@@ -98,26 +99,26 @@ export default function PR1ListPage() {
               onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
               placeholder="PR1 number or purpose..."
               disabled={loading}
-              className="flex-1 px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
+              className="flex-1 px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
             />
             <button
               onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
               disabled={loading}
-              className="px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50 whitespace-nowrap"
+              className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
             >
               Apply
             </button>
             <button
               onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
               disabled={loading}
-              className="px-3 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] disabled:opacity-50 transition whitespace-nowrap"
+              className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
             >
               Clear
             </button>
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="pr1-status" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+          <Label htmlFor="pr1-status" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
             Status
           </Label>
           <Select
@@ -144,13 +145,11 @@ export default function PR1ListPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <LoadingState message="Loading requests..." />
-        </div>
+        <TableSkeleton rows={5} cols={7} />
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">{error}</div>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">{error}</div>
       ) : requests.length === 0 ? (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
+        <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title="No purchase requests yet"
             description={
@@ -163,36 +162,36 @@ export default function PR1ListPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
             <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">PR1 No.</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Purpose</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Date Required</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Submitted</th>
-                  <th className="text-center px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">Priority</th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Status</th>
+                <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">PR1 No.</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Purpose</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Date Required</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</th>
+                  <th className="text-center px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-24">Priority</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#D8E2FF]">
+              <tbody className="divide-y divide-pq-neutral-200">
                 {requests.map((r) => (
-                  <tr key={r.id} className="hover:bg-[#F7F9FC] transition-colors">
-                    <td className="px-5 py-3.5 font-mono font-medium text-[#0F1F3A]">{r.pr1_number}</td>
-                    <td className="px-5 py-3.5 text-[#40527A] max-w-xs truncate">{r.purpose || '—'}</td>
-                    <td className="px-5 py-3.5 text-[#40527A]">
+                  <tr key={r.id} className="hover:bg-pq-neutral-50 transition-colors">
+                    <td className="px-5 py-3.5 font-mono font-medium text-pq-neutral-900">{r.pr1_number}</td>
+                    <td className="px-5 py-3.5 text-pq-neutral-500 max-w-xs truncate">{r.purpose || '—'}</td>
+                    <td className="px-5 py-3.5 text-pq-neutral-500">
                       {r.date_required ? format(new Date(r.date_required), 'MMM d, yyyy') : '—'}
                     </td>
-                    <td className="px-5 py-3.5 text-[#40527A]">
+                    <td className="px-5 py-3.5 text-pq-neutral-500">
                       {r.submitted_at ? (
                         <span className="flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5" />
                           {format(new Date(r.submitted_at), 'MMM d, yyyy')}
                         </span>
                       ) : (
-                        <span className="text-[#BFC7D5] italic">Not yet</span>
+                        <span className="text-pq-neutral-400 italic">Not yet</span>
                       )}
                     </td>
                     <td className="px-5 py-3.5 text-center">
@@ -208,7 +207,7 @@ export default function PR1ListPage() {
                     <td className="px-5 py-3.5 text-right">
                       <Link
                         href={`/pr1/${r.id}`}
-                        className="inline-flex items-center gap-1.5 text-[#1E4BFF] hover:text-[#0F1F3A] text-xs font-medium transition"
+                        className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         View
@@ -233,7 +232,7 @@ export default function PR1ListPage() {
                 if (page < currentPage) setCurrentPage((p) => Math.max(1, p - 1));
                 else setCurrentPage((p) => p + 1);
               }}
-              className="rounded-[4px] border border-[#D8E2FF]"
+              className="rounded-md border border-pq-neutral-200"
             />
           )}
         </div>

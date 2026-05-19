@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,9 +13,9 @@ import {
 import type { Notification } from '@/types/database';
 
 const TYPE_DOT: Record<string, string> = {
-  action_required: 'bg-amber-500',
-  approved:        'bg-emerald-500',
-  rejected:        'bg-red-500',
+  action_required: 'bg-pq-warning-1000',
+  approved:        'bg-pq-success-1000',
+  rejected:        'bg-pq-danger-1000',
   info:            'bg-blue-400',
 };
 
@@ -101,11 +101,11 @@ export default function NotificationBell() {
         type="button"
         onClick={handleBellClick}
         aria-label="Notifications"
-        className="relative flex items-center justify-center w-8 h-8 rounded-[4px] text-[#40527A] hover:text-[#0F1F3A] hover:bg-[#F7F9FC] transition"
+        className="relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
       >
         <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none px-1 pointer-events-none">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-pq-danger-1000 text-white text-[10px] font-bold leading-none px-1 pointer-events-none">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -113,14 +113,14 @@ export default function NotificationBell() {
 
       {/* Dropdown panel */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-[#D8E2FF] rounded-[4px] shadow-lg z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-pq-neutral-200 rounded-md shadow-lg z-50 overflow-hidden">
           {/* Panel header */}
-          <div className="px-4 py-2.5 border-b border-[#D8E2FF] flex items-center justify-between bg-[#F7F9FC]">
-            <span className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+          <div className="px-4 py-2.5 border-b border-pq-neutral-200 flex items-center justify-between bg-pq-neutral-50">
+            <span className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
               Notifications
             </span>
             {unreadCount > 0 && (
-              <span className="text-[10px] font-semibold text-[#1E4BFF] bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
+              <span className="text-[10px] font-semibold text-pq-primary-600 bg-pq-primary-50 border border-pq-primary-200 rounded-full px-2 py-0.5">
                 {unreadCount} unread
               </span>
             )}
@@ -129,13 +129,13 @@ export default function NotificationBell() {
           {/* Notification list */}
           <div className="max-h-[400px] overflow-y-auto divide-y divide-[#F7F9FC]">
             {loading ? (
-              <div className="px-4 py-8 text-center text-xs text-[#BFC7D5]">
+              <div className="px-4 py-8 text-center text-xs text-pq-neutral-400">
                 Loading…
               </div>
             ) : notifications.length === 0 ? (
               <div className="px-4 py-10 flex flex-col items-center gap-2">
-                <Bell className="w-7 h-7 text-[#D8E2FF]" />
-                <p className="text-sm text-[#BFC7D5]">No notifications</p>
+                <Bell className="w-7 h-7 text-pq-neutral-200" />
+                <p className="text-sm text-pq-neutral-400">No notifications</p>
               </div>
             ) : (
               notifications.map(notif => (
@@ -143,8 +143,8 @@ export default function NotificationBell() {
                   key={notif.id}
                   type="button"
                   onClick={() => handleNotificationClick(notif)}
-                  className={`w-full text-left px-4 py-3 hover:bg-[#F7F9FC] transition ${
-                    !notif.read ? 'bg-blue-50/60' : 'bg-white'
+                  className={`w-full text-left px-4 py-3 hover:bg-pq-neutral-50 transition ${
+                    !notif.read ? 'bg-pq-primary-50/60' : 'bg-white'
                   }`}
                 >
                   <div className="flex items-start gap-2.5">
@@ -152,20 +152,20 @@ export default function NotificationBell() {
                     <span
                       className={`mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 ${
                         !notif.read
-                          ? (TYPE_DOT[notif.type] ?? 'bg-[#BFC7D5]')
-                          : 'bg-[#D8E2FF]'
+                          ? (TYPE_DOT[notif.type] ?? 'bg-pq-neutral-400')
+                          : 'bg-pq-neutral-200'
                       }`}
                     />
                     <div className="flex-1 min-w-0">
                       <p className={`text-xs font-semibold truncate ${
-                        !notif.read ? 'text-[#0F1F3A]' : 'text-[#40527A]'
+                        !notif.read ? 'text-pq-neutral-900' : 'text-pq-neutral-500'
                       }`}>
                         {notif.title}
                       </p>
-                      <p className="text-xs text-[#40527A] mt-0.5 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-pq-neutral-500 mt-0.5 line-clamp-2 leading-relaxed">
                         {notif.body}
                       </p>
-                      <p className="text-[10px] text-[#BFC7D5] mt-1">
+                      <p className="text-[10px] text-pq-neutral-400 mt-1">
                         {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
                       </p>
                     </div>

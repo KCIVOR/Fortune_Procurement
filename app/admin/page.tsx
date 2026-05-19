@@ -31,9 +31,9 @@ export default function AdminPage() {
     return (
       <AppShell title="Admin">
         <div className="space-y-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
             <h3 className="font-semibold text-red-900 mb-2">Access Denied</h3>
-            <p className="text-sm text-red-800">You do not have permission to access the admin panel.</p>
+            <p className="text-sm text-pq-danger-600">You do not have permission to access the admin panel.</p>
           </div>
         </div>
       </AppShell>

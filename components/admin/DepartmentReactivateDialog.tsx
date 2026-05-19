@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import {
@@ -48,10 +48,10 @@ export default function DepartmentReactivateDialog({
     <AlertDialog open={isOpen} onOpenChange={(open) => !open && handleCancel()}>
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-lg font-semibold text-[#0F1F3A]">
+          <AlertDialogTitle className="text-lg font-semibold text-pq-neutral-900">
             Reactivate Department
           </AlertDialogTitle>
-          <AlertDialogDescription className="space-y-3 text-sm text-[#40527A] pt-2">
+          <AlertDialogDescription className="space-y-3 text-sm text-pq-neutral-500 pt-2">
             <div>
               <p className="font-medium mb-2">
                 <strong>{department.name}</strong> ({department.code})
@@ -63,14 +63,14 @@ export default function DepartmentReactivateDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="flex items-center space-x-2 py-4 border-t border-[#E5EAFF]">
+        <div className="flex items-center space-x-2 py-4 border-t border-pq-neutral-200">
           <Checkbox
             id="acknowledge"
             checked={acknowledged}
             onCheckedChange={(checked) => setAcknowledged(checked === true)}
             disabled={isLoading}
           />
-          <Label htmlFor="acknowledge" className="text-xs font-medium text-[#40527A] cursor-pointer">
+          <Label htmlFor="acknowledge" className="text-xs font-medium text-pq-neutral-500 cursor-pointer">
             I want to reactivate this department
           </Label>
         </div>
@@ -86,7 +86,7 @@ export default function DepartmentReactivateDialog({
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={!acknowledged || isLoading}
-            className="text-xs bg-green-600 hover:bg-green-700 text-white"
+            className="text-xs bg-pq-success-600 hover:bg-pq-success-600 text-white"
           >
             {isLoading ? 'Reactivating...' : 'Reactivate'}
           </AlertDialogAction>

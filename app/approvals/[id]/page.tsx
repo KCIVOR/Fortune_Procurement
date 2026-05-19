@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
-import LoadingState from '@/components/shared/LoadingState';
+import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import ApprovalInstanceStatusChip from '@/components/shared/ApprovalInstanceStatusChip';
 import { useAuth } from '@/context/AuthContext';
@@ -141,9 +141,7 @@ export default function ApprovalDetailPage() {
   if (loading) {
     return (
       <AppShell title="PR1 Approval">
-        <div className="flex items-center justify-center h-64">
-          <LoadingState message="Loading..." />
-        </div>
+        <DetailPageSkeleton />
       </AppShell>
     );
   }
@@ -151,7 +149,7 @@ export default function ApprovalDetailPage() {
   if (error || !detail) {
     return (
       <AppShell title="PR1 Approval">
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error || 'Record not found.'}
         </div>
       </AppShell>
@@ -173,8 +171,8 @@ export default function ApprovalDetailPage() {
         left={
           <div>
             <DetailTitleRow wrap>
-              <h1 className="text-xl font-bold text-[#0F1F3A]">
-                PR1 {detail.pr1_number}
+              <h1 className="text-xl font-bold text-pq-neutral-900">
+                {detail.pr1_number}
               </h1>
               <ApprovalInstanceStatusChip status={detail.instance_status} />
               {canUpdatePriority ? (
@@ -187,13 +185,13 @@ export default function ApprovalDetailPage() {
                 <PriorityChip priority={detail.priority} />
               )}
             </DetailTitleRow>
-            <p className="text-sm text-[#40527A] mt-1">
+            <p className="text-sm text-pq-neutral-500 mt-1">
               Submitted {detail.submitted_at
                 ? format(new Date(detail.submitted_at), 'MMMM d, yyyy')
                 : '—'}
             </p>
             {priorityError && (
-              <div className="flex items-start gap-2 mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+              <div className="flex items-start gap-2 mt-2 text-xs text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded px-3 py-2">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span>{priorityError}</span>
               </div>
@@ -204,12 +202,12 @@ export default function ApprovalDetailPage() {
           <>
             {/* Authority indicator */}
             {canAct ? (
-              <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-2 rounded-[4px]">
+              <div className="inline-flex items-center gap-2 bg-pq-warning-100 border border-pq-warning-100 text-pq-warning-600 text-xs font-semibold px-3 py-2 rounded-md">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Your action required — Step {detail.current_step}: {currentStepDef?.position_required}
               </div>
             ) : !isClosed && profile?.role === 'approver' ? (
-              <div className="inline-flex items-center gap-2 bg-[#F7F9FC] border border-[#D8E2FF] text-[#40527A] text-xs font-medium px-3 py-2 rounded-[4px]">
+              <div className="inline-flex items-center gap-2 bg-pq-neutral-50 border border-pq-neutral-200 text-pq-neutral-500 text-xs font-medium px-3 py-2 rounded-md">
                 <Lock className="w-3.5 h-3.5" />
                 Awaiting Step {detail.current_step}: {currentStepDef?.position_required}
               </div>
@@ -225,33 +223,33 @@ export default function ApprovalDetailPage() {
           {/* PR1 request details */}
           <DetailCard overflow className="order-2 lg:order-none">
             <DetailCardHeader
-              left={<h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Request Details</h2>}
-              right={<span className="text-xs text-[#BFC7D5] font-mono">{detail.pr1_number}</span>}
+              left={<h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Request Details</h2>}
+              right={<span className="text-xs text-pq-neutral-400 font-mono">{detail.pr1_number}</span>}
             />
             <DetailInfoGrid>
             <DetailInfoField
-              icon={<User className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<User className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Requisitioner"
               value={detail.requisitioner_name_snapshot}
             />
             <DetailInfoField
-              icon={<Building2 className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<Building2 className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Department"
               value={detail.department_name_snapshot}
             />
             <DetailInfoField
-              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<FileText className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="PR1 Number"
               value={detail.pr1_number}
               valueClassName="font-mono font-semibold"
             />
             <DetailInfoField
-              icon={<Clock className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<Clock className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Submitted"
               value={detail.submitted_at ? format(new Date(detail.submitted_at), 'MMMM d, yyyy') : '—'}
             />
             <DetailInfoField
-              icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<CalendarDays className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Date Required"
               value={format(new Date(detail.date_required), 'MMMM d, yyyy')}
             />
@@ -263,33 +261,33 @@ export default function ApprovalDetailPage() {
           {/* Items */}
           <DetailTableCard
             className="order-3 lg:order-none"
-            title={<h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Requested Items</h2>}
+            title={<h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Requested Items</h2>}
           >
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
-                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-8">#</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-24">Code</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase">Description</th>
-                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-16">Unit</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-24">SOH</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase w-24">Qty Req.</th>
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-8">#</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Code</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase">Description</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-16">Unit</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">SOH</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Qty Req.</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#D8E2FF]">
+                <tbody className="divide-y divide-pq-neutral-200">
                   {detail.items.map(item => (
-                    <tr key={item.id} className="hover:bg-[#F7F9FC]">
-                      <td className="px-4 py-3 text-center text-xs text-[#BFC7D5] font-mono">{item.item_order}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-[#40527A]">{item.item_code || '—'}</td>
-                      <td className="px-4 py-3 text-[#0F1F3A] font-medium">{item.description}</td>
-                      <td className="px-4 py-3 text-center text-[#40527A] text-xs">{item.unit_of_measure}</td>
-                      <td className="px-4 py-3 text-right font-mono text-xs text-[#40527A]">
+                    <tr key={item.id} className="hover:bg-pq-neutral-50">
+                      <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-pq-neutral-500">{item.item_code || '—'}</td>
+                      <td className="px-4 py-3 text-pq-neutral-900 font-medium">{item.description}</td>
+                      <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
+                      <td className="px-4 py-3 text-right font-mono text-xs text-pq-neutral-500">
                         {item.validated_soh !== undefined && item.validated_soh !== null
                           ? `${item.validated_soh.toLocaleString()}`
                           : '—'}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-[#0F1F3A]">{item.quantity_requested.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_requested.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -305,22 +303,22 @@ export default function ApprovalDetailPage() {
           )}
 
           {/* Warehouse validation context */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden order-4 lg:order-none">
-          <div className="px-6 py-4 border-b border-[#D8E2FF]">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden order-4 lg:order-none">
+          <div className="px-6 py-4 border-b border-pq-neutral-200">
             <div className="flex items-center gap-2">
-              <Package className="w-3.5 h-3.5 text-[#BFC7D5]" />
-              <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Warehouse Validation</h2>
+              <Package className="w-3.5 h-3.5 text-pq-neutral-400" />
+              <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Warehouse Validation</h2>
             </div>
           </div>
           <div className="p-6">
             {detail.warehouse_decision ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2.5 py-1">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pq-primary-700 bg-pq-primary-50 border border-pq-primary-200 rounded-full px-2.5 py-1">
                     <XCircle className="w-3 h-3" />
                     Stock Insufficient
                   </span>
-                  <span className="text-xs text-[#40527A]">
+                  <span className="text-xs text-pq-neutral-500">
                     Validated by <strong>{detail.warehouse_validator_name}</strong>
                     {detail.warehouse_validated_at
                       ? ` · ${format(new Date(detail.warehouse_validated_at), 'MMM d, yyyy')}`
@@ -328,7 +326,7 @@ export default function ApprovalDetailPage() {
                   </span>
                 </div>
                 {detail.warehouse_notes && (
-                  <p className="text-sm text-[#40527A] italic">
+                  <p className="text-sm text-pq-neutral-500 italic">
                     <span aria-hidden="true">&quot;</span>
                     {detail.warehouse_notes}
                     <span aria-hidden="true">&quot;</span>
@@ -336,18 +334,18 @@ export default function ApprovalDetailPage() {
                 )}
               </div>
             ) : (
-              <p className="text-sm text-[#BFC7D5] italic">No warehouse validation data.</p>
+              <p className="text-sm text-pq-neutral-400 italic">No warehouse validation data.</p>
             )}
           </div>
         </div>
 
           {/* Read-only notice for non-acting approvers */}
           {!isClosed && !canAct && profile?.role === 'approver' && (
-            <div className="flex items-start gap-3 bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-5 py-4 order-5 lg:order-none">
-              <Lock className="w-4 h-4 text-[#BFC7D5] mt-0.5 shrink-0" />
+            <div className="flex items-start gap-3 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-5 py-4 order-5 lg:order-none">
+              <Lock className="w-4 h-4 text-pq-neutral-400 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-medium text-[#0F1F3A]">Read-only view</p>
-                <p className="text-xs text-[#40527A] mt-0.5">
+                <p className="text-sm font-medium text-pq-neutral-900">Read-only view</p>
+                <p className="text-xs text-pq-neutral-500 mt-0.5">
                   Step {detail.current_step} ({currentStepDef?.position_required}) must be completed before you can act.
                 </p>
               </div>
@@ -363,9 +361,9 @@ export default function ApprovalDetailPage() {
         {/* Right column: Approval Timeline */}
         <div className="lg:col-span-1 order-1 lg:order-none">
           <div className="lg:sticky lg:top-20">
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-              <div className="px-6 py-4 border-b border-[#D8E2FF]">
-                <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Approval Timeline</h2>
+            <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+              <div className="px-6 py-4 border-b border-pq-neutral-200">
+                <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Approval Timeline</h2>
               </div>
               <div className="p-6 max-h-96 overflow-y-auto">
                 <WorkflowTimeline
@@ -382,13 +380,13 @@ export default function ApprovalDetailPage() {
 
       {/* Action panel — only for the authorized user on the current active step */}
       {!isClosed && canAct && (
-        <div className="mt-6 bg-white border-t border-[#D8E2FF]">
-          <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
+        <div className="mt-6 bg-white border-t border-pq-neutral-200">
+          <div className="px-6 py-3 bg-pq-warning-100 border-b border-amber-100 flex items-center justify-between">
             <div>
-              <h2 className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+              <h2 className="text-xs font-semibold text-pq-warning-600 uppercase tracking-wide">
                 Your Action — {currentStepDef?.action_label}
               </h2>
-              <p className="text-xs text-[#1E4BFF] mt-0.5">
+              <p className="text-xs text-pq-primary-600 mt-0.5">
                 Acting as: <strong>{profile?.full_name}</strong> · {profile?.position}
               </p>
             </div>
@@ -396,8 +394,8 @@ export default function ApprovalDetailPage() {
           <div className="px-6 py-4 space-y-3">
             {/* Remarks field */}
             <div>
-              <label className="block text-xs font-semibold text-[#40527A] uppercase tracking-wide mb-1.5">
-                Remarks <span className="text-[#BFC7D5] font-normal normal-case">(required for reject / revision)</span>
+              <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                Remarks <span className="text-pq-neutral-400 font-normal normal-case">(required for reject / revision)</span>
               </label>
               <textarea
                 rows={2}
@@ -405,12 +403,12 @@ export default function ApprovalDetailPage() {
                 onChange={e => setRemarks(e.target.value)}
                 disabled={submitting}
                 placeholder="Enter your remarks, conditions, or reason for rejection..."
-                className="w-full px-3 py-2 border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition resize-none disabled:opacity-50"
+                className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition resize-none disabled:opacity-50"
               />
             </div>
 
             {submitError && (
-              <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-[4px] px-4 py-3">
+              <div className="flex items-start gap-2 bg-pq-danger-100 border border-pq-danger-100 text-pq-danger-600 text-sm rounded-md px-4 py-3">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{submitError}</span>
               </div>
@@ -418,12 +416,12 @@ export default function ApprovalDetailPage() {
 
             {/* Confirmation state */}
             {pendingAction ? (
-              <div className="flex items-center gap-3 p-3 bg-[#F7F9FC] rounded-[4px] border border-[#D8E2FF]">
-                <p className="text-sm text-[#0F1F3A] flex-1">
+              <div className="flex items-center gap-3 p-3 bg-pq-neutral-50 rounded-md border border-pq-neutral-200">
+                <p className="text-sm text-pq-neutral-900 flex-1">
                   Confirm submitting as{' '}
                   <strong className={
-                    pendingAction === 'approved' ? 'text-emerald-700' :
-                    pendingAction === 'rejected' ? 'text-red-700' : 'text-orange-700'
+                    pendingAction === 'approved' ? 'text-pq-success-600' :
+                    pendingAction === 'rejected' ? 'text-pq-danger-600' : 'text-orange-700'
                   }>
                     {pendingAction === 'approved'
                       ? currentStepDef?.is_final ? 'Final Approval' : 'Approved — Advance to Next Step'
@@ -435,9 +433,9 @@ export default function ApprovalDetailPage() {
                 <button
                   onClick={handleConfirmAction}
                   disabled={submitting}
-                  className={`px-4 py-2 text-sm font-semibold text-white rounded-[4px] transition disabled:opacity-50 shrink-0 ${
-                    pendingAction === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' :
-                    pendingAction === 'rejected' ? 'bg-red-600 hover:bg-red-700' :
+                  className={`px-4 py-2 text-sm font-semibold text-white rounded-md transition disabled:opacity-50 shrink-0 ${
+                    pendingAction === 'approved' ? 'bg-pq-success-600 hover:bg-pq-success-600' :
+                    pendingAction === 'rejected' ? 'bg-pq-danger-600 hover:bg-pq-danger-600' :
                     'bg-orange-500 hover:bg-orange-600'
                   }`}
                 >
@@ -446,7 +444,7 @@ export default function ApprovalDetailPage() {
                 <button
                   onClick={() => setPendingAction(null)}
                   disabled={submitting}
-                  className="px-3 py-2 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
+                  className="px-3 py-2 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
                 >
                   Cancel
                 </button>
@@ -488,11 +486,11 @@ export default function ApprovalDetailPage() {
 function ClosedBanner({ status, pr1Status }: { status: string; pr1Status: string }) {
   if (status === 'approved') {
     return (
-      <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] px-6 py-4 flex items-start gap-3">
-        <CheckCheck className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+      <div className="bg-pq-success-100 border border-pq-success-100 rounded-md px-6 py-4 flex items-start gap-3">
+        <CheckCheck className="w-5 h-5 text-pq-success-600 mt-0.5 shrink-0" />
         <div>
-          <p className="text-sm font-semibold text-emerald-800">Fully Approved — For Canvassing</p>
-          <p className="text-xs text-emerald-700 mt-0.5">
+          <p className="text-sm font-semibold text-pq-success-600">Fully Approved — For Canvassing</p>
+          <p className="text-xs text-pq-success-600 mt-0.5">
             All signatories have approved. This PR1 has been forwarded to the procurement team for canvassing.
           </p>
         </div>
@@ -501,11 +499,11 @@ function ClosedBanner({ status, pr1Status }: { status: string; pr1Status: string
   }
   if (status === 'rejected') {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-[4px] px-6 py-4 flex items-start gap-3">
-        <XCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+      <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md px-6 py-4 flex items-start gap-3">
+        <XCircle className="w-5 h-5 text-pq-danger-600 mt-0.5 shrink-0" />
         <div>
-          <p className="text-sm font-semibold text-red-800">Rejected</p>
-          <p className="text-xs text-red-700 mt-0.5">
+          <p className="text-sm font-semibold text-pq-danger-600">Rejected</p>
+          <p className="text-xs text-pq-danger-600 mt-0.5">
             This PR1 was rejected during the approval process. See the timeline for details.
           </p>
         </div>
@@ -513,7 +511,7 @@ function ClosedBanner({ status, pr1Status }: { status: string; pr1Status: string
     );
   }
   return (
-    <div className="bg-orange-50 border border-orange-200 rounded-[4px] px-6 py-4 flex items-start gap-3">
+    <div className="bg-orange-50 border border-orange-200 rounded-md px-6 py-4 flex items-start gap-3">
       <RotateCcw className="w-5 h-5 text-orange-600 mt-0.5 shrink-0" />
       <div>
         <p className="text-sm font-semibold text-orange-800">Revision Requested</p>
@@ -539,16 +537,16 @@ function ActionButton({
   disabled: boolean;
 }) {
   const styles = {
-    approve: 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600',
+    approve: 'bg-pq-success-600 hover:bg-pq-success-600 text-white border-pq-success-600',
     revise:  'bg-white hover:bg-orange-50 text-orange-600 border-orange-300 hover:border-orange-400',
-    reject:  'bg-white hover:bg-red-50 text-red-600 border-red-300 hover:border-red-400',
+    reject:  'bg-white hover:bg-pq-danger-100 text-pq-danger-600 border-red-300 hover:border-red-400',
   };
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-[4px] border transition disabled:opacity-50 ${styles[variant]}`}
+      className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-md border transition disabled:opacity-50 ${styles[variant]}`}
     >
       <Icon className="w-4 h-4" />
       {label}
@@ -567,25 +565,25 @@ function PrioritySelector({
 }) {
   return (
     <Select value={value} onValueChange={onChange as (val: string) => void} disabled={isUpdating}>
-      <SelectTrigger className="w-32 h-8 text-xs font-medium bg-white border-[#D8E2FF] hover:border-[#0F1F3A]">
+      <SelectTrigger className="w-32 h-8 text-xs font-medium bg-white border-pq-neutral-200 hover:border-pq-primary-600">
         <SelectValue placeholder="Priority" />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="normal">
           <div className="inline-flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-gray-400" />
+            <div className="w-2 h-2 rounded-full bg-pq-neutral-400" />
             Normal
           </div>
         </SelectItem>
         <SelectItem value="medium">
           <div className="inline-flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+            <div className="w-2 h-2 rounded-full bg-pq-warning-1000" />
             Medium
           </div>
         </SelectItem>
         <SelectItem value="high">
           <div className="inline-flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-red-500" />
+            <div className="w-2 h-2 rounded-full bg-pq-danger-1000" />
             High
           </div>
         </SelectItem>

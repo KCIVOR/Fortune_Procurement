@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -27,7 +27,7 @@ export default function AppShell({ children, title }: AppShellProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F7F9FC] flex items-center justify-center">
+      <div className="min-h-screen bg-pq-neutral-50 flex items-center justify-center">
         <LoadingState message="Loading your workspace..." />
       </div>
     );
@@ -36,7 +36,7 @@ export default function AppShell({ children, title }: AppShellProps) {
   if (!session) return null;
 
   return (
-    <div className="flex min-h-screen bg-[#F7F9FC]">
+    <div className="flex min-h-screen bg-pq-neutral-50">
       {/* Desktop sidebar — fixed/sticky on lg+, scrolls independently */}
       <div className="hidden lg:flex shrink-0 h-screen sticky top-0">
         <Sidebar isCollapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />

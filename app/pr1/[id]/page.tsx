@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
+import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { fetchPR1ById, canUpdatePR1Priority, updatePR1Priority, fetchPR1LifecycleSummaries } from '@/lib/pr1';
@@ -134,9 +135,7 @@ export default function PR1DetailPage() {
   if (loading) {
     return (
       <AppShell title="PR1 Detail">
-        <div className="flex items-center justify-center h-64">
-          <LoadingState message="Loading PR1..." />
-        </div>
+        <DetailPageSkeleton />
       </AppShell>
     );
   }
@@ -144,7 +143,7 @@ export default function PR1DetailPage() {
   if (error || !pr1) {
     return (
       <AppShell title="PR1 Detail">
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-50 border border-pq-danger-200 rounded-md p-4 text-sm text-pq-danger-900">
           {error || 'PR1 not found.'}
         </div>
       </AppShell>
@@ -164,7 +163,7 @@ export default function PR1DetailPage() {
         left={
           <div>
             <DetailTitleRow wrap>
-              <h1 className="text-xl font-bold text-[#0F1F3A]">PR1 {pr1.pr1_number}</h1>
+              <h1 className="text-xl font-bold text-pq-neutral-900">{pr1.pr1_number}</h1>
               {(() => {
                 const chip =
                   (lifecycle?.lifecycle_display_chip ?? STATUS_MAP[pr1.status]) || 'pending';
@@ -181,11 +180,11 @@ export default function PR1DetailPage() {
                 <PriorityChip priority={pr1.priority || 'normal'} />
               )}
             </DetailTitleRow>
-            <p className="text-sm text-[#40527A] mt-1">
+            <p className="text-sm text-pq-neutral-700 mt-1">
               Created {format(new Date(pr1.created_at), 'MMMM d, yyyy')}
             </p>
             {priorityError && (
-              <div className="flex items-start gap-2 mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+              <div className="flex items-start gap-2 mt-2 text-xs text-pq-danger-900 bg-pq-danger-50 border border-pq-danger-200 rounded px-3 py-2">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span>{priorityError}</span>
               </div>
@@ -197,12 +196,12 @@ export default function PR1DetailPage() {
             <DetailPrintButton
               href={`/pr1/${pr1.id}/print`}
               label="Print"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#D8E2FF] hover:border-[#0F1F3A] text-[#40527A] text-sm font-medium rounded-[4px] transition"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-white border border-pq-neutral-200 hover:border-pq-neutral-300 text-pq-neutral-700 text-sm font-medium rounded-md transition"
             />
             {canEdit && (
               <Link
                 href={`/pr1/${pr1.id}/edit`}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
               >
                 <Pencil className="w-4 h-4" />
                 Edit Draft
@@ -216,33 +215,33 @@ export default function PR1DetailPage() {
         {/* Header card */}
         <DetailCard overflow>
           <DetailCardHeader
-            left={<h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Request Header</h2>}
-            right={<span className="text-xs text-[#BFC7D5]">Form No. PR1-v1</span>}
+            left={<h2 className="text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">Request Header</h2>}
+            right={<span className="text-xs text-pq-neutral-400">Form No. PR1-v1</span>}
           />
           <DetailInfoGrid>
             <DetailInfoField
-              icon={<User className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<User className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Requisitioner"
               value={pr1.requisitioner_name_snapshot}
             />
             <DetailInfoField
-              icon={<Building2 className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<Building2 className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Department"
               value={pr1.department_name_snapshot}
             />
             <DetailInfoField
-              icon={<FileText className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<FileText className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="PR1 Number"
               value={pr1.pr1_number}
               valueClassName="font-mono font-semibold"
             />
             <DetailInfoField
-              icon={<Clock className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<Clock className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Date"
               value={format(new Date(pr1.created_at), 'MMMM d, yyyy')}
             />
             <DetailInfoField
-              icon={<CalendarDays className="w-3.5 h-3.5 text-[#BFC7D5]" />}
+              icon={<CalendarDays className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Date Required"
               value={format(new Date(pr1.date_required), 'MMMM d, yyyy')}
             />
@@ -258,35 +257,35 @@ export default function PR1DetailPage() {
 
         {/* Items */}
         <DetailTableCard
-          title={<h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Items Requested</h2>}
+          title={<h2 className="text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">Items Requested</h2>}
         >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#D8E2FF] bg-[#F7F9FC]">
-                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-10">#</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-28">Item Code</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide">Description</th>
-                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">Unit</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-24">SOH</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide w-28">Req. Qty</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide min-w-[160px]">Warehouse route</th>
+                <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-10">#</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-28">Item Code</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">Description</th>
+                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">Unit</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">SOH</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-28">Req. Qty</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide min-w-[160px]">Warehouse route</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#D8E2FF]">
+              <tbody className="divide-y divide-pq-neutral-200">
                 {pr1.items.map((item) => (
                   <tr key={item.id}>
-                    <td className="px-4 py-3 text-center text-xs text-[#BFC7D5] font-mono">{item.item_order}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-[#40527A]">{item.item_code || '—'}</td>
-                    <td className="px-4 py-3 text-[#0F1F3A]">{item.description}</td>
-                    <td className="px-4 py-3 text-center text-[#40527A]">{item.unit_of_measure}</td>
-                    <td className="px-4 py-3 text-right text-[#40527A] font-mono">
+                    <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-pq-neutral-700">{item.item_code || '—'}</td>
+                    <td className="px-4 py-3 text-pq-neutral-900">{item.description}</td>
+                    <td className="px-4 py-3 text-center text-pq-neutral-700">{item.unit_of_measure}</td>
+                    <td className="px-4 py-3 text-right text-pq-neutral-700 font-mono">
                       {item.validated_soh !== undefined && item.validated_soh !== null
                         ? `${item.validated_soh.toLocaleString()}`
                         : '—'}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#0F1F3A] font-mono">{item.quantity_requested.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-left text-xs text-[#40527A]">{warehouseRouteCell(item)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-pq-neutral-900 font-mono">{item.quantity_requested.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-left text-xs text-pq-neutral-700">{warehouseRouteCell(item)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -295,9 +294,9 @@ export default function PR1DetailPage() {
         </DetailTableCard>
 
         {/* Signature block */}
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#D8E2FF]">
-            <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Signatories</h2>
+        <div className="bg-pq-white rounded-md border border-pq-neutral-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-pq-neutral-200">
+            <h2 className="text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">Signatories</h2>
           </div>
           <div className="p-6">
             <PR1SignatoriesUnifiedTimeline pr1={pr1} approvalSignatories={approvalSignatories} />
@@ -306,7 +305,7 @@ export default function PR1DetailPage() {
               profile &&
               (profile.role !== 'employee' || profile.id === pr1.requisitioner_id) &&
               (pr1.status === 'pending_warehouse' || pr1.status === 'pending_approval') && (
-                <p className="text-xs text-[#BFC7D5] mt-4">
+                <p className="text-xs text-pq-neutral-400 mt-4">
                   Approval workflow not started yet.
                 </p>
               )}
@@ -426,42 +425,42 @@ function PR1SignatoriesUnifiedTimeline({
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 ${
                   row.done
-                    ? 'bg-emerald-600 border-emerald-600'
-                    : 'bg-[#F7F9FC] border-[#D8E2FF]'
+                    ? 'bg-pq-success-50 border-pq-success-200'
+                    : 'bg-pq-neutral-50 border-pq-neutral-200'
                 }`}
               >
                 {row.done ? (
                   <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                 ) : (
-                  <span className="w-2 h-2 rounded-full bg-[#BFC7D5]" />
+                  <span className="w-2 h-2 rounded-full bg-pq-neutral-400" />
                 )}
               </div>
               {showConnector && (
-                <div className="w-0.5 flex-1 my-1 min-h-[24px] bg-[#D8E2FF]" />
+                <div className="w-0.5 flex-1 my-1 min-h-[24px] bg-pq-neutral-200" />
               )}
             </div>
             <div className="pb-5 flex-1 min-w-0">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-sm font-semibold text-[#0F1F3A]">{row.title}</span>
+                <span className="text-sm font-semibold text-pq-neutral-900">{row.title}</span>
               </div>
               {row.done ? (
                 <div className="mt-1.5 space-y-0.5">
                   {row.name && (
-                    <span className="text-xs text-[#40527A] font-medium">{row.name}</span>
+                    <span className="text-xs text-pq-neutral-700 font-medium">{row.name}</span>
                   )}
                   {row.subtitleLines.map((line, i) => (
-                    <p key={`${row.key}-sub-${i}`} className="text-xs text-[#40527A]">
+                    <p key={`${row.key}-sub-${i}`} className="text-xs text-pq-neutral-700">
                       {line}
                     </p>
                   ))}
                   {row.detailLines.map(d => (
-                    <p key={`${d.label}-${d.at}`} className="text-xs text-[#BFC7D5]">
+                    <p key={`${d.label}-${d.at}`} className="text-xs text-pq-neutral-400">
                       {d.label} · {d.at}
                     </p>
                   ))}
                 </div>
               ) : (
-                <p className="mt-1 text-xs text-[#BFC7D5]">Pending submission</p>
+                <p className="mt-1 text-xs text-pq-neutral-400">Pending submission</p>
               )}
             </div>
           </li>
@@ -484,13 +483,13 @@ function PR1SignatoriesUnifiedTimeline({
                 className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 ${
                   isComplete
                     ? action!.action === 'approved'
-                      ? 'bg-emerald-600 border-emerald-600'
+                      ? 'bg-pq-success-50 border-pq-success-200'
                       : action!.action === 'rejected'
-                        ? 'bg-red-600 border-red-600'
-                        : 'bg-orange-500 border-orange-500'
+                        ? 'bg-pq-danger-50 border-pq-danger-200'
+                        : 'bg-pq-warning-50 border-pq-warning-200'
                     : isCurrent
-                      ? 'bg-[#F7F9FC] border-[#1E4BFF]'
-                      : 'bg-[#F7F9FC] border-[#D8E2FF]'
+                      ? 'bg-pq-neutral-50 border-pq-primary-200'
+                      : 'bg-pq-neutral-50 border-pq-neutral-200'
                 }`}
               >
                 {isComplete ? (
@@ -502,24 +501,24 @@ function PR1SignatoriesUnifiedTimeline({
                     <RotateCcw className="w-3.5 h-3.5 text-white" />
                   )
                 ) : isCurrent ? (
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#1E4BFF] animate-pulse" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-pq-primary-600 animate-pulse" />
                 ) : (
-                  <span className="w-2 h-2 rounded-full bg-[#BFC7D5]" />
+                  <span className="w-2 h-2 rounded-full bg-pq-neutral-400" />
                 )}
               </div>
               {showConnector && (
-                <div className="w-0.5 flex-1 my-1 min-h-[24px] bg-[#D8E2FF]" />
+                <div className="w-0.5 flex-1 my-1 min-h-[24px] bg-pq-neutral-200" />
               )}
             </div>
 
             <div className="pb-5 flex-1 min-w-0">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-sm font-semibold text-[#0F1F3A]">
+                <span className="text-sm font-semibold text-pq-neutral-900">
                   Step {step.step_order}: {step.position_required}
                 </span>
-                <span className="text-xs text-[#BFC7D5]">{step.action_label}</span>
+                <span className="text-xs text-pq-neutral-400">{step.action_label}</span>
                 {step.is_final && (
-                  <span className="text-xs text-[#BFC7D5] italic">· Final</span>
+                  <span className="text-xs text-pq-neutral-400 italic">· Final</span>
                 )}
               </div>
 
@@ -527,15 +526,15 @@ function PR1SignatoriesUnifiedTimeline({
                 <div className="mt-1.5 space-y-0.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <ActionPill action={action!.action} />
-                    <span className="text-xs text-[#40527A] font-medium">
+                    <span className="text-xs text-pq-neutral-700 font-medium">
                       {action!.actor_name_snapshot}
                     </span>
-                    <span className="text-xs text-[#BFC7D5]">
+                    <span className="text-xs text-pq-neutral-400">
                       · {format(new Date(action!.acted_at), 'MMM d, yyyy h:mm a')}
                     </span>
                   </div>
                   {action!.remarks && (
-                    <p className="text-xs text-[#40527A] italic ml-0.5">
+                    <p className="text-xs text-pq-neutral-700 italic ml-0.5">
                       <span aria-hidden="true">&quot;</span>
                       {action!.remarks}
                       <span aria-hidden="true">&quot;</span>
@@ -545,11 +544,11 @@ function PR1SignatoriesUnifiedTimeline({
               )}
 
               {isCurrent && (
-                <p className="mt-1 text-xs text-[#1E4BFF] font-medium">Awaiting action</p>
+                <p className="mt-1 text-xs text-pq-primary-600 font-medium">Awaiting action</p>
               )}
 
               {isPending && (
-                <p className="mt-1 text-xs text-[#BFC7D5]">Not yet reached</p>
+                <p className="mt-1 text-xs text-pq-neutral-400">Not yet reached</p>
               )}
             </div>
           </li>
@@ -570,25 +569,25 @@ function PrioritySelector({
 }) {
   return (
     <Select value={value} onValueChange={onChange as (val: string) => void} disabled={isUpdating}>
-      <SelectTrigger className="w-32 h-8 text-xs font-medium bg-white border-[#D8E2FF] hover:border-[#0F1F3A]">
+      <SelectTrigger className="w-32 h-8 text-xs font-medium bg-pq-white border-pq-neutral-200 hover:border-pq-neutral-300">
         <SelectValue placeholder="Priority" />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="normal">
           <div className="inline-flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-gray-400" />
+            <div className="w-2 h-2 rounded-full bg-pq-neutral-400" />
             Normal
           </div>
         </SelectItem>
         <SelectItem value="medium">
           <div className="inline-flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+            <div className="w-2 h-2 rounded-full bg-pq-warning-50" />
             Medium
           </div>
         </SelectItem>
         <SelectItem value="high">
           <div className="inline-flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-red-500" />
+            <div className="w-2 h-2 rounded-full bg-pq-danger-50" />
             High
           </div>
         </SelectItem>
@@ -596,3 +595,5 @@ function PrioritySelector({
     </Select>
   );
 }
+
+

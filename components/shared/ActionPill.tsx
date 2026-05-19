@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { CheckCircle2, RotateCcw, Circle as XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -12,7 +12,7 @@ export default function ActionPill({ action, className }: ActionPillProps) {
     return (
       <span
         className={cn(
-          'inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5',
+          'inline-flex items-center gap-1 text-xs font-semibold text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2 py-0.5',
           className
         )}
       >
@@ -26,7 +26,7 @@ export default function ActionPill({ action, className }: ActionPillProps) {
     return (
       <span
         className={cn(
-          'inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5',
+          'inline-flex items-center gap-1 text-xs font-semibold text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded-full px-2 py-0.5',
           className
         )}
       >

@@ -56,7 +56,7 @@ export default function SupplierProductsPage() {
         action={
           <Link
             href="/supplier/products/new"
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition"
+            className="flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
           >
             <Plus className="w-4 h-4" />
             Add Product
@@ -69,11 +69,11 @@ export default function SupplierProductsPage() {
           <LoadingState message="Loading products…" />
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
       ) : products.length === 0 ? (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
+        <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title="No products yet"
             description="Add products for validation before offering them in procurement."
@@ -81,7 +81,7 @@ export default function SupplierProductsPage() {
             action={
               <Link
                 href="/supplier/products/new"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
               >
                 <Plus className="w-4 h-4" />
                 Add Your First Product
@@ -90,15 +90,15 @@ export default function SupplierProductsPage() {
           />
         </div>
       ) : (
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
+        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
           {/* Column headers — desktop only; grid must match ProductRow */}
-          <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_140px_132px_5rem] md:items-center gap-4 px-5 py-2.5 bg-[#F7F9FC] border-b border-[#D8E2FF]">
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Product</p>
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Status</p>
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Can Offer</p>
-            <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide text-right">View</p>
+          <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_140px_132px_5rem] md:items-center gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Product</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Can Offer</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-right">View</p>
           </div>
-          <div className="divide-y divide-[#D8E2FF]">
+          <div className="divide-y divide-pq-neutral-200">
             {products.map(product => (
               <ProductRow key={product.id} product={product} />
             ))}
@@ -116,33 +116,33 @@ function ProductRow({ product }: { product: SupplierProduct }) {
   const canOffer  = product.status === 'verified';
 
   return (
-    <div className="grid grid-cols-1 gap-3 px-5 py-4 hover:bg-[#F7F9FC] transition md:grid-cols-[minmax(0,1fr)_140px_132px_5rem] md:gap-4 md:items-center">
+    <div className="grid grid-cols-1 gap-3 px-5 py-4 hover:bg-pq-neutral-50 transition md:grid-cols-[minmax(0,1fr)_140px_132px_5rem] md:gap-4 md:items-center">
       {/* Product — name + meta only (status lives in its own column on md+) */}
       <div className="min-w-0">
         <div className="mb-0.5 min-w-0">
-          <span className="font-medium text-sm text-[#0F1F3A] truncate block">
+          <span className="font-medium text-sm text-pq-neutral-900 truncate block">
             {product.product_name}
           </span>
         </div>
         <div className="flex items-center gap-3 mt-0.5 flex-wrap">
           {product.product_code && (
-            <span className="text-xs text-[#BFC7D5]">#{product.product_code}</span>
+            <span className="text-xs text-pq-neutral-400">#{product.product_code}</span>
           )}
           {product.category && (
-            <span className="text-xs text-[#BFC7D5]">{product.category}</span>
+            <span className="text-xs text-pq-neutral-400">{product.category}</span>
           )}
           {product.submitted_at && !product.verified_at && !product.rejected_at && (
-            <span className="text-xs text-[#BFC7D5]">
+            <span className="text-xs text-pq-neutral-400">
               Submitted {format(new Date(product.submitted_at), 'MMM d, yyyy')}
             </span>
           )}
           {product.verified_at && (
-            <span className="text-xs text-emerald-600">
+            <span className="text-xs text-pq-success-600">
               Verified {format(new Date(product.verified_at), 'MMM d, yyyy')}
             </span>
           )}
           {product.rejected_at && (
-            <span className="text-xs text-red-500">
+            <span className="text-xs text-pq-danger-600">
               Rejected {format(new Date(product.rejected_at), 'MMM d, yyyy')}
             </span>
           )}
@@ -157,12 +157,12 @@ function ProductRow({ product }: { product: SupplierProduct }) {
       {/* Can Offer */}
       <div className="flex items-center">
         {canOffer ? (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2.5 py-1">
             <CheckCircle2 className="w-3 h-3 shrink-0" />
             Can Offer
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[#BFC7D5] bg-[#F7F9FC] border border-[#D8E2FF] rounded-full px-2.5 py-1">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-neutral-400 bg-pq-neutral-50 border border-pq-neutral-200 rounded-full px-2.5 py-1">
             <Circle className="w-3 h-3 shrink-0" />
             Not Verified
           </span>
@@ -173,7 +173,7 @@ function ProductRow({ product }: { product: SupplierProduct }) {
       <div className="flex items-center md:justify-end">
         <Link
           href={`/supplier/products/${product.id}`}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-[#40527A] hover:text-[#0F1F3A] transition whitespace-nowrap"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition whitespace-nowrap"
         >
           View
           <ArrowRight className="w-3.5 h-3.5 shrink-0" />

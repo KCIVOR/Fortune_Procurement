@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -118,7 +118,7 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
 
   return (
     <aside className={cn(
-      'flex flex-col h-screen bg-[#0F1F3A] text-white shrink-0 overflow-y-auto overflow-x-hidden transition-all duration-200',
+      'flex flex-col h-screen bg-pq-neutral-900 text-white shrink-0 overflow-y-auto overflow-x-hidden transition-all duration-200',
       isCollapsed ? 'w-16' : 'w-64'
     )}>
       {/* Brand */}
@@ -142,7 +142,7 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
         {!isCollapsed && (
           <div className="min-w-0">
             <p className="text-sm font-bold text-white leading-tight truncate">Fortune</p>
-            <p className="text-xs text-[#BFC7D5] leading-tight">Procurement System</p>
+            <p className="text-xs text-pq-neutral-400 leading-tight">Procurement System</p>
           </div>
         )}
       </button>
@@ -165,15 +165,15 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
                 href={item.href}
                 onClick={onNavigate}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-[4px] text-sm font-medium transition-all group',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group',
                   isCollapsed && 'justify-center px-2',
                   isActive
-                    ? 'bg-[#1E4BFF] text-white'
-                    : 'text-[#BFC7D5] hover:text-white hover:bg-white/10'
+                    ? 'bg-pq-primary-600 text-white'
+                    : 'text-pq-neutral-400 hover:text-white hover:bg-white/10'
                 )}
                 title={isCollapsed ? item.label : undefined}
               >
-                <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-white' : 'text-[#BFC7D5] group-hover:text-white')} />
+                <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-white' : 'text-pq-neutral-400 group-hover:text-white')} />
                 {!isCollapsed && (
                   <>
                     <span className="truncate">{item.label}</span>
@@ -195,22 +195,22 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
           'flex items-center gap-3 transition-all duration-200',
           isCollapsed ? 'justify-center mb-2' : 'mb-3'
         )}>
-          <div className="w-8 h-8 rounded-[4px] bg-white/10 flex items-center justify-center shrink-0">
-            <span className="text-xs font-semibold text-[#BFC7D5]">
+          <div className="w-8 h-8 rounded-md bg-white/10 flex items-center justify-center shrink-0">
+            <span className="text-xs font-semibold text-pq-neutral-400">
               {profile.full_name.charAt(0).toUpperCase()}
             </span>
           </div>
           {!isCollapsed && (
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-white truncate">{profile.full_name}</p>
-              <p className="text-xs text-[#BFC7D5] truncate">{ROLE_LABELS[profile.role]}</p>
+              <p className="text-xs text-pq-neutral-400 truncate">{ROLE_LABELS[profile.role]}</p>
             </div>
           )}
         </div>
         <button
           onClick={signOut}
           className={cn(
-            'flex items-center gap-2 rounded-[4px] text-sm text-[#BFC7D5] hover:text-white hover:bg-white/10 transition',
+            'flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition',
             isCollapsed ? 'justify-center px-2 py-2 w-full' : 'w-full px-3 py-2'
           )}
           title={isCollapsed ? 'Sign out' : undefined}

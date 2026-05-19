@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+﻿import { cn } from '@/lib/utils';
 
 interface PageHeaderProps {
   title: string;
@@ -11,9 +11,9 @@ export default function PageHeader({ title, description, action, className }: Pa
   return (
     <div className={cn('flex items-start justify-between gap-4 mb-6', className)}>
       <div>
-        <h1 className="text-xl font-bold text-[#0F1F3A]">{title}</h1>
+        <h1 className="text-xl font-bold text-pq-neutral-900">{title}</h1>
         {description && (
-          <p className="text-sm text-[#40527A] mt-0.5">{description}</p>
+          <p className="text-sm text-pq-neutral-500 mt-0.5">{description}</p>
         )}
       </div>
       {action && <div className="shrink-0">{action}</div>}

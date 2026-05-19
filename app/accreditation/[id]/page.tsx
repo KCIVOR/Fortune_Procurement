@@ -202,7 +202,7 @@ export default function AccreditationDetailPage() {
       <div className="mb-4">
         <Link
           href="/accreditation"
-          className="inline-flex items-center gap-1 text-sm text-[#40527A] hover:text-[#0F1F3A] transition"
+          className="inline-flex items-center gap-1 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
         >
           <ChevronLeft className="w-4 h-4" />
           Back to Accreditation Queue
@@ -214,7 +214,7 @@ export default function AccreditationDetailPage() {
           <LoadingState message="Loading accreditation…" />
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-[4px] p-4 text-sm text-red-700">
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
       ) : !accreditation ? null : (
@@ -223,8 +223,8 @@ export default function AccreditationDetailPage() {
           {/* ── Header ── */}
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-[#0F1F3A]">Supplier Accreditation Review</h1>
-              <p className="text-sm text-[#40527A] mt-0.5">
+              <h1 className="text-xl font-bold text-pq-neutral-900">Supplier Accreditation Review</h1>
+              <p className="text-sm text-pq-neutral-500 mt-0.5">
                 Application submitted for Procurement evaluation and approval. Accreditation is separate from product verification—products must be verified before RFQ award.
               </p>
             </div>
@@ -237,11 +237,11 @@ export default function AccreditationDetailPage() {
           </div>
 
           {/* ── Status card ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 space-y-4">
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4">
 
             {status === 'withdrawn' && (
-              <div className="rounded-[4px] border border-[#D8E2FF] bg-[#F7F9FC] px-4 py-3 text-sm text-[#40527A]">
-                <span className="font-semibold text-[#0F1F3A]">Withdrawn by supplier.</span>{' '}
+              <div className="rounded-md border border-pq-neutral-200 bg-pq-neutral-50 px-4 py-3 text-sm text-pq-neutral-500">
+                <span className="font-semibold text-pq-neutral-900">Withdrawn by supplier.</span>{' '}
                 This application is closed. Documents remain on file for audit.
               </div>
             )}
@@ -280,20 +280,20 @@ export default function AccreditationDetailPage() {
 
             {/* Existing notes */}
             {(accreditation.missing_documents_note || accreditation.review_notes) && (
-              <div className="border-t border-[#D8E2FF] pt-4 space-y-3">
+              <div className="border-t border-pq-neutral-200 pt-4 space-y-3">
                 {accreditation.missing_documents_note && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-[4px] p-3">
-                    <p className="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1.5">
+                  <div className="bg-pq-warning-100 border border-pq-warning-100 rounded-md p-3">
+                    <p className="text-xs font-semibold text-pq-warning-600 mb-1 flex items-center gap-1.5">
                       <AlertCircle className="w-3.5 h-3.5" />
                       Missing Documents Note (sent to supplier)
                     </p>
-                    <p className="text-sm text-amber-900">{accreditation.missing_documents_note}</p>
+                    <p className="text-sm text-pq-warning-600">{accreditation.missing_documents_note}</p>
                   </div>
                 )}
                 {accreditation.review_notes && (
-                  <div className="bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] p-3">
-                    <p className="text-xs font-semibold text-[#40527A] mb-1">Review Notes</p>
-                    <p className="text-sm text-[#0F1F3A]">{accreditation.review_notes}</p>
+                  <div className="bg-pq-neutral-50 border border-pq-neutral-200 rounded-md p-3">
+                    <p className="text-xs font-semibold text-pq-neutral-500 mb-1">Review Notes</p>
+                    <p className="text-sm text-pq-neutral-900">{accreditation.review_notes}</p>
                   </div>
                 )}
               </div>
@@ -302,15 +302,15 @@ export default function AccreditationDetailPage() {
 
           {/* ── Action bar + panels (hidden when terminal) ── */}
           {!isTerminal && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-              <div className="flex items-center gap-2 px-5 py-3.5 border-b border-[#D8E2FF] flex-wrap">
-                <p className="text-sm font-semibold text-[#0F1F3A] mr-2">Actions</p>
+            <div className="bg-white rounded-md border border-pq-neutral-200">
+              <div className="flex items-center gap-2 px-5 py-3.5 border-b border-pq-neutral-200 flex-wrap">
+                <p className="text-sm font-semibold text-pq-neutral-900 mr-2">Actions</p>
 
                 {canMarkUnderReview && (
                   <button
                     onClick={handleMarkUnderReview}
                     disabled={busy}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-[4px] hover:bg-blue-100 transition disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-pq-primary-700 bg-pq-primary-50 border border-pq-primary-200 rounded-md hover:bg-pq-primary-100 transition disabled:opacity-50"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     Mark Under Review
@@ -320,10 +320,10 @@ export default function AccreditationDetailPage() {
                 {canRequestDocs && (
                   <button
                     onClick={() => openPanel(activePanel === 'missing_docs' ? 'none' : 'missing_docs')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
                       activePanel === 'missing_docs'
-                        ? 'bg-amber-100 text-amber-800 border-amber-300'
-                        : 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
+                        ? 'bg-pq-warning-100 text-pq-warning-600 border-amber-300'
+                        : 'text-pq-warning-600 bg-pq-warning-100 border-pq-warning-100 hover:bg-pq-warning-100'
                     }`}
                   >
                     <MessageSquare className="w-3.5 h-3.5" />
@@ -334,10 +334,10 @@ export default function AccreditationDetailPage() {
                 {canApprove && (
                   <button
                     onClick={() => openPanel(activePanel === 'approve' ? 'none' : 'approve')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
                       activePanel === 'approve'
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                        : 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+                        ? 'bg-pq-success-100 text-pq-success-600 border-pq-success-200'
+                        : 'text-pq-success-600 bg-pq-success-100 border-pq-success-100 hover:bg-pq-success-100'
                     }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -348,10 +348,10 @@ export default function AccreditationDetailPage() {
                 {canReject && (
                   <button
                     onClick={() => openPanel(activePanel === 'reject' ? 'none' : 'reject')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[4px] border transition ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
                       activePanel === 'reject'
-                        ? 'bg-red-100 text-red-800 border-red-300'
-                        : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100'
+                        ? 'bg-pq-danger-100 text-pq-danger-600 border-red-300'
+                        : 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100 hover:bg-pq-danger-100'
                     }`}
                   >
                     <XCircle className="w-3.5 h-3.5" />
@@ -362,16 +362,16 @@ export default function AccreditationDetailPage() {
 
               {/* Inline action panels */}
               {activePanel !== 'none' && (
-                <div className="p-5 space-y-3 border-b border-[#D8E2FF]">
+                <div className="p-5 space-y-3 border-b border-pq-neutral-200">
                   {actionError && (
-                    <div className="bg-red-50 border border-red-200 rounded-[4px] p-3 text-sm text-red-700">
+                    <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
                       {actionError}
                     </div>
                   )}
 
                   {activePanel === 'missing_docs' && (
                     <>
-                      <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                         Describe what documents are missing
                       </p>
                       <textarea
@@ -379,19 +379,19 @@ export default function AccreditationDetailPage() {
                         onChange={e => setNoteInput(e.target.value)}
                         rows={3}
                         placeholder="e.g. Please provide your valid Business Permit and SEC registration documents."
-                        className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={handleRequestMissingDocs}
                           disabled={busy}
-                          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50"
+                          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
                         >
                           {busy ? 'Sending…' : 'Send Request'}
                         </button>
                         <button
                           onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition"
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
                         >
                           Cancel
                         </button>
@@ -401,7 +401,7 @@ export default function AccreditationDetailPage() {
 
                   {activePanel === 'approve' && (
                     <>
-                      <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                         Approval Notes (optional)
                       </p>
                       <textarea
@@ -409,19 +409,19 @@ export default function AccreditationDetailPage() {
                         onChange={e => setNoteInput(e.target.value)}
                         rows={2}
                         placeholder="Optional notes for the supplier."
-                        className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={handleApprove}
                           disabled={busy}
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50"
+                          className="px-4 py-2 bg-pq-success-600 hover:bg-pq-success-600 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
                         >
                           {busy ? 'Approving…' : 'Confirm Approval'}
                         </button>
                         <button
                           onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition"
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
                         >
                           Cancel
                         </button>
@@ -431,7 +431,7 @@ export default function AccreditationDetailPage() {
 
                   {activePanel === 'reject' && (
                     <>
-                      <p className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                         Rejection Reason (optional)
                       </p>
                       <textarea
@@ -439,19 +439,19 @@ export default function AccreditationDetailPage() {
                         onChange={e => setNoteInput(e.target.value)}
                         rows={2}
                         placeholder="Optional reason for rejection."
-                        className="w-full px-3 py-2 text-sm border border-[#D8E2FF] rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={handleReject}
                           disabled={busy}
-                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-[4px] transition disabled:opacity-50"
+                          className="px-4 py-2 bg-pq-danger-600 hover:bg-pq-danger-600 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
                         >
                           {busy ? 'Rejecting…' : 'Confirm Rejection'}
                         </button>
                         <button
                           onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-[#40527A] bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] hover:bg-[#E5EAFF] transition"
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
                         >
                           Cancel
                         </button>
@@ -463,7 +463,7 @@ export default function AccreditationDetailPage() {
 
               {/* Success banner inside action card */}
               {actionSuccess && (
-                <div className="px-5 py-3.5 bg-emerald-50 border-b border-emerald-200 text-sm text-emerald-700 flex items-center gap-2">
+                <div className="px-5 py-3.5 bg-pq-success-100 border-b border-pq-success-100 text-sm text-pq-success-600 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   {actionSuccess}
                 </div>
@@ -473,17 +473,17 @@ export default function AccreditationDetailPage() {
 
           {/* Terminal state success banner */}
           {isTerminal && actionSuccess && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-[4px] p-3 text-sm text-emerald-700 flex items-center gap-2">
+            <div className="bg-pq-success-100 border border-pq-success-100 rounded-md p-3 text-sm text-pq-success-600 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               {actionSuccess}
             </div>
           )}
 
           {/* ── Documents ── */}
-          <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D8E2FF]">
-              <h2 className="text-sm font-semibold text-[#0F1F3A]">Submitted Documents</h2>
-              <span className="text-xs text-[#BFC7D5]">
+          <div className="bg-white rounded-md border border-pq-neutral-200">
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">Submitted Documents</h2>
+              <span className="text-xs text-pq-neutral-400">
                 {documents.length} file{documents.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -494,11 +494,11 @@ export default function AccreditationDetailPage() {
               </div>
             ) : documents.length === 0 ? (
               <div className="p-8 text-center">
-                <FileText className="w-6 h-6 text-[#BFC7D5] mx-auto mb-2" />
-                <p className="text-sm text-[#40527A]">No documents uploaded by the supplier yet.</p>
+                <FileText className="w-6 h-6 text-pq-neutral-400 mx-auto mb-2" />
+                <p className="text-sm text-pq-neutral-500">No documents uploaded by the supplier yet.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {documents.map(doc => (
                   <DocumentRow key={doc.id} doc={doc} />
                 ))}
@@ -507,7 +507,7 @@ export default function AccreditationDetailPage() {
           </div>
 
           {/* ── TSQA note ── */}
-          <div className="bg-[#F7F9FC] border border-[#D8E2FF] rounded-[4px] px-4 py-3 text-xs text-[#40527A]">
+          <div className="bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-4 py-3 text-xs text-pq-neutral-500">
             <span className="font-semibold">Note:</span> TSQA validates individual products/samples only. Supplier accreditation approval remains a Procurement decision and is independent of product evaluation results. Accredited suppliers still need verified products for RFQ award eligibility.
           </div>
 
@@ -517,14 +517,14 @@ export default function AccreditationDetailPage() {
 
           {/* ── Linked supplier products ── */}
           {linkedProducts.length > 0 && (
-            <div className="bg-white rounded-[4px] border border-[#D8E2FF]">
-              <div className="px-5 py-3.5 border-b border-[#D8E2FF]">
-                <h2 className="text-sm font-semibold text-[#0F1F3A]">Linked Supplier Products</h2>
-                <p className="text-xs text-[#BFC7D5] mt-0.5">
+            <div className="bg-white rounded-md border border-pq-neutral-200">
+              <div className="px-5 py-3.5 border-b border-pq-neutral-200">
+                <h2 className="text-sm font-semibold text-pq-neutral-900">Linked Supplier Products</h2>
+                <p className="text-xs text-pq-neutral-400 mt-0.5">
                   Products registered under this accreditation.
                 </p>
               </div>
-              <div className="divide-y divide-[#D8E2FF]">
+              <div className="divide-y divide-pq-neutral-200">
                 {linkedProducts.map(product => (
                   <LinkedProductRow key={product.id} product={product} />
                 ))}
@@ -542,8 +542,8 @@ export default function AccreditationDetailPage() {
 function InfoField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-[#BFC7D5] mb-0.5">{label}</p>
-      <p className="text-sm font-medium text-[#0F1F3A]">{value}</p>
+      <p className="text-xs text-pq-neutral-400 mb-0.5">{label}</p>
+      <p className="text-sm font-medium text-pq-neutral-900">{value}</p>
     </div>
   );
 }
@@ -565,32 +565,32 @@ function LinkedProductRow({ product }: { product: ProductWithRSESummary }) {
   return (
     <div className="flex items-center gap-4 px-5 py-3.5">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[#0F1F3A] truncate">{product.product_name}</p>
+        <p className="text-sm font-medium text-pq-neutral-900 truncate">{product.product_name}</p>
         <div className="flex items-center gap-2 flex-wrap mt-0.5">
           {product.product_code && (
-            <span className="text-xs text-[#BFC7D5] font-mono">{product.product_code}</span>
+            <span className="text-xs text-pq-neutral-400 font-mono">{product.product_code}</span>
           )}
-          <span className="text-xs text-[#40527A]">
+          <span className="text-xs text-pq-neutral-500">
             {statusLabel[product.status] ?? product.status}
           </span>
           {product.latest_rse_status && (
-            <span className="text-xs text-[#BFC7D5]">
+            <span className="text-xs text-pq-neutral-400">
               RSE: {product.latest_rse_status.replace(/_/g, ' ')}
             </span>
           )}
           {product.latest_tsqa_result && (
-            <span className={`text-xs font-semibold ${product.latest_tsqa_result === 'passed' ? 'text-emerald-600' : 'text-red-600'}`}>
+            <span className={`text-xs font-semibold ${product.latest_tsqa_result === 'passed' ? 'text-pq-success-600' : 'text-pq-danger-600'}`}>
               TSQA: {product.latest_tsqa_result}
             </span>
           )}
         </div>
       </div>
-      <div className={`shrink-0 text-xs font-semibold ${canOffer ? 'text-emerald-600' : 'text-[#BFC7D5]'}`}>
+      <div className={`shrink-0 text-xs font-semibold ${canOffer ? 'text-pq-success-600' : 'text-pq-neutral-400'}`}>
         Can Offer: {canOffer ? 'Yes' : 'No'}
       </div>
       <Link
         href={`/accreditation/products/${product.id}`}
-        className="shrink-0 text-xs text-[#1E4BFF] hover:text-[#0F1F3A] font-medium transition"
+        className="shrink-0 text-xs text-pq-primary-600 hover:text-pq-neutral-900 font-medium transition"
       >
         View →
       </Link>
@@ -612,10 +612,10 @@ function DocumentRow({ doc }: { doc: SupplierDocument }) {
 
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
-      <FileText className="w-4 h-4 text-[#BFC7D5] shrink-0" />
+      <FileText className="w-4 h-4 text-pq-neutral-400 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#0F1F3A] truncate">{doc.file_name}</p>
-        <p className="text-xs text-[#BFC7D5]">
+        <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
+        <p className="text-xs text-pq-neutral-400">
           {doc.document_type.replace(/_/g, ' ')}
           {' · '}
           {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}
@@ -625,7 +625,7 @@ function DocumentRow({ doc }: { doc: SupplierDocument }) {
         type="button"
         onClick={handleView}
         disabled={loading}
-        className="shrink-0 flex items-center gap-1 text-xs text-[#1E4BFF] hover:text-[#0F1F3A] transition disabled:opacity-50"
+        className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition disabled:opacity-50"
       >
         <ExternalLink className="w-3.5 h-3.5" />
         {loading ? 'Opening…' : 'View'}

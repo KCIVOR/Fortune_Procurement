@@ -122,16 +122,16 @@ export default function ProfilePage() {
       <div className="max-w-2xl mx-auto space-y-6">
 
         {/* Section 1: Profile Information */}
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC]">
-            <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Profile Information</h2>
+        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-pq-neutral-200 bg-pq-neutral-50">
+            <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Profile Information</h2>
           </div>
 
           <form onSubmit={handleSaveName} className="p-6 space-y-5">
             {/* Full Name — editable */}
             <div className="space-y-1.5">
-              <Label htmlFor="full_name" className="flex items-center gap-1.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
-                <User className="w-3.5 h-3.5 text-[#BFC7D5]" />
+              <Label htmlFor="full_name" className="flex items-center gap-1.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                <User className="w-3.5 h-3.5 text-pq-neutral-400" />
                 Full Name
               </Label>
               <Input
@@ -146,73 +146,73 @@ export default function ProfilePage() {
 
             {/* Email — read-only */}
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
-                <Mail className="w-3.5 h-3.5 text-[#BFC7D5]" />
+              <Label className="flex items-center gap-1.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                <Mail className="w-3.5 h-3.5 text-pq-neutral-400" />
                 Email
-                <span className="ml-1 text-[10px] font-normal text-[#BFC7D5] normal-case tracking-normal">read-only</span>
+                <span className="ml-1 text-[10px] font-normal text-pq-neutral-400 normal-case tracking-normal">read-only</span>
               </Label>
               <Input
                 value={profile?.email ?? ''}
                 readOnly
                 disabled
-                className="text-sm bg-[#F7F9FC] text-[#40527A] cursor-not-allowed opacity-70"
+                className="text-sm bg-pq-neutral-50 text-pq-neutral-500 cursor-not-allowed opacity-70"
               />
             </div>
 
             {/* Role — read-only */}
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
-                <Shield className="w-3.5 h-3.5 text-[#BFC7D5]" />
+              <Label className="flex items-center gap-1.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                <Shield className="w-3.5 h-3.5 text-pq-neutral-400" />
                 Role
-                <span className="ml-1 text-[10px] font-normal text-[#BFC7D5] normal-case tracking-normal">read-only</span>
+                <span className="ml-1 text-[10px] font-normal text-pq-neutral-400 normal-case tracking-normal">read-only</span>
               </Label>
               <Input
                 value={profile?.role ? (ROLE_LABELS[profile.role] ?? profile.role) : ''}
                 readOnly
                 disabled
-                className="text-sm bg-[#F7F9FC] text-[#40527A] cursor-not-allowed opacity-70"
+                className="text-sm bg-pq-neutral-50 text-pq-neutral-500 cursor-not-allowed opacity-70"
               />
             </div>
 
             {/* Position — read-only */}
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
-                <Briefcase className="w-3.5 h-3.5 text-[#BFC7D5]" />
+              <Label className="flex items-center gap-1.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                <Briefcase className="w-3.5 h-3.5 text-pq-neutral-400" />
                 Position
-                <span className="ml-1 text-[10px] font-normal text-[#BFC7D5] normal-case tracking-normal">read-only</span>
+                <span className="ml-1 text-[10px] font-normal text-pq-neutral-400 normal-case tracking-normal">read-only</span>
               </Label>
               <Input
                 value={profile?.position ?? ''}
                 readOnly
                 disabled
-                className="text-sm bg-[#F7F9FC] text-[#40527A] cursor-not-allowed opacity-70"
+                className="text-sm bg-pq-neutral-50 text-pq-neutral-500 cursor-not-allowed opacity-70"
               />
             </div>
 
             {/* Department — read-only */}
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-xs font-semibold text-[#40527A] uppercase tracking-wide">
-                <Building2 className="w-3.5 h-3.5 text-[#BFC7D5]" />
+              <Label className="flex items-center gap-1.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                <Building2 className="w-3.5 h-3.5 text-pq-neutral-400" />
                 Department
-                <span className="ml-1 text-[10px] font-normal text-[#BFC7D5] normal-case tracking-normal">read-only</span>
+                <span className="ml-1 text-[10px] font-normal text-pq-neutral-400 normal-case tracking-normal">read-only</span>
               </Label>
               <Input
                 value={profile?.department ?? ''}
                 readOnly
                 disabled
-                className="text-sm bg-[#F7F9FC] text-[#40527A] cursor-not-allowed opacity-70"
+                className="text-sm bg-pq-neutral-50 text-pq-neutral-500 cursor-not-allowed opacity-70"
               />
             </div>
 
             {nameError && (
-              <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+              <div className="flex items-start gap-2 text-xs text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded px-3 py-2">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span>{nameError}</span>
               </div>
             )}
 
             {nameSuccess && (
-              <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+              <div className="flex items-center gap-2 text-xs text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded px-3 py-2">
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                 <span>Name updated successfully.</span>
               </div>
@@ -223,7 +223,7 @@ export default function ProfilePage() {
                 type="submit"
                 disabled={!nameChanged || nameSaving || !fullName.trim()}
                 size="sm"
-                className="text-xs bg-[#1E4BFF] hover:bg-[#0F1F3A] w-full sm:w-auto"
+                className="text-xs bg-pq-primary-600 hover:bg-pq-neutral-900 w-full sm:w-auto"
               >
                 {nameSaving ? 'Saving...' : 'Save Changes'}
               </Button>
@@ -232,16 +232,16 @@ export default function ProfilePage() {
         </div>
 
         {/* Section 2: Change Password */}
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#D8E2FF] bg-[#F7F9FC]">
-            <h2 className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">Change Password</h2>
+        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-pq-neutral-200 bg-pq-neutral-50">
+            <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Change Password</h2>
           </div>
 
           <form onSubmit={handleUpdatePassword} className="p-6 space-y-5">
 
             {/* Current Password */}
             <div className="space-y-1.5">
-              <Label htmlFor="current_password" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+              <Label htmlFor="current_password" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                 Current Password
               </Label>
               <div className="relative">
@@ -258,7 +258,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => setShowCurrent(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#BFC7D5] hover:text-[#40527A] transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-pq-neutral-400 hover:text-pq-neutral-500 transition"
                   tabIndex={-1}
                   aria-label={showCurrent ? 'Hide password' : 'Show password'}
                 >
@@ -269,7 +269,7 @@ export default function ProfilePage() {
 
             {/* New Password */}
             <div className="space-y-1.5">
-              <Label htmlFor="new_password" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+              <Label htmlFor="new_password" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                 New Password
               </Label>
               <div className="relative">
@@ -286,7 +286,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => setShowNew(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#BFC7D5] hover:text-[#40527A] transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-pq-neutral-400 hover:text-pq-neutral-500 transition"
                   tabIndex={-1}
                   aria-label={showNew ? 'Hide password' : 'Show password'}
                 >
@@ -294,13 +294,13 @@ export default function ProfilePage() {
                 </button>
               </div>
               {newPassword.length > 0 && newPassword.length < 8 && (
-                <p className="text-xs text-red-600">Must be at least 8 characters.</p>
+                <p className="text-xs text-pq-danger-600">Must be at least 8 characters.</p>
               )}
             </div>
 
             {/* Confirm Password */}
             <div className="space-y-1.5">
-              <Label htmlFor="confirm_password" className="text-xs font-semibold text-[#40527A] uppercase tracking-wide">
+              <Label htmlFor="confirm_password" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                 Confirm Password
               </Label>
               <div className="relative">
@@ -317,7 +317,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#BFC7D5] hover:text-[#40527A] transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-pq-neutral-400 hover:text-pq-neutral-500 transition"
                   tabIndex={-1}
                   aria-label={showConfirm ? 'Hide password' : 'Show password'}
                 >
@@ -325,19 +325,19 @@ export default function ProfilePage() {
                 </button>
               </div>
               {confirmPassword.length > 0 && newPassword !== confirmPassword && (
-                <p className="text-xs text-red-600">Passwords do not match.</p>
+                <p className="text-xs text-pq-danger-600">Passwords do not match.</p>
               )}
             </div>
 
             {pwError && (
-              <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+              <div className="flex items-start gap-2 text-xs text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded px-3 py-2">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span>{pwError}</span>
               </div>
             )}
 
             {pwSuccess && (
-              <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+              <div className="flex items-center gap-2 text-xs text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded px-3 py-2">
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                 <span>Password updated successfully.</span>
               </div>
@@ -348,7 +348,7 @@ export default function ProfilePage() {
                 type="submit"
                 disabled={!pwValid || pwSaving}
                 size="sm"
-                className="text-xs bg-[#1E4BFF] hover:bg-[#0F1F3A] w-full sm:w-auto"
+                className="text-xs bg-pq-primary-600 hover:bg-pq-neutral-900 w-full sm:w-auto"
               >
                 {pwSaving ? 'Updating...' : 'Update Password'}
               </Button>
