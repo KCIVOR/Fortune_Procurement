@@ -1,10 +1,13 @@
+/* ── ProcureIQ v2.0 Design Tokens (must be first) ─────────────────────── */
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Brand color tokens */
+    /* Brand color tokens (legacy — preserved for backward compatibility) */
     --brand-primary: #1E4BFF;
     --brand-navy: #0F1F3A;
     --brand-dark-bg: #0B1426;
@@ -38,11 +41,11 @@
     --input: 226 100% 87%;
     --ring: 226 100% 56%;
 
-    /* Radius tokens — allowed: 0px, 2px, 4px */
+    /* Radius tokens — now delegated to v2.0 token variables */
     --radius-none: 0px;
-    --radius-xs: 2px;
-    --radius-sm: 4px;
-    --radius: 4px;
+    --radius-xs:   2px;
+    --radius-sm:   var(--r-sm);
+    --radius:      var(--r-sm);
 
     /* Chart tokens */
     --chart-1: 226 100% 56%;
@@ -52,35 +55,19 @@
     --chart-5: 30 90% 55%;
   }
 
-  .dark {
-    --background: 222 64% 10%;
-    --foreground: 0 0% 100%;
-    --card: 222 52% 13%;
-    --card-foreground: 0 0% 100%;
-    --popover: 222 52% 13%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 226 100% 56%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 222 45% 20%;
-    --secondary-foreground: 216 22% 84%;
-    --muted: 222 45% 18%;
-    --muted-foreground: 216 22% 72%;
-    --accent: 222 45% 20%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 218 37% 28%;
-    --input: 218 37% 28%;
-    --ring: 226 100% 56%;
-  }
-
   * {
     @apply border-border;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    /* v2.0: override page canvas and default text with neutral tokens */
+    background-color: var(--neutral-100);
+    color: var(--neutral-900);
+    font-family: var(--font-sans);
+    @apply antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
