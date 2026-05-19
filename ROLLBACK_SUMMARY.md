@@ -29,24 +29,76 @@
 - **Result:** ✅ Build successful
 - **Output:** 77 routes compiled successfully
 
+### 5. Database Cleanup ✅
+- **Migration:** `20260519000000_rollback_messaging_schema.sql`
+- **Applied:** ✅ Successfully
+- **Removed:**
+  - ✅ `conversations` table
+  - ✅ `conversation_participants` table
+  - ✅ `messages` table
+  - ✅ `message_attachments` table
+  - ✅ All RLS policies for messaging
+  - ✅ All triggers and functions
+  - ✅ Realtime publication
+- **Remaining:** `message-attachments` storage bucket (requires manual deletion via Dashboard)
+
 ---
 
 ## Current State
 
 ### Develop Branch
-- **HEAD:** `52a049e`
+- **HEAD:** `a102a83`
 - **Status:** Clean, no uncommitted changes
 - **Build:** ✅ Passing
 - **Messaging:** ❌ Completely removed
+
+### Database State
+- **Messaging Tables:** ❌ Removed (all 4 tables dropped)
+- **RLS Policies:** ❌ Removed (all messaging policies dropped)
+- **Storage Bucket:** ⚠️ Still exists (empty, needs manual deletion)
+- **Instructions:** See `DELETE_STORAGE_BUCKET.md`
 
 ### What's in Develop Now
 ✅ Design system updates (commit `9c492bd`)  
 ✅ Bug fixes and type corrections  
 ✅ All production features (PR1, PR2, RFQ, PO, Delivery, GRN, etc.)  
+✅ Database rollback migration  
 ❌ No messaging feature  
 ❌ No messaging UI integration  
 ❌ No messaging dependencies  
-❌ No messaging routes
+❌ No messaging routes  
+❌ No messaging tables in database
+
+---
+
+## Database Rollback Details
+
+### What Was Removed from Database
+1. **Tables:**
+   - `conversations` - Main conversation records
+   - `conversation_participants` - User participation in conversations
+   - `messages` - Message content and metadata
+   - `message_attachments` - File attachments metadata
+
+2. **RLS Policies:**
+   - All 13 messaging-related RLS policies
+   - Conversation view/create/update policies
+   - Participant management policies
+   - Message send/view/update/delete policies
+   - Attachment upload/view/delete policies
+
+3. **Database Objects:**
+   - `update_conversation_last_message()` function
+   - Triggers for updated_at timestamps
+   - Trigger for last message updates
+   - Realtime publication for messaging
+
+### What Needs Manual Cleanup
+⚠️ **Storage Bucket:** `message-attachments`
+- **Status:** Empty (0 files)
+- **Action Required:** Delete via Supabase Dashboard
+- **Instructions:** See `DELETE_STORAGE_BUCKET.md`
+- **Dashboard URL:** https://supabase.com/dashboard/project/qvxrvnsjlycdgvhwgtkj/storage/buckets
 
 ---
 
