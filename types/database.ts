@@ -720,9 +720,86 @@ export interface Database {
         };
       };
 
+      // ── Messaging ──────────────────────────────────────────────────────────
+
+      conversations: {
+        Row: {
+          id: string;
+          user_a_id: string;
+          user_b_id: string;
+          last_message_at: string | null;
+          last_message_preview: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_a_id: string;
+          user_b_id: string;
+          last_message_at?: string | null;
+          last_message_preview?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_a_id?: string;
+          user_b_id?: string;
+          last_message_at?: string | null;
+          last_message_preview?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+      };
+
+      messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          is_deleted: boolean | null;
+          read_at: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+          edited_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          is_deleted?: boolean | null;
+          read_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          edited_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          sender_id?: string;
+          content?: string;
+          is_deleted?: boolean | null;
+          read_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          edited_at?: string | null;
+        };
+      };
+
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      create_or_get_conversation: {
+        Args: { other_user_id: string };
+        Returns: string;
+      };
+      mark_messages_as_read: {
+        Args: { p_conversation_id: string };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
   };
 }
@@ -744,3 +821,7 @@ export type SupplierProduct        = Database['public']['Tables']['supplier_prod
 export type SupplierDocument       = Database['public']['Tables']['supplier_documents']['Row'];
 export type RseRecord              = Database['public']['Tables']['rse_records']['Row'];
 export type TsqaReview             = Database['public']['Tables']['tsqa_reviews']['Row'];
+
+// ── Messaging convenience types ──────────────────────────────────────────────
+export type Conversation = Database['public']['Tables']['conversations']['Row'];
+export type Message      = Database['public']['Tables']['messages']['Row'];

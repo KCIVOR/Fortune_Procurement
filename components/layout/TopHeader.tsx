@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Building2, Briefcase, Menu, Bug } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/layout/NotificationBell';
+import MessageIcon from '@/components/messages/MessageIcon';
 
 interface TopHeaderProps {
   title?: string;
@@ -43,6 +44,8 @@ export default function TopHeader({ title, onMenuToggle }: TopHeaderProps) {
           </div>
           <div className="hidden sm:block w-px h-4 bg-pq-neutral-200" />
           <NotificationBell />
+          <div className="hidden sm:block w-px h-4 bg-pq-neutral-200" />
+          <MessageIcon />
           <div className="hidden sm:block w-px h-4 bg-pq-neutral-200" />
           <Link 
             href="/bugtrack" 
