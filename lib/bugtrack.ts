@@ -73,8 +73,8 @@ export async function getBugReport(id: string) {
 }
 
 export async function createBugReport(bug: Partial<BugReport>) {
-  const { data, error } = await supabase
-    .from('bug_reports')
+  const table = supabase.from('bug_reports') as any;
+  const { data, error } = await table
     .insert([bug])
     .select()
     .single();
@@ -84,8 +84,8 @@ export async function createBugReport(bug: Partial<BugReport>) {
 }
 
 export async function updateBugReport(id: string, updates: Partial<BugReport>) {
-  const { data, error } = await supabase
-    .from('bug_reports')
+  const table = supabase.from('bug_reports') as any;
+  const { data, error } = await table
     .update(updates)
     .eq('id', id)
     .select()
@@ -112,17 +112,17 @@ export async function updateBugTrackSettings(email: string | null) {
     .single();
 
   if (existing) {
-    const { data, error } = await supabase
-      .from('bugtrack_settings')
+    const table = supabase.from('bugtrack_settings') as any;
+    const { data, error } = await table
       .update({ notification_email: email })
-      .eq('id', existing.id)
+      .eq('id', (existing as any).id)
       .select()
       .single();
     if (error) throw error;
     return data as BugTrackSettings;
   } else {
-    const { data, error } = await supabase
-      .from('bugtrack_settings')
+    const table = supabase.from('bugtrack_settings') as any;
+    const { data, error } = await table
       .insert([{ notification_email: email }])
       .select()
       .single();
