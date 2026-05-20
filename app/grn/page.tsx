@@ -6,14 +6,15 @@ import AppShell from '@/components/layout/AppShell';
 import { CardListSkeleton } from '@/components/shared/structural-skeletons';
 import EmptyState from '@/components/shared/EmptyState';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig, TabFilter } from '@/components/shared/FilterBar.types';
 import { useAuth } from '@/context/AuthContext';
 import type { GRNListTab } from '@/lib/grn';
 import { fetchGRNQueuePaged, fetchGRNTabCounts } from '@/lib/grn';
 import type { GRNQueueRow, GRNStatus } from '@/types/grn';
 import { GRN_STATUS_LABELS } from '@/types/grn';
 import { format } from 'date-fns';
-import { PackageCheck, Building2, Calendar, ChevronRight, Clock, CircleCheck as CheckCircle2, ClipboardList, Search } from 'lucide-react';
-import { Label } from '@/components/ui/label';
+import { PackageCheck, Building2, Calendar, ChevronRight, Clock, CircleCheck as CheckCircle2, ClipboardList } from 'lucide-react';
 
 const STATUS_CONFIG: Record<GRNStatus, {
   bg: string; text: string; border: string; icon: React.ElementType;
@@ -67,8 +68,39 @@ export default function GRNListPage() {
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
-  const setFilterAndResetPage = (s: GRNListTab) => {
-    setFilter(s);
+  // Tab configuration for FilterBar
+  const tabs: TabFilter[] = [
+    { value: 'all', label: `All GRNs (${counts.all})` },
+    { value: 'open', label: `${GRN_STATUS_LABELS.open} (${counts.open})` },
+    { value: 'closed', label: `${GRN_STATUS_LABELS.closed} (${counts.closed})` },
+  ];
+
+  // Filter configuration for FilterBar
+  const filters: FilterConfig[] = [
+    {
+      type: 'search',
+      id: 'grn-search',
+      label: 'Search',
+      placeholder: 'GRN number, PO, supplier, department, warehouse…',
+      value: search,
+      onChange: (value) => setSearch(value as string),
+    },
+  ];
+
+  const handleTabChange = (value: string) => {
+    setFilter(value as GRNListTab);
+    setCurrentPage(1);
+  };
+
+  const handleApply = () => {
+    setAppliedSearch(search);
+    setCurrentPage(1);
+  };
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setFilter('all');
     setCurrentPage(1);
   };
 
@@ -97,68 +129,19 @@ export default function GRNListPage() {
         <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600 mb-4">{error}</div>
       )}
 
-      {/* Search filter */}
-      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-4">
-        <Label htmlFor="grn-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide block mb-1.5">
-          Search
-        </Label>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
-            <input
-              id="grn-search"
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
-              placeholder="GRN number, PO, supplier, department, warehouse…"
-              disabled={loading}
-              className="w-full pl-9 pr-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
-            disabled={loading}
-            className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
-          >
-            Apply
-          </button>
-          <button
-            type="button"
-            onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
-            disabled={loading}
-            className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
-          >
-            Clear
-          </button>
-        </div>
-      </div>
-
-      {/* Status filter tabs */}
-      <div className="flex gap-2 flex-wrap mb-5">
-        {(['all', 'open', 'closed'] as const).map(s => {
-          const count  = counts[s];
-          const active = filter === s;
-          return (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setFilterAndResetPage(s)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition ${
-                active
-                  ? 'bg-pq-neutral-900 text-white border-pq-primary-600'
-                  : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:border-pq-primary-600 hover:bg-pq-neutral-50'
-              }`}
-            >
-              {s === 'all' ? 'All GRNs' : GRN_STATUS_LABELS[s]}
-              <span className={`inline-flex items-center justify-center rounded-full text-xs min-w-[18px] h-[18px] px-1 ${
-                active ? 'bg-white/20 text-white' : 'bg-pq-neutral-50 text-pq-neutral-500'
-              }`}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* FilterBar with tabs */}
+      <FilterBar
+        tabs={tabs}
+        activeTab={filter}
+        onTabChange={handleTabChange}
+        filters={filters}
+        onApply={handleApply}
+        onClear={handleClear}
+        loading={loading}
+        resultCount={totalCount}
+        resultLabel="GRN"
+        className="mb-5"
+      />
 
       {loading ? (
         <CardListSkeleton cards={4} />

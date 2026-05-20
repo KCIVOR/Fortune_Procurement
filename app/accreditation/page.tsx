@@ -6,7 +6,9 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import StatusChip from '@/components/shared/StatusChip';
-import StatusFilterTabs from '@/components/shared/StatusFilterTabs';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig, TabFilter } from '@/components/shared/FilterBar.types';
+import PaginationControls from '@/components/shared/PaginationControls';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { getAllAccreditationsForProcurement } from '@/lib/accreditation';
@@ -35,6 +37,8 @@ type FilterKey = 'pending' | 'approved' | 'rejected' | 'all';
 
 const PENDING_STATUSES = ['submitted', 'under_review', 'missing_documents'];
 
+const PAGE_SIZE = 20;
+
 function getFilteredRows(rows: AccreditationQueueRow[], filter: FilterKey): AccreditationQueueRow[] {
   switch (filter) {
     case 'pending':
@@ -56,6 +60,9 @@ export default function AccreditationQueuePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [activeTab, setActiveTab] = useState<FilterKey>('pending');
+  const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     setLoading(true);
@@ -76,18 +83,44 @@ export default function AccreditationQueuePage() {
     all:      allRows.length,
   }), [allRows]);
 
-  // Filter rows based on active tab
-  const filteredRows = useMemo(
-    () => getFilteredRows(allRows, activeTab),
-    [allRows, activeTab]
+  // Filter rows based on active tab and search
+  const filteredRows = useMemo(() => {
+    let rows = getFilteredRows(allRows, activeTab);
+    if (appliedSearch.trim()) {
+      const searchLower = appliedSearch.toLowerCase();
+      rows = rows.filter(r =>
+        (r.supplier_full_name && r.supplier_full_name.toLowerCase().includes(searchLower)) ||
+        (r.supplier_email && r.supplier_email.toLowerCase().includes(searchLower))
+      );
+    }
+    return rows;
+  }, [allRows, activeTab, appliedSearch]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const paginatedRows = filteredRows.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
   );
 
-  const tabs = [
-    { key: 'pending',  label: 'Pending',  count: counts.pending },
-    { key: 'approved', label: 'Approved', count: counts.approved },
-    { key: 'rejected', label: 'Rejected', count: counts.rejected },
-    { key: 'all',      label: 'All',      count: counts.all },
+  const tabs: TabFilter[] = [
+    { value: 'pending',  label: `Pending (${counts.pending})` },
+    { value: 'approved', label: `Approved (${counts.approved})` },
+    { value: 'rejected', label: `Rejected (${counts.rejected})` },
+    { value: 'all',      label: `All (${counts.all})` },
   ];
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setActiveTab('pending');
+    setCurrentPage(1);
+  };
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, appliedSearch]);
 
   return (
     <AppShell title="Supplier Accreditation">
@@ -96,15 +129,29 @@ export default function AccreditationQueuePage() {
         description="Review and process supplier accreditation applications submitted for Procurement approval."
       />
 
-      {/* Status Filter Tabs */}
+      {/* FilterBar with tabs and search */}
       {!loading && !error && (
-        <div className="mb-4">
-          <StatusFilterTabs
-            tabs={tabs}
-            activeTab={activeTab}
-            onTabChange={(key) => setActiveTab(key as FilterKey)}
-          />
-        </div>
+        <FilterBar
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={(value) => setActiveTab(value as FilterKey)}
+          filters={[
+            {
+              type: 'search',
+              id: 'accreditation-search',
+              label: 'Search',
+              placeholder: 'Search by supplier name or email...',
+              value: search,
+              onChange: (value) => setSearch(value as string),
+            },
+          ] as FilterConfig[]}
+          onApply={() => { setAppliedSearch(search); setCurrentPage(1); }}
+          onClear={handleClear}
+          loading={loading}
+          resultCount={filteredRows.length}
+          resultLabel="application"
+          className="mb-4"
+        />
       )}
 
       {loading ? (
@@ -126,19 +173,32 @@ export default function AccreditationQueuePage() {
           />
         </div>
       ) : (
-        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-          {/* Column headers */}
-          <div className="hidden md:grid grid-cols-[1fr_180px_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</p>
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Reviewed</p>
+        <div className="space-y-4">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            {/* Column headers */}
+            <div className="hidden md:grid grid-cols-[1fr_180px_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</p>
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Reviewed</p>
+            </div>
+            <div className="divide-y divide-pq-neutral-200">
+              {paginatedRows.map(row => (
+                <QueueRow key={row.id} row={row} />
+              ))}
+            </div>
           </div>
-          <div className="divide-y divide-pq-neutral-200">
-            {filteredRows.map(row => (
-              <QueueRow key={row.id} row={row} />
-            ))}
-          </div>
+
+          {/* Pagination */}
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={PAGE_SIZE}
+            totalCount={filteredRows.length}
+            entityLabel="applications"
+            loading={loading}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
     </AppShell>

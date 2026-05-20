@@ -7,12 +7,12 @@ import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { useAuth } from '@/context/AuthContext';
 import { fetchSubstitutesForRequestor } from '@/lib/canvassing';
 import type { SubstituteReviewBundle } from '@/types/canvassing';
-import { ArrowRight, Replace, CircleCheck as CheckCircle2, Circle as XCircle, Clock, Search } from 'lucide-react';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowRight, Replace, CircleCheck as CheckCircle2, Circle as XCircle, Clock } from 'lucide-react';
 
 export default function SubstitutesIndexPage() {
   const { profile } = useAuth();
@@ -58,6 +58,46 @@ export default function SubstitutesIndexPage() {
   const totalPages = Math.ceil(filteredBundles.length / pageSize);
   const bundlePage = filteredBundles.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  // Filter configuration for FilterBar
+  const filters: FilterConfig[] = [
+    {
+      type: 'search',
+      id: 'sub-search',
+      label: 'Search',
+      placeholder: 'PR1 number, purpose, or supplier...',
+      value: search,
+      onChange: (value) => setSearch(value as string),
+    },
+    {
+      type: 'select',
+      id: 'sub-status',
+      label: 'Status',
+      placeholder: 'All statuses',
+      value: selectedStatus,
+      onChange: (value) => {
+        setSelectedStatus(value as 'all' | 'pending' | 'decided');
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all', label: 'All statuses' },
+        { value: 'pending', label: 'Pending decision' },
+        { value: 'decided', label: 'All decided' },
+      ],
+    },
+  ];
+
+  const handleApply = () => {
+    setAppliedSearch(search);
+    setCurrentPage(1);
+  };
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setSelectedStatus('all');
+    setCurrentPage(1);
+  };
+
   return (
     <AppShell title="Substitute Review">
       <PageHeader
@@ -66,64 +106,15 @@ export default function SubstitutesIndexPage() {
       />
 
       {/* Filter bar */}
-      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="sub-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-            Search
-          </Label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
-              <input
-                id="sub-search"
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
-                placeholder="PR1 number, purpose, or supplier..."
-                disabled={loading}
-                className="w-full pl-9 pr-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
-              />
-            </div>
-            <button
-              onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
-              disabled={loading}
-              className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
-            >
-              Apply
-            </button>
-            <button
-              onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
-              disabled={loading}
-              className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="sub-status" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-            Status
-          </Label>
-          <Select
-            value={selectedStatus}
-            onValueChange={(v) => {
-              setSelectedStatus(v as 'all' | 'pending' | 'decided');
-              setCurrentPage(1);
-            }}
-            disabled={loading}
-          >
-            <SelectTrigger id="sub-status" className="text-sm">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="pending">Pending decision</SelectItem>
-              <SelectItem value="decided">All decided</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <FilterBar
+        filters={filters}
+        onApply={handleApply}
+        onClear={handleClear}
+        loading={loading}
+        resultCount={filteredBundles.length}
+        resultLabel="bundle"
+        className="mb-4"
+      />
 
       {loading ? (
         <div className="flex items-center justify-center h-48">

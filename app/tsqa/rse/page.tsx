@@ -9,12 +9,14 @@ import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
 import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import StatusChip from '@/components/shared/StatusChip';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
+import PaginationControls from '@/components/shared/PaginationControls';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { useAuth } from '@/context/AuthContext';
 import { getRSEQueueForTSQA, getRSEHistoryForTSQA, type RSEQueueRow } from '@/lib/rse';
 import { format } from 'date-fns';
 import { FlaskConical, ArrowRight } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -30,6 +32,17 @@ function rseChip(status: string): { variant: StatusVariant; label: string } {
   return map[status] ?? { variant: 'draft', label: status };
 }
 
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All Statuses' },
+  { value: 'created', label: 'Created' },
+  { value: 'assigned', label: 'Assigned' },
+  { value: 'under_review', label: 'Under Review' },
+  { value: 'passed', label: 'Passed' },
+  { value: 'failed', label: 'Failed' },
+];
+
+const PAGE_SIZE = 20;
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TSQARSEQueuePage() {
@@ -41,6 +54,9 @@ export default function TSQARSEQueuePage() {
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState('');
   const [statusFilter,  setStatusFilter]  = useState('all');
+  const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (profile && profile.role !== 'tsqa' && profile.role !== 'admin') {
@@ -63,12 +79,40 @@ export default function TSQARSEQueuePage() {
       .finally(() => setLoading(false));
   }, [profile, router]);
 
-  // Merge all rows and apply filter
+  // Merge all rows and apply filters
   const allRows = [...activeRows, ...completedRows];
-  const filtered =
-    statusFilter === 'all'
-      ? allRows
-      : allRows.filter(r => r.status === statusFilter);
+  const filtered = allRows.filter((r) => {
+    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+    const matchesSearch = !appliedSearch.trim() ||
+      (r.rse_number && r.rse_number.toLowerCase().includes(appliedSearch.toLowerCase())) ||
+      (r.product_name && r.product_name.toLowerCase().includes(appliedSearch.toLowerCase())) ||
+      (r.supplier_full_name && r.supplier_full_name.toLowerCase().includes(appliedSearch.toLowerCase()));
+    return matchesStatus && matchesSearch;
+  });
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginatedRows = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  const handleApply = () => {
+    setAppliedSearch(search);
+    setCurrentPage(1);
+  };
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setStatusFilter('all');
+    setCurrentPage(1);
+  };
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [appliedSearch, statusFilter]);
 
   return (
     <AppShell title="RSE Queue">
@@ -77,27 +121,34 @@ export default function TSQARSEQueuePage() {
         description="Sample evaluation requests assigned to you. Start review, submit test findings, and mark pass or fail."
       />
 
-      {/* Filter bar */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-52">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="text-sm border-pq-neutral-200">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="created">Created</SelectItem>
-              <SelectItem value="assigned">Assigned</SelectItem>
-              <SelectItem value="under_review">Under Review</SelectItem>
-              <SelectItem value="passed">Passed</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <span className="text-xs text-pq-neutral-400">
-          {filtered.length} record{filtered.length !== 1 ? 's' : ''}
-        </span>
-      </div>
+      {/* FilterBar */}
+      <FilterBar
+        filters={[
+          {
+            type: 'search',
+            id: 'rse-search',
+            label: 'Search',
+            placeholder: 'Search by RSE number, product, or supplier...',
+            value: search,
+            onChange: (value) => setSearch(value as string),
+          },
+          {
+            type: 'select',
+            id: 'rse-status',
+            label: 'Status',
+            placeholder: 'All statuses',
+            value: statusFilter,
+            onChange: (value) => setStatusFilter(value as string),
+            options: STATUS_OPTIONS,
+          },
+        ] as FilterConfig[]}
+        onApply={handleApply}
+        onClear={handleClear}
+        loading={loading}
+        resultCount={filtered.length}
+        resultLabel="record"
+        className="mb-4"
+      />
 
       {loading ? (
         <TableSkeleton rows={5} cols={4} />
@@ -118,19 +169,32 @@ export default function TSQARSEQueuePage() {
           />
         </div>
       ) : (
-        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-          {/* Column headers */}
-          <div className="hidden md:grid grid-cols-[1fr_1fr_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">RSE / Product</p>
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Date</p>
+        <div className="space-y-4">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            {/* Column headers */}
+            <div className="hidden md:grid grid-cols-[1fr_1fr_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">RSE / Product</p>
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Date</p>
+            </div>
+            <div className="divide-y divide-pq-neutral-200">
+              {paginatedRows.map(row => (
+                <RSERow key={row.id} row={row} />
+              ))}
+            </div>
           </div>
-          <div className="divide-y divide-pq-neutral-200">
-            {filtered.map(row => (
-              <RSERow key={row.id} row={row} />
-            ))}
-          </div>
+
+          {/* Pagination */}
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={PAGE_SIZE}
+            totalCount={filtered.length}
+            entityLabel="records"
+            loading={loading}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
     </AppShell>

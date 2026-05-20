@@ -6,12 +6,11 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import PageHeader from '@/components/shared/PageHeader';
 import PaginationControls from '@/components/shared/PaginationControls';
-import UserSearch from '@/components/admin/UserSearch';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import UserTable from '@/components/admin/UserTable';
 import CreateUserModal from '@/components/admin/CreateUserModal';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import { listAdminUsersWithCount, getAdminUserStats, getAssignmentOptions } from '@/lib/admin-users';
 import type { AdminUser, AdminUserFilters } from '@/lib/admin-users';
 import { Plus } from 'lucide-react';
@@ -155,80 +154,47 @@ export default function UsersPage() {
         </div>
 
         {/* Filter Panel */}
-        <div className="bg-white rounded-lg border border-pq-neutral-200 p-6 space-y-4">
-          <h3 className="font-semibold text-pq-neutral-900 mb-4">Filters</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Search */}
-            <div className="lg:col-span-2">
-              <UserSearch
-                value={search}
-                onChange={setSearch}
-                onClear={() => setSearch('')}
-                isLoading={isLoading}
-              />
-            </div>
-
-            {/* Role Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="role-filter" className="text-xs font-medium text-pq-neutral-500">
-                Role
-              </Label>
-              <Select value={selectedRole} onValueChange={setSelectedRole} disabled={isLoading}>
-                <SelectTrigger id="role-filter" className="text-sm">
-                  <SelectValue placeholder="All roles" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_roles">All roles</SelectItem>
-                  {roles.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Department Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="dept-filter" className="text-xs font-medium text-pq-neutral-500">
-                Department
-              </Label>
-              <Select value={selectedDept} onValueChange={setSelectedDept} disabled={isLoading}>
-                <SelectTrigger id="dept-filter" className="text-sm">
-                  <SelectValue placeholder="All departments" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_departments">All departments</SelectItem>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Buttons */}
-          <div className="flex gap-2 pt-2">
-            <Button
-              onClick={handleApplyFilters}
-              disabled={isLoading}
-              className="bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-medium"
-            >
-              Apply Filters
-            </Button>
-            <Button
-              onClick={handleClearFilters}
-              disabled={isLoading}
-              variant="outline"
-              className="text-xs font-medium"
-            >
-              Clear
-            </Button>
-          </div>
-        </div>
+        <FilterBar
+          filters={[
+            {
+              type: 'search',
+              id: 'user-search',
+              label: 'Search',
+              placeholder: 'Search by name, email, or employee ID...',
+              value: search,
+              onChange: (value) => setSearch(value as string),
+            },
+            {
+              type: 'select',
+              id: 'role-filter',
+              label: 'Role',
+              placeholder: 'All roles',
+              value: selectedRole,
+              onChange: (value) => setSelectedRole(value as string),
+              options: [
+                { value: 'all_roles', label: 'All roles' },
+                ...roles.map((role) => ({ value: role.id, label: role.name })),
+              ],
+            },
+            {
+              type: 'select',
+              id: 'dept-filter',
+              label: 'Department',
+              placeholder: 'All departments',
+              value: selectedDept,
+              onChange: (value) => setSelectedDept(value as string),
+              options: [
+                { value: 'all_departments', label: 'All departments' },
+                ...departments.map((dept) => ({ value: dept.id, label: dept.name })),
+              ],
+            },
+          ] as FilterConfig[]}
+          onApply={handleApplyFilters}
+          onClear={handleClearFilters}
+          loading={isLoading}
+          resultCount={totalCount}
+          resultLabel="user"
+        />
 
         {/* User Table */}
         <UserTable users={users} isLoading={isLoading} />

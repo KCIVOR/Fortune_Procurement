@@ -7,6 +7,8 @@ import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { fetchSupplierInboxPaged } from '@/lib/canvassing';
 import { useAuth } from '@/context/AuthContext';
 import type { SupplierRfqInboxRow } from '@/types/canvassing';
@@ -30,6 +32,13 @@ const RFQ_STATUS_BADGE: Record<string, string> = {
   draft:  'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
 };
 
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All Statuses' },
+  { value: 'invited', label: 'Awaiting Response' },
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'declined', label: 'Declined' },
+];
+
 export default function SupplierQuotationsPage() {
   const { profile } = useAuth();
   const [inbox, setInbox]     = useState<SupplierRfqInboxRow[]>([]);
@@ -38,6 +47,9 @@ export default function SupplierQuotationsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 20;
   const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     if (!profile) return;
@@ -52,10 +64,30 @@ export default function SupplierQuotationsPage() {
       .finally(() => setLoading(false));
   }, [profile, currentPage]);
 
-  const pending    = inbox.filter(r => r.supplier_status === 'invited' && r.rfq_status === 'open');
-  const submitted  = inbox.filter(r => r.supplier_status === 'submitted');
-  const other      = inbox.filter(r => r.supplier_status !== 'invited' || r.rfq_status !== 'open').filter(r => r.supplier_status !== 'submitted');
+  // Filter inbox based on search and status
+  const filteredInbox = inbox.filter((r) => {
+    const matchesSearch = !appliedSearch.trim() || 
+      r.rfq_number.toLowerCase().includes(appliedSearch.toLowerCase()) ||
+      r.purpose.toLowerCase().includes(appliedSearch.toLowerCase()) ||
+      r.department_name.toLowerCase().includes(appliedSearch.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || r.supplier_status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const pending    = filteredInbox.filter(r => r.supplier_status === 'invited' && r.rfq_status === 'open');
+  const submitted  = filteredInbox.filter(r => r.supplier_status === 'submitted');
+  const other      = filteredInbox.filter(r => r.supplier_status !== 'invited' || r.rfq_status !== 'open').filter(r => r.supplier_status !== 'submitted');
   const totalPages = Math.ceil(totalCount / rowsPerPage);
+
+  const handleApply = () => {
+    setAppliedSearch(search);
+  };
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setStatusFilter('all');
+  };
 
   return (
     <AppShell title="Quotations">
@@ -82,27 +114,67 @@ export default function SupplierQuotationsPage() {
         <div className="space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard label="Awaiting Response" value={pending.length}   color="amber"   icon={Clock} />
-            <StatCard label="Submitted"          value={submitted.length} color="emerald" icon={CheckCircle2} />
-            <StatCard label="Total RFQs"         value={totalCount}       color="slate"   icon={PackageSearch} />
+            <StatCard label="Awaiting Response" value={inbox.filter(r => r.supplier_status === 'invited' && r.rfq_status === 'open').length} color="amber" icon={Clock} />
+            <StatCard label="Submitted" value={inbox.filter(r => r.supplier_status === 'submitted').length} color="emerald" icon={CheckCircle2} />
+            <StatCard label="Total RFQs" value={totalCount} color="slate" icon={PackageSearch} />
           </div>
 
-          {pending.length > 0 && (
-            <InboxSection title="Awaiting Your Response" accent="amber" count={pending.length}>
-              {pending.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
-            </InboxSection>
-          )}
+          {/* FilterBar */}
+          <FilterBar
+            filters={[
+              {
+                type: 'search',
+                id: 'rfq-search',
+                label: 'Search',
+                placeholder: 'Search by RFQ number, purpose, or department...',
+                value: search,
+                onChange: (value) => setSearch(value as string),
+              },
+              {
+                type: 'select',
+                id: 'rfq-status',
+                label: 'Status',
+                placeholder: 'All statuses',
+                value: statusFilter,
+                onChange: (value) => setStatusFilter(value as string),
+                options: STATUS_OPTIONS,
+              },
+            ] as FilterConfig[]}
+            onApply={handleApply}
+            onClear={handleClear}
+            loading={loading}
+            resultCount={filteredInbox.length}
+            resultLabel="RFQ"
+          />
 
-          {submitted.length > 0 && (
-            <InboxSection title="Submitted" accent="emerald" count={submitted.length}>
-              {submitted.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
-            </InboxSection>
-          )}
+          {filteredInbox.length === 0 ? (
+            <div className="bg-white rounded-md border border-pq-neutral-200">
+              <EmptyState
+                title="No RFQs match your filters"
+                description="Try adjusting your search or status filter."
+                icon={Tag}
+              />
+            </div>
+          ) : (
+            <>
+              {pending.length > 0 && (
+                <InboxSection title="Awaiting Your Response" accent="amber" count={pending.length}>
+                  {pending.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
+                </InboxSection>
+              )}
 
-          {other.length > 0 && (
-            <InboxSection title="Other" accent="slate" count={other.length}>
-              {other.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
-            </InboxSection>
+              {submitted.length > 0 && (
+                <InboxSection title="Submitted" accent="emerald" count={submitted.length}>
+                  {submitted.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
+                </InboxSection>
+              )}
+
+              {other.length > 0 && (
+                <InboxSection title="Other" accent="slate" count={other.length}>
+                  {other.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
+                </InboxSection>
+              )}
+            </>
           )}
 
           {totalCount > 0 && (

@@ -6,9 +6,10 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import StatusChip from '@/components/shared/StatusChip';
 import EmptyState from '@/components/shared/EmptyState';
-import LoadingState from '@/components/shared/LoadingState';
 import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { fetchMyPR1s } from '@/lib/pr1';
@@ -18,8 +19,6 @@ import type { StatusVariant } from '@/components/shared/StatusChip';
 import { FileText, Plus, Eye, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const STATUS_MAP: Record<string, StatusVariant> = {
   draft:                'draft',
@@ -69,6 +68,48 @@ export default function PR1ListPage() {
       .finally(() => setLoading(false));
   }, [profile, currentPage, rowsPerPage, router, selectedStatus, appliedSearch]);
 
+  // Filter configuration for FilterBar
+  const filters: FilterConfig[] = [
+    {
+      type: 'search',
+      id: 'pr1-search',
+      label: 'Search',
+      placeholder: 'PR1 number or purpose...',
+      value: search,
+      onChange: (value) => setSearch(value as string),
+    },
+    {
+      type: 'select',
+      id: 'pr1-status',
+      label: 'Status',
+      placeholder: 'All statuses',
+      value: selectedStatus,
+      onChange: (value) => {
+        setSelectedStatus(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all', label: 'All statuses' },
+        ...(Object.keys(PR1_STATUS_LABELS) as PR1Status[]).map((key) => ({
+          value: key,
+          label: PR1_STATUS_LABELS[key],
+        })),
+      ],
+    },
+  ];
+
+  const handleApply = () => {
+    setAppliedSearch(search);
+    setCurrentPage(1);
+  };
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setSelectedStatus('all');
+    setCurrentPage(1);
+  };
+
   return (
     <AppShell title="My Requests">
       <PageHeader
@@ -85,64 +126,15 @@ export default function PR1ListPage() {
         }
       />
 
-      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="pr1-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-            Search
-          </Label>
-          <div className="flex gap-2">
-            <input
-              id="pr1-search"
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
-              placeholder="PR1 number or purpose..."
-              disabled={loading}
-              className="flex-1 px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
-            />
-            <button
-              onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
-              disabled={loading}
-              className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
-            >
-              Apply
-            </button>
-            <button
-              onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
-              disabled={loading}
-              className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="pr1-status" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-            Status
-          </Label>
-          <Select
-            value={selectedStatus}
-            onValueChange={(s) => {
-              setSelectedStatus(s);
-              setCurrentPage(1);
-            }}
-            disabled={loading}
-          >
-            <SelectTrigger id="pr1-status" className="text-sm">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {(Object.keys(PR1_STATUS_LABELS) as PR1Status[]).map((key) => (
-                <SelectItem key={key} value={key}>
-                  {PR1_STATUS_LABELS[key]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <FilterBar
+        filters={filters}
+        onApply={handleApply}
+        onClear={handleClear}
+        loading={loading}
+        resultCount={totalCount}
+        resultLabel="request"
+        className="mb-4"
+      />
 
       {loading ? (
         <TableSkeleton rows={5} cols={7} />

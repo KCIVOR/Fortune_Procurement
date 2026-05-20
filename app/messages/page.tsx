@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import AppShell from '@/components/layout/AppShell';
+import AppShell, { useSidebarState } from '@/components/layout/AppShell';
 import { ConversationList, UserSearch } from '@/components/messages';
 import { MessageThread } from '@/components/messages';
 import { useAuth } from '@/context/AuthContext';
@@ -10,6 +10,7 @@ import type { Profile } from '@/types/database';
 import { createOrGetConversation, type ConversationWithProfiles, type ProfileInfo } from '@/lib/messages';
 import { MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 /**
  * Hook to detect if viewport is mobile (< 768px)
@@ -29,7 +30,16 @@ function useIsMobile() {
 }
 
 export default function MessagesPage() {
+  return (
+    <AppShell title="Messages">
+      <MessagesContent />
+    </AppShell>
+  );
+}
+
+function MessagesContent() {
   const { profile, loading } = useAuth();
+  const { isCollapsed } = useSidebarState();
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithProfiles | null>(null);
   const isMobile = useIsMobile();
 
@@ -73,30 +83,33 @@ export default function MessagesPage() {
 
   if (loading || !profile) {
     return (
-      <AppShell title="Messages">
-        <div className="flex items-center justify-center h-64">
-          <LoadingState message="Loading messages..." />
-        </div>
-      </AppShell>
+      <div className="flex items-center justify-center h-64">
+        <LoadingState message="Loading messages..." />
+      </div>
     );
   }
 
   // During SSR/hydration, show a loading state to prevent layout shift
   if (isMobile === undefined) {
     return (
-      <AppShell title="Messages">
-        <div className="fixed inset-0 top-[64px] left-0 lg:left-[240px] right-0 bottom-0 p-6">
-          <div className="bg-white rounded-lg border border-pq-neutral-200 shadow-sm overflow-hidden h-full flex flex-col items-center justify-center">
-            <LoadingState message="Loading..." size="sm" />
-          </div>
+      <div className={cn(
+        'fixed inset-0 top-[64px] left-0 right-0 bottom-0 p-6 transition-all duration-200',
+        'lg:left-[240px]',
+        isCollapsed && 'lg:left-16'
+      )}>
+        <div className="bg-white rounded-lg border border-pq-neutral-200 shadow-sm overflow-hidden h-full flex flex-col items-center justify-center">
+          <LoadingState message="Loading..." size="sm" />
         </div>
-      </AppShell>
+      </div>
     );
   }
 
   return (
-    <AppShell title="Messages">
-      <div className="fixed inset-0 top-[64px] left-0 lg:left-[240px] right-0 bottom-0 p-6">
+    <div className={cn(
+      'fixed inset-0 top-[64px] left-0 right-0 bottom-0 p-6 transition-all duration-200',
+      'lg:left-[240px]',
+      isCollapsed && 'lg:left-16'
+    )}>
         <div className="bg-white rounded-lg border border-pq-neutral-200 shadow-sm overflow-hidden h-full flex flex-col">
         {isMobile ? (
           /* Mobile: single-panel layout - only ONE component instance */
@@ -182,7 +195,6 @@ export default function MessagesPage() {
           </div>
         )}
       </div>
-      </div>
-    </AppShell>
+    </div>
   );
 }

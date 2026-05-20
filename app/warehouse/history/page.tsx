@@ -8,6 +8,8 @@ import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { useAuth } from '@/context/AuthContext';
 import { fetchMyWarehouseValidationHistoryPaged } from '@/lib/warehouse-history';
 import { PR1_STATUS_LABELS, type PR1Status } from '@/types/pr1';
@@ -149,104 +151,52 @@ export default function WarehouseHistoryPage() {
         description="PR1 stock validations you have completed."
       />
 
-      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-5 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="md:col-span-2">
-            <label htmlFor="warehouse-history-search" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
-              Search
-            </label>
-            <input
-              id="warehouse-history-search"
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="PR1 number, purpose, department, or notes…"
-              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 placeholder:text-pq-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label htmlFor="warehouse-history-decision" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
-              Decision
-            </label>
-            <select
-              id="warehouse-history-decision"
-              value={decisionFilter}
-              onChange={(e) => setDecisionFilter(e.target.value as WarehouseHistoryDecisionFilter)}
-              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
-              disabled={loading}
-            >
-              {DECISION_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={clearFilters}
-              disabled={loading}
-              className="w-full md:w-auto px-4 py-2 rounded-md border border-pq-neutral-200 text-sm font-semibold text-pq-neutral-500 hover:bg-pq-neutral-50 hover:border-pq-primary-600 transition disabled:opacity-50"
-            >
-              Clear filters
-            </button>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div className="lg:col-span-1">
-            <label htmlFor="warehouse-history-pr1-status" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
-              PR1 status
-            </label>
-            <select
-              id="warehouse-history-pr1-status"
-              value={pr1StatusFilter}
-              onChange={(e) => setPr1StatusFilter(e.target.value as PR1Status | 'all')}
-              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
-              disabled={loading}
-            >
-              {PR1_STATUS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="warehouse-history-from" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
-              Validated from
-            </label>
-            <input
-              id="warehouse-history-from"
-              type="date"
-              value={validatedFrom}
-              onChange={(e) => setValidatedFrom(e.target.value)}
-              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label htmlFor="warehouse-history-to" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
-              Validated to
-            </label>
-            <input
-              id="warehouse-history-to"
-              type="date"
-              value={validatedTo}
-              onChange={(e) => setValidatedTo(e.target.value)}
-              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
-              disabled={loading}
-            />
-          </div>
-        </div>
-        {!loading && !error ? (
-          <p className="text-xs text-pq-neutral-500">
-            <span className="font-semibold text-pq-neutral-900">{totalCount}</span> validation
-            {totalCount !== 1 ? 's' : ''} found
-          </p>
-        ) : null}
-      </div>
+      <FilterBar
+        filters={[
+          {
+            type: 'search',
+            id: 'warehouse-history-search',
+            label: 'Search',
+            placeholder: 'PR1 number, purpose, department, or notes…',
+            value: searchInput,
+            onChange: (value) => setSearchInput(value as string),
+          },
+          {
+            type: 'select',
+            id: 'warehouse-history-decision',
+            label: 'Decision',
+            placeholder: 'All decisions',
+            value: decisionFilter,
+            onChange: (value) => setDecisionFilter(value as WarehouseHistoryDecisionFilter),
+            options: DECISION_OPTIONS,
+          },
+          {
+            type: 'select',
+            id: 'warehouse-history-pr1-status',
+            label: 'PR1 Status',
+            placeholder: 'All PR1 statuses',
+            value: pr1StatusFilter,
+            onChange: (value) => setPr1StatusFilter(value as PR1Status | 'all'),
+            options: PR1_STATUS_OPTIONS,
+          },
+          {
+            type: 'dateRange',
+            id: 'warehouse-history-date',
+            label: 'Validated',
+            value: [validatedFrom, validatedTo],
+            onChange: (value) => {
+              const [from, to] = value as [string, string];
+              setValidatedFrom(from);
+              setValidatedTo(to);
+            },
+          },
+        ] as FilterConfig[]}
+        onClear={clearFilters}
+        loading={loading}
+        resultCount={!error ? totalCount : undefined}
+        resultLabel="validation"
+        className="mb-5"
+      />
 
       {loading ? (
         <TableSkeleton rows={5} cols={8} />

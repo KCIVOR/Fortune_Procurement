@@ -7,14 +7,16 @@ import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
+import { StatCard } from '@/components/shared/StatCard';
 import { fetchSupplierPOsPaged, fetchSupplierPOStatCounts } from '@/lib/po-approvals';
 import { useAuth } from '@/context/AuthContext';
 import type { SupplierPORow } from '@/types/po';
 import {
   ShoppingCart, ArrowRight, Clock, CircleCheck as CheckCircle2,
-  CalendarDays, CreditCard, Warehouse, Search,
+  CalendarDays, CreditCard, Warehouse,
 } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 
 const PO_STATUS_BADGE: Record<string, string> = {
@@ -73,6 +75,46 @@ export default function SupplierPOPage() {
   const acknowledged = rows.filter(r => r.receipt || r.po_status === 'sent');
   const totalPages   = Math.ceil(totalCount / rowsPerPage);
 
+  // Filter configuration for FilterBar
+  const filters: FilterConfig[] = [
+    {
+      type: 'search',
+      id: 'supplier-po-search',
+      label: 'Search',
+      placeholder: 'Search PO number or purpose...',
+      value: search,
+      onChange: (value) => setSearch(value as string),
+    },
+    {
+      type: 'select',
+      id: 'supplier-po-status',
+      label: 'Status',
+      placeholder: 'All Statuses',
+      value: selectedStatus,
+      onChange: (value) => {
+        setSelectedStatus(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all', label: 'All Statuses' },
+        { value: 'approved', label: 'Awaiting Acknowledgment' },
+        { value: 'sent', label: 'Acknowledged' },
+      ],
+    },
+  ];
+
+  const handleApply = () => {
+    setAppliedSearch(search);
+    setCurrentPage(1);
+  };
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setSelectedStatus('all');
+    setCurrentPage(1);
+  };
+
   return (
     <AppShell title="Purchase Orders">
       <PageHeader
@@ -80,49 +122,38 @@ export default function SupplierPOPage() {
         description="Purchase orders issued to your company. Acknowledge receipt and confirm your delivery commitment date."
       />
 
-      {/* Filter bar */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <div className="relative flex-1 flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
-            <input
-              type="text"
-              placeholder="Search PO number or purpose..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
-            />
-          </div>
-          <button
-            onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
-            disabled={loading}
-            className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
-          >
-            Apply
-          </button>
-          <button
-            onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
-            disabled={loading}
-            className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
-          >
-            Clear
-          </button>
-        </div>
-        <Select
-          value={selectedStatus}
-          onValueChange={(v) => { setSelectedStatus(v); setCurrentPage(1); }}
-        >
-          <SelectTrigger className="w-full sm:w-44 text-sm border-pq-neutral-200">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="approved">Awaiting Acknowledgment</SelectItem>
-            <SelectItem value="sent">Acknowledged</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Stats - KPI Cards first */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <StatCard 
+          label="Awaiting Acknowledgment" 
+          value={statCounts.pending} 
+          accent="amber"
+          icon={<Clock className="w-5 h-5" />}
+        />
+        <StatCard 
+          label="Acknowledged" 
+          value={statCounts.acknowledged} 
+          accent="green"
+          icon={<CheckCircle2 className="w-5 h-5" />}
+        />
+        <StatCard 
+          label="Total POs" 
+          value={statCounts.total} 
+          accent="blue"
+          icon={<ShoppingCart className="w-5 h-5" />}
+        />
       </div>
+
+      {/* Filter bar */}
+      <FilterBar
+        filters={filters}
+        onApply={handleApply}
+        onClear={handleClear}
+        loading={loading}
+        resultCount={totalCount}
+        resultLabel="purchase order"
+        className="mb-6"
+      />
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
@@ -140,13 +171,6 @@ export default function SupplierPOPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard label="Awaiting Acknowledgment" value={statCounts.pending}      color="amber"   icon={Clock} />
-            <StatCard label="Acknowledged"            value={statCounts.acknowledged} color="emerald" icon={CheckCircle2} />
-            <StatCard label="Total POs"               value={statCounts.total}        color="slate"   icon={ShoppingCart} />
-          </div>
-
           {pending.length > 0 && (
             <POSection title="Awaiting Your Acknowledgment" accent="amber">
               {pending.map(row => <PORow key={row.po_id} row={row} />)}
@@ -257,34 +281,6 @@ function POSection({
         <h2 className="text-sm font-semibold text-pq-neutral-900">{title}</h2>
       </div>
       <div className="divide-y divide-pq-neutral-200">{children}</div>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  color,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  color: 'amber' | 'emerald' | 'slate';
-  icon: React.ElementType;
-}) {
-  const colorClass = {
-    amber:   'text-pq-warning-600 bg-pq-warning-100',
-    emerald: 'text-pq-success-600 bg-pq-success-100',
-    slate:   'text-pq-neutral-500 bg-pq-neutral-50',
-  }[color];
-
-  return (
-    <div className="bg-white rounded-md border border-pq-neutral-200 p-4">
-      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-md mb-3 ${colorClass}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <p className="text-2xl font-bold text-pq-neutral-900">{value}</p>
-      <p className="text-xs text-pq-neutral-500 mt-0.5">{label}</p>
     </div>
   );
 }

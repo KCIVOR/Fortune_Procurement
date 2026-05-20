@@ -5,16 +5,16 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
-import LoadingState from '@/components/shared/LoadingState';
 import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { fetchCanvassingQueuePaged, createRfq } from '@/lib/canvassing';
 import { useAuth } from '@/context/AuthContext';
 import type { CanvassingQueueRow } from '@/types/canvassing';
-import { SendHorizontal as SendHorizonal, ArrowRight, Clock, Plus, CalendarDays, Building2, CircleDot, CheckCheck, CircleAlert as AlertCircle, TriangleAlert as AlertTriangle, Search } from 'lucide-react';
+import { SendHorizontal as SendHorizonal, ArrowRight, Clock, Plus, CalendarDays, Building2, CircleDot, CheckCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
-import { Label } from '@/components/ui/label';
 
 const RFQ_STATUS_LABEL: Record<string, string> = {
   draft:     'Draft',
@@ -94,6 +94,29 @@ export default function RFQQueuePage() {
     }
   };
 
+  // Filter configuration for FilterBar
+  const filters: FilterConfig[] = [
+    {
+      type: 'search',
+      id: 'rfq-search',
+      label: 'Search',
+      placeholder: 'PR1 number, purpose, department, requester, or RFQ number…',
+      value: search,
+      onChange: (value) => setSearch(value as string),
+    },
+  ];
+
+  const handleApply = () => {
+    setAppliedSearch(search);
+    setCurrentPage(1);
+  };
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setCurrentPage(1);
+  };
+
   return (
     <AppShell title="Canvassing Queue">
       <PageHeader
@@ -101,42 +124,15 @@ export default function RFQQueuePage() {
         description="PR1s approved for canvassing. Create and manage RFQs to collect supplier quotations."
       />
 
-      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-4">
-        <Label htmlFor="rfq-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide block mb-1.5">
-          Search
-        </Label>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
-            <input
-              id="rfq-search"
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
-              placeholder="PR1 number, purpose, department, requester, or RFQ number…"
-              disabled={loading}
-              className="w-full pl-9 pr-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
-            disabled={loading}
-            className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
-          >
-            Apply
-          </button>
-          <button
-            type="button"
-            onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
-            disabled={loading}
-            className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
-          >
-            Clear
-          </button>
-        </div>
-      </div>
+      <FilterBar
+        filters={filters}
+        onApply={handleApply}
+        onClear={handleClear}
+        loading={loading}
+        resultCount={totalCount}
+        resultLabel="item"
+        className="mb-4"
+      />
 
       {loading ? (
         <TableSkeleton rows={5} cols={5} />

@@ -6,7 +6,9 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import StatusChip from '@/components/shared/StatusChip';
-import StatusFilterTabs from '@/components/shared/StatusFilterTabs';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig, TabFilter } from '@/components/shared/FilterBar.types';
+import PaginationControls from '@/components/shared/PaginationControls';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { getAllProductsForProcurement } from '@/lib/supplier-products';
@@ -35,6 +37,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 type FilterKey = 'pending' | 'tsqa' | 'verified' | 'rejected' | 'all';
 
 const PENDING_STATUSES = ['submitted', 'under_review'];
+const PAGE_SIZE = 20;
 
 function getFilteredRows(rows: ProductQueueRow[], filter: FilterKey): ProductQueueRow[] {
   switch (filter) {
@@ -59,6 +62,9 @@ export default function ProductReviewQueuePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [activeTab, setActiveTab] = useState<FilterKey>('pending');
+  const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     setLoading(true);
@@ -80,19 +86,47 @@ export default function ProductReviewQueuePage() {
     all:      allRows.length,
   }), [allRows]);
 
-  // Filter rows based on active tab
-  const filteredRows = useMemo(
-    () => getFilteredRows(allRows, activeTab),
-    [allRows, activeTab]
+  // Filter rows based on active tab and search
+  const filteredRows = useMemo(() => {
+    let rows = getFilteredRows(allRows, activeTab);
+    if (appliedSearch.trim()) {
+      const searchLower = appliedSearch.toLowerCase();
+      rows = rows.filter(r =>
+        r.product_name.toLowerCase().includes(searchLower) ||
+        (r.supplier_full_name && r.supplier_full_name.toLowerCase().includes(searchLower)) ||
+        (r.product_code && r.product_code.toLowerCase().includes(searchLower)) ||
+        (r.category && r.category.toLowerCase().includes(searchLower))
+      );
+    }
+    return rows;
+  }, [allRows, activeTab, appliedSearch]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const paginatedRows = filteredRows.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
   );
 
-  const tabs = [
-    { key: 'pending',  label: 'Pending',  count: counts.pending },
-    { key: 'tsqa',     label: 'Under TSQA', count: counts.tsqa },
-    { key: 'verified', label: 'Verified', count: counts.verified },
-    { key: 'rejected', label: 'Rejected', count: counts.rejected },
-    { key: 'all',      label: 'All',      count: counts.all },
+  const tabs: TabFilter[] = [
+    { value: 'pending',  label: `Pending (${counts.pending})` },
+    { value: 'tsqa',     label: `Under TSQA (${counts.tsqa})` },
+    { value: 'verified', label: `Verified (${counts.verified})` },
+    { value: 'rejected', label: `Rejected (${counts.rejected})` },
+    { value: 'all',      label: `All (${counts.all})` },
   ];
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setActiveTab('pending');
+    setCurrentPage(1);
+  };
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, appliedSearch]);
 
   return (
     <AppShell title="Product Review">
@@ -101,15 +135,29 @@ export default function ProductReviewQueuePage() {
         description="Review products submitted by suppliers for procurement verification. Verify directly or create an RSE for TSQA evaluation."
       />
 
-      {/* Status Filter Tabs */}
+      {/* FilterBar with tabs and search */}
       {!loading && !error && (
-        <div className="mb-4">
-          <StatusFilterTabs
-            tabs={tabs}
-            activeTab={activeTab}
-            onTabChange={(key) => setActiveTab(key as FilterKey)}
-          />
-        </div>
+        <FilterBar
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={(value) => setActiveTab(value as FilterKey)}
+          filters={[
+            {
+              type: 'search',
+              id: 'product-search',
+              label: 'Search',
+              placeholder: 'Search by product name, supplier, code, or category...',
+              value: search,
+              onChange: (value) => setSearch(value as string),
+            },
+          ] as FilterConfig[]}
+          onApply={() => { setAppliedSearch(search); setCurrentPage(1); }}
+          onClear={handleClear}
+          loading={loading}
+          resultCount={filteredRows.length}
+          resultLabel="product"
+          className="mb-4"
+        />
       )}
 
       {loading ? (
@@ -131,19 +179,32 @@ export default function ProductReviewQueuePage() {
           />
         </div>
       ) : (
-        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-          {/* Column headers */}
-          <div className="hidden md:grid grid-cols-[1fr_1fr_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Product</p>
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
-            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</p>
+        <div className="space-y-4">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            {/* Column headers */}
+            <div className="hidden md:grid grid-cols-[1fr_1fr_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Product</p>
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
+              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</p>
+            </div>
+            <div className="divide-y divide-pq-neutral-200">
+              {paginatedRows.map(row => (
+                <ProductQueueRowItem key={row.id} row={row} />
+              ))}
+            </div>
           </div>
-          <div className="divide-y divide-pq-neutral-200">
-            {filteredRows.map(row => (
-              <ProductQueueRowItem key={row.id} row={row} />
-            ))}
-          </div>
+
+          {/* Pagination */}
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={PAGE_SIZE}
+            totalCount={filteredRows.length}
+            entityLabel="products"
+            loading={loading}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
     </AppShell>

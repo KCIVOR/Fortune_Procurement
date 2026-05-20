@@ -8,6 +8,8 @@ import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig, TabFilter } from '@/components/shared/FilterBar.types';
 import { useAuth } from '@/context/AuthContext';
 import { fetchMyApprovalHistoryPaged } from '@/lib/approval-history';
 import type {
@@ -166,107 +168,46 @@ export default function ApprovalsHistoryPage() {
         description="Purchase requests you have approved, rejected, or marked for revision."
       />
 
-      <div className="flex gap-2 flex-wrap mb-4">
-        {TABS.map((t) => {
-          const active = documentType === t.value;
-          return (
-            <button
-              key={t.value}
-              type="button"
-              onClick={() => setTabAndResetPage(t.value)}
-              disabled={loading}
-              className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold border transition ${
-                active
-                  ? 'bg-pq-neutral-900 text-white border-pq-primary-600'
-                  : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:border-pq-primary-600 hover:bg-pq-neutral-50'
-              } disabled:opacity-50`}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-5 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="md:col-span-2">
-            <label htmlFor="approval-history-search" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
-              Search
-            </label>
-            <input
-              id="approval-history-search"
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search document number or remarks…"
-              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 placeholder:text-pq-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label htmlFor="approval-history-action" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
-              Your action
-            </label>
-            <select
-              id="approval-history-action"
-              value={actionFilter}
-              onChange={(e) => setActionFilter(e.target.value as ApprovalHistoryActionFilter)}
-              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
-              disabled={loading}
-            >
-              {ACTION_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={clearFilters}
-              disabled={loading}
-              className="w-full md:w-auto px-4 py-2 rounded-md border border-pq-neutral-200 text-sm font-semibold text-pq-neutral-500 hover:bg-pq-neutral-50 hover:border-pq-primary-600 transition disabled:opacity-50"
-            >
-              Clear filters
-            </button>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="approval-history-from" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
-              Signed from
-            </label>
-            <input
-              id="approval-history-from"
-              type="date"
-              value={actedAtFrom}
-              onChange={(e) => setActedAtFrom(e.target.value)}
-              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label htmlFor="approval-history-to" className="block text-xs font-semibold text-pq-neutral-500 mb-1">
-              Signed to
-            </label>
-            <input
-              id="approval-history-to"
-              type="date"
-              value={actedAtTo}
-              onChange={(e) => setActedAtTo(e.target.value)}
-              className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm text-pq-neutral-900 focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]/30 focus:border-pq-primary-600"
-              disabled={loading}
-            />
-          </div>
-        </div>
-        {!loading && !error ? (
-          <p className="text-xs text-pq-neutral-500">
-            <span className="font-semibold text-pq-neutral-900">{totalCount}</span> action
-            {totalCount !== 1 ? 's' : ''} found
-          </p>
-        ) : null}
-      </div>
+      <FilterBar
+        tabs={TABS.map((t) => ({ value: t.value, label: t.label }))}
+        activeTab={documentType}
+        onTabChange={(value) => setTabAndResetPage(value as ApprovalHistoryDocumentFilter)}
+        filters={[
+          {
+            type: 'search',
+            id: 'approval-history-search',
+            label: 'Search',
+            placeholder: 'Search document number or remarks…',
+            value: searchInput,
+            onChange: (value) => setSearchInput(value as string),
+          },
+          {
+            type: 'select',
+            id: 'approval-history-action',
+            label: 'Your Action',
+            placeholder: 'Select action',
+            value: actionFilter,
+            onChange: (value) => setActionFilter(value as ApprovalHistoryActionFilter),
+            options: ACTION_OPTIONS,
+          },
+          {
+            type: 'dateRange',
+            id: 'approval-history-date',
+            label: 'Signed',
+            value: [actedAtFrom, actedAtTo],
+            onChange: (value) => {
+              const [from, to] = value as [string, string];
+              setActedAtFrom(from);
+              setActedAtTo(to);
+            },
+          },
+        ]}
+        onClear={clearFilters}
+        loading={loading}
+        resultCount={!error ? totalCount : undefined}
+        resultLabel="action"
+        className="mb-5"
+      />
 
       {error ? (
         <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600 mb-4">

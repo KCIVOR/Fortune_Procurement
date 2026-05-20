@@ -6,6 +6,8 @@ import AppShell from '@/components/layout/AppShell';
 import { CardListSkeleton } from '@/components/shared/structural-skeletons';
 import EmptyState from '@/components/shared/EmptyState';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig, TabFilter } from '@/components/shared/FilterBar.types';
 import { useAuth } from '@/context/AuthContext';
 import type { DeliveryListTab } from '@/lib/delivery';
 import {
@@ -15,8 +17,7 @@ import {
 import type { Delivery, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
 import { format } from 'date-fns';
-import { Truck, Package, Calendar, Building2, ChevronRight, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban, Search } from 'lucide-react';
-import { Label } from '@/components/ui/label';
+import { Truck, Package, Calendar, Building2, ChevronRight, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban } from 'lucide-react';
 
 const STATUS_CONFIG: Record<DeliveryStatus, {
   label: string;
@@ -98,8 +99,42 @@ export default function DeliveryQueuePage() {
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
-  const setFilterAndResetPage = (s: DeliveryListTab) => {
-    setFilter(s);
+  // Tab configuration for FilterBar
+  const tabs: TabFilter[] = [
+    { value: 'all', label: `All (${counts.all})` },
+    { value: 'pending', label: `${DELIVERY_STATUS_LABELS.pending} (${counts.pending})` },
+    { value: 'scheduled', label: `${DELIVERY_STATUS_LABELS.scheduled} (${counts.scheduled})` },
+    { value: 'in_transit', label: `${DELIVERY_STATUS_LABELS.in_transit} (${counts.in_transit})` },
+    { value: 'delayed', label: `${DELIVERY_STATUS_LABELS.delayed} (${counts.delayed})` },
+    { value: 'delivered', label: `${DELIVERY_STATUS_LABELS.delivered} (${counts.delivered})` },
+  ];
+
+  // Filter configuration for FilterBar
+  const filters: FilterConfig[] = [
+    {
+      type: 'search',
+      id: 'delivery-search',
+      label: 'Search',
+      placeholder: 'PO number, purpose, supplier, or warehouse...',
+      value: search,
+      onChange: (value) => setSearch(value as string),
+    },
+  ];
+
+  const handleTabChange = (value: string) => {
+    setFilter(value as DeliveryListTab);
+    setCurrentPage(1);
+  };
+
+  const handleApply = () => {
+    setAppliedSearch(search);
+    setCurrentPage(1);
+  };
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setFilter('all');
     setCurrentPage(1);
   };
 
@@ -136,66 +171,19 @@ export default function DeliveryQueuePage() {
         </div>
       )}
 
-      {/* Search filter */}
-      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 mb-4">
-        <Label htmlFor="delivery-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide block mb-1.5">
-          Search
-        </Label>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
-            <input
-              id="delivery-search"
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
-              placeholder="PO number, purpose, supplier, or warehouse..."
-              disabled={loading}
-              className="w-full pl-9 pr-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
-            />
-          </div>
-          <button
-            onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
-            disabled={loading}
-            className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
-          >
-            Apply
-          </button>
-          <button
-            onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
-            disabled={loading}
-            className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
-          >
-            Clear
-          </button>
-        </div>
-      </div>
-
-      {/* Status filter tabs */}
-      <div className="flex gap-2 flex-wrap mb-5">
-        {(['all', 'pending', 'scheduled', 'in_transit', 'delayed', 'delivered'] as const).map(s => {
-          const count = counts[s] ?? 0;
-          const active = filter === s;
-          return (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setFilterAndResetPage(s)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition ${
-                active
-                  ? 'bg-pq-neutral-900 text-white border-pq-primary-600'
-                  : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:border-pq-primary-600 hover:bg-pq-neutral-50'
-              }`}
-            >
-              {s === 'all' ? 'All' : DELIVERY_STATUS_LABELS[s]}
-              <span className={`inline-flex items-center justify-center rounded-full text-xs min-w-[18px] h-[18px] px-1 ${
-                active ? 'bg-white/20 text-white' : 'bg-pq-neutral-50 text-pq-neutral-500'
-              }`}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* FilterBar with tabs */}
+      <FilterBar
+        tabs={tabs}
+        activeTab={filter}
+        onTabChange={handleTabChange}
+        filters={filters}
+        onApply={handleApply}
+        onClear={handleClear}
+        loading={loading}
+        resultCount={totalCount}
+        resultLabel="delivery"
+        className="mb-5"
+      />
 
       {loading ? (
         <CardListSkeleton cards={4} />

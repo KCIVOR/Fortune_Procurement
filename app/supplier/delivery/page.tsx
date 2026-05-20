@@ -7,12 +7,13 @@ import LoadingState from '@/components/shared/LoadingState';
 import EmptyState from '@/components/shared/EmptyState';
 import { useAuth } from '@/context/AuthContext';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { fetchSupplierDeliveriesPaged, fetchSupplierDeliveryStatCounts } from '@/lib/delivery';
 import type { Delivery, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
 import { format } from 'date-fns';
-import { Truck, Building2, Package, Calendar, ChevronRight, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban, Search } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Truck, Package, Calendar, ChevronRight, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban } from 'lucide-react';
 
 const STATUS_CONFIG: Record<DeliveryStatus, {
   bg: string; text: string; border: string; icon: React.ElementType; actionLabel: string;
@@ -72,6 +73,49 @@ export default function SupplierDeliveryQueuePage() {
   const completed = deliveries.filter(d => d.status === 'delivered' || d.status === 'cancelled');
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
+  // Filter configuration for FilterBar
+  const filters: FilterConfig[] = [
+    {
+      type: 'search',
+      id: 'supplier-delivery-search',
+      label: 'Search',
+      placeholder: 'Search PO number or purpose...',
+      value: search,
+      onChange: (value) => setSearch(value as string),
+    },
+    {
+      type: 'select',
+      id: 'supplier-delivery-status',
+      label: 'Status',
+      placeholder: 'All Statuses',
+      value: selectedStatus,
+      onChange: (value) => {
+        setSelectedStatus(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all', label: 'All Statuses' },
+        { value: 'pending', label: 'Pending' },
+        { value: 'scheduled', label: 'Scheduled' },
+        { value: 'in_transit', label: 'In Transit' },
+        { value: 'delayed', label: 'Delayed' },
+        { value: 'delivered', label: 'Delivered' },
+      ],
+    },
+  ];
+
+  const handleApply = () => {
+    setAppliedSearch(search);
+    setCurrentPage(1);
+  };
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setSelectedStatus('all');
+    setCurrentPage(1);
+  };
+
   if (loading) return (
     <AppShell title="My Deliveries">
       <div className="flex items-center justify-center h-64">
@@ -104,49 +148,15 @@ export default function SupplierDeliveryQueuePage() {
       </div>
 
       {/* Filter bar */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <div className="relative flex-1 flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pq-neutral-400" />
-            <input
-              type="text"
-              placeholder="Search PO number or purpose..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
-            />
-          </div>
-          <button
-            onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
-            className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition whitespace-nowrap"
-          >
-            Apply
-          </button>
-          <button
-            onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
-            className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition whitespace-nowrap"
-          >
-            Clear
-          </button>
-        </div>
-        <Select
-          value={selectedStatus}
-          onValueChange={(v) => { setSelectedStatus(v); setCurrentPage(1); }}
-        >
-          <SelectTrigger className="w-full sm:w-44 text-sm border-pq-neutral-200">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="scheduled">Scheduled</SelectItem>
-            <SelectItem value="in_transit">In Transit</SelectItem>
-            <SelectItem value="delayed">Delayed</SelectItem>
-            <SelectItem value="delivered">Delivered</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <FilterBar
+        filters={filters}
+        onApply={handleApply}
+        onClear={handleClear}
+        loading={loading}
+        resultCount={totalCount}
+        resultLabel="delivery"
+        className="mb-4"
+      />
 
       {error && (
         <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600 mb-4">{error}</div>

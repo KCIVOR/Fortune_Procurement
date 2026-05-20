@@ -6,7 +6,8 @@ import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import StatusChip from '@/components/shared/StatusChip';
-import StatusFilterTabs from '@/components/shared/StatusFilterTabs';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig, TabFilter } from '@/components/shared/FilterBar.types';
 import PaginationControls from '@/components/shared/PaginationControls';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/context/AuthContext';
@@ -57,6 +58,8 @@ export default function BugTrackPage() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterKey>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
 
   const fetchBugs = async () => {
     setLoading(true);
@@ -77,7 +80,7 @@ export default function BugTrackPage() {
   // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab]);
+  }, [activeTab, appliedSearch]);
 
   // Compute counts for tabs
   const counts = useMemo(() => ({
@@ -89,7 +92,19 @@ export default function BugTrackPage() {
   }), [bugs]);
 
   // Filter and paginate
-  const filteredBugs = useMemo(() => getFilteredBugs(bugs, activeTab), [bugs, activeTab]);
+  const filteredBugs = useMemo(() => {
+    let result = getFilteredBugs(bugs, activeTab);
+    if (appliedSearch.trim()) {
+      const searchLower = appliedSearch.toLowerCase();
+      result = result.filter(b =>
+        b.title.toLowerCase().includes(searchLower) ||
+        b.location.toLowerCase().includes(searchLower) ||
+        (b.reporter?.full_name && b.reporter.full_name.toLowerCase().includes(searchLower))
+      );
+    }
+    return result;
+  }, [bugs, activeTab, appliedSearch]);
+  
   const totalPages = Math.max(1, Math.ceil(filteredBugs.length / PAGE_SIZE));
   const paginatedBugs = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -103,13 +118,19 @@ export default function BugTrackPage() {
     resolved: bugs.filter(b => b.status === 'resolved').length,
   };
 
-  const tabs = [
-    { key: 'all',         label: 'All',         count: counts.all },
-    { key: 'open',        label: 'Open',        count: counts.open },
-    { key: 'in_progress', label: 'In Progress', count: counts.in_progress },
-    { key: 'resolved',    label: 'Resolved',    count: counts.resolved },
-    { key: 'closed',      label: 'Closed',      count: counts.closed },
+  const tabs: TabFilter[] = [
+    { value: 'all',         label: `All (${counts.all})` },
+    { value: 'open',        label: `Open (${counts.open})` },
+    { value: 'in_progress', label: `In Progress (${counts.in_progress})` },
+    { value: 'resolved',    label: `Resolved (${counts.resolved})` },
+    { value: 'closed',      label: `Closed (${counts.closed})` },
   ];
+
+  const handleClear = () => {
+    setSearch('');
+    setAppliedSearch('');
+    setActiveTab('all');
+  };
 
   return (
     <AppShell title="Bug Track">
@@ -147,12 +168,27 @@ export default function BugTrackPage() {
           <StatCard label="Resolved" value={stats.resolved} icon={CheckCircle2} color="success" />
         </div>
 
-        {/* Status Filter Tabs */}
+        {/* FilterBar with tabs and search */}
         {!loading && (
-          <StatusFilterTabs
+          <FilterBar
             tabs={tabs}
             activeTab={activeTab}
-            onTabChange={(key) => setActiveTab(key as FilterKey)}
+            onTabChange={(value) => setActiveTab(value as FilterKey)}
+            filters={[
+              {
+                type: 'search',
+                id: 'bug-search',
+                label: 'Search',
+                placeholder: 'Search by title, location, or reporter...',
+                value: search,
+                onChange: (value) => setSearch(value as string),
+              },
+            ] as FilterConfig[]}
+            onApply={() => setAppliedSearch(search)}
+            onClear={handleClear}
+            loading={loading}
+            resultCount={filteredBugs.length}
+            resultLabel="bug"
           />
         )}
 
@@ -187,8 +223,8 @@ export default function BugTrackPage() {
           )}
         </div>
 
-        {/* Pagination */}
-        {!loading && filteredBugs.length > PAGE_SIZE && (
+        {/* Pagination - always show when there are results */}
+        {!loading && filteredBugs.length > 0 && (
           <PaginationControls
             currentPage={currentPage}
             totalPages={totalPages}

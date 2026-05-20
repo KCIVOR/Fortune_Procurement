@@ -13,11 +13,11 @@ import {
   fetchWarehouseQueueStatCounts,
 } from '@/lib/warehouse';
 import type { PR1QueueRow } from '@/types/warehouse';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { PackageSearch, ClipboardCheck, Clock, CircleCheck as CheckCircle2, Circle as XCircle, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function WarehouseQueuePage() {
   const [queue, setQueue] = useState<PR1QueueRow[]>([]);
@@ -73,62 +73,41 @@ export default function WarehouseQueuePage() {
         description="Review incoming purchase requests and validate stock availability."
       />
 
-      <div className="bg-white rounded-md border border-pq-neutral-200 p-4 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="wh-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-            Search
-          </Label>
-          <div className="flex gap-2">
-            <input
-              id="wh-search"
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
-              placeholder="Search PR1, requestor, department, or purpose..."
-              disabled={loading}
-              className="flex-1 px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
-            />
-            <button
-              onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
-              disabled={loading}
-              className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
-            >
-              Apply
-            </button>
-            <button
-              onClick={() => { setSearch(''); setAppliedSearch(''); setCurrentPage(1); }}
-              disabled={loading}
-              className="px-3 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 transition whitespace-nowrap"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="wh-priority" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-            Priority
-          </Label>
-          <Select
-            value={selectedPriority}
-            onValueChange={(v) => {
-              setSelectedPriority(v);
+      <FilterBar
+        filters={[
+          {
+            type: 'search',
+            id: 'wh-search',
+            label: 'Search',
+            placeholder: 'Search PR1, requestor, department, or purpose...',
+            value: search,
+            onChange: (value) => setSearch(value as string),
+          },
+          {
+            type: 'select',
+            id: 'wh-priority',
+            label: 'Priority',
+            placeholder: 'All priorities',
+            value: selectedPriority,
+            onChange: (value) => {
+              setSelectedPriority(value as string);
               setCurrentPage(1);
-            }}
-            disabled={loading}
-          >
-            <SelectTrigger id="wh-priority" className="text-sm">
-              <SelectValue placeholder="All priorities" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priorities</SelectItem>
-              <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            },
+            options: [
+              { value: 'all', label: 'All Priorities' },
+              { value: 'normal', label: 'Normal' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'high', label: 'High' },
+            ],
+          },
+        ] as FilterConfig[]}
+        onApply={() => { setAppliedSearch(search); setCurrentPage(1); }}
+        onClear={() => { setSearch(''); setAppliedSearch(''); setSelectedPriority('all'); setCurrentPage(1); }}
+        loading={loading}
+        resultCount={totalCount}
+        resultLabel="item"
+        className="mb-4"
+      />
 
       {loading ? (
         <TableSkeleton rows={5} cols={9} />

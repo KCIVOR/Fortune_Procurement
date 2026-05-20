@@ -3,21 +3,21 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
-import LoadingState from '@/components/shared/LoadingState';
 import EmptyState from '@/components/shared/EmptyState';
 import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
+import FilterBar from '@/components/shared/FilterBar';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
+import { StatCard } from '@/components/shared/StatCard';
 import { useAuth } from '@/context/AuthContext';
 import { listPOsWithCount, fetchPOStatusCounts } from '@/lib/po';
 import type { POStatusCounts } from '@/lib/po';
 import type { PORequest } from '@/types/po';
 import { PO_STATUS_LABELS } from '@/types/po';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import {
   ShoppingCart, Plus, Building2, User, CalendarDays,
-  FileText, Package, ChevronRight,
+  FileText, Package, ChevronRight, Clock, CircleCheck as CheckCircle2,
 } from 'lucide-react';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -96,12 +96,48 @@ export default function POListPage() {
     }
   }
 
-  function handleResetFilters() {
+  // Filter configuration for FilterBar
+  const filters: FilterConfig[] = [
+    {
+      type: 'search',
+      id: 'po-search',
+      label: 'Search',
+      placeholder: 'PO number or purpose...',
+      value: search,
+      onChange: (value) => setSearch(value as string),
+    },
+    {
+      type: 'select',
+      id: 'po-status',
+      label: 'Status',
+      placeholder: 'All statuses',
+      value: selectedStatus,
+      onChange: (value) => {
+        setSelectedStatus(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all', label: 'All statuses' },
+        { value: 'draft', label: 'Draft' },
+        { value: 'for_approval', label: 'For Approval' },
+        { value: 'approved', label: 'Approved' },
+        { value: 'sent', label: 'Sent' },
+        { value: 'cancelled', label: 'Cancelled' },
+      ],
+    },
+  ];
+
+  const handleApply = () => {
+    setAppliedSearch(search);
+    setCurrentPage(1);
+  };
+
+  const handleClear = () => {
     setSearch('');
     setAppliedSearch('');
     setSelectedStatus('all');
     setCurrentPage(1);
-  }
+  };
 
   return (
     <AppShell title="Purchase Orders">
@@ -125,74 +161,42 @@ export default function POListPage() {
 
       {/* Stats — global totals, independent of active filters/pagination */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total POs"    value={statusCounts.total}        color="slate" />
-        <StatCard label="Draft"        value={statusCounts.draft}        color="slate" />
-        <StatCard label="For Approval" value={statusCounts.for_approval} color="amber" />
-        <StatCard label="Approved"     value={statusCounts.approved}     color="emerald" />
+        <StatCard 
+          label="Total POs" 
+          value={statusCounts.total} 
+          accent="blue"
+          icon={<ShoppingCart className="w-5 h-5" />}
+        />
+        <StatCard 
+          label="Draft" 
+          value={statusCounts.draft} 
+          accent="blue"
+          icon={<FileText className="w-5 h-5" />}
+        />
+        <StatCard 
+          label="For Approval" 
+          value={statusCounts.for_approval} 
+          accent="amber"
+          icon={<Clock className="w-5 h-5" />}
+        />
+        <StatCard 
+          label="Approved" 
+          value={statusCounts.approved} 
+          accent="green"
+          icon={<CheckCircle2 className="w-5 h-5" />}
+        />
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white rounded-md border border-pq-neutral-200 p-6 mb-6 space-y-4">
-        <h3 className="font-semibold text-pq-neutral-900">Filters</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Search */}
-          <div className="space-y-1.5">
-            <Label htmlFor="po-search" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-              Search
-            </Label>
-            <div className="flex gap-2">
-              <input
-                id="po-search"
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { setAppliedSearch(search); setCurrentPage(1); } }}
-                placeholder="PO number or purpose..."
-                disabled={loading}
-                className="flex-1 px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition disabled:opacity-50"
-              />
-              <button
-                onClick={() => { setAppliedSearch(search); setCurrentPage(1); }}
-                disabled={loading}
-                className="px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50 whitespace-nowrap"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-
-          {/* Status Filter */}
-          <div className="space-y-1.5">
-            <Label htmlFor="status-filter" className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-              Status
-            </Label>
-            <Select value={selectedStatus} onValueChange={s => { setSelectedStatus(s); setCurrentPage(1); }} disabled={loading}>
-              <SelectTrigger id="status-filter" className="text-sm">
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="for_approval">For Approval</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Reset Button */}
-          <div className="flex items-end">
-            <button
-              onClick={handleResetFilters}
-              disabled={loading}
-              className="w-full px-3 py-2 text-sm font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            >
-              Clear Filters
-            </button>
-          </div>
-        </div>
-      </div>
+      <FilterBar
+        filters={filters}
+        onApply={handleApply}
+        onClear={handleClear}
+        loading={loading}
+        resultCount={totalCount}
+        resultLabel="purchase order"
+        className="mb-6"
+      />
 
       {loading ? (
         <TableSkeleton rows={5} cols={6} />
@@ -285,19 +289,5 @@ export default function POListPage() {
         </div>
       )}
     </AppShell>
-  );
-}
-
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
-  const colorMap: Record<string, string> = {
-    slate:   'bg-white border-pq-neutral-200 text-pq-neutral-900',
-    amber:   'bg-pq-warning-100 border-pq-warning-100 text-pq-warning-600',
-    emerald: 'bg-pq-success-100 border-pq-success-100 text-pq-success-600',
-  };
-  return (
-    <div className={`rounded-md border p-4 ${colorMap[color] ?? colorMap.slate}`}>
-      <p className="text-2xl font-bold">{value}</p>
-      <p className="text-xs font-medium mt-0.5 opacity-70">{label}</p>
-    </div>
   );
 }

@@ -266,6 +266,7 @@ export async function assignRSEToTSQA(
 
 // ─── TSQA: begin active review ────────────────────────────────────────────────
 // Transitions status from assigned or created → under_review.
+// Also assigns the RSE to the current TSQA user if not already assigned.
 
 export async function startRSEReview(
   rseId:   string,
@@ -275,8 +276,10 @@ export async function startRSEReview(
   const { error } = await db
     .from('rse_records')
     .update({
-      status:     'under_review',
-      updated_at: now,
+      status:      'under_review',
+      assigned_to: profile.id,
+      assigned_at: now,
+      updated_at:  now,
     })
     .eq('id', rseId)
     .in('status', ['assigned', 'created']);
