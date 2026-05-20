@@ -74,7 +74,10 @@ export function StatCard({
         {icon && <div className="text-pq-neutral-400 shrink-0">{icon}</div>}
       </div>
 
-      <div className="text-3xl font-extrabold text-pq-neutral-900 tracking-tight leading-none mb-2 truncate flex-grow flex items-center" title={String(value)}>
+      <div className={cn(
+        'font-extrabold text-pq-neutral-900 tracking-tight leading-tight mb-2 flex-grow flex items-center',
+        typeof value === 'number' ? 'text-3xl' : 'text-xl break-words'
+      )} title={String(value)}>
         {value}
       </div>
 

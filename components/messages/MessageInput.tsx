@@ -72,7 +72,7 @@ export default function MessageInput({
   }
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-1', className)}>
       <div className="flex items-end gap-2">
         {/* Attach button */}
         <button
@@ -122,25 +122,24 @@ export default function MessageInput({
         </button>
       </div>
 
-      {/* Validation feedback */}
-      <div className="flex items-center justify-between px-1 min-h-[16px]">
-        {error && (
-          <span className="text-[11px] text-pq-danger-600">{error}</span>
-        )}
-        {!error && isOverLimit && (
-          <span className="text-[11px] text-pq-danger-600">
-            Message too long ({trimmedLength.toLocaleString()}/{MAX_MESSAGE_LENGTH.toLocaleString()})
-          </span>
-        )}
-        {!error && !isOverLimit && trimmedLength > MAX_MESSAGE_LENGTH * 0.9 && (
-          <span className="text-[11px] text-pq-neutral-400">
-            {trimmedLength.toLocaleString()}/{MAX_MESSAGE_LENGTH.toLocaleString()}
-          </span>
-        )}
-        {!error && !isOverLimit && trimmedLength <= MAX_MESSAGE_LENGTH * 0.9 && (
-          <span />
-        )}
-      </div>
+      {/* Validation feedback - only show when needed */}
+      {(error || isOverLimit || trimmedLength > MAX_MESSAGE_LENGTH * 0.9) && (
+        <div className="flex items-center justify-between px-1">
+          {error && (
+            <span className="text-[11px] text-pq-danger-600">{error}</span>
+          )}
+          {!error && isOverLimit && (
+            <span className="text-[11px] text-pq-danger-600">
+              Message too long ({trimmedLength.toLocaleString()}/{MAX_MESSAGE_LENGTH.toLocaleString()})
+            </span>
+          )}
+          {!error && !isOverLimit && trimmedLength > MAX_MESSAGE_LENGTH * 0.9 && (
+            <span className="text-[11px] text-pq-neutral-400">
+              {trimmedLength.toLocaleString()}/{MAX_MESSAGE_LENGTH.toLocaleString()}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

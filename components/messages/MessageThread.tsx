@@ -316,7 +316,7 @@ export default function MessageThread({
       </div>
 
       {/* Input area */}
-      <div className="shrink-0 border-t border-pq-neutral-200 bg-white px-4 py-3.5">
+      <div className="shrink-0 border-t border-pq-neutral-200 bg-white px-4 py-2.5">
         <MessageInput
           conversationId={conversationId}
           senderId={currentUserId}
