@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, Check, X } from 'lucide-react';
+import { Pencil, Trash2, Check, X, Paperclip } from 'lucide-react';
 import { editMessage, deleteMessage } from '@/lib/messages';
-import type { Message } from '@/types/database';
+import { getMessageAttachments } from '@/lib/message-attachments';
+import type { Message, MessageAttachment } from '@/types/database';
+import { AttachmentGrid } from './AttachmentPreview';
 import { cn } from '@/lib/utils';
 
 interface MessageBubbleProps {
@@ -23,9 +25,27 @@ export default function MessageBubble({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
 
   const isDeleted = message.is_deleted;
   const isEdited = !!message.edited_at && !isDeleted;
+  const hasAttachments = (message.attachment_count ?? 0) > 0;
+  const hasContent = message.content && message.content.trim().length > 0 && message.content !== 'Message deleted';
+
+  // Load attachments when message has them
+  useEffect(() => {
+    if (hasAttachments && !isDeleted) {
+      setLoadingAttachments(true);
+      getMessageAttachments(message.id)
+        .then(setAttachments)
+        .catch((err) => {
+          console.error('Failed to load attachments:', err);
+          setAttachments([]);
+        })
+        .finally(() => setLoadingAttachments(false));
+    }
+  }, [message.id, hasAttachments, isDeleted, message.attachment_count]);
 
   async function handleSaveEdit() {
     const trimmed = editContent.trim();
@@ -78,12 +98,15 @@ export default function MessageBubble({
         {/* Bubble */}
         <div
           className={cn(
-            'rounded-lg px-4 py-2.5 text-sm leading-relaxed break-words',
+            'rounded-lg text-sm leading-relaxed break-words',
             isDeleted
-              ? 'bg-pq-neutral-50 text-pq-neutral-400 italic border border-pq-neutral-200'
+              ? 'bg-pq-neutral-50 text-pq-neutral-400 italic border border-pq-neutral-200 px-4 py-2.5'
               : isOwn
                 ? 'bg-pq-primary-600 text-white rounded-br-none'
-                : 'bg-pq-neutral-100 text-pq-neutral-900 rounded-bl-none'
+                : 'bg-pq-neutral-100 text-pq-neutral-900 rounded-bl-none',
+            // Adjust padding based on content
+            !isDeleted && (hasContent || isEditing) && 'px-4 py-2.5',
+            !isDeleted && !hasContent && !isEditing && attachments.length > 0 && 'p-1.5'
           )}
         >
           {isEditing ? (
@@ -124,11 +147,33 @@ export default function MessageBubble({
               </div>
             </div>
           ) : (
-            <span>{message.content}</span>
+            <div className="space-y-2">
+              {/* Text content */}
+              {hasContent && <span>{message.content}</span>}
+              
+              {/* Attachments */}
+              {!isDeleted && attachments.length > 0 && (
+                <AttachmentGrid 
+                  attachments={attachments} 
+                  isOwn={isOwn}
+                />
+              )}
+              
+              {/* Loading attachments indicator */}
+              {!isDeleted && loadingAttachments && hasAttachments && (
+                <div className={cn(
+                  'flex items-center gap-1.5 text-xs',
+                  isOwn ? 'text-white/70' : 'text-pq-neutral-500'
+                )}>
+                  <Paperclip className="w-3 h-3" />
+                  <span>Loading attachments...</span>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
-        {/* Meta row: timestamp + edited indicator */}
+        {/* Meta row: timestamp + edited indicator + attachment count */}
         <div
           className={cn(
             'flex items-center gap-1.5 mt-1.5 px-1',
@@ -140,6 +185,12 @@ export default function MessageBubble({
           )}
           {isEdited && (
             <span className="text-[10px] text-pq-neutral-400 italic">edited</span>
+          )}
+          {hasAttachments && !isDeleted && (
+            <span className="text-[10px] text-pq-neutral-400 flex items-center gap-0.5">
+              <Paperclip className="w-2.5 h-2.5" />
+              {message.attachment_count}
+            </span>
           )}
         </div>
 

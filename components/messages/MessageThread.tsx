@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageSquare, ChevronUp, Loader2, Building2, Briefcase, User } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchConversationMessages, markMessagesAsRead, type ProfileInfo } from '@/lib/messages';
-import type { Message } from '@/types/database';
+import type { Message, MessageAttachment } from '@/types/database';
+import type { UserProfile } from '@/types/auth';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
 import LoadingState from '@/components/shared/LoadingState';
@@ -17,6 +18,7 @@ const PAGE_SIZE = 40;
 interface MessageThreadProps {
   conversationId: string;
   currentUserId: string;
+  profile: UserProfile;
   otherUserProfile?: ProfileInfo | null;
   onMessageSent?: () => void;
   className?: string;
@@ -25,6 +27,7 @@ interface MessageThreadProps {
 export default function MessageThread({
   conversationId,
   currentUserId,
+  profile,
   otherUserProfile,
   onMessageSent,
   className,
@@ -90,7 +93,7 @@ export default function MessageThread({
             }
           }
 
-          // Handle UPDATE events
+          // Handle UPDATE events (including attachment_count updates)
           if (payload.eventType === 'UPDATE') {
             setMessages((prev) =>
               prev.map((m) => (m.id === record.id ? record : m))
@@ -320,6 +323,7 @@ export default function MessageThread({
         <MessageInput
           conversationId={conversationId}
           senderId={currentUserId}
+          profile={profile}
           onMessageSent={handleMessageSent}
         />
       </div>

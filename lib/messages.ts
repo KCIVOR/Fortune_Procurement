@@ -105,22 +105,39 @@ export async function fetchConversationMessages(
  *   - sender_id must equal auth.uid()
  *   - user must be a participant in the conversation
  * Client-side validation: max 2000 characters.
+ * 
+ * Note: Content can be empty if hasAttachments is true (attachment-only messages).
+ * The database constraint allows empty content when attachment_count > 0.
+ * 
+ * @param conversationId - The conversation to send the message to
+ * @param senderId - The sender's user ID
+ * @param content - The message text content
+ * @param hasAttachments - If true, allows empty content (for attachment-only messages)
+ * @returns The created message
  */
 export async function sendMessage(
   conversationId: string,
   senderId: string,
-  content: string
+  content: string,
+  hasAttachments: boolean = false
 ): Promise<Message> {
   const trimmed = content.trim();
-  if (!trimmed) throw new Error('Message content cannot be empty');
-  if (trimmed.length > 2000) throw new Error('Message exceeds maximum length');
+  
+  // Validate: must have content OR attachments
+  if (!trimmed && !hasAttachments) {
+    throw new Error('Message content cannot be empty');
+  }
+  
+  if (trimmed.length > 2000) {
+    throw new Error('Message exceeds maximum length');
+  }
 
   const { data, error } = await db
     .from('messages')
     .insert({
       conversation_id: conversationId,
       sender_id: senderId,
-      content: trimmed,
+      content: trimmed || '', // Allow empty string if attachments will be added
     })
     .select()
     .single();

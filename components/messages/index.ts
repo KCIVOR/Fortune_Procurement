@@ -6,3 +6,8 @@ export { default as MessageInput } from './MessageInput';
 export { default as MessageIcon } from './MessageIcon';
 export { default as UserSearch } from './UserSearch';
 export { default as TypingIndicator } from './TypingIndicator';
+export { 
+  default as AttachmentPreview,
+  PendingFilePreview,
+  AttachmentGrid 
+} from './AttachmentPreview';

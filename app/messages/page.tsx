@@ -132,6 +132,7 @@ function MessagesContent() {
                   <MessageThread
                     conversationId={selectedConversation.id}
                     currentUserId={profile.id}
+                    profile={profile}
                     otherUserProfile={getOtherUserProfile()}
                   />
                 </div>
@@ -176,6 +177,7 @@ function MessagesContent() {
                 <MessageThread
                   conversationId={selectedConversation.id}
                   currentUserId={profile.id}
+                  profile={profile}
                   otherUserProfile={getOtherUserProfile()}
                 />
               ) : (

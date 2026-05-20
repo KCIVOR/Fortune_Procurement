@@ -763,6 +763,7 @@ export interface Database {
           created_at: string | null;
           updated_at: string | null;
           edited_at: string | null;
+          attachment_count: number | null;
         };
         Insert: {
           id?: string;
@@ -774,6 +775,7 @@ export interface Database {
           created_at?: string | null;
           updated_at?: string | null;
           edited_at?: string | null;
+          attachment_count?: number | null;
         };
         Update: {
           id?: string;
@@ -785,6 +787,43 @@ export interface Database {
           created_at?: string | null;
           updated_at?: string | null;
           edited_at?: string | null;
+          attachment_count?: number | null;
+        };
+      };
+
+      message_attachments: {
+        Row: {
+          id: string;
+          message_id: string;
+          conversation_id: string;
+          file_name: string;
+          file_path: string;
+          file_size: number;
+          mime_type: string;
+          uploaded_by: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          message_id: string;
+          conversation_id: string;
+          file_name: string;
+          file_path: string;
+          file_size: number;
+          mime_type: string;
+          uploaded_by: string;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          message_id?: string;
+          conversation_id?: string;
+          file_name?: string;
+          file_path?: string;
+          file_size?: number;
+          mime_type?: string;
+          uploaded_by?: string;
+          created_at?: string | null;
         };
       };
 
@@ -823,5 +862,6 @@ export type RseRecord              = Database['public']['Tables']['rse_records']
 export type TsqaReview             = Database['public']['Tables']['tsqa_reviews']['Row'];
 
 // ── Messaging convenience types ──────────────────────────────────────────────
-export type Conversation = Database['public']['Tables']['conversations']['Row'];
-export type Message      = Database['public']['Tables']['messages']['Row'];
+export type Conversation       = Database['public']['Tables']['conversations']['Row'];
+export type Message            = Database['public']['Tables']['messages']['Row'];
+export type MessageAttachment  = Database['public']['Tables']['message_attachments']['Row'];
