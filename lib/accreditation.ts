@@ -231,6 +231,36 @@ export async function getAccreditationQueueForProcurement(): Promise<Accreditati
   })) as AccreditationQueueRow[];
 }
 
+// ─── Procurement / admin: get ALL accreditations (for filtering) ──────────────
+
+export async function getAllAccreditationsForProcurement(): Promise<AccreditationQueueRow[]> {
+  const { data, error } = await db
+    .from('supplier_accreditations')
+    .select('*')
+    .neq('status', 'draft') // Exclude drafts (supplier hasn't submitted yet)
+    .order('submitted_at', { ascending: false });
+  if (error) throw error;
+  if (!data || (data as any[]).length === 0) return [];
+
+  // Enrich with supplier profile data
+  const supplierIds: string[] = Array.from(
+    new Set((data as any[]).map(r => r.supplier_id as string))
+  );
+  const { data: profiles } = await db
+    .from('profiles')
+    .select('id, full_name, email')
+    .in('id', supplierIds);
+  const profileMap: Record<string, { full_name: string; email: string }> = Object.fromEntries(
+    ((profiles ?? []) as any[]).map(p => [p.id as string, p])
+  );
+
+  return (data as any[]).map(row => ({
+    ...row,
+    supplier_full_name: profileMap[row.supplier_id as string]?.full_name ?? null,
+    supplier_email:     profileMap[row.supplier_id as string]?.email     ?? null,
+  })) as AccreditationQueueRow[];
+}
+
 // ─── Procurement / admin: fetch single accreditation by id ───────────────────
 
 export async function getAccreditationById(

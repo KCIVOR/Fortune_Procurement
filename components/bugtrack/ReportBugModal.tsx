@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import {
 import { createBugReport } from '@/lib/bugtrack';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
 interface ReportBugModalProps {
   open: boolean;
@@ -92,37 +94,51 @@ export default function ReportBugModal({ open, onOpenChange, onSuccess }: Report
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Report a Bug</DialogTitle>
+          <DialogDescription>
+            Describe the issue you encountered. Our team will review and address it.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Issue Summary</Label>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Issue Summary */}
+          <div className="space-y-1.5">
+            <Label htmlFor="title" className="text-sm font-medium text-pq-neutral-700">
+              Issue Summary <span className="text-pq-danger-500">*</span>
+            </Label>
             <Input
               id="title"
               placeholder="e.g. Navigation bar is overlapping on mobile"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               required
+              className="h-10"
             />
           </div>
 
+          {/* Location & Severity */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="location">Where it Happens</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="location" className="text-sm font-medium text-pq-neutral-700">
+                Where it Happens <span className="text-pq-danger-500">*</span>
+              </Label>
               <Input
                 id="location"
                 placeholder="e.g. /dashboard or Sidebar"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 required
+                className="h-10"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="severity">Severity</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="severity" className="text-sm font-medium text-pq-neutral-700">
+                Severity <span className="text-pq-danger-500">*</span>
+              </Label>
               <Select
                 value={formData.severity}
-                onValueChange={(val: any) => setFormData({ ...formData, severity: val })}
+                onValueChange={(val: 'low' | 'medium' | 'high') => setFormData({ ...formData, severity: val })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select severity" />
                 </SelectTrigger>
                 <SelectContent>
@@ -134,45 +150,73 @@ export default function ReportBugModal({ open, onOpenChange, onSuccess }: Report
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">What I See (Description)</Label>
+          {/* Description */}
+          <div className="space-y-1.5">
+            <Label htmlFor="description" className="text-sm font-medium text-pq-neutral-700">
+              What I See (Description) <span className="text-pq-danger-500">*</span>
+            </Label>
             <Textarea
               id="description"
               placeholder="Describe the bug in detail..."
-              className="min-h-[100px]"
+              className="min-h-[80px] resize-none"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               required
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="expected">Expected Behavior</Label>
+          {/* Expected Behavior */}
+          <div className="space-y-1.5">
+            <Label htmlFor="expected" className="text-sm font-medium text-pq-neutral-700">
+              Expected Behavior <span className="text-pq-danger-500">*</span>
+            </Label>
             <Textarea
               id="expected"
               placeholder="What should happen instead?"
+              className="min-h-[60px] resize-none"
               value={formData.expected_behavior}
               onChange={(e) => setFormData({ ...formData, expected_behavior: e.target.value })}
               required
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="error_message">Error Message (Optional)</Label>
+          {/* Error Message */}
+          <div className="space-y-1.5">
+            <Label htmlFor="error_message" className="text-sm font-medium text-pq-neutral-700">
+              Error Message <span className="text-pq-neutral-400 font-normal">(Optional)</span>
+            </Label>
             <Input
               id="error_message"
               placeholder="e.g. Uncaught TypeError: ..."
               value={formData.error_message}
               onChange={(e) => setFormData({ ...formData, error_message: e.target.value })}
+              className="h-10 font-mono text-sm"
             />
           </div>
 
-          <DialogFooter className="pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          {/* Footer */}
+          <DialogFooter className="pt-4 border-t border-pq-neutral-200">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="bg-[#1E4BFF] hover:bg-[#0F1F3A]">
-              {loading ? 'Submitting...' : 'Submit Bug Report'}
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="bg-pq-primary-600 hover:bg-pq-primary-700 text-white"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit Bug Report'
+              )}
             </Button>
           </DialogFooter>
         </form>

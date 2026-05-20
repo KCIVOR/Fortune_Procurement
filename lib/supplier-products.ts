@@ -254,6 +254,35 @@ export async function getProductReviewQueueForProcurement(): Promise<ProductQueu
   })) as ProductQueueRow[];
 }
 
+// ─── Procurement: get ALL products (for filtering) ───────────────────────────
+
+export async function getAllProductsForProcurement(): Promise<ProductQueueRow[]> {
+  const { data, error } = await db
+    .from('supplier_products')
+    .select('*')
+    .neq('status', 'draft') // Exclude drafts (supplier hasn't submitted yet)
+    .order('submitted_at', { ascending: false });
+  if (error) throw error;
+  if (!data || (data as any[]).length === 0) return [];
+
+  // Enrich with supplier name
+  const supplierIds: string[] = Array.from(
+    new Set((data as any[]).map(r => r.supplier_id as string))
+  );
+  const { data: profiles } = await db
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', supplierIds);
+  const profileMap: Record<string, string> = Object.fromEntries(
+    ((profiles ?? []) as any[]).map(p => [p.id as string, p.full_name as string])
+  );
+
+  return (data as any[]).map(row => ({
+    ...row,
+    supplier_full_name: profileMap[row.supplier_id as string] ?? null,
+  })) as ProductQueueRow[];
+}
+
 // ─── Procurement: mark product under active review ───────────────────────────
 
 export async function markProductUnderReview(

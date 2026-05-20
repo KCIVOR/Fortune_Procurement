@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
-import LoadingState from '@/components/shared/LoadingState';
 import StatusChip from '@/components/shared/StatusChip';
+import StatusFilterTabs from '@/components/shared/StatusFilterTabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { StatusVariant } from '@/components/shared/StatusChip';
-import { getAccreditationQueueForProcurement } from '@/lib/accreditation';
+import { getAllAccreditationsForProcurement } from '@/lib/accreditation';
 import type { AccreditationQueueRow } from '@/lib/accreditation';
 import { format } from 'date-fns';
 import { BadgeCheck, ArrowRight, AlertCircle } from 'lucide-react';
@@ -28,23 +29,65 @@ function accreditationChip(status: string): { variant: StatusVariant; label: str
   return map[status] ?? { variant: 'draft', label: status };
 }
 
+// ─── Filter tab definitions ───────────────────────────────────────────────────
+
+type FilterKey = 'pending' | 'approved' | 'rejected' | 'all';
+
+const PENDING_STATUSES = ['submitted', 'under_review', 'missing_documents'];
+
+function getFilteredRows(rows: AccreditationQueueRow[], filter: FilterKey): AccreditationQueueRow[] {
+  switch (filter) {
+    case 'pending':
+      return rows.filter(r => PENDING_STATUSES.includes(r.status));
+    case 'approved':
+      return rows.filter(r => r.status === 'approved');
+    case 'rejected':
+      return rows.filter(r => r.status === 'rejected');
+    case 'all':
+    default:
+      return rows;
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AccreditationQueuePage() {
-  const [rows, setRows]       = useState<AccreditationQueueRow[]>([]);
+  const [allRows, setAllRows] = useState<AccreditationQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
+  const [activeTab, setActiveTab] = useState<FilterKey>('pending');
 
   useEffect(() => {
     setLoading(true);
     setError('');
-    getAccreditationQueueForProcurement()
-      .then(setRows)
+    getAllAccreditationsForProcurement()
+      .then(setAllRows)
       .catch((err: unknown) =>
         setError((err as Error)?.message || 'Failed to load accreditation queue.')
       )
       .finally(() => setLoading(false));
   }, []);
+
+  // Compute counts for tabs
+  const counts = useMemo(() => ({
+    pending:  allRows.filter(r => PENDING_STATUSES.includes(r.status)).length,
+    approved: allRows.filter(r => r.status === 'approved').length,
+    rejected: allRows.filter(r => r.status === 'rejected').length,
+    all:      allRows.length,
+  }), [allRows]);
+
+  // Filter rows based on active tab
+  const filteredRows = useMemo(
+    () => getFilteredRows(allRows, activeTab),
+    [allRows, activeTab]
+  );
+
+  const tabs = [
+    { key: 'pending',  label: 'Pending',  count: counts.pending },
+    { key: 'approved', label: 'Approved', count: counts.approved },
+    { key: 'rejected', label: 'Rejected', count: counts.rejected },
+    { key: 'all',      label: 'All',      count: counts.all },
+  ];
 
   return (
     <AppShell title="Supplier Accreditation">
@@ -53,19 +96,32 @@ export default function AccreditationQueuePage() {
         description="Review and process supplier accreditation applications submitted for Procurement approval."
       />
 
-      {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <LoadingState message="Loading accreditation queue…" />
+      {/* Status Filter Tabs */}
+      {!loading && !error && (
+        <div className="mb-4">
+          <StatusFilterTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={(key) => setActiveTab(key as FilterKey)}
+          />
         </div>
+      )}
+
+      {loading ? (
+        <AccreditationQueueSkeleton />
       ) : error ? (
         <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
         </div>
-      ) : rows.length === 0 ? (
+      ) : filteredRows.length === 0 ? (
         <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
-            title="No accreditation applications"
-            description="Submitted supplier accreditation applications will appear here for review."
+            title={activeTab === 'pending' ? 'No pending applications' : `No ${activeTab} applications`}
+            description={
+              activeTab === 'pending'
+                ? 'Submitted supplier accreditation applications will appear here for review.'
+                : 'No accreditation applications match this filter.'
+            }
             icon={BadgeCheck}
           />
         </div>
@@ -79,7 +135,7 @@ export default function AccreditationQueuePage() {
             <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Reviewed</p>
           </div>
           <div className="divide-y divide-pq-neutral-200">
-            {rows.map(row => (
+            {filteredRows.map(row => (
               <QueueRow key={row.id} row={row} />
             ))}
           </div>
@@ -93,6 +149,7 @@ export default function AccreditationQueuePage() {
 
 function QueueRow({ row }: { row: AccreditationQueueRow }) {
   const chip = accreditationChip(row.status);
+  const isActionable = ['submitted', 'under_review', 'missing_documents'].includes(row.status);
 
   return (
     <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
@@ -133,9 +190,41 @@ function QueueRow({ row }: { row: AccreditationQueueRow }) {
         href={`/accreditation/${row.id}`}
         className="shrink-0 flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition"
       >
-        Review
+        {isActionable ? 'Review' : 'View'}
         <ArrowRight className="w-3.5 h-3.5" />
       </Link>
+    </div>
+  );
+}
+
+// ─── Skeleton loading ─────────────────────────────────────────────────────────
+
+function AccreditationQueueSkeleton() {
+  return (
+    <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden" aria-busy="true" aria-label="Loading accreditation queue">
+      {/* Column headers skeleton */}
+      <div className="hidden md:grid grid-cols-[1fr_180px_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-14" />
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-18" />
+      </div>
+      {/* Row skeletons */}
+      <div className="divide-y divide-pq-neutral-200">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className="flex items-center gap-4 px-5 py-4">
+            <div className="flex-1 min-w-0 space-y-2">
+              <Skeleton className="h-4 w-48" />
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-3 w-36" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+            </div>
+            <Skeleton className="h-6 w-32 rounded-full hidden sm:block" />
+            <Skeleton className="h-4 w-14" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

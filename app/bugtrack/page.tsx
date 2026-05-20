@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
-import LoadingState from '@/components/shared/LoadingState';
+import EmptyState from '@/components/shared/EmptyState';
 import StatusChip from '@/components/shared/StatusChip';
+import StatusFilterTabs from '@/components/shared/StatusFilterTabs';
+import PaginationControls from '@/components/shared/PaginationControls';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/context/AuthContext';
 import { getBugReports, type BugReport } from '@/lib/bugtrack';
 import { format } from 'date-fns';
@@ -16,12 +19,35 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle2,
-  Filter,
   Settings,
 } from 'lucide-react';
 import ReportBugModal from '@/components/bugtrack/ReportBugModal';
 import BugTrackSettingsModal from '@/components/bugtrack/BugTrackSettingsModal';
 import { cn } from '@/lib/utils';
+
+// ─── Filter definitions ───────────────────────────────────────────────────────
+
+type FilterKey = 'all' | 'open' | 'in_progress' | 'resolved' | 'closed';
+
+const PAGE_SIZE = 10;
+
+function getFilteredBugs(bugs: BugReport[], filter: FilterKey): BugReport[] {
+  switch (filter) {
+    case 'open':
+      return bugs.filter(b => b.status === 'open');
+    case 'in_progress':
+      return bugs.filter(b => b.status === 'in_progress');
+    case 'resolved':
+      return bugs.filter(b => b.status === 'resolved');
+    case 'closed':
+      return bugs.filter(b => b.status === 'closed');
+    case 'all':
+    default:
+      return bugs;
+  }
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BugTrackPage() {
   const { profile } = useAuth();
@@ -29,6 +55,8 @@ export default function BugTrackPage() {
   const [loading, setLoading] = useState(true);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<FilterKey>('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchBugs = async () => {
     setLoading(true);
@@ -46,12 +74,42 @@ export default function BugTrackPage() {
     fetchBugs();
   }, []);
 
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  // Compute counts for tabs
+  const counts = useMemo(() => ({
+    all:         bugs.length,
+    open:        bugs.filter(b => b.status === 'open').length,
+    in_progress: bugs.filter(b => b.status === 'in_progress').length,
+    resolved:    bugs.filter(b => b.status === 'resolved').length,
+    closed:      bugs.filter(b => b.status === 'closed').length,
+  }), [bugs]);
+
+  // Filter and paginate
+  const filteredBugs = useMemo(() => getFilteredBugs(bugs, activeTab), [bugs, activeTab]);
+  const totalPages = Math.max(1, Math.ceil(filteredBugs.length / PAGE_SIZE));
+  const paginatedBugs = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredBugs.slice(start, start + PAGE_SIZE);
+  }, [filteredBugs, currentPage]);
+
   const stats = {
     total: bugs.length,
     active: bugs.filter(b => b.status !== 'closed' && b.status !== 'resolved').length,
     high: bugs.filter(b => b.severity === 'high' && b.status !== 'resolved').length,
     resolved: bugs.filter(b => b.status === 'resolved').length,
   };
+
+  const tabs = [
+    { key: 'all',         label: 'All',         count: counts.all },
+    { key: 'open',        label: 'Open',        count: counts.open },
+    { key: 'in_progress', label: 'In Progress', count: counts.in_progress },
+    { key: 'resolved',    label: 'Resolved',    count: counts.resolved },
+    { key: 'closed',      label: 'Closed',      count: counts.closed },
+  ];
 
   return (
     <AppShell title="Bug Track">
@@ -63,7 +121,7 @@ export default function BugTrackPage() {
             {profile?.role === 'admin' && (
               <button
                 onClick={() => setIsSettingsModalOpen(true)}
-                className="flex items-center justify-center w-9 h-9 text-[#40527A] hover:text-[#1E4BFF] hover:bg-[#F7F9FC] rounded-[4px] transition shadow-sm border border-[#D8E2FF] bg-white"
+                className="flex items-center justify-center w-9 h-9 text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 rounded-md transition border border-pq-neutral-200 bg-white"
                 title="Bug Track Settings"
               >
                 <Settings className="w-4 h-4" />
@@ -71,7 +129,7 @@ export default function BugTrackPage() {
             )}
             <button
               onClick={() => setIsReportModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-sm font-semibold rounded-md transition shadow-sm"
             >
               <Plus className="w-4 h-4" />
               Report a Bug
@@ -83,49 +141,63 @@ export default function BugTrackPage() {
       <div className="space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Total Issues" value={stats.total} icon={Bug} color="slate" />
-          <StatCard label="Active Bugs" value={stats.active} icon={Clock} color="amber" />
-          <StatCard label="High Severity" value={stats.high} icon={AlertTriangle} color="red" />
-          <StatCard label="Resolved" value={stats.resolved} icon={CheckCircle2} color="emerald" />
+          <StatCard label="Total Issues" value={stats.total} icon={Bug} color="neutral" />
+          <StatCard label="Active Bugs" value={stats.active} icon={Clock} color="warning" />
+          <StatCard label="High Severity" value={stats.high} icon={AlertTriangle} color="danger" />
+          <StatCard label="Resolved" value={stats.resolved} icon={CheckCircle2} color="success" />
         </div>
 
+        {/* Status Filter Tabs */}
+        {!loading && (
+          <StatusFilterTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={(key) => setActiveTab(key as FilterKey)}
+          />
+        )}
+
         {/* Fix Queue */}
-        <div className="bg-white rounded-[4px] border border-[#D8E2FF] shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 bg-[#F7F9FC]/50 border-b border-[#D8E2FF]">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-[#0F1F3A]">Fix Queue</h2>
-              <span className="px-2 py-0.5 rounded-full bg-[#1E4BFF]/10 text-[#1E4BFF] text-[10px] font-bold">
-                {stats.active} ACTIVE
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button className="text-xs text-[#40527A] hover:text-[#1E4BFF] font-semibold flex items-center gap-1.5 transition">
-                <Filter className="w-3.5 h-3.5" />
-                Filter Queue
-              </button>
-            </div>
+        <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+          <div className="hidden md:grid grid-cols-[1fr_120px_100px_140px_80px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Bug</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Severity</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Reported</p>
+            <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide"></p>
           </div>
 
           {loading ? (
-            <div className="p-24 flex justify-center bg-white">
-              <LoadingState message="Loading fix queue..." />
-            </div>
-          ) : bugs.length === 0 ? (
-            <div className="p-24 text-center bg-white">
-              <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-              </div>
-              <h3 className="text-base font-bold text-[#0F1F3A]">System Healthy</h3>
-              <p className="text-sm text-[#40527A] mt-1 max-w-xs mx-auto">No bugs reported yet. Everything seems to be running smoothly.</p>
-            </div>
+            <BugQueueSkeleton />
+          ) : filteredBugs.length === 0 ? (
+            <EmptyState
+              title={activeTab === 'all' ? 'System Healthy' : `No ${activeTab.replace('_', ' ')} bugs`}
+              description={
+                activeTab === 'all'
+                  ? 'No bugs reported yet. Everything seems to be running smoothly.'
+                  : 'No bugs match this filter.'
+              }
+              icon={CheckCircle2}
+            />
           ) : (
-            <div className="divide-y divide-[#D8E2FF] bg-white">
-              {bugs.map((bug) => (
+            <div className="divide-y divide-pq-neutral-200">
+              {paginatedBugs.map((bug) => (
                 <BugRow key={bug.id} bug={bug} />
               ))}
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {!loading && filteredBugs.length > PAGE_SIZE && (
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={PAGE_SIZE}
+            totalCount={filteredBugs.length}
+            entityLabel="bugs"
+            onPageChange={setCurrentPage}
+          />
+        )}
       </div>
 
       <ReportBugModal 
@@ -141,58 +213,71 @@ export default function BugTrackPage() {
   );
 }
 
+// ─── Bug Row ──────────────────────────────────────────────────────────────────
+
 function BugRow({ bug }: { bug: BugReport }) {
   const severityColors = {
-    low: 'bg-blue-50 text-blue-700 border-blue-100',
-    medium: 'bg-amber-50 text-amber-700 border-amber-100',
-    high: 'bg-red-50 text-red-700 border-red-100',
+    low: 'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200',
+    medium: 'bg-pq-warning-50 text-pq-warning-700 border-pq-warning-200',
+    high: 'bg-pq-danger-50 text-pq-danger-700 border-pq-danger-200',
   };
 
-  const statusMap: Record<string, any> = {
+  const statusMap: Record<string, { variant: 'pending' | 'in_review' | 'approved' | 'rejected' | 'draft'; label: string }> = {
     open: { variant: 'pending', label: 'Open' },
     in_progress: { variant: 'in_review', label: 'In Progress' },
     resolved: { variant: 'approved', label: 'Resolved' },
     closed: { variant: 'rejected', label: 'Closed' },
   };
 
-  const status = statusMap[bug.status] || { variant: 'draft', label: bug.status };
+  const status = statusMap[bug.status] || { variant: 'draft' as const, label: bug.status };
 
   return (
-    <div className="flex items-center gap-4 px-6 py-4.5 hover:bg-[#F7F9FC]/50 transition-all group border-l-2 border-l-transparent hover:border-l-[#1E4BFF]">
+    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
+      {/* Bug Info */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2.5 mb-1.5">
-          <span className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border tracking-wider", severityColors[bug.severity])}>
-            {bug.severity}
-          </span>
-          <StatusChip status={status.variant} label={status.label} size="sm" />
-          <span className="text-[10px] font-mono text-[#BFC7D5] font-semibold tracking-tighter">#{bug.id.slice(0, 8).toUpperCase()}</span>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[10px] font-mono text-pq-neutral-400 font-medium">#{bug.id.slice(0, 8).toUpperCase()}</span>
         </div>
-        <h3 className="text-sm font-bold text-[#0F1F3A] group-hover:text-[#1E4BFF] transition-colors truncate">{bug.title}</h3>
-        <div className="flex items-center gap-4 mt-2">
-          <div className="flex items-center gap-1.5 text-[11px] text-[#40527A] font-medium">
-             <Clock className="w-3 h-3 text-[#BFC7D5]" />
-             {format(new Date(bug.created_at), 'MMM d, yyyy')}
-          </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-[#40527A] font-medium">
-             <span className="w-1 h-1 rounded-full bg-[#D8E2FF]" />
-             <span className="text-[#BFC7D5]">in</span> {bug.location}
-          </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-[#40527A] font-medium">
-             <span className="w-1 h-1 rounded-full bg-[#D8E2FF]" />
-             <span className="text-[#BFC7D5]">by</span> {bug.reporter?.full_name || 'System'}
-          </div>
+        <h3 className="text-sm font-semibold text-pq-neutral-900 truncate">{bug.title}</h3>
+        <div className="flex items-center gap-2 mt-1 text-xs text-pq-neutral-500">
+          <span>in {bug.location}</span>
+          <span>·</span>
+          <span>by {bug.reporter?.full_name || 'System'}</span>
         </div>
       </div>
+
+      {/* Severity */}
+      <div className="shrink-0 w-[120px] hidden md:block">
+        <span className={cn("text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border tracking-wide", severityColors[bug.severity])}>
+          {bug.severity}
+        </span>
+      </div>
+
+      {/* Status */}
+      <div className="shrink-0 w-[100px] hidden md:block">
+        <StatusChip status={status.variant} label={status.label} size="sm" />
+      </div>
+
+      {/* Date */}
+      <div className="shrink-0 w-[140px] hidden md:block">
+        <span className="text-xs text-pq-neutral-500">
+          {format(new Date(bug.created_at), 'MMM d, yyyy')}
+        </span>
+      </div>
+
+      {/* Action */}
       <Link
         href={`/bugtrack/${bug.id}`}
-        className="shrink-0 flex items-center gap-1.5 text-[11px] font-bold text-[#40527A] hover:text-[#1E4BFF] transition-all bg-white px-3 py-1.5 rounded border border-[#D8E2FF] shadow-sm opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0"
+        className="shrink-0 flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-primary-600 transition"
       >
-        View Details
+        View
         <ArrowRight className="w-3.5 h-3.5" />
       </Link>
     </div>
   );
 }
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({
   label,
@@ -202,24 +287,48 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  color: 'slate' | 'amber' | 'blue' | 'emerald' | 'red';
+  color: 'neutral' | 'warning' | 'success' | 'danger';
   icon: React.ElementType;
 }) {
-  const colorClass = {
-    slate:   'text-[#40527A] bg-[#F7F9FC] border-[#D8E2FF]',
-    amber:   'text-amber-600 bg-amber-50 border-amber-100',
-    blue:    'text-blue-600 bg-blue-50 border-blue-100',
-    emerald: 'text-emerald-600 bg-emerald-50 border-emerald-100',
-    red:     'text-red-600 bg-red-50 border-red-100',
-  }[color];
+  const colorStyles = {
+    neutral: 'bg-pq-neutral-50 border-pq-neutral-200 text-pq-neutral-600',
+    warning: 'bg-pq-warning-50 border-pq-warning-200 text-pq-warning-600',
+    success: 'bg-pq-success-50 border-pq-success-200 text-pq-success-600',
+    danger:  'bg-pq-danger-50 border-pq-danger-200 text-pq-danger-600',
+  };
 
   return (
-    <div className="bg-white rounded-[4px] border border-[#D8E2FF] p-5 shadow-sm hover:shadow-md transition-shadow group">
-      <div className={cn("inline-flex items-center justify-center w-10 h-10 rounded-[4px] mb-4 border transition-transform group-hover:scale-110", colorClass)}>
-        <Icon className="w-5.5 h-5.5" />
+    <div className="bg-white rounded-md border border-pq-neutral-200 p-5">
+      <div className={cn("inline-flex items-center justify-center w-10 h-10 rounded-md mb-3 border", colorStyles[color])}>
+        <Icon className="w-5 h-5" />
       </div>
-      <p className="text-3xl font-black text-[#0F1F3A] tracking-tighter">{value}</p>
-      <p className="text-[11px] font-bold text-[#40527A] uppercase tracking-wider mt-1">{label}</p>
+      <p className="text-2xl font-bold text-pq-neutral-900">{value}</p>
+      <p className="text-xs font-medium text-pq-neutral-500 uppercase tracking-wide mt-1">{label}</p>
+    </div>
+  );
+}
+
+// ─── Skeleton Loading ─────────────────────────────────────────────────────────
+
+function BugQueueSkeleton() {
+  return (
+    <div className="divide-y divide-pq-neutral-200" aria-busy="true" aria-label="Loading bug queue">
+      {Array.from({ length: 5 }, (_, i) => (
+        <div key={i} className="flex items-center gap-4 px-5 py-4">
+          <div className="flex-1 min-w-0 space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-4 w-64" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-3 w-28" />
+            </div>
+          </div>
+          <Skeleton className="h-5 w-16 hidden md:block" />
+          <Skeleton className="h-5 w-20 rounded-full hidden md:block" />
+          <Skeleton className="h-4 w-24 hidden md:block" />
+          <Skeleton className="h-4 w-12" />
+        </div>
+      ))}
     </div>
   );
 }

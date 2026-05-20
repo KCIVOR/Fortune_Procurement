@@ -1,7 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Settings, Save, Mail, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getBugTrackSettings, updateBugTrackSettings } from '@/lib/bugtrack';
 
@@ -33,7 +43,7 @@ export default function BugTrackSettingsModal({ open, onOpenChange }: BugTrackSe
       } else {
         setEmail('');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch settings:', error);
     } finally {
       setLoading(false);
@@ -51,10 +61,10 @@ export default function BugTrackSettingsModal({ open, onOpenChange }: BugTrackSe
       setTimeout(() => {
         onOpenChange(false);
       }, 1500);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update settings:', error);
       setStatus('error');
-      setErrorMessage(error.message || 'Failed to update settings');
+      setErrorMessage((error as Error).message || 'Failed to update settings');
     } finally {
       setSaving(false);
     }
@@ -62,69 +72,73 @@ export default function BugTrackSettingsModal({ open, onOpenChange }: BugTrackSe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden bg-white">
-        <div className="bg-[#F7F9FC] px-6 py-4 border-b border-[#D8E2FF] flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-slate-200 text-slate-700 flex items-center justify-center">
-            <Settings className="w-4 h-4" />
+      <DialogContent className="sm:max-w-[450px]">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-md bg-pq-neutral-100 text-pq-neutral-600 flex items-center justify-center">
+              <Settings className="w-4 h-4" />
+            </div>
+            <div>
+              <DialogTitle>Bug Track Settings</DialogTitle>
+              <DialogDescription>
+                Configure notifications for global bug reports.
+              </DialogDescription>
+            </div>
           </div>
-          <div>
-            <DialogTitle className="text-[#0F1F3A] text-base font-bold">Bug Track Settings</DialogTitle>
-            <DialogDescription className="text-xs text-[#40527A] mt-0.5">
-              Configure notifications for global bug reports.
-            </DialogDescription>
-          </div>
-        </div>
+        </DialogHeader>
 
         {loading ? (
-          <div className="p-12 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-6 h-6 text-[#1E4BFF] animate-spin" />
-            <p className="text-sm text-[#40527A]">Loading settings...</p>
+          <div className="py-12 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-6 h-6 text-pq-primary-600 animate-spin" />
+            <p className="text-sm text-pq-neutral-500">Loading settings...</p>
           </div>
         ) : (
-          <form onSubmit={handleSave} className="p-6 space-y-5">
+          <form onSubmit={handleSave} className="space-y-4">
             {status === 'success' && (
-              <div className="p-3 bg-emerald-50 text-emerald-700 rounded text-sm flex items-center gap-2 font-medium border border-emerald-100">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <div className="p-3 bg-pq-success-50 text-pq-success-700 rounded-md text-sm flex items-center gap-2 font-medium border border-pq-success-200">
+                <CheckCircle2 className="w-4 h-4 text-pq-success-600" />
                 Settings updated successfully
               </div>
             )}
             
             {status === 'error' && (
-              <div className="p-3 bg-red-50 text-red-700 rounded text-sm flex items-center gap-2 font-medium border border-red-100">
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <div className="p-3 bg-pq-danger-50 text-pq-danger-700 rounded-md text-sm flex items-center gap-2 font-medium border border-pq-danger-200">
+                <AlertCircle className="w-4 h-4 text-pq-danger-600 shrink-0" />
                 {errorMessage}
               </div>
             )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-[#0F1F3A] flex items-center gap-1.5">
-                <Mail className="w-4 h-4 text-[#40527A]" />
+            <div className="space-y-1.5">
+              <Label htmlFor="notification-email" className="text-sm font-medium text-pq-neutral-700 flex items-center gap-1.5">
+                <Mail className="w-4 h-4 text-pq-neutral-500" />
                 Notification Email
-              </label>
-              <p className="text-xs text-[#40527A] mb-2">
+              </Label>
+              <p className="text-xs text-pq-neutral-500 mb-2">
                 This email address will receive an alert whenever a new bug or issue is reported.
               </p>
-              <input
+              <Input
+                id="notification-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="e.g., devteam@company.com"
-                className="w-full px-3 py-2 bg-white border border-[#D8E2FF] rounded-[4px] text-sm focus:outline-none focus:border-[#1E4BFF] focus:ring-1 focus:ring-[#1E4BFF] text-[#0F1F3A]"
+                className="h-10"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#F1F5F9]">
-              <button
+            <DialogFooter className="pt-4 border-t border-pq-neutral-200">
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="px-4 py-2 text-sm font-semibold text-[#40527A] hover:bg-[#F7F9FC] rounded-[4px] transition"
+                disabled={saving}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-[#1E4BFF] hover:bg-[#0F1F3A] text-white text-sm font-semibold rounded-[4px] transition shadow-sm disabled:opacity-70"
+                className="bg-pq-primary-600 hover:bg-pq-primary-700 text-white flex items-center gap-2"
               >
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -132,8 +146,8 @@ export default function BugTrackSettingsModal({ open, onOpenChange }: BugTrackSe
                   <Save className="w-4 h-4" />
                 )}
                 {saving ? 'Saving...' : 'Save Settings'}
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </form>
         )}
       </DialogContent>

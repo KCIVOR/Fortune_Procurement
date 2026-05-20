@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Bell } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import {
   fetchMyNotifications,
   fetchUnreadNotificationCount,
@@ -30,12 +31,68 @@ export default function NotificationBell() {
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch unread count once on mount
+  // Fetch unread count on mount
   useEffect(() => {
     if (!profile) return;
     fetchUnreadNotificationCount(profile.id)
       .then(setUnreadCount)
       .catch(() => {});
+  }, [profile]);
+
+  // Polling interval: refresh unread count every 30 seconds
+  useEffect(() => {
+    if (!profile) return;
+
+    const interval = setInterval(() => {
+      fetchUnreadNotificationCount(profile.id)
+        .then(setUnreadCount)
+        .catch(() => {});
+    }, 30_000);
+
+    return () => clearInterval(interval);
+  }, [profile]);
+
+  // Realtime subscription: instant update when new notification arrives
+  useEffect(() => {
+    if (!profile) return;
+
+    const channel = supabase
+      .channel(`notifications:${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${profile.id}`,
+        },
+        () => {
+          // New notification inserted — refresh count
+          fetchUnreadNotificationCount(profile.id)
+            .then(setUnreadCount)
+            .catch(() => {});
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${profile.id}`,
+        },
+        () => {
+          // Notification updated (e.g., marked read) — refresh count
+          fetchUnreadNotificationCount(profile.id)
+            .then(setUnreadCount)
+            .catch(() => {});
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [profile]);
 
   // Close dropdown on outside click

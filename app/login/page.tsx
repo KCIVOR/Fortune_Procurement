@@ -67,11 +67,8 @@ function LoginForm() {
           </div>
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold text-pq-neutral-900 tracking-tight">
-              Sign in to ProcureIQ
+              Sign In
             </h1>
-            <p className="text-sm text-pq-neutral-500">
-              Fortune Procurement Enterprise Suite
-            </p>
           </div>
         </div>
 
