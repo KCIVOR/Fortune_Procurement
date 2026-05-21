@@ -77,7 +77,13 @@ export default function GRNPrintPage() {
             Fortune Packaging Corporation
           </div>
           <div style={{ fontSize: '9px', color: '#64748b', marginTop: '2px' }}>
-            Procurement Management System
+            Severina Industrial Subdivision, 20 Main Avenue, Km 16 South Luzon Expy, Parañaque, 1700 Metro Manila
+          </div>
+          <div style={{ fontSize: '9px', color: '#64748b', marginTop: '1px' }}>
+            Tel: (02) 8823 6333
+          </div>
+          <div style={{ fontSize: '9px', color: '#64748b', marginTop: '2px', fontStyle: 'italic' }}>
+            Fortune Procurement System
           </div>
           <div style={{ fontSize: '14px', fontWeight: '700', marginTop: '6px', letterSpacing: '0.1em', color: '#0f172a' }}>
             GOODS RECEIPT NOTE
@@ -231,6 +237,7 @@ export default function GRNPrintPage() {
 
         {/* Footer */}
         <div style={{ marginTop: '12px', textAlign: 'center', fontSize: '8px', color: '#94a3b8', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
+          <div style={{ fontWeight: '600', marginBottom: '2px' }}>Fortune Packaging Corporation</div>
           <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{grn.grn_number}</span>
           {' · '}This document serves as an official goods receipt record.
           {' · '}Generated {format(new Date(), 'MMMM d, yyyy h:mm a')}

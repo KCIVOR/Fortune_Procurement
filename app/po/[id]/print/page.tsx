@@ -204,8 +204,9 @@ export default function POPrintPage() {
             <tr>
               <td style={{ width: '60%', verticalAlign: 'top', paddingBottom: 8 }}>
                 <div style={{ fontWeight: 'bold', fontSize: 16, letterSpacing: 1 }}>Fortune Packaging Corporation</div>
-                <div style={{ fontSize: 9, color: '#444', marginTop: 2 }}>123 Commerce Street, Makati City, Philippines</div>
-                <div style={{ fontSize: 9, color: '#444' }}>Tel: (02) 8123-4567 · procurement@fortune.com.ph</div>
+                <div style={{ fontSize: 9, color: '#444', marginTop: 2 }}>Severina Industrial Subdivision, 20 Main Avenue, Km 16 South Luzon Expy, Parañaque, 1700 Metro Manila</div>
+                <div style={{ fontSize: 9, color: '#444' }}>Tel: (02) 8823 6333</div>
+                <div style={{ fontSize: 8, color: '#666', marginTop: 2 }}>Fortune Procurement System</div>
               </td>
               <td style={{ width: '40%', verticalAlign: 'top', textAlign: 'right' }}>
                 <div style={{ fontSize: 18, fontWeight: 'bold', letterSpacing: 2, color: '#1e3a5f' }}>PURCHASE ORDER</div>

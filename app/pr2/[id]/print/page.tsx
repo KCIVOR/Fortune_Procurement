@@ -202,11 +202,17 @@ export default function PR2PrintPage() {
             <tr>
               <td style={{ width: '18%', border: '1px solid #000', padding: '6px 8px', verticalAlign: 'middle', textAlign: 'center' }}>
                 <div style={{ fontWeight: 'bold', fontSize: 8, lineHeight: 1.15 }}>Fortune Packaging Corporation</div>
+                <div style={{ fontSize: 6, lineHeight: 1.2, marginTop: 2, color: '#555' }}>
+                  Severina Industrial Subdivision, 20 Main Avenue, Km 16 South Luzon Expy, Parañaque, 1700 Metro Manila
+                </div>
+                <div style={{ fontSize: 6, color: '#555' }}>
+                  Tel: (02) 8823 6333
+                </div>
               </td>
               <td style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
                 <div style={{ fontSize: 14, fontWeight: 'bold', letterSpacing: 1 }}>PURCHASE REQUEST</div>
                 <div style={{ fontSize: 8, marginTop: 2 }}>Canvass Slip / PR2</div>
-                <div style={{ fontSize: 8, color: '#555' }}>Fortune Procurement Automation System</div>
+                <div style={{ fontSize: 8, color: '#555' }}>Fortune Procurement System</div>
               </td>
               <td style={{ width: '24%', border: '1px solid #000', padding: '5px 8px', verticalAlign: 'top', fontSize: 9 }}>
                 <div style={{ marginBottom: 3 }}>
@@ -390,7 +396,7 @@ export default function PR2PrintPage() {
 
         {/* Footer */}
         <div style={{ fontSize: 8, color: '#888', textAlign: 'right', marginTop: 6 }}>
-          Printed: {format(new Date(), 'MM/dd/yyyy hh:mm a')} · Fortune Procurement Automation System · PR2-v1
+          Printed: {format(new Date(), 'MM/dd/yyyy hh:mm a')} · Fortune Procurement System · PR2-v1
         </div>
       </div>
     </>

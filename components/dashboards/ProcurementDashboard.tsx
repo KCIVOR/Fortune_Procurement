@@ -14,15 +14,9 @@ import {
   ShoppingCart,
   ArrowRight,
   PackageSearch,
-  CheckCheck,
   CircleAlert as AlertCircle,
-  TriangleAlert as AlertTriangle,
   BadgeCheck,
-  Package,
   FlaskConical,
-  CheckCircle2,
-  XCircle,
-  ClipboardList,
 } from 'lucide-react';
 
 interface Props { profile: UserProfile; }
@@ -60,19 +54,13 @@ export default function ProcurementDashboard({ profile }: Props) {
   const cards = [
     { label: 'Awaiting RFQ', value: stats.forCanvassing, icon: PackageSearch, href: '/rfq' },
     { label: 'Open RFQs', value: stats.openRfqs, icon: SendHorizonal, href: '/rfq' },
-    { label: 'Canvassing Done', value: stats.canvassingComplete, icon: CheckCheck, href: '/rfq' },
     { label: 'High Priority', value: stats.high_priority_count, icon: AlertCircle, href: '/rfq' },
-    { label: 'Medium Priority', value: stats.medium_priority_count, icon: AlertTriangle, href: '/rfq' },
     { label: 'Purchase Orders', value: 0, icon: ShoppingCart, href: '/po' },
   ];
 
   const complianceCards = [
     { label: 'Accreditation queue', value: cStats.accreditationPendingReview, href: '/accreditation', icon: BadgeCheck },
-    { label: 'Product review', value: cStats.productsPendingReview, href: '/accreditation/products', icon: ClipboardList },
-    { label: 'Pending TSQA', value: cStats.productsPendingTsqa, href: '/accreditation/products', icon: Package },
-    { label: 'RSE pending TSQA', value: cStats.rsePendingTsqa, href: '/accreditation/products', icon: FlaskConical },
-    { label: 'Verified products', value: cStats.verifiedProducts, href: '/accreditation/products', icon: CheckCircle2 },
-    { label: 'Rejected products', value: cStats.rejectedProducts, href: '/accreditation/products', icon: XCircle },
+    { label: 'Pending TSQA', value: cStats.productsPendingTsqa + cStats.rsePendingTsqa, href: '/accreditation/products', icon: FlaskConical },
   ];
 
   const kpiCardClass =
@@ -85,8 +73,8 @@ export default function ProcurementDashboard({ profile }: Props) {
 
   const accreditationQueueCard = complianceCards[0];
   const productComplianceCards = complianceCards.slice(1);
-  const rfqStatCards = cards.slice(0, 5);
-  const purchaseOrderStatCard = cards[5];
+  const rfqStatCards = cards.slice(0, 3);
+  const purchaseOrderStatCard = cards[3];
 
   const complianceHeadingVisible = showSupplierAccreditation || showProductReview;
   const rfqBandHeadingOnly = !complianceHeadingVisible && (showCanvassingRfq || showPurchaseOrders);

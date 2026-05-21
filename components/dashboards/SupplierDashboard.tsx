@@ -12,14 +12,11 @@ import { fetchSupplierComplianceDashboardStats } from '@/lib/compliance-dashboar
 import {
   Tag,
   Clock,
-  FileText,
   ArrowRight,
   BadgeCheck,
   Package,
   CheckCircle2,
   CircleAlert,
-  FlaskConical,
-  XCircle,
 } from 'lucide-react';
 
 interface Props { profile: UserProfile; }
@@ -53,7 +50,6 @@ export default function SupplierDashboard({ profile }: Props) {
 
   const cards = [
     { label: 'Open RFQs', value: stats.openRfqs, icon: Tag, href: '/supplier/quotations' },
-    { label: 'Quotations Submitted', value: stats.submitted, icon: FileText, href: '/supplier/quotations' },
     { label: 'Pending Response', value: stats.pending, icon: Clock, href: '/supplier/quotations' },
   ];
 
@@ -112,26 +108,10 @@ export default function SupplierDashboard({ profile }: Props) {
                     </Link>
                     <Link href="/supplier/products" className="block transition hover:-translate-y-0.5 min-w-0">
                       <StatCard
-                        label="Under procurement review"
-                        value={cStats.inReviewProducts}
+                        label="Pending review"
+                        value={cStats.inReviewProducts + cStats.pendingTsqaProducts}
                         icon={<Clock className="w-5 h-5 text-pq-warning-600" />}
                         accent="amber"
-                      />
-                    </Link>
-                    <Link href="/supplier/products" className="block transition hover:-translate-y-0.5 min-w-0">
-                      <StatCard
-                        label="Pending TSQA"
-                        value={cStats.pendingTsqaProducts}
-                        icon={<FlaskConical className="w-5 h-5 text-pq-primary-600" />}
-                        accent="amber"
-                      />
-                    </Link>
-                    <Link href="/supplier/products" className="block transition hover:-translate-y-0.5 min-w-0">
-                      <StatCard
-                        label="Rejected"
-                        value={cStats.rejectedProducts}
-                        icon={<XCircle className="w-5 h-5 text-pq-danger-600" />}
-                        accent="red"
                       />
                     </Link>
                   </>
