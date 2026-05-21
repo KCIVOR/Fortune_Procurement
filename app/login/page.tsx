@@ -42,6 +42,15 @@ function LoginForm() {
       return;
     }
 
+    // Store remember me preference for session management
+    if (rememberMe) {
+      localStorage.setItem('rememberMe', 'true');
+    } else {
+      localStorage.removeItem('rememberMe');
+      // Mark session as temporary (will be cleared on browser close)
+      sessionStorage.setItem('tempSession', 'true');
+    }
+
     const userId = data.user?.id;
     if (userId) {
       const profile = await fetchUserProfile(userId);

@@ -38,7 +38,7 @@ export default function BugDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [isTraceExpanded, setIsTraceExpanded] = useState(false);
 
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
+  const isAdmin = profile?.role === 'admin' || (profile?.role as string) === 'superadmin';
 
   const fetchBug = async () => {
     setLoading(true);

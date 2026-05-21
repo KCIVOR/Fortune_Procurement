@@ -210,7 +210,7 @@ export default function WarehouseValidationPage() {
         )}
       </div>
 
-      <div className={`space-y-5 ${!isReadOnly ? 'pb-44' : ''}`}>
+      <div className="space-y-5">
         {/* PR1 header summary */}
         <div className="bg-pq-white rounded-md border border-pq-neutral-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center justify-between">
@@ -345,8 +345,6 @@ export default function WarehouseValidationPage() {
           </div>
         </div>
 
-        {/* Decision panel placeholder removed — moved to sticky footer below */}
-
         {/* Read-only: completed validation summary */}
         {isReadOnly && (
           <div className={`rounded-md border overflow-hidden ${
@@ -380,88 +378,88 @@ export default function WarehouseValidationPage() {
             </div>
           </div>
         )}
-      </div>
 
-      {/* Sticky decision panel — visible only in edit mode */}
-      {!isReadOnly && (
-        <div className="sticky bottom-0 z-20 bg-pq-white border-t border-pq-neutral-200">
-          <div className="px-6 py-4">
-            {!allItemsHaveSoh ? (
-              <div className="flex items-center gap-3 text-pq-warning-900 bg-pq-warning-50 border border-pq-warning-200 rounded-lg px-4 py-3">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <p className="text-sm">
-                  Enter verified SOH for every line before submitting warehouse validation.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {derivedDecision && (
-                  <SubmitOutcomePreview
-                    decision={derivedDecision}
-                    itemCount={formValues.items.length}
-                    procurementOrPartialCount={
-                      routingRows.filter(
-                        r => r && (r.item_route === 'procurement' || r.item_route === 'partial')
-                      ).length
-                    }
-                  />
-                )}
+        {/* Decision panel — visible only in edit mode */}
+        {!isReadOnly && (
+          <div className="bg-pq-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="px-6 py-4">
+              {!allItemsHaveSoh ? (
+                <div className="flex items-center gap-3 text-pq-warning-900 bg-pq-warning-50 border border-pq-warning-200 rounded-lg px-4 py-3">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <p className="text-sm">
+                    Enter verified SOH for every line before submitting warehouse validation.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {derivedDecision && (
+                    <SubmitOutcomePreview
+                      decision={derivedDecision}
+                      itemCount={formValues.items.length}
+                      procurementOrPartialCount={
+                        routingRows.filter(
+                          r => r && (r.item_route === 'procurement' || r.item_route === 'partial')
+                        ).length
+                      }
+                    />
+                  )}
 
-                {globalError && (
-                  <div className="flex items-start gap-3 bg-pq-danger-50 border border-pq-danger-200 text-pq-danger-900 text-sm rounded-lg px-4 py-3">
-                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                    <span>{globalError}</span>
-                  </div>
-                )}
+                  {globalError && (
+                    <div className="flex items-start gap-3 bg-pq-danger-50 border border-pq-danger-200 text-pq-danger-900 text-sm rounded-lg px-4 py-3">
+                      <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                      <span>{globalError}</span>
+                    </div>
+                  )}
 
-                {confirmSubmit ? (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <p className="text-sm text-pq-neutral-700">
-                      Submit warehouse validation? PR outcome:{' '}
-                      <strong
-                        className={
-                          derivedDecision === 'sufficient' ? 'text-pq-success-900' : 'text-pq-primary-600'
-                        }
+                  {confirmSubmit ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-sm text-pq-neutral-700">
+                        Submit warehouse validation? PR outcome:{' '}
+                        <strong
+                          className={
+                            derivedDecision === 'sufficient' ? 'text-pq-success-900' : 'text-pq-primary-600'
+                          }
+                        >
+                          {derivedDecision === 'sufficient'
+                            ? 'Resolve internally (all lines internal)'
+                            : 'Route to approval / procurement'}
+                        </strong>
+                        . This cannot be undone.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={submitting}
+                        className="px-4 py-2 text-sm font-semibold text-white rounded-md transition disabled:opacity-50 bg-pq-neutral-900 hover:bg-pq-neutral-700"
                       >
-                        {derivedDecision === 'sufficient'
-                          ? 'Resolve internally (all lines internal)'
-                          : 'Route to approval / procurement'}
-                      </strong>
-                      . This cannot be undone.
-                    </p>
+                        {submitting ? 'Submitting...' : 'Confirm submit'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmSubmit(false)}
+                        disabled={submitting}
+                        className="px-4 py-2 text-sm text-pq-neutral-700 hover:text-pq-neutral-900 transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={handleSubmit}
-                      disabled={submitting}
-                      className="px-4 py-2 text-sm font-semibold text-white rounded-md transition disabled:opacity-50 bg-pq-neutral-900 hover:bg-pq-neutral-700"
+                      onClick={() => setConfirmSubmit(true)}
+                      disabled={submitting || !derivedDecision}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-pq-neutral-900 hover:bg-pq-neutral-700 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                     >
-                      {submitting ? 'Submitting...' : 'Confirm submit'}
+                      <CheckCircle2 className="w-4 h-4" />
+                      Submit Warehouse Validation
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmSubmit(false)}
-                      disabled={submitting}
-                      className="px-4 py-2 text-sm text-pq-neutral-700 hover:text-pq-neutral-900 transition"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmSubmit(true)}
-                    disabled={submitting || !derivedDecision}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-pq-neutral-900 hover:bg-pq-neutral-700 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Submit Warehouse Validation
-                  </button>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </AppShell>
   );
 }

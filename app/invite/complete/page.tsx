@@ -101,7 +101,11 @@ export default function InviteCompletePage() {
   if (!sessionReady) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-pq-neutral-50">
-        <p className="text-sm text-pq-neutral-500">Verifying your invitation…</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-6 h-6 border-2 border-pq-primary-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-pq-neutral-500">Verifying your invitation…</p>
+          <p className="text-xs text-pq-neutral-400">This may take a few seconds</p>
+        </div>
       </div>
     );
   }

@@ -75,7 +75,7 @@ export default function BugTrackPage() {
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
 
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
+  const isAdmin = profile?.role === 'admin' || (profile?.role as string) === 'superadmin';
 
   const fetchBugs = async () => {
     setLoading(true);
