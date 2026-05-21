@@ -206,6 +206,9 @@ export function isModuleVisible(
 /**
  * Resolve visible modules for sidebar navigation.
  * Now supports "add mode" - positions can have modules from other roles added.
+ * Borrowed items honor an optional `insertAfter` anchor on the NavItem; when the
+ * anchor module_key is present in the host role's visible items, the borrowed
+ * item is placed immediately after it. Otherwise it falls back to the end.
  */
 export function resolveVisibleModules(
   navItems: NavItem[],
@@ -213,26 +216,38 @@ export function resolveVisibleModules(
   userPositionId: string | null,
 ): NavItem[] {
   // Start with base role's visible modules
-  const visibleFromRole = navItems.filter((item) => 
+  const visibleFromRole = navItems.filter((item) =>
     getEffectiveModuleVisibility(item.module_key, rules, userPositionId)
   );
 
   // Get added modules from other roles
   const addedModuleRules = getAddedModules(rules, userPositionId);
-  
-  // Convert added module rules to NavItems
+
+  // Resolve added rules to NavItem definitions, deduped against the host role's items
   const addedNavItems: NavItem[] = [];
   for (const rule of addedModuleRules) {
-    // Find the NavItem definition from ALL_NAV
     const navEntry = Object.values(ALL_NAV).find(nav => nav.module_key === rule.module_key);
-    if (navEntry && !visibleFromRole.some(v => v.module_key === rule.module_key)) {
-      addedNavItems.push(navEntry);
-    }
+    if (!navEntry) continue;
+    if (visibleFromRole.some(v => v.module_key === rule.module_key)) continue;
+    if (addedNavItems.some(v => v.module_key === rule.module_key)) continue;
+    addedNavItems.push(navEntry);
   }
 
-  // Combine: role's visible modules + added modules
-  // Sort added modules to appear in a logical order (after role's modules)
-  return [...visibleFromRole, ...addedNavItems];
+  // Place each borrowed item after its anchor when possible; otherwise queue for the tail
+  const result: NavItem[] = [...visibleFromRole];
+  const tail: NavItem[] = [];
+  for (const item of addedNavItems) {
+    const anchor = item.insertAfter;
+    const anchorIdx = anchor
+      ? result.findIndex(v => v.module_key === anchor)
+      : -1;
+    if (anchorIdx >= 0) {
+      result.splice(anchorIdx + 1, 0, item);
+    } else {
+      tail.push(item);
+    }
+  }
+  return [...result, ...tail];
 }
 
 /**

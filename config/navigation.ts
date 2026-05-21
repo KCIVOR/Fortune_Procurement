@@ -39,6 +39,13 @@ export interface NavItem {
   href: string;
   icon: string;
   module_key: ModuleKey;
+  /**
+   * Optional anchor used only when this item is borrowed into another role's sidebar
+   * via the "Added Modules from Other Roles" feature. When set, the borrowed item is
+   * inserted immediately after the host role's item with this module_key. If the
+   * anchor is not present in the host role's nav, the item falls back to the end.
+   */
+  insertAfter?: ModuleKey;
 }
 
 export interface NavGroup {
@@ -198,6 +205,49 @@ export const ALL_NAV: Record<string, NavItem> = {
     icon: 'GitBranch',
     module_key: 'admin_workflows',
   },
+  approverPR1: {
+    label: 'PR1 Requests',
+    href: '/approvals/pr1',
+    icon: 'FileText',
+    module_key: 'approver_pr1',
+  },
+  approverPR2: {
+    label: 'PR2 Requests',
+    href: '/approvals/pr2',
+    icon: 'ClipboardList',
+    module_key: 'approver_pr2',
+    insertAfter: 'purchase_requests',
+  },
+  approverPO: {
+    label: 'Purchase Orders',
+    href: '/approvals/po',
+    icon: 'ShoppingCart',
+    module_key: 'approver_po',
+  },
+  approvalHistory: {
+    label: 'Approval History',
+    href: '/approvals/history',
+    icon: 'CheckSquare',
+    module_key: 'approval_history',
+  },
+  warehouseHistory: {
+    label: 'Warehouse History',
+    href: '/warehouse/history',
+    icon: 'ClipboardList',
+    module_key: 'warehouse_history',
+  },
+  tsqaDashboard: {
+    label: 'Dashboard',
+    href: '/tsqa',
+    icon: 'LayoutDashboard',
+    module_key: 'tsqa_dashboard',
+  },
+  tsqaRse: {
+    label: 'RSE Queue',
+    href: '/tsqa/rse',
+    icon: 'ClipboardList',
+    module_key: 'tsqa_rse',
+  },
 };
 
 export const ROLE_NAV: Record<AppRole, NavItem[]> = {
@@ -220,24 +270,14 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
   warehouse: [
     ALL_NAV.dashboard,
     ALL_NAV.warehouseQueue,
-    {
-      label: 'Warehouse History',
-      href: '/warehouse/history',
-      icon: 'ClipboardList',
-      module_key: 'warehouse_history',
-    },
+    ALL_NAV.warehouseHistory,
     ALL_NAV.deliveryTracking,
     ALL_NAV.grn,
   ],
   procurement: [
     ALL_NAV.dashboard,
     ALL_NAV.approvalQueue,
-    {
-      label: 'Approval History',
-      href: '/approvals/history',
-      icon: 'CheckSquare',
-      module_key: 'approval_history',
-    },
+    ALL_NAV.approvalHistory,
     ALL_NAV.pr2,
     ALL_NAV.rfq,
     ALL_NAV.purchaseOrders,
@@ -248,30 +288,10 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
   ],
   approver: [
     ALL_NAV.dashboard,
-    {
-      label: 'PR1 Requests',
-      href: '/approvals/pr1',
-      icon: 'FileText',
-      module_key: 'approver_pr1',
-    },
-    {
-      label: 'PR2 Requests',
-      href: '/approvals/pr2',
-      icon: 'ClipboardList',
-      module_key: 'approver_pr2',
-    },
-    {
-      label: 'Purchase Orders',
-      href: '/approvals/po',
-      icon: 'ShoppingCart',
-      module_key: 'approver_po',
-    },
-    {
-      label: 'Approval History',
-      href: '/approvals/history',
-      icon: 'CheckSquare',
-      module_key: 'approval_history',
-    },
+    ALL_NAV.approverPR1,
+    ALL_NAV.approverPR2,
+    ALL_NAV.approverPO,
+    ALL_NAV.approvalHistory,
   ],
   supplier: [
     ALL_NAV.dashboard,
@@ -282,17 +302,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     ALL_NAV.supplierDelivery,
   ],
   tsqa: [
-    {
-      label: 'Dashboard',
-      href: '/tsqa',
-      icon: 'LayoutDashboard',
-      module_key: 'tsqa_dashboard',
-    },
-    {
-      label: 'RSE Queue',
-      href: '/tsqa/rse',
-      icon: 'ClipboardList',
-      module_key: 'tsqa_rse',
-    },
+    ALL_NAV.tsqaDashboard,
+    ALL_NAV.tsqaRse,
   ],
 };
