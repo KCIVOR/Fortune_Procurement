@@ -19,17 +19,29 @@ CREATE TABLE IF NOT EXISTS public.bug_reports (
 ALTER TABLE public.bug_reports ENABLE ROW LEVEL SECURITY;
 
 -- Policies
--- 1. Everyone can view all bugs (Global tracking)
-CREATE POLICY "Everyone can view all bugs" 
+-- 1. Only admins can view all bugs
+CREATE POLICY "Admins can view all bugs" 
 ON public.bug_reports FOR SELECT 
-USING (true);
+USING (
+    EXISTS (
+        SELECT 1 FROM public.profiles 
+        JOIN public.roles ON profiles.role_id = roles.id
+        WHERE profiles.id = auth.uid() 
+        AND (roles.name = 'admin' OR roles.name = 'superadmin')
+    )
+);
 
--- 2. Authenticated users can create bugs
+-- 2. Users can view only their own bug reports
+CREATE POLICY "Users can view their own bugs" 
+ON public.bug_reports FOR SELECT 
+USING (reporter_id = auth.uid());
+
+-- 3. Authenticated users can create bugs
 CREATE POLICY "Authenticated users can create bugs" 
 ON public.bug_reports FOR INSERT 
 WITH CHECK (auth.uid() IS NOT NULL);
 
--- 3. Only admins can update status/severity or delete
+-- 4. Only admins can update status/severity or delete
 CREATE POLICY "Admins can update bugs" 
 ON public.bug_reports FOR UPDATE 
 USING (
@@ -37,7 +49,7 @@ USING (
         SELECT 1 FROM public.profiles 
         JOIN public.roles ON profiles.role_id = roles.id
         WHERE profiles.id = auth.uid() 
-        AND roles.name = 'admin'
+        AND (roles.name = 'admin' OR roles.name = 'superadmin')
     )
 );
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
@@ -10,8 +11,19 @@ import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig, TabFilter } from '@/components/shared/FilterBar.types';
 import PaginationControls from '@/components/shared/PaginationControls';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAuth } from '@/context/AuthContext';
-import { getBugReports, type BugReport } from '@/lib/bugtrack';
+import { getBugReports, createBugReport, type BugReport } from '@/lib/bugtrack';
 import { format } from 'date-fns';
 import {
   Bug,
@@ -21,10 +33,12 @@ import {
   AlertTriangle,
   CheckCircle2,
   Settings,
+  Loader2,
 } from 'lucide-react';
 import ReportBugModal from '@/components/bugtrack/ReportBugModal';
 import BugTrackSettingsModal from '@/components/bugtrack/BugTrackSettingsModal';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 // ─── Filter definitions ───────────────────────────────────────────────────────
 
@@ -61,6 +75,8 @@ export default function BugTrackPage() {
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
 
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
+
   const fetchBugs = async () => {
     setLoading(true);
     try {
@@ -74,8 +90,12 @@ export default function BugTrackPage() {
   };
 
   useEffect(() => {
-    fetchBugs();
-  }, []);
+    if (isAdmin) {
+      fetchBugs();
+    } else {
+      setLoading(false);
+    }
+  }, [isAdmin]);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
@@ -132,6 +152,23 @@ export default function BugTrackPage() {
     setActiveTab('all');
   };
 
+  // Non-admin users see the inline report form
+  if (!isAdmin) {
+    return (
+      <AppShell title="Report a Bug">
+        <div className="max-w-2xl mx-auto">
+          <PageHeader
+            title="Report a Bug"
+            description="Found an issue? Let us know and we'll get it fixed as soon as possible."
+          />
+          
+          <BugReportForm profile={profile} />
+        </div>
+      </AppShell>
+    );
+  }
+
+  // Admin view - full bug tracking dashboard
   return (
     <AppShell title="Bug Track">
       <PageHeader
@@ -139,15 +176,13 @@ export default function BugTrackPage() {
         description="Global system bug tracking and fix queue. Report issues and track their resolution."
         action={
           <div className="flex items-center gap-3">
-            {profile?.role === 'admin' && (
-              <button
-                onClick={() => setIsSettingsModalOpen(true)}
-                className="flex items-center justify-center w-9 h-9 text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 rounded-md transition border border-pq-neutral-200 bg-white"
-                title="Bug Track Settings"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-            )}
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="flex items-center justify-center w-9 h-9 text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 rounded-md transition border border-pq-neutral-200 bg-white"
+              title="Bug Track Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
             <button
               onClick={() => setIsReportModalOpen(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-sm font-semibold rounded-md transition shadow-sm"
@@ -365,6 +400,223 @@ function BugQueueSkeleton() {
           <Skeleton className="h-4 w-12" />
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Inline Bug Report Form ──────────────────────────────────────────────────
+
+function BugReportForm({ profile }: { profile: any }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    expected_behavior: '',
+    error_message: '',
+    affected_user: profile?.role || '',
+    location: '',
+    severity: 'medium' as 'low' | 'medium' | 'high',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+
+    setLoading(true);
+    try {
+      await createBugReport({
+        ...formData,
+        reporter_id: profile.id,
+        status: 'open',
+      });
+      
+      // Trigger email notification
+      await fetch('/api/bugtrack/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bugTitle: formData.title,
+          bugDescription: formData.description,
+          severity: formData.severity,
+          location: formData.location,
+          reporterName: profile.full_name || 'User',
+        })
+      });
+
+      toast.success('Bug reported successfully! Our team will review it shortly.');
+      
+      // Reset form
+      setFormData({
+        title: '',
+        description: '',
+        expected_behavior: '',
+        error_message: '',
+        affected_user: profile.role || '',
+        location: '',
+        severity: 'medium',
+      });
+    } catch (error) {
+      console.error('Error reporting bug:', error);
+      toast.error('Failed to report bug. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-md border border-pq-neutral-200 p-6">
+      <div className="flex items-start gap-4 mb-6">
+        <div className="flex items-center justify-center w-12 h-12 rounded-md bg-pq-primary-50 border border-pq-primary-200">
+          <Bug className="w-6 h-6 text-pq-primary-600" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-pq-neutral-900 mb-1">Submit a Bug Report</h3>
+          <p className="text-sm text-pq-neutral-600">
+            Describe the issue you encountered in detail. Our team will review and address it promptly.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Issue Summary */}
+        <div className="space-y-1.5">
+          <Label htmlFor="title" className="text-sm font-medium text-pq-neutral-700">
+            Issue Summary <span className="text-pq-danger-500">*</span>
+          </Label>
+          <Input
+            id="title"
+            placeholder="e.g. Navigation bar is overlapping on mobile"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            required
+            className="h-10"
+          />
+        </div>
+
+        {/* Location & Severity */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="location" className="text-sm font-medium text-pq-neutral-700">
+              Where it Happens <span className="text-pq-danger-500">*</span>
+            </Label>
+            <Input
+              id="location"
+              placeholder="e.g. /dashboard or Sidebar"
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              required
+              className="h-10"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="severity" className="text-sm font-medium text-pq-neutral-700">
+              Severity <span className="text-pq-danger-500">*</span>
+            </Label>
+            <Select
+              value={formData.severity}
+              onValueChange={(val: 'low' | 'medium' | 'high') => setFormData({ ...formData, severity: val })}
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Select severity" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Description */}
+        <div className="space-y-1.5">
+          <Label htmlFor="description" className="text-sm font-medium text-pq-neutral-700">
+            What I See (Description) <span className="text-pq-danger-500">*</span>
+          </Label>
+          <Textarea
+            id="description"
+            placeholder="Describe the bug in detail..."
+            className="min-h-[100px] resize-none"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            required
+          />
+        </div>
+
+        {/* Expected Behavior */}
+        <div className="space-y-1.5">
+          <Label htmlFor="expected" className="text-sm font-medium text-pq-neutral-700">
+            Expected Behavior <span className="text-pq-danger-500">*</span>
+          </Label>
+          <Textarea
+            id="expected"
+            placeholder="What should happen instead?"
+            className="min-h-[80px] resize-none"
+            value={formData.expected_behavior}
+            onChange={(e) => setFormData({ ...formData, expected_behavior: e.target.value })}
+            required
+          />
+        </div>
+
+        {/* Error Message */}
+        <div className="space-y-1.5">
+          <Label htmlFor="error_message" className="text-sm font-medium text-pq-neutral-700">
+            Error Message <span className="text-pq-neutral-400 font-normal">(Optional)</span>
+          </Label>
+          <Input
+            id="error_message"
+            placeholder="e.g. Uncaught TypeError: ..."
+            value={formData.error_message}
+            onChange={(e) => setFormData({ ...formData, error_message: e.target.value })}
+            className="h-10 font-mono text-sm"
+          />
+        </div>
+
+        {/* Submit Button */}
+        <div className="pt-4 border-t border-pq-neutral-200">
+          <Button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-pq-primary-600 hover:bg-pq-primary-700 text-white h-11"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                Submit Bug Report
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+
+      {/* Help Section */}
+      <div className="mt-6 pt-6 border-t border-pq-neutral-200">
+        <h4 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-3">What to Include</h4>
+        <ul className="space-y-2 text-sm text-pq-neutral-600">
+          <li className="flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
+            <span>Clear description of what went wrong</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
+            <span>Where in the system the issue occurred</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
+            <span>What you expected to happen instead</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
+            <span>Any error messages you saw (optional)</span>
+          </li>
+        </ul>
+      </div>
     </div>
   );
 }
