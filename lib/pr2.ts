@@ -200,8 +200,9 @@ export async function generatePR2FromRfq(
     }
   }
 
-  // Generate PR2 number
-  const pr2Number = `PR2-${rfq.rfq_number}`;
+  // Generate PR2 number - extract year and sequence from RFQ number (RFQ-YYYY-NNN -> PR2-YYYY-NNN)
+  const rfqParts = rfq.rfq_number.replace('RFQ-', '');
+  const pr2Number = `PR2-${rfqParts}`;
 
   // Insert PR2 header
   const { data: pr2, error: pr2Err } = await db

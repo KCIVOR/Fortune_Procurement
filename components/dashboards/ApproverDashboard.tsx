@@ -11,7 +11,8 @@ import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
 import { DashboardQueueSkeleton } from '@/components/shared/structural-skeletons';
 import { fetchApprovalQueue, fetchApproverStats, canActOnStep } from '@/lib/approvals';
-import type { PR1ApprovalQueueRow } from '@/types/approvals';
+import { fetchPR2ApprovalQueue, canActOnPR2Step } from '@/lib/pr2-approvals';
+import { fetchPOApprovalQueue, canActOnPOStep } from '@/lib/po-approvals';
 import PriorityChip from '@/components/shared/PriorityChip';
 import {
   SquareCheck as CheckSquare,
@@ -25,10 +26,22 @@ import { format } from 'date-fns';
 
 interface Props { profile: UserProfile; }
 
+interface UnifiedQueueRow {
+  instance_id: string;
+  doc_number: string;
+  title: string;
+  department: string;
+  purpose: string;
+  priority: string;
+  date_required: string;
+  current_step: number;
+  url: string;
+}
+
 export default function ApproverDashboard({ profile }: Props) {
   const { isModuleVisible, rulesLoading } = useModuleVisibility(profile);
   const showApprovalQueue = isModuleVisible('approval_queue');
-  const [queue, setQueue] = useState<PR1ApprovalQueueRow[]>([]);
+  const [queue, setQueue] = useState<UnifiedQueueRow[]>([]);
   const [stats, setStats] = useState({
     awaitingAction: 0, approvedThisWeek: 0, rejectedThisWeek: 0, totalProcessed: 0,
   });
@@ -37,12 +50,59 @@ export default function ApproverDashboard({ profile }: Props) {
   useEffect(() => {
     Promise.all([
       fetchApprovalQueue(),
+      fetchPR2ApprovalQueue(),
+      fetchPOApprovalQueue(),
       fetchApproverStats(profile.id),
-    ]).then(([q, s]) => {
-      setQueue(q);
-      setStats(s);
+    ]).then(([pr1, pr2, po, s]) => {
+      const myPR1 = pr1.filter(row => canActOnStep(profile, row.step_position_required));
+      const myPR2 = pr2.filter(row => canActOnPR2Step(profile, row.step_role_required, row.step_position_required));
+      const myPO = po.filter(row => canActOnPOStep(profile, row.step_role_required, row.step_position_required));
+      
+      const trueAwaiting = myPR1.length + myPR2.length + myPO.length;
+
+      const unified: UnifiedQueueRow[] = [
+        ...myPR1.map(r => ({
+          instance_id: r.instance_id,
+          doc_number: r.pr1_number,
+          title: r.requisitioner_name_snapshot,
+          department: r.department_name_snapshot,
+          purpose: r.purpose,
+          priority: r.priority || 'normal',
+          date_required: r.date_required,
+          current_step: r.current_step,
+          url: `/approvals/${r.instance_id}`
+        })),
+        ...myPR2.map(r => ({
+          instance_id: r.instance_id,
+          doc_number: r.pr2_number,
+          title: r.requisitioner_name_snapshot,
+          department: r.department_name_snapshot,
+          purpose: r.purpose,
+          priority: r.pr1_priority || 'normal',
+          date_required: r.date_required,
+          current_step: r.current_step,
+          url: `/approvals/pr2/${r.instance_id}`
+        })),
+        ...myPO.map(r => ({
+          instance_id: r.instance_id,
+          doc_number: r.po_number,
+          title: r.supplier_name_snapshot,
+          department: r.department_name_snapshot,
+          purpose: r.purpose,
+          priority: r.pr1_priority || 'normal',
+          date_required: r.date_required,
+          current_step: r.current_step,
+          url: `/approvals/po/${r.instance_id}`
+        }))
+      ];
+      
+      setQueue(unified.sort((a, b) => new Date(a.date_required).getTime() - new Date(b.date_required).getTime()));
+      setStats({
+        ...s,
+        awaitingAction: trueAwaiting,
+      });
     }).finally(() => setLoading(false));
-  }, [profile.id]);
+  }, [profile.id, profile]);
 
   const statCards = [
     { label: 'Awaiting My Action', value: stats.awaitingAction, icon: Clock },
@@ -111,18 +171,17 @@ export default function ApproverDashboard({ profile }: Props) {
         ) : (
           <div className="divide-y divide-pq-neutral-200">
             {queue.slice(0, 5).map(row => {
-              const active = canActOnStep(profile, row.step_position_required);
               return (
                 <div
                   key={row.instance_id}
-                  className={`flex items-center gap-4 px-5 py-4 transition-colors ${active ? 'hover:bg-pq-neutral-50' : 'opacity-60'}`}
+                  className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-pq-neutral-50"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-pq-neutral-900 font-mono">{row.pr1_number}</span>
+                      <span className="text-sm font-semibold text-pq-neutral-900 font-mono">{row.doc_number}</span>
                       <span className="text-xs text-pq-neutral-500">·</span>
-                      <span className="text-xs text-pq-neutral-500">{row.requisitioner_name_snapshot}</span>
-                      <span className="text-xs text-pq-neutral-400">{row.department_name_snapshot}</span>
+                      <span className="text-xs text-pq-neutral-500">{row.title}</span>
+                      <span className="text-xs text-pq-neutral-400">{row.department}</span>
                     </div>
                     <p className="text-xs text-pq-neutral-500 mt-0.5 truncate">{row.purpose}</p>
                     <div className="flex items-center gap-2 mt-1">
@@ -134,23 +193,15 @@ export default function ApproverDashboard({ profile }: Props) {
                     </div>
                   </div>
                   <div className="shrink-0 flex items-center gap-3">
-                    {active ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-neutral-900 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-2 py-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-pq-primary-600 animate-pulse" />
-                        Step {row.current_step}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-2 py-0.5">
-                        <Lock className="w-3 h-3" />
-                        Step {row.current_step}
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-neutral-900 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-2 py-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-pq-primary-600 animate-pulse" />
+                      Step {row.current_step}
+                    </span>
                     <Link
-                      href={`/approvals/${row.instance_id}`}
-                      className={`inline-flex items-center gap-1 text-xs font-medium transition ${active ? 'text-pq-primary-600 hover:text-pq-neutral-900' : 'text-pq-neutral-400 hover:text-pq-neutral-500'
-                        }`}
+                      href={row.url}
+                      className="inline-flex items-center gap-1 text-xs font-medium transition text-pq-primary-600 hover:text-pq-neutral-900"
                     >
-                      {active ? <><ArrowRight className="w-3.5 h-3.5" />Review</> : 'View'}
+                      <ArrowRight className="w-3.5 h-3.5" />Review
                     </Link>
                   </div>
                 </div>

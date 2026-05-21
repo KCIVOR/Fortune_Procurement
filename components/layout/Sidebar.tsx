@@ -23,6 +23,7 @@ import {
   Clock,
   BadgeCheck,
   Settings2,
+  GitBranch,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useModuleVisibility } from '@/hooks/use-module-visibility';
@@ -50,6 +51,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Clock,
   BadgeCheck,
   Settings2,
+  GitBranch,
 };
 
 const ROLE_LABELS: Record<AppRole, string> = {

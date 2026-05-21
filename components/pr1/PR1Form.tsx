@@ -8,6 +8,7 @@ import {
   saveDraftPR1,
   submitPR1,
   checkPR1NumberExists,
+  deleteDraftPR1,
 } from '@/lib/pr1';
 import type { PR1WithItems, PR1FormValues, PR1ItemDraft } from '@/types/pr1';
 import { EMPTY_ITEM, PURPOSE_OPTIONS, UNIT_OPTIONS } from '@/types/pr1';
@@ -91,6 +92,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
   const [duplicateWarning, setDuplicateWarning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [globalError, setGlobalError] = useState('');
 
@@ -294,6 +296,23 @@ export default function PR1Form({ existing }: PR1FormProps) {
     } catch (err: any) {
       setGlobalError(err.message ?? 'Failed to submit PR1.');
       setSubmitting(false);
+    }
+  };
+
+  // ── Delete draft ───────────────────────────────────────────────────────────
+
+  const handleDelete = async () => {
+    if (!profile || !existing) return;
+    if (!confirm('Are you sure you want to delete this draft? This cannot be undone.')) return;
+    
+    setDeleting(true);
+    setGlobalError('');
+    try {
+      await deleteDraftPR1(existing.id, profile);
+      router.push('/pr1');
+    } catch (err: any) {
+      setGlobalError(err.message ?? 'Failed to delete draft.');
+      setDeleting(false);
     }
   };
 
@@ -585,20 +604,34 @@ export default function PR1Form({ existing }: PR1FormProps) {
 
       {/* ── Actions ── */}
       <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => router.back()}
-          className="text-pq-neutral-500 hover:text-pq-neutral-900 transition text-sm"
-        >
-          Cancel
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => router.back()}
+            disabled={saving || submitting || deleting}
+            className="text-pq-neutral-500 hover:text-pq-neutral-900 transition text-sm"
+          >
+            Cancel
+          </Button>
+          {isEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDelete}
+              disabled={saving || submitting || deleting}
+              className="text-pq-danger-600 border-pq-danger-200 hover:bg-pq-danger-50 hover:text-pq-danger-700 transition text-sm"
+            >
+              {deleting ? 'Deleting...' : 'Delete Draft'}
+            </Button>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <Button
             type="button"
             variant="outline"
             onClick={handleSaveDraft}
-            disabled={saving || submitting}
+            disabled={saving || submitting || deleting}
             className="inline-flex items-center gap-2 hover:border-pq-primary-600 transition"
           >
             {saving ? (

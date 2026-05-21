@@ -251,9 +251,11 @@ export async function fetchMyPR1s(
     offset?:  number;
     status?:  string;
     search?:  string;
+    dateFrom?: string;
+    dateTo?:   string;
   } = {}
 ): Promise<{ requests: PR1Request[]; total_count: number }> {
-  const { limit, offset = 0, status, search } = options;
+  const { limit, offset = 0, status, search, dateFrom, dateTo } = options;
 
   // Single `.select(...)` per query — chaining `.select` again after `select('*')`
   // drops the exact count header and yields count = null / 0.
@@ -267,6 +269,13 @@ export async function fetchMyPR1s(
     if (search && search.trim()) {
       const t = `%${search.trim()}%`;
       q = q.or(`pr1_number.ilike.${t},purpose.ilike.${t}`);
+    }
+
+    if (dateFrom) {
+      q = q.gte('created_at', `${dateFrom}T00:00:00.000Z`);
+    }
+    if (dateTo) {
+      q = q.lte('created_at', `${dateTo}T23:59:59.999Z`);
     }
 
     return q;
@@ -660,6 +669,44 @@ export async function updatePR1Priority(
   } catch (auditError) {
     console.warn('Failed to write priority audit log:', auditError);
   }
+}
+
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+export async function deleteDraftPR1(pr1Id: string, profile: UserProfile): Promise<void> {
+  // 1. Fetch current PR1 to verify it exists, belongs to user, and is a draft
+  const { data: pr1, error: fetchErr } = await db
+    .from('pr1_requests')
+    .select('id, requisitioner_id, status')
+    .eq('id', pr1Id)
+    .maybeSingle();
+
+  if (fetchErr) throw fetchErr;
+  if (!pr1) throw new Error(`PR1 not found (id: ${pr1Id}).`);
+
+  if (pr1.requisitioner_id !== profile.id && profile.role !== 'admin') {
+    throw new Error('Not authorized to delete this PR1.');
+  }
+
+  if (pr1.status !== 'draft') {
+    throw new Error('Only draft requests can be deleted.');
+  }
+
+  // 2. Delete PR1 items first (unless cascade is set, but this is safer)
+  const { error: itemsErr } = await db
+    .from('pr1_items')
+    .delete()
+    .eq('pr1_id', pr1Id);
+    
+  if (itemsErr) throw itemsErr;
+
+  // 3. Delete PR1 header
+  const { error: delErr } = await db
+    .from('pr1_requests')
+    .delete()
+    .eq('id', pr1Id);
+
+  if (delErr) throw delErr;
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────

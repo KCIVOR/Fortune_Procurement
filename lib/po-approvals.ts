@@ -19,7 +19,10 @@ export function canActOnPOStep(
   stepRoleRequired: string,
   stepPositionRequired: string
 ): boolean {
-  return profile.role === stepRoleRequired && profile.position === stepPositionRequired;
+  const isCorrectRole = profile.role === stepRoleRequired || 
+    ((profile.role === 'approver' || profile.role === 'procurement') && 
+     (stepRoleRequired === 'approver' || stepRoleRequired === 'procurement'));
+  return isCorrectRole && profile.position === stepPositionRequired;
 }
 
 // ─── Submit PO for approval (Buyer initiates) ─────────────────────────────────
@@ -335,8 +338,35 @@ export async function submitPOApprovalAction(
   if (actionErr) throw actionErr;
 
   if (action === 'approved') {
-    if (isFinalStep) {
-      // Step 4 (supplier) is the final step; internal approval ends at step 3
+    // For PO workflow, check if the next step is a supplier step
+    // If so, this is the final internal approval step
+    let isFinalInternalStep = isFinalStep;
+    
+    if (!isFinalStep) {
+      // Check if next step is supplier role (step 4 in PO workflow)
+      const { data: inst } = await db
+        .from('approval_instances')
+        .select('workflow_id')
+        .eq('id', instanceId)
+        .maybeSingle();
+      
+      if (inst?.workflow_id) {
+        const { data: nextStep } = await db
+          .from('approval_steps')
+          .select('role_required, position_required')
+          .eq('workflow_id', inst.workflow_id)
+          .eq('step_order', stepOrder + 1)
+          .maybeSingle();
+        
+        // If next step is supplier role, treat current step as final internal approval
+        if (nextStep?.role_required === 'supplier') {
+          isFinalInternalStep = true;
+        }
+      }
+    }
+
+    if (isFinalInternalStep) {
+      // Final internal approval - mark PO as approved, notify supplier
       await db
         .from('approval_instances')
         .update({ status: 'approved', completed_at: now })
@@ -372,10 +402,15 @@ export async function submitPOApprovalAction(
       .eq('id', poId);
   }
 
+  // Use the computed isFinalInternalStep for audit and notifications
+  const effectiveIsFinal = action === 'approved' ? 
+    (isFinalStep || await checkIfFinalInternalStep(instanceId, stepOrder)) : 
+    isFinalStep;
+
   await db.from('audit_logs').insert({
     actor_id:      profile.id,
     action:        action === 'approved'
-      ? isFinalStep ? 'PO_APPROVAL_FINAL_APPROVED' : 'PO_APPROVAL_STEP_APPROVED'
+      ? effectiveIsFinal ? 'PO_APPROVAL_FINAL_APPROVED' : 'PO_APPROVAL_STEP_APPROVED'
       : action === 'rejected' ? 'PO_APPROVAL_REJECTED' : 'PO_APPROVAL_REVISION_REQUESTED',
     document_type: 'PO',
     document_id:   poId,
@@ -383,7 +418,7 @@ export async function submitPOApprovalAction(
   });
 
   // Notify supplier when PO is finally approved (best-effort)
-  if (action === 'approved' && isFinalStep) {
+  if (action === 'approved' && effectiveIsFinal) {
     try {
       const { data: po } = await db
         .from('po_requests')
@@ -420,7 +455,7 @@ export async function submitPOApprovalAction(
 
   // Notify next approvers (non-final step) or submitter (rejected / revision) — best-effort
   try {
-    if (action === 'approved' && !isFinalStep) {
+    if (action === 'approved' && !effectiveIsFinal) {
       const [instRow, poRow] = await Promise.all([
         db.from('approval_instances').select('workflow_id').eq('id', instanceId).maybeSingle(),
         db.from('po_requests').select('po_number').eq('id', poId).maybeSingle(),
@@ -460,6 +495,26 @@ export async function submitPOApprovalAction(
   } catch {
     // Notifications are best-effort; do not fail the approval action
   }
+}
+
+// Helper to check if next step is supplier (for determining final internal step)
+async function checkIfFinalInternalStep(instanceId: string, stepOrder: number): Promise<boolean> {
+  const { data: inst } = await db
+    .from('approval_instances')
+    .select('workflow_id')
+    .eq('id', instanceId)
+    .maybeSingle();
+  
+  if (!inst?.workflow_id) return false;
+  
+  const { data: nextStep } = await db
+    .from('approval_steps')
+    .select('role_required')
+    .eq('workflow_id', inst.workflow_id)
+    .eq('step_order', stepOrder + 1)
+    .maybeSingle();
+  
+  return nextStep?.role_required === 'supplier';
 }
 
 // ─── Supplier: fetch POs available for acknowledgment ────────────────────────

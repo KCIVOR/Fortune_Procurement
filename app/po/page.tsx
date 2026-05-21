@@ -80,7 +80,8 @@ export default function POListPage() {
       .finally(() => setLoading(false));
   }, [currentPage, appliedSearch, selectedStatus]);
 
-  const isBuyer = profile?.role === 'procurement' && profile.position === 'Buyer';
+  // Allow PO creation for procurement role users OR users with Buyer position (regardless of role)
+  const canCreatePO = profile?.role === 'procurement' || profile?.position === 'Buyer';
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
@@ -148,7 +149,7 @@ export default function POListPage() {
             Manage issued purchase orders and track supplier deliveries.
           </p>
         </div>
-        {isBuyer && (
+        {canCreatePO && (
           <Link
             href="/po/new"
             className="inline-flex items-center gap-2 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
