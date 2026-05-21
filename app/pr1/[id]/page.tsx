@@ -9,7 +9,7 @@ import LoadingState from '@/components/shared/LoadingState';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
-import { fetchPR1ById, canUpdatePR1Priority, updatePR1Priority, fetchPR1LifecycleSummaries } from '@/lib/pr1';
+import { fetchPR1ById, canUpdatePR1Priority, updatePR1Priority, fetchPR1LifecycleSummaries, deleteDraftPR1 } from '@/lib/pr1';
 import { fetchPR1ApprovalSignatories } from '@/lib/approvals';
 import type { PR1WithItems, PR1LifecycleSummary, PR1Item } from '@/types/pr1';
 import type { PR1ApprovalSignatories } from '@/types/approvals';
@@ -17,7 +17,7 @@ import RelatedRecords from '@/components/shared/RelatedRecords';
 import PriorityChip from '@/components/shared/PriorityChip';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
 import { useAuth } from '@/context/AuthContext';
-import { Pencil, Clock, CircleCheck as CheckCircle2, User, Building2, FileText, CalendarDays, CircleAlert as AlertCircle, Circle as XCircle, RotateCcw } from 'lucide-react';
+import { Pencil, Clock, CircleCheck as CheckCircle2, User, Building2, FileText, CalendarDays, CircleAlert as AlertCircle, Circle as XCircle, RotateCcw, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import ActionPill from '@/components/shared/ActionPill';
 import DetailBackButton from '@/components/shared/DetailBackButton';
@@ -64,6 +64,7 @@ export default function PR1DetailPage() {
   const [error, setError] = useState('');
   const [priorityUpdating, setPriorityUpdating] = useState(false);
   const [priorityError, setPriorityError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -129,6 +130,21 @@ export default function PR1DetailPage() {
       setPriorityError(message);
     } finally {
       setPriorityUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!pr1 || !profile) return;
+    if (!confirm('Are you sure you want to delete this draft? This cannot be undone.')) return;
+    
+    setDeleting(true);
+    try {
+      await deleteDraftPR1(pr1.id, profile);
+      handleBack({ role: profile.role }); // go back to list
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete draft.';
+      setError(message);
+      setDeleting(false);
     }
   };
 
@@ -199,13 +215,24 @@ export default function PR1DetailPage() {
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-white border border-pq-neutral-200 hover:border-pq-neutral-300 text-pq-neutral-700 text-sm font-medium rounded-md transition"
             />
             {canEdit && (
-              <Link
-                href={`/pr1/${pr1.id}/edit`}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
-              >
-                <Pencil className="w-4 h-4" />
-                Edit Draft
-              </Link>
+              <>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-white border border-pq-danger-200 hover:bg-pq-danger-50 text-pq-danger-600 text-sm font-semibold rounded-md transition disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deleting ? 'Deleting...' : 'Delete Draft'}
+                </button>
+                <Link
+                  href={`/pr1/${pr1.id}/edit`}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
+                >
+                  <Pencil className="w-4 h-4" />
+                  Edit Draft
+                </Link>
+              </>
             )}
           </div>
         }

@@ -31,7 +31,8 @@ export type ModuleKey =
   | 'admin_positions'
   | 'admin_departments'
   | 'admin_audit'
-  | 'admin_module_visibility';
+  | 'admin_module_visibility'
+  | 'admin_workflows';
 
 export interface NavItem {
   label: string;
@@ -45,7 +46,8 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-const ALL_NAV: Record<string, NavItem> = {
+/** All available navigation items - exported for module visibility "add mode" */
+export const ALL_NAV: Record<string, NavItem> = {
   dashboard: {
     label: 'Dashboard',
     href: '/dashboard',
@@ -190,6 +192,12 @@ const ALL_NAV: Record<string, NavItem> = {
     icon: 'Settings2',
     module_key: 'admin_module_visibility',
   },
+  adminWorkflows: {
+    label: 'Workflows',
+    href: '/admin/workflows',
+    icon: 'GitBranch',
+    module_key: 'admin_workflows',
+  },
 };
 
 export const ROLE_NAV: Record<AppRole, NavItem[]> = {
@@ -199,6 +207,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     ALL_NAV.adminRoles,
     ALL_NAV.adminPositions,
     ALL_NAV.adminDepts,
+    ALL_NAV.adminWorkflows,
     ALL_NAV.adminAudit,
     ALL_NAV.adminModuleVisibility,
   ],

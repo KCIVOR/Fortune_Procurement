@@ -19,7 +19,10 @@ export function canActOnPR2Step(
   stepRoleRequired: string,
   stepPositionRequired: string
 ): boolean {
-  return profile.role === stepRoleRequired && profile.position === stepPositionRequired;
+  const isCorrectRole = profile.role === stepRoleRequired || 
+    ((profile.role === 'approver' || profile.role === 'procurement') && 
+     (stepRoleRequired === 'approver' || stepRoleRequired === 'procurement'));
+  return isCorrectRole && profile.position === stepPositionRequired;
 }
 
 // ─── Submit PR2 for Phase 1 approval ─────────────────────────────────────────

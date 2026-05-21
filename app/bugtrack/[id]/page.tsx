@@ -38,6 +38,8 @@ export default function BugDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [isTraceExpanded, setIsTraceExpanded] = useState(false);
 
+  const isAdmin = profile?.role === 'admin' || (profile?.role as string) === 'superadmin';
+
   const fetchBug = async () => {
     setLoading(true);
     try {
@@ -53,8 +55,15 @@ export default function BugDetailPage() {
   };
 
   useEffect(() => {
-    if (id) fetchBug();
-  }, [id]);
+    // Redirect non-admin users to bug track page
+    if (profile && !isAdmin) {
+      toast.error('Access denied. Only admins can view bug details.');
+      router.push('/bugtrack');
+      return;
+    }
+    
+    if (id && isAdmin) fetchBug();
+  }, [id, profile, isAdmin]);
 
   const handleStatusUpdate = async (newStatus: BugReport['status']) => {
     if (!bug) return;
@@ -100,11 +109,10 @@ export default function BugDetailPage() {
     );
   }
 
-  if (!bug) return null;
+  if (!bug || !isAdmin) return null;
 
   const aiPrompt = generateAIReadyPrompt(bug);
   const role = profile?.role as string | undefined;
-  const isAdmin = role === 'admin' || role === 'superadmin';
 
   const statusMap: Record<string, { variant: 'pending' | 'in_review' | 'approved' | 'rejected'; label: string }> = {
     open: { variant: 'pending', label: 'Open' },

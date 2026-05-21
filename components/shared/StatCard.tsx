@@ -74,10 +74,20 @@ export function StatCard({
         {icon && <div className="text-pq-neutral-400 shrink-0">{icon}</div>}
       </div>
 
-      <div className={cn(
-        'font-extrabold text-pq-neutral-900 tracking-tight leading-tight mb-2 flex-grow flex items-center',
-        typeof value === 'number' ? 'text-3xl' : 'text-xl break-words'
-      )} title={String(value)}>
+      <div
+        className={cn(
+          'font-extrabold text-pq-neutral-900 tracking-tight leading-tight mb-2 flex-grow flex items-center',
+          // Auto-size based on value type and length
+          typeof value === 'number'
+            ? 'text-3xl leading-none truncate'
+            : String(value).length > 12
+              ? 'text-base break-words capitalize'
+              : String(value).length > 8
+                ? 'text-lg break-words capitalize'
+                : 'text-2xl truncate capitalize'
+        )}
+        title={String(value)}
+      >
         {value}
       </div>
 

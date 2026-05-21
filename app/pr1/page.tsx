@@ -45,6 +45,8 @@ export default function PR1ListPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
+  const [appliedDateRange, setAppliedDateRange] = useState<[string, string]>(['', '']);
 
   useEffect(() => {
     if (!profile) return;
@@ -59,6 +61,8 @@ export default function PR1ListPage() {
       offset,
       status: selectedStatus,
       search: appliedSearch.trim() || undefined,
+      dateFrom: appliedDateRange[0] || undefined,
+      dateTo: appliedDateRange[1] || undefined,
     })
       .then((result) => {
         setRequests(result.requests);
@@ -66,7 +70,7 @@ export default function PR1ListPage() {
       })
       .catch(() => setError('Failed to load requests.'))
       .finally(() => setLoading(false));
-  }, [profile, currentPage, rowsPerPage, router, selectedStatus, appliedSearch]);
+  }, [profile, currentPage, rowsPerPage, router, selectedStatus, appliedSearch, appliedDateRange]);
 
   // Filter configuration for FilterBar
   const filters: FilterConfig[] = [
@@ -96,10 +100,18 @@ export default function PR1ListPage() {
         })),
       ],
     },
+    {
+      type: 'dateRange',
+      id: 'pr1-date',
+      label: 'Date Created',
+      value: dateRange,
+      onChange: (val) => setDateRange(val as [string, string]),
+    },
   ];
 
   const handleApply = () => {
     setAppliedSearch(search);
+    setAppliedDateRange(dateRange);
     setCurrentPage(1);
   };
 
@@ -107,6 +119,8 @@ export default function PR1ListPage() {
     setSearch('');
     setAppliedSearch('');
     setSelectedStatus('all');
+    setDateRange(['', '']);
+    setAppliedDateRange(['', '']);
     setCurrentPage(1);
   };
 
