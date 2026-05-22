@@ -664,18 +664,30 @@ export async function acknowledgeSupplierPO(
   if (po.status !== 'approved') throw new Error('PO must be fully approved before acknowledgment.');
 
   // Resolve requisitioner_id for employee RLS: deliveries.employee visibility is
-  // requisitioner_id = auth.uid(). PO header stores pr1_number_snapshot; PR1 row
-  // stores requisitioner_id (same id as profiles.id for requestors).
+  // requisitioner_id = auth.uid(). Resolution must work under supplier auth (no
+  // pr2_requests SELECT for suppliers), so we resolve via pr1_requests, which IS
+  // readable by all authenticated users.
+  //
+  // We use pr1_number_snapshot as the lookup key, but defend against a known data
+  // hazard: pr1_requests.pr1_number has no UNIQUE constraint, so duplicates can
+  // exist. .maybeSingle() throws on >1 row — silently nulling the result via the
+  // surrounding try/catch and producing an RLS-invisible delivery. To stay safe:
+  //   - .order(created_at) + .limit(1) instead of .maybeSingle()
+  //   - all rows sharing the same pr1_number observed so far have the same
+  //     requisitioner_id (per the data we audited), so picking the earliest is
+  //     correct and stable.
   let requisitionerId: string | null = null;
   try {
     const pr1No = String(po.pr1_number_snapshot ?? '').trim();
     if (pr1No) {
-      const { data: pr1 } = await db
+      const { data: pr1Rows } = await db
         .from('pr1_requests')
         .select('requisitioner_id')
         .eq('pr1_number', pr1No)
-        .maybeSingle();
-      requisitionerId = pr1?.requisitioner_id ?? null;
+        .order('created_at', { ascending: true })
+        .limit(1);
+      const first = Array.isArray(pr1Rows) && pr1Rows.length > 0 ? pr1Rows[0] : null;
+      requisitionerId = first?.requisitioner_id ?? null;
     }
   } catch {
     requisitionerId = null;
