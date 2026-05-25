@@ -104,8 +104,9 @@ export default function PR1ApprovalsPage() {
 
         const pr1Ids = Array.from(new Set(instances.map((r: any) => r.document_id as string)));
         const workflowIds = Array.from(new Set(instances.map((r: any) => r.workflow_id as string)));
+        const instanceIds = instances.map((r: any) => r.id as string);
 
-        const [pr1Res, workflowRes, stepsRes] = await Promise.all([
+        const [pr1Res, workflowRes, stepsRes, actionsRes] = await Promise.all([
           db.from('pr1_requests')
             .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, date_required, submitted_at')
             .in('id', pr1Ids),
@@ -115,17 +116,35 @@ export default function PR1ApprovalsPage() {
           db.from('approval_steps')
             .select('workflow_id, step_order, role_required, position_required, action_label, is_final')
             .in('workflow_id', workflowIds),
+          db.from('approval_actions')
+            .select('instance_id, step_order, action, acted_at')
+            .eq('actor_id', profile.id)
+            .in('instance_id', instanceIds),
         ]);
 
         if (pr1Res.error) throw pr1Res.error;
         if (stepsRes.error) throw stepsRes.error;
+        if (actionsRes.error) throw actionsRes.error;
 
         const pr1Map: Record<string, any> = Object.fromEntries((pr1Res.data ?? []).map((r: any) => [r.id, r]));
         const workflowMap: Record<string, any> = Object.fromEntries((workflowRes.data ?? []).map((r: any) => [r.id, r]));
         const steps: any[] = stepsRes.data ?? [];
+        // Map of instance_id → most recent action this user took on it.
+        // An instance can in theory have multiple actions by the same user across steps;
+        // the latest one is what should drive the display.
+        const userActionMap: Record<string, any> = {};
+        for (const a of (actionsRes.data ?? []) as any[]) {
+          const existing = userActionMap[a.instance_id];
+          if (!existing || a.acted_at > existing.acted_at) {
+            userActionMap[a.instance_id] = a;
+          }
+        }
 
-        // For completed instances, we need to find which step the user acted on
-        // For active instances, use current_step
+        // An instance belongs in the user's queue if either:
+        //   (a) it is currently their turn (active + current_step === userStep.step_order), or
+        //   (b) they have already recorded an action on it (regardless of where the instance sits now).
+        // Without (b), non-final approvers disappear from their own queue between the moment they
+        // approve and the moment the instance reaches a terminal status, breaking the KPI counts.
         const rows: PR1ApprovalRow[] = [];
 
         for (const inst of instances) {
@@ -133,17 +152,27 @@ export default function PR1ApprovalsPage() {
           const wf = workflowMap[inst.workflow_id];
           if (!pr1) continue;
 
-          // Find the step that matches the user's position
+          // Find the step that matches the user's position in this workflow
           const userStep = steps.find(
             (s: any) => s.workflow_id === inst.workflow_id && s.position_required === profile.position
           );
-
           if (!userStep) continue; // User's position is not part of this workflow
 
-          // For active instances, only show if current_step matches user's step
-          // For completed instances, show if user's step was part of the workflow
-          if (inst.status === 'active' && inst.current_step !== userStep.step_order) {
-            continue;
+          const userAction = userActionMap[inst.id];
+          const isMyTurn = inst.status === 'active' && inst.current_step === userStep.step_order;
+
+          if (!isMyTurn && !userAction) continue;
+
+          // Display status from the user's perspective:
+          //   - if they acted, reflect their action (even if the overall instance is still active)
+          //   - otherwise it's their turn → show as pending (active)
+          let displayStatus: ApprovalInstanceStatus;
+          if (userAction) {
+            if (userAction.action === 'approved') displayStatus = 'approved';
+            else if (userAction.action === 'rejected') displayStatus = 'rejected';
+            else displayStatus = 'cancelled'; // revision_requested
+          } else {
+            displayStatus = 'active';
           }
 
           rows.push({
@@ -158,7 +187,7 @@ export default function PR1ApprovalsPage() {
             instance_id: inst.id,
             workflow_code: wf?.code ?? '',
             current_step: inst.current_step,
-            instance_status: inst.status,
+            instance_status: displayStatus,
             started_at: inst.started_at,
             step_position_required: userStep.position_required,
             step_role_required: userStep.role_required,
