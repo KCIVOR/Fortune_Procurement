@@ -99,8 +99,9 @@ export default function PR2ApprovalsPage() {
 
         const pr2Ids = Array.from(new Set(instances.map((r: any) => r.document_id as string)));
         const workflowIds = Array.from(new Set(instances.map((r: any) => r.workflow_id as string)));
+        const instanceIds = instances.map((r: any) => r.id as string);
 
-        const [pr2Res, workflowRes, stepsRes] = await Promise.all([
+        const [pr2Res, workflowRes, stepsRes, actionsRes] = await Promise.all([
           db.from('pr2_requests')
             .select('id, pr2_number, pr1_id, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, status')
             .in('id', pr2Ids),
@@ -110,14 +111,28 @@ export default function PR2ApprovalsPage() {
           db.from('approval_steps')
             .select('workflow_id, step_order, role_required, position_required, action_label, is_final')
             .in('workflow_id', workflowIds),
+          db.from('approval_actions')
+            .select('instance_id, step_order, action, acted_at')
+            .eq('actor_id', profile.id)
+            .in('instance_id', instanceIds),
         ]);
 
         if (pr2Res.error) throw pr2Res.error;
         if (stepsRes.error) throw stepsRes.error;
+        if (actionsRes.error) throw actionsRes.error;
 
         const pr2Map: Record<string, any> = Object.fromEntries((pr2Res.data ?? []).map((r: any) => [r.id, r]));
         const workflowMap: Record<string, any> = Object.fromEntries((workflowRes.data ?? []).map((r: any) => [r.id, r]));
         const steps: any[] = stepsRes.data ?? [];
+
+        // Map of instance_id → most recent action this user took on it
+        const userActionMap: Record<string, any> = {};
+        for (const a of (actionsRes.data ?? []) as any[]) {
+          const existing = userActionMap[a.instance_id];
+          if (!existing || a.acted_at > existing.acted_at) {
+            userActionMap[a.instance_id] = a;
+          }
+        }
 
         // Fetch PR1 priorities
         const pr1Ids = Array.from(new Set(
@@ -144,9 +159,22 @@ export default function PR2ApprovalsPage() {
 
           if (!userStep) continue;
 
-          // For active instances, only show if current_step matches user's step
-          if (inst.status === 'active' && inst.current_step !== userStep.step_order) {
-            continue;
+          const userAction = userActionMap[inst.id];
+          const isMyTurn = inst.status === 'active' && inst.current_step === userStep.step_order;
+
+          // Include if it's my turn OR I've already acted on it
+          if (!isMyTurn && !userAction) continue;
+
+          // Display status from the user's perspective:
+          // - if they acted, reflect their action (even if the overall instance is still active)
+          // - otherwise it's their turn → show as pending (active)
+          let displayStatus: ApprovalInstanceStatus;
+          if (userAction) {
+            if (userAction.action === 'approved') displayStatus = 'approved';
+            else if (userAction.action === 'rejected') displayStatus = 'rejected';
+            else displayStatus = 'cancelled'; // revision_requested
+          } else {
+            displayStatus = 'active';
           }
 
           const pr1Priority = pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined;
@@ -162,7 +190,7 @@ export default function PR2ApprovalsPage() {
             instance_id: inst.id,
             workflow_code: wf?.code ?? '',
             current_step: inst.current_step,
-            instance_status: inst.status,
+            instance_status: displayStatus,
             started_at: inst.started_at,
             step_position_required: userStep.position_required,
             step_role_required: userStep.role_required,

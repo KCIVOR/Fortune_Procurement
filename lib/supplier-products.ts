@@ -447,6 +447,33 @@ export async function getVerifiedProductsForCurrentSupplier(
   return (data ?? []) as SupplierProduct[];
 }
 
+// ─── Phase 5 (Raw Mats): list all "active" products for the current supplier ─
+// Returns verified and in-flight products (submitted / under_review / pending_tsqa)
+// so the supplier can offer them in RFQ canvassing per the relaxed rule:
+// suppliers may pick verified, unverified, or fill manually for any line.
+//
+// Excluded statuses:
+//   - 'draft'      — not yet submitted; private to the supplier
+//   - 'rejected'   — explicitly disqualified
+//   - 'inactive'   — withdrawn from active catalog
+//   - 'withdrawn'  — supplier removed it
+//
+// The legacy `getVerifiedProductsForCurrentSupplier` stays intact for callers
+// that genuinely need verified-only (e.g. compliance dashboards). New canvassing
+// surfaces should use this function instead.
+export async function getActiveProductsForCurrentSupplier(
+  profile: UserProfile
+): Promise<SupplierProduct[]> {
+  const { data, error } = await db
+    .from('supplier_products')
+    .select('*')
+    .eq('supplier_id', profile.id)
+    .in('status', ['verified', 'submitted', 'under_review', 'pending_tsqa'])
+    .order('verified_at', { ascending: false, nullsFirst: false });
+  if (error) throw error;
+  return (data ?? []) as SupplierProduct[];
+}
+
 // ─── Phase 8: create + immediately submit a product proposed from an RFQ ──────
 // Creates a draft product and submits it for Procurement review in a single
 // atomic-ish operation. The product lands in the Procurement Product Review

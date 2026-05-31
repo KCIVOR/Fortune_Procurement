@@ -1,6 +1,7 @@
 -- Update Bug Track RLS Policies to restrict viewing to admins only
 -- Drop existing policies
 DROP POLICY IF EXISTS "Everyone can view all bugs" ON public.bug_reports;
+DROP POLICY IF EXISTS "Admins can view all bugs" ON public.bug_reports;
 
 -- Create new policies
 -- 1. Only admins can view all bugs

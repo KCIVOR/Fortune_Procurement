@@ -24,6 +24,14 @@ export interface PR1Item {
   unit_of_measure: string;
   stock_on_hand: number;
   quantity_requested: number;
+  /**
+   * Phase 1 (Raw Mats): true when this line is a raw material requiring
+   * verification consideration during canvassing. Set by the requestor at
+   * PR1 creation; locked once PR1 leaves draft. Procurement may override
+   * the snapshot on the corresponding PR2 line later.
+   * DB column is NOT NULL DEFAULT false, so this is always present.
+   */
+  is_raw_material: boolean;
   created_at: string;
   validated_soh?: number | null;
   warehouse_decision?: string | null;
@@ -85,6 +93,12 @@ export interface PR1ItemDraft {
   unit_of_measure: string;
   stock_on_hand: number | '';
   quantity_requested: number | '';
+  /**
+   * Phase 1 (Raw Mats): optional in the draft form because the UI checkbox
+   * is wired in Phase 3. Existing form code that doesn't set this still
+   * compiles; persistence relies on the DB default until Phase 3 lands.
+   */
+  is_raw_material?: boolean;
 }
 
 export interface PR1FormValues {
@@ -114,6 +128,8 @@ export const EMPTY_ITEM = (): PR1ItemDraft => ({
   unit_of_measure: '',
   stock_on_hand: '',
   quantity_requested: '',
+  // Phase 3 (Raw Mats): default unchecked per decision D5.
+  is_raw_material: false,
 });
 
 export const PURPOSE_OPTIONS = [

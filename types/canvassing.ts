@@ -160,6 +160,12 @@ export interface RfqDetailView {
     quantity_requested: number;
     /** Original PR1 requested quantity; set when warehouse validation applies and differs. */
     pr1_quantity_requested?: number;
+    /**
+     * Phase 1 (Raw Mats): forwarded from `pr1_items.is_raw_material`.
+     * Optional here because the upstream query is widened in Phase 6;
+     * legacy callers that don't select the column still compile.
+     */
+    is_raw_material?:   boolean;
   }[];
   suppliers:  RfqSupplier[];
   quotes:     RfqItemQuote[];
@@ -181,6 +187,12 @@ export interface QuoteMatrixRow {
     unit_of_measure:    string;
     quantity_requested: number;
     pr1_quantity_requested?: number;
+    /**
+     * Phase 1 (Raw Mats): forwarded from `RfqDetailView.items[].is_raw_material`.
+     * Optional for the same compatibility reasons; populated once Phase 6
+     * widens the canvassing query.
+     */
+    is_raw_material?:   boolean;
   };
   quotes: {
     rfq_supplier_id:       string;
@@ -199,6 +211,14 @@ export interface QuoteMatrixRow {
     supplier_product_name: string | null;
     supplier_product_code: string | null;
     supplier_product_status: string | null;
+    /**
+     * Phase 6 (Raw Mats): coarse-grained verification state for the cell pill.
+     * - `verified`   → linked product status = 'verified'
+     * - `unverified` → linked product exists but is in-flight or rejected
+     * - `manual`     → no linked product (supplier filled the line manually)
+     * Optional for backward compatibility with any legacy callers.
+     */
+    verification_status?:   'verified' | 'unverified' | 'manual';
     /** Supplier explicit no-quote vs quoted line (default quoted). */
     response_status:        RfqQuoteResponseStatus;
     no_quote_reason:        string | null;

@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { fetchGRNById, saveGRNProgress, closeGRN } from '@/lib/grn';
 import type { GRNWithItems, GRNFormValues, GRNItemDraft } from '@/types/grn';
 import { format } from 'date-fns';
+import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import { PackageCheck, Building2, Package, CalendarDays, FileText, Save, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, User, MapPin, Hash, Receipt } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import DetailBackButton from '@/components/shared/DetailBackButton';
@@ -31,7 +32,6 @@ export default function GRNDetailPage() {
   const [error, setError]     = useState('');
 
   const [form, setForm] = useState<GRNFormValues>({
-    invoice_no:       '',
     dr_no:            '',
     dr_date:          '',
     transaction_date: '',
@@ -48,6 +48,29 @@ export default function GRNDetailPage() {
   const isWarehouse = profile?.role === 'warehouse';
   const isReadOnly  = grn?.status === 'closed' || !isWarehouse;
 
+  // DR No. prefix pattern (matches PR1/PO pattern)
+  const currentYear = new Date().getFullYear();
+  const drPrefix = `DR-${currentYear}-`;
+
+  // Helper to extract suffix from full DR number
+  const getDRSuffix = (fullValue: string): string => {
+    if (!fullValue) return '';
+    // Remove prefix if present
+    if (fullValue.startsWith(drPrefix)) {
+      return fullValue.slice(drPrefix.length);
+    }
+    // Handle different year prefix
+    const match = fullValue.match(/^DR-\d{4}-(.*)$/i);
+    if (match) return match[1];
+    return fullValue;
+  };
+
+  // Helper to set DR number with prefix
+  const setDRNumber = (suffix: string) => {
+    const cleanSuffix = suffix.replace(/^DR-\d{4}-/i, '');
+    setForm(f => ({ ...f, dr_no: drPrefix + cleanSuffix }));
+  };
+
   const load = useCallback(() => {
     if (!id) return;
     fetchGRNById(id)
@@ -55,7 +78,6 @@ export default function GRNDetailPage() {
         if (!g) { setError('GRN not found.'); return; }
         setGRN(g);
         setForm({
-          invoice_no:       g.invoice_no,
           dr_no:            g.dr_no,
           dr_date:          g.dr_date ?? '',
           transaction_date: g.transaction_date,
@@ -72,6 +94,9 @@ export default function GRNDetailPage() {
             quantity_rejected: i.quantity_rejected,
             unit_price:        i.unit_price,
             remarks:           i.remarks,
+            // Phase 9 (Raw Mats): forward the snapshot through the form draft.
+            is_raw_material:   i.is_raw_material === true,
+            quote_justification: i.quote_justification ?? null,
           } as GRNItemDraft)),
         });
       })
@@ -234,26 +259,22 @@ export default function GRNDetailPage() {
           <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4">
             <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">Document Details</h2>
 
-            <Field label="Invoice No." required={!isClosed}>
-              <input
-                type="text"
-                value={form.invoice_no}
-                onChange={e => setForm(f => ({ ...f, invoice_no: e.target.value }))}
-                disabled={isReadOnly}
-                placeholder={`INV-${new Date().getFullYear()}-0001`}
-                className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-pq-neutral-50 disabled:text-pq-neutral-500"
-              />
-            </Field>
-
             <Field label="DR No.">
-              <input
-                type="text"
-                value={form.dr_no}
-                onChange={e => setForm(f => ({ ...f, dr_no: e.target.value }))}
-                disabled={isReadOnly}
-                placeholder={`DR-${new Date().getFullYear()}-0001`}
-                className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-pq-neutral-50 disabled:text-pq-neutral-500"
-              />
+              <div className={`flex items-center border rounded-md overflow-hidden transition ${
+                isReadOnly ? 'bg-pq-neutral-50' : 'bg-white'
+              } border-pq-neutral-200 focus-within:ring-2 focus-within:ring-[#1E4BFF] focus-within:border-transparent`}>
+                <div className="px-3 py-2 bg-pq-neutral-50 border-r border-pq-neutral-200 text-sm font-mono text-pq-neutral-400 whitespace-nowrap pointer-events-none select-none">
+                  {drPrefix}
+                </div>
+                <input
+                  type="text"
+                  value={getDRSuffix(form.dr_no)}
+                  onChange={e => setDRNumber(e.target.value)}
+                  disabled={isReadOnly}
+                  placeholder="e.g. 001"
+                  className="flex-1 px-3 py-2 border-0 text-sm font-mono focus:outline-none bg-transparent disabled:bg-pq-neutral-50 disabled:text-pq-neutral-500"
+                />
+              </div>
             </Field>
 
             <Field label="DR Date">
@@ -336,8 +357,19 @@ export default function GRNDetailPage() {
                       <tr key={item.id} className={`${isShort && received >= 0 ? 'bg-pq-warning-100/30' : ''} hover:bg-pq-neutral-50`}>
                         <td className="px-3 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
                         <td className="px-3 py-3">
-                          <p className="text-pq-neutral-900 font-medium">{item.description}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-pq-neutral-900 font-medium">{item.description}</p>
+                            <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                          </div>
                           {item.item_code && <p className="text-xs text-pq-neutral-400 font-mono">{item.item_code}</p>}
+                          {item.quote_justification && (
+                            <p className="text-xs text-pq-warning-700 mt-1 flex items-start gap-1">
+                              <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                              <span>
+                                <strong>Award justification:</strong> {item.quote_justification}
+                              </span>
+                            </p>
+                          )}
                         </td>
                         <td className="px-3 py-3 text-center text-xs text-pq-neutral-500">{item.unit_of_measure}</td>
                         <td className="px-3 py-3 text-right text-xs text-pq-neutral-500 font-mono">{item.quantity_ordered}</td>
@@ -441,7 +473,7 @@ export default function GRNDetailPage() {
                     </button>
                     <button
                       onClick={() => setShowConfirm(true)}
-                      disabled={saving || closing || !form.invoice_no.trim() || !form.transaction_date}
+                      disabled={saving || closing || !form.transaction_date}
                       className="inline-flex items-center gap-2 px-4 py-2.5 bg-pq-success-600 hover:bg-pq-success-600 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                     >
                       <PackageCheck className="w-4 h-4" />
@@ -457,7 +489,7 @@ export default function GRNDetailPage() {
                       <p className="text-sm font-semibold text-pq-warning-600">Close this GRN?</p>
                       <p className="text-xs text-pq-warning-600 mt-1">
                         This will finalize the goods receipt and close the transaction. You cannot edit the GRN after closing.
-                        Invoice No: <strong>{form.invoice_no}</strong> · Total: <strong>₱{receivedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</strong>
+                        Total: <strong>₱{receivedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</strong>
                       </p>
                     </div>
                   </div>

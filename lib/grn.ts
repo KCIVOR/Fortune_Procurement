@@ -26,7 +26,6 @@ function normalizeGRN(row: any): GRNReceipt {
     purpose:                      row.purpose,
     warehouse:                    row.warehouse,
     delivery_address:             row.delivery_address,
-    invoice_no:                   row.invoice_no,
     dr_no:                        row.dr_no,
     dr_date:                      row.dr_date ?? null,
     transaction_date:             row.transaction_date,
@@ -42,6 +41,10 @@ function normalizeGRN(row: any): GRNReceipt {
 }
 
 function normalizeItem(row: any): GRNItem {
+  // Phase 9 (Raw Mats): the optional embedded join `po_items.pr2_items`
+  // (added in fetchGRNById) carries the snapshot two hops upstream.
+  // PostgREST returns either an object or `null` at each hop.
+  const pr2Item = row.po_items?.pr2_items ?? null;
   return {
     id:                row.id,
     grn_id:            row.grn_id,
@@ -55,6 +58,8 @@ function normalizeItem(row: any): GRNItem {
     quantity_rejected: Number(row.quantity_rejected),
     unit_price:        Number(row.unit_price),
     remarks:           row.remarks,
+    is_raw_material:   pr2Item?.is_raw_material === true,
+    quote_justification: pr2Item?.quote_justification ?? null,
     created_at:        row.created_at,
     updated_at:        row.updated_at,
   };
@@ -133,7 +138,15 @@ export async function fetchGRNTabCounts(): Promise<Record<GRNListTab, number>> {
 export async function fetchGRNById(id: string): Promise<GRNWithItems | null> {
   const [grnRes, itemsRes] = await Promise.all([
     db.from('grn_receipts').select('*').eq('id', id).maybeSingle(),
-    db.from('grn_items').select('*').eq('grn_id', id).order('item_order', { ascending: true }),
+    // Phase 9 (Raw Mats): two-hop join from grn_items → po_items → pr2_items
+    // so the raw-mats badge surfaces on GRN line rows. PostgREST nests the
+    // intermediate parent under `po_items` and the grandparent under
+    // `pr2_items`. Both are nullable for legacy rows that pre-date the
+    // pr2_item_id linkage.
+    db.from('grn_items')
+      .select('*, po_items:po_item_id ( pr2_items:pr2_item_id ( is_raw_material, quote_justification ) )')
+      .eq('grn_id', id)
+      .order('item_order', { ascending: true }),
   ]);
   if (grnRes.error) throw grnRes.error;
   if (!grnRes.data) return null;
@@ -273,7 +286,6 @@ export async function openGRNForDelivery(
       purpose:                      delivery.purpose,
       warehouse:                    delivery.warehouse,
       delivery_address:             delivery.delivery_address,
-      invoice_no:                   '',
       dr_no:                        '',
       dr_date:                      null,
       transaction_date:             new Date().toISOString().slice(0, 10),
@@ -318,7 +330,6 @@ export async function saveGRNProgress(
   const now = new Date().toISOString();
 
   await db.from('grn_receipts').update({
-    invoice_no:       values.invoice_no.trim(),
     dr_no:            values.dr_no.trim(),
     dr_date:          values.dr_date || null,
     transaction_date: values.transaction_date,
@@ -374,7 +385,7 @@ export async function closeGRN(
     actor_role:     'warehouse',
     status_from:    null,
     status_to:      null,
-    note:           `GRN closed by ${profile.full_name}. GRN No: ${values.invoice_no || '—'}.`,
+    note:           `GRN closed by ${profile.full_name}. GRN No: ${grnId}.`,
     scheduled_date: null,
     created_at:     now,
   });

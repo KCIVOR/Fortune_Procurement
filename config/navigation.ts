@@ -251,56 +251,72 @@ export const ALL_NAV: Record<string, NavItem> = {
 };
 
 export const ROLE_NAV: Record<AppRole, NavItem[]> = {
+  // Admin: Dashboard → People & Org Management → System Configuration → Monitoring
   admin: [
     ALL_NAV.dashboard,
+    // People & Org Management
     ALL_NAV.adminUsers,
     ALL_NAV.adminRoles,
     ALL_NAV.adminPositions,
     ALL_NAV.adminDepts,
+    // System Configuration
     ALL_NAV.adminWorkflows,
-    ALL_NAV.adminAudit,
     ALL_NAV.adminModuleVisibility,
+    // Monitoring (reference, last)
+    ALL_NAV.adminAudit,
   ],
+  // Employee: Dashboard → Primary workflow (request → delivery) → Edge cases
   employee: [
     ALL_NAV.dashboard,
     ALL_NAV.myRequests,
-    ALL_NAV.substitutes,
     ALL_NAV.myDeliveries,
+    ALL_NAV.substitutes, // Edge case (less frequent), moved to bottom
   ],
+  // Warehouse: Dashboard → Active work (validate → receive → ship) → History (reference)
   warehouse: [
     ALL_NAV.dashboard,
     ALL_NAV.warehouseQueue,
-    ALL_NAV.warehouseHistory,
-    ALL_NAV.deliveryTracking,
     ALL_NAV.grn,
+    ALL_NAV.deliveryTracking,
+    ALL_NAV.warehouseHistory, // Reference, moved to bottom
   ],
+  // Procurement: Dashboard → Procurement workflow → Logistics → Supplier mgmt → Approvals (secondary)
   procurement: [
     ALL_NAV.dashboard,
-    ALL_NAV.approvalQueue,
-    ALL_NAV.approvalHistory,
-    ALL_NAV.pr2,
+    // Primary procurement workflow (PR2 Approvals → RFQ → PO)
+    ALL_NAV.approverPR2,
     ALL_NAV.rfq,
     ALL_NAV.purchaseOrders,
+    // Logistics & receiving
     ALL_NAV.deliveryTracking,
     ALL_NAV.grn,
+    // Supplier management
     ALL_NAV.supplierAccredQueue,
     ALL_NAV.productReviewQueue,
+    // Approvals (secondary task for procurement, moved to bottom)
+    ALL_NAV.approvalQueue,
+    ALL_NAV.approvalHistory,
   ],
+  // Approver: Dashboard → Approvals by document type (PR1 → PR2 → PO) → History
   approver: [
     ALL_NAV.dashboard,
     ALL_NAV.approverPR1,
     ALL_NAV.approverPR2,
     ALL_NAV.approverPO,
-    ALL_NAV.approvalHistory,
+    ALL_NAV.approvalHistory, // Reference, last
   ],
+  // Supplier: Dashboard → Daily operations (quotes → POs → deliveries) → Setup/maintenance
   supplier: [
     ALL_NAV.dashboard,
-    ALL_NAV.supplierAccreditation,
-    ALL_NAV.supplierProducts,
-    ALL_NAV.supplierPortal,
-    ALL_NAV.supplierPO,
-    ALL_NAV.supplierDelivery,
+    // Daily operations
+    ALL_NAV.supplierPortal,      // Quotations
+    ALL_NAV.supplierPO,           // Purchase Orders
+    ALL_NAV.supplierDelivery,     // Deliveries
+    // Setup & maintenance (less frequent)
+    ALL_NAV.supplierProducts,     // Product Catalog
+    ALL_NAV.supplierAccreditation, // Accreditation (one-time)
   ],
+  // TSQA: Already simple, no changes needed
   tsqa: [
     ALL_NAV.tsqaDashboard,
     ALL_NAV.tsqaRse,

@@ -15,6 +15,7 @@ import type { PR1WithItems, PR1LifecycleSummary, PR1Item } from '@/types/pr1';
 import type { PR1ApprovalSignatories } from '@/types/approvals';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import PriorityChip from '@/components/shared/PriorityChip';
+import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
 import { useAuth } from '@/context/AuthContext';
 import { Pencil, Clock, CircleCheck as CheckCircle2, User, Building2, FileText, CalendarDays, CircleAlert as AlertCircle, Circle as XCircle, RotateCcw, Trash2 } from 'lucide-react';
@@ -293,6 +294,7 @@ export default function PR1DetailPage() {
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-10">#</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-28">Item Code</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">Description</th>
+                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">Type</th>
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">Unit</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">SOH</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-28">Req. Qty</th>
@@ -305,6 +307,13 @@ export default function PR1DetailPage() {
                     <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
                     <td className="px-4 py-3 font-mono text-xs text-pq-neutral-700">{item.item_code || '—'}</td>
                     <td className="px-4 py-3 text-pq-neutral-900">{item.description}</td>
+                    <td className="px-4 py-3 text-center">
+                      {item.is_raw_material ? (
+                        <RawMaterialBadge isRawMaterial size="sm" />
+                      ) : (
+                        <span className="text-xs text-pq-neutral-300">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center text-pq-neutral-700">{item.unit_of_measure}</td>
                     <td className="px-4 py-3 text-right text-pq-neutral-700 font-mono">
                       {item.validated_soh !== undefined && item.validated_soh !== null

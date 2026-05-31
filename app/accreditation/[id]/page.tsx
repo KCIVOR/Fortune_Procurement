@@ -225,7 +225,7 @@ export default function AccreditationDetailPage() {
             <div>
               <h1 className="text-xl font-bold text-pq-neutral-900">Supplier Accreditation Review</h1>
               <p className="text-sm text-pq-neutral-500 mt-0.5">
-                Application submitted for Procurement evaluation and approval. Accreditation is separate from product verification—products must be verified before RFQ award.
+                Application submitted for Procurement evaluation and approval. Accreditation is separate from product verification — verified products can be awarded directly, while raw-material lines may still proceed with unverified items via procurement justification.
               </p>
             </div>
             {accreditationChip(status) && (

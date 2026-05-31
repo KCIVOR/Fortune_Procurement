@@ -47,6 +47,19 @@ export interface POItem {
   total_price: number;
   supplier_name_snapshot: string;
   remarks: string | null;
+  /**
+   * Phase 9 (Raw Mats): forwarded from `pr2_items.is_raw_material` via join.
+   * Optional because legacy `select('*')` queries that don't perform the join
+   * still compile; specific surfaces (PO detail, print, approvals, supplier
+   * PO) widen their query to populate it.
+   */
+  is_raw_material?: boolean;
+  /**
+   * Phase 9 (Raw Mats): forwarded from `pr2_items.quote_justification` via
+   * join. Only ever populated when the upstream selection required one
+   * (raw-mats line awarded against unverified or manual quote).
+   */
+  quote_justification?: string | null;
   created_at: string;
 }
 

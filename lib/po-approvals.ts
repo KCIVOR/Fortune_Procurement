@@ -205,8 +205,10 @@ export async function fetchPOApprovalDetail(
 
   const [poRes, itemsRes, stepsRes, actionsRes, receiptRes] = await Promise.all([
     db.from('po_requests').select('*').eq('id', inst.document_id).maybeSingle(),
+    // Phase 9 (Raw Mats): same join as fetchPOById so approvers see the
+    // raw-mats badge on each PO line they review.
     db.from('po_items')
-      .select('*')
+      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification )')
       .eq('po_id', inst.document_id)
       .order('item_order', { ascending: true }),
     db.from('approval_steps')
@@ -280,6 +282,9 @@ export async function fetchPOApprovalDetail(
       total_price:          Number(i.total_price),
       supplier_name_snapshot: i.supplier_name_snapshot,
       remarks:              i.remarks,
+      // Phase 9 (Raw Mats): forward the snapshot via the join above.
+      is_raw_material:      i.pr2_items?.is_raw_material === true,
+      quote_justification:  i.pr2_items?.quote_justification ?? null,
       created_at:           i.created_at,
     })),
     instance_id:     inst.id,

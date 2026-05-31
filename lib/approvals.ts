@@ -154,6 +154,8 @@ export async function fetchApprovalDetail(
         stock_on_hand:      i.stock_on_hand,
         quantity_requested: i.quantity_requested,
         validated_soh:      validatedSohMap[i.id] ?? null,
+        // Phase 4 (Raw Mats): forwarded so approver UI can render the badge.
+        is_raw_material:    i.is_raw_material === true,
       })),
     instance_id:     inst.id,
     workflow_id:     inst.workflow_id,

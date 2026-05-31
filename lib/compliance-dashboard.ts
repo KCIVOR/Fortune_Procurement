@@ -10,7 +10,13 @@ export interface SupplierComplianceDashboardStats {
   pendingTsqaProducts:    number;
   rejectedProducts:      number;
   draftProducts:          number;
-  /** Distinct open RFQs where this supplier has at least one quote line linked to a non-verified product */
+  /**
+   * Distinct open RFQs where this supplier has at least one quote line on a
+   * **raw-material** PR1 item linked to a non-verified product.
+   * Phase 11 (Raw Mats) re-scoped this from "any unverified product link" to
+   * "raw-mats lines only" — non-raw-mats lines may legitimately be offered
+   * with unverified products under the relaxed rules introduced in Phase 5.
+   */
   rfqsPendingProductValidation: number;
 }
 
@@ -70,17 +76,46 @@ export async function fetchSupplierComplianceDashboardStats(
       const openSet = new Set((openRfqs ?? []).map((r: any) => r.id as string));
       const openRsIds = rsList.filter(r => openSet.has(r.rfq_id)).map(r => r.id);
       if (openRsIds.length > 0) {
+        // Phase 11 (Raw Mats): widen the quote query to pull `pr1_item_id`
+        // so we can later filter to raw-mats lines only. Pre-Phase-11
+        // behaviour flagged ANY non-verified linked product as a
+        // compliance issue; that produced false alarms after Phase 5
+        // since suppliers may legitimately offer unverified products on
+        // non-raw-mats lines.
         const { data: quotes } = await db
           .from('rfq_item_quotes')
-          .select('rfq_supplier_id, supplier_product_id')
+          .select('rfq_supplier_id, supplier_product_id, pr1_item_id')
           .in('rfq_supplier_id', openRsIds)
           .not('supplier_product_id', 'is', null);
+        const quoteRows = ((quotes ?? []) as any[]).filter(q => q.pr1_item_id);
+
+        // Resolve which PR1 items are raw mats — only those count.
+        const pr1ItemIds = Array.from(
+          new Set(quoteRows.map((q: any) => q.pr1_item_id as string)),
+        );
+        let rawMatItemSet = new Set<string>();
+        if (pr1ItemIds.length > 0) {
+          const { data: pr1Items } = await db
+            .from('pr1_items')
+            .select('id, is_raw_material')
+            .in('id', pr1ItemIds)
+            .eq('is_raw_material', true);
+          rawMatItemSet = new Set(
+            ((pr1Items ?? []) as any[]).map((p: any) => p.id as string),
+          );
+        }
+
+        // Only consider quotes on raw-mats lines.
+        const rawMatQuotes = quoteRows.filter(q =>
+          rawMatItemSet.has(q.pr1_item_id as string),
+        );
+
         const productIds = Array.from(
           new Set(
-            ((quotes ?? []) as any[])
+            rawMatQuotes
               .map((q: any) => q.supplier_product_id as string)
-              .filter(Boolean)
-          )
+              .filter(Boolean),
+          ),
         );
         if (productIds.length > 0) {
           const { data: prods } = await db
@@ -91,7 +126,7 @@ export async function fetchSupplierComplianceDashboardStats(
             .neq('status', 'verified');
           const pendingProductIds = new Set((prods ?? []).map((p: any) => p.id as string));
           const affectedRfqs = new Set<string>();
-          for (const q of (quotes ?? []) as any[]) {
+          for (const q of rawMatQuotes) {
             if (pendingProductIds.has(q.supplier_product_id as string)) {
               const rs = rsList.find(x => x.id === q.rfq_supplier_id);
               if (rs && openSet.has(rs.rfq_id)) affectedRfqs.add(rs.rfq_id);

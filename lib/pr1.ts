@@ -729,6 +729,10 @@ async function syncItems(pr1Id: string, items: PR1ItemDraft[]): Promise<void> {
       unit_of_measure:    item.unit_of_measure.trim(),
       stock_on_hand:      Number(item.stock_on_hand) || 0,
       quantity_requested: Number(item.quantity_requested) || 1,
+      // Phase 3 (Raw Mats): persist the requestor's classification.
+      // Falls back to false (DB default) when the form omits the field —
+      // matches the migration default and keeps legacy callers safe.
+      is_raw_material:    item.is_raw_material === true,
     }));
 
   if (rows.length === 0) return;

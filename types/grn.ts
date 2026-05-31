@@ -21,7 +21,6 @@ export interface GRNReceipt {
   delivery_address: string;
 
   // Physical document fields
-  invoice_no: string;
   dr_no: string;
   dr_date: string | null;
   transaction_date: string;
@@ -54,6 +53,19 @@ export interface GRNItem {
   quantity_rejected: number;
   unit_price: number;
   remarks: string;
+
+  /**
+   * Phase 9 (Raw Mats): forwarded from `pr2_items.is_raw_material` via the
+   * `grn_items → po_items → pr2_items` join. Optional because the seed
+   * insert path doesn't carry the flag — only the read path that performs
+   * the join surfaces it.
+   */
+  is_raw_material?: boolean;
+  /**
+   * Phase 9 (Raw Mats): forwarded from `pr2_items.quote_justification`.
+   * Surfaces only when procurement justified the original award.
+   */
+  quote_justification?: string | null;
 
   created_at: string;
   updated_at: string;
@@ -91,10 +103,12 @@ export interface GRNItemDraft {
   quantity_rejected: number | '';
   unit_price: number;
   remarks: string;
+  // Phase 9 (Raw Mats): forwarded snapshot fields for badge/justification.
+  is_raw_material?: boolean;
+  quote_justification?: string | null;
 }
 
 export interface GRNFormValues {
-  invoice_no: string;
   dr_no: string;
   dr_date: string;
   transaction_date: string;

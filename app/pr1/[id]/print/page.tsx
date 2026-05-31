@@ -290,6 +290,7 @@ export default function PR1PrintPage() {
               <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', fontSize: 9, textAlign: 'center', width: 28 }}>No.</th>
               <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', fontSize: 9, textAlign: 'center', width: 80 }}>Item Code</th>
               <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', fontSize: 9, textAlign: 'left' }}>Description</th>
+              <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', fontSize: 9, textAlign: 'center', width: 56 }}>Type</th>
               <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', fontSize: 9, textAlign: 'center', width: 60 }}>Unit</th>
               <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', fontSize: 9, textAlign: 'center', width: 60 }}>SOH</th>
               <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', fontSize: 9, textAlign: 'center', width: 70 }}>Req. Qty</th>
@@ -306,6 +307,9 @@ export default function PR1PrintPage() {
                 </td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 6px', fontSize: 9 }}>
                   {item?.description || ''}
+                </td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 6px', fontSize: 8, textAlign: 'center', fontWeight: 'bold', color: item?.is_raw_material ? '#1e40af' : '#999' }}>
+                  {item ? (item.is_raw_material ? 'RAW' : '—') : ''}
                 </td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 6px', fontSize: 9, textAlign: 'center' }}>
                   {item?.unit_of_measure || ''}

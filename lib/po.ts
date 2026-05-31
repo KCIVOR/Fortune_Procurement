@@ -94,8 +94,12 @@ export async function fetchPOStatusCounts(): Promise<POStatusCounts> {
 export async function fetchPOById(id: string): Promise<POWithItems | null> {
   const [poRes, itemsRes] = await Promise.all([
     db.from('po_requests').select('*').eq('id', id).maybeSingle(),
+    // Phase 9 (Raw Mats): join through pr2_items to forward `is_raw_material`
+    // and `quote_justification` snapshots onto each PO line. The join is a
+    // many-to-one foreign reference, so PostgREST returns the parent row
+    // nested under the relationship name.
     db.from('po_items')
-      .select('*')
+      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification )')
       .eq('po_id', id)
       .order('item_order', { ascending: true }),
   ]);
@@ -473,6 +477,10 @@ function normalizePO(row: any): PORequest {
 }
 
 function normalizeItem(row: any) {
+  // Phase 9 (Raw Mats): the optional embedded `pr2_items` join (added in
+  // fetchPOById and fetchPOApprovalDetail) carries the snapshot. PostgREST
+  // can return either an object or `null` for the embed, so guard both.
+  const pr2Item = row.pr2_items ?? null;
   return {
     id:                    row.id,
     po_id:                 row.po_id,
@@ -486,6 +494,8 @@ function normalizeItem(row: any) {
     total_price:           Number(row.total_price),
     supplier_name_snapshot: row.supplier_name_snapshot,
     remarks:               row.remarks,
+    is_raw_material:       pr2Item?.is_raw_material === true,
+    quote_justification:   pr2Item?.quote_justification ?? null,
     created_at:            row.created_at,
   };
 }

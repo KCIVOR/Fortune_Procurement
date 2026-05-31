@@ -300,6 +300,14 @@ export default function PR2PrintPage() {
                     {item?.is_alternative && (
                       <span style={{ marginLeft: 4, fontSize: 7, color: '#b45309' }}>[Alt]</span>
                     )}
+                    {item?.is_raw_material && (
+                      <span style={{ marginLeft: 4, fontSize: 7, color: '#1e40af', fontWeight: 'bold' }}>[RAW]</span>
+                    )}
+                    {item?.quote_justification && (
+                      <div style={{ marginTop: 2, fontSize: 7, color: '#92400e', fontStyle: 'italic' }}>
+                        Justification: {item.quote_justification}
+                      </div>
+                    )}
                   </td>
                   <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8, textAlign: 'center' }}>
                     {item?.unit_of_measure || ''}

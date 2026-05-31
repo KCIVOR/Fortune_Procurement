@@ -314,7 +314,17 @@ export default function POPrintPage() {
               <tr key={item.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f9fafb' }}>
                 <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'center', fontSize: 8, fontFamily: 'monospace' }}>{item.item_order}</td>
                 <td style={{ border: '1px solid #ccc', padding: '4px 6px', fontSize: 8, fontFamily: 'monospace' }}>{item.item_code || '—'}</td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px', fontSize: 9 }}>{item.description}</td>
+                <td style={{ border: '1px solid #ccc', padding: '4px 6px', fontSize: 9 }}>
+                  {item.description}
+                  {item.is_raw_material && (
+                    <span style={{ marginLeft: 4, fontSize: 7, color: '#1e40af', fontWeight: 'bold' }}>[RAW]</span>
+                  )}
+                  {item.quote_justification && (
+                    <div style={{ marginTop: 2, fontSize: 7, color: '#92400e', fontStyle: 'italic' }}>
+                      Justification: {item.quote_justification}
+                    </div>
+                  )}
+                </td>
                 <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'center', fontSize: 8 }}>{item.unit_of_measure}</td>
                 <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right', fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }}>
                   {Number(item.quantity_to_purchase).toLocaleString()}

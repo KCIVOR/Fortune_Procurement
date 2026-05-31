@@ -33,6 +33,8 @@ type Pr1ItemRfqRow = {
   description: string;
   unit_of_measure: string;
   quantity_requested: number;
+  /** Phase 4 (Raw Mats): forwarded from pr1_items so RFQ surfaces can render the badge. */
+  is_raw_material?: boolean;
 };
 
 export async function fetchWarehouseProcurementByPr1Item(
@@ -75,6 +77,7 @@ function buildRfqLineItems(
       description:        i.description,
       unit_of_measure:    i.unit_of_measure,
       quantity_requested: pr1Qty(i),
+      is_raw_material:    i.is_raw_material === true,
     }));
   }
 
@@ -95,6 +98,7 @@ function buildRfqLineItems(
         unit_of_measure:        i.unit_of_measure,
         quantity_requested:      procQty,
         pr1_quantity_requested: pr1Qty(i),
+        is_raw_material:        i.is_raw_material === true,
       });
     }
   }
@@ -110,6 +114,7 @@ function buildRfqLineItems(
         unit_of_measure:        i.unit_of_measure,
         quantity_requested:      q,
         pr1_quantity_requested: q,
+        is_raw_material:        i.is_raw_material === true,
       });
     }
   }
@@ -341,7 +346,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
       .eq('id', rfq.pr1_id)
       .maybeSingle(),
     db.from('pr1_items')
-      .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested')
+      .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material')
       .eq('pr1_id', rfq.pr1_id)
       .order('item_order', { ascending: true }),
     db.from('rfq_suppliers')
@@ -539,6 +544,19 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
       const noQuoteReason =
         responseStatus === 'no_quote' ? (quote?.no_quote_reason?.trim() || null) : null;
 
+      // Phase 6 (Raw Mats): coarse verification state for the comparison pill.
+      // Independent from the `is_alternative` substitute workflow.
+      let verificationStatus: 'verified' | 'unverified' | 'manual' | undefined;
+      if (quote && responseStatus !== 'no_quote') {
+        if (!productId) {
+          verificationStatus = 'manual';
+        } else if (productInfo?.status === 'verified') {
+          verificationStatus = 'verified';
+        } else {
+          verificationStatus = 'unverified';
+        }
+      }
+
       return {
         rfq_supplier_id:         supplier.id,
         quote_id:                quote?.id ?? null,
@@ -555,6 +573,7 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
         supplier_product_name:   productInfo?.product_name   ?? null,
         supplier_product_code:   productInfo?.product_code   ?? null,
         supplier_product_status: productInfo?.status         ?? null,
+        verification_status:     verificationStatus,
         response_status:         responseStatus,
         no_quote_reason:         noQuoteReason,
       };
@@ -587,7 +606,7 @@ export async function createRfq(
 
   const { data: pr1ItemsRows, error: piErr } = await db
     .from('pr1_items')
-    .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested')
+    .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material')
     .eq('pr1_id', pr1Id)
     .order('item_order', { ascending: true });
   if (piErr) throw piErr;
@@ -823,26 +842,68 @@ export async function closeRfq(rfqId: string, pr1Id: string, profile: UserProfil
 
 // ─── Save supplier selection ──────────────────────────────────────────────────
 
+/**
+ * Phase 7 (Raw Mats): structured result of a selection attempt.
+ * - `{ ok: true }` — selection persisted.
+ * - `{ ok: false, reason: 'needs_justification', context }` — caller must
+ *   open the justification modal and re-invoke with `justification` filled.
+ *
+ * Other failures still throw (existing behaviour) so the call site can keep
+ * its single-error toast path.
+ */
+export type SaveItemSelectionResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: 'needs_justification';
+      context: {
+        rfqId: string;
+        pr1ItemId: string;
+        rfqSupplierId: string;
+        verification: 'unverified' | 'manual';
+        productName: string | null;
+        productStatus: string | null;
+      };
+    };
+
+/** Phase 7 (Raw Mats): minimum justification length enforced at the app layer. */
+export const QUOTE_JUSTIFICATION_MIN_LENGTH = 10;
+
 export async function saveItemSelection(
   rfqId: string,
   pr1ItemId: string,
   selectedRfqSupplierId: string,
   notes: string,
-  profile: UserProfile
-): Promise<void> {
+  profile: UserProfile,
+  /**
+   * Phase 7 (Raw Mats): optional. Provide on the second call when the first
+   * call returned `{ ok: false, reason: 'needs_justification' }`. Ignored
+   * when justification is not required.
+   */
+  justification?: string,
+): Promise<SaveItemSelectionResult> {
   const now = new Date().toISOString();
 
-  // Fetch the quote row — used for both the substitute guard and the Phase 7.1
-  // catalog-product guard below.
+  // Fetch the quote row — used for both the substitute guard and the
+  // catalog-product / raw-mats logic below.
   const { data: quote } = await db
     .from('rfq_item_quotes')
-    .select('id, is_alternative, supplier_product_id')
+    .select('id, is_alternative, supplier_product_id, response_status')
     .eq('rfq_supplier_id', selectedRfqSupplierId)
     .eq('pr1_item_id', pr1ItemId)
     .maybeSingle();
 
-  // Guard 1 (existing): if this quote is an alternative, requestor must have accepted it
-  if (quote?.is_alternative) {
+  if (!quote) {
+    throw new Error('Cannot select quote: no quote found for that supplier on this line.');
+  }
+
+  // Guard 0 (Phase 5): explicit no-quote rows can never be awarded.
+  if (quote.response_status === 'no_quote') {
+    throw new Error('This supplier marked the line as “No Quote” and cannot be awarded.');
+  }
+
+  // Guard 1 (existing): alternative quotes require requestor acceptance.
+  if (quote.is_alternative) {
     const { data: decision } = await db
       .from('substitute_decisions')
       .select('decision')
@@ -857,33 +918,70 @@ export async function saveItemSelection(
     }
   }
 
-  // Guard 2 (Phase 7.1): catalog product must be linked and verified
-  if (!quote?.supplier_product_id) {
-    throw new Error(
-      'Cannot select quote: no verified catalog product is linked. ' +
-      'Ask the supplier to resubmit their quotation with a product from their verified catalog.'
-    );
+  // Guard 2 (Phase 7 refactor): determine whether the quote is verified,
+  // unverified (linked but not 'verified'), or manual (no link).
+  let verification: 'verified' | 'unverified' | 'manual';
+  let productName: string | null = null;
+  let productStatus: string | null = null;
+
+  if (!quote.supplier_product_id) {
+    verification = 'manual';
+  } else {
+    const { data: product, error: productErr } = await db
+      .from('supplier_products')
+      .select('product_name, status')
+      .eq('id', quote.supplier_product_id)
+      .maybeSingle();
+
+    if (productErr) throw productErr;
+    if (!product) {
+      throw new Error('Cannot select quote: the linked catalog product could not be found.');
+    }
+
+    productName   = (product as any).product_name as string;
+    productStatus = (product as any).status as string;
+    verification  = productStatus === 'verified' ? 'verified' : 'unverified';
   }
 
-  const { data: product, error: productErr } = await db
-    .from('supplier_products')
-    .select('status')
-    .eq('id', quote.supplier_product_id)
+  // Guard 3 (Phase 7): raw-mats lines awarded against an unverified or
+  // manual quote require a written justification. Look up the PR1 line
+  // to determine the raw-mats flag.
+  const { data: pr1Item } = await db
+    .from('pr1_items')
+    .select('is_raw_material')
+    .eq('id', pr1ItemId)
     .maybeSingle();
 
-  if (productErr) throw productErr;
+  const isRawMaterial = (pr1Item as any)?.is_raw_material === true;
+  const requiresJustification =
+    isRawMaterial && (verification === 'unverified' || verification === 'manual');
 
-  if (!product) {
-    throw new Error(
-      'Cannot select quote: the linked catalog product could not be found.'
-    );
+  if (requiresJustification) {
+    const trimmed = (justification ?? '').trim();
+    if (trimmed.length < QUOTE_JUSTIFICATION_MIN_LENGTH) {
+      // Signal the caller to open the justification modal. We deliberately
+      // do not throw — the call site already handles thrown errors via toast,
+      // but a justification request is a workflow signal, not an error.
+      // `verification` here is narrowed to 'unverified' | 'manual' by the
+      // requiresJustification predicate above; cast for the narrower type.
+      return {
+        ok: false,
+        reason: 'needs_justification',
+        context: {
+          rfqId,
+          pr1ItemId,
+          rfqSupplierId: selectedRfqSupplierId,
+          verification: verification as 'unverified' | 'manual',
+          productName,
+          productStatus,
+        },
+      };
+    }
   }
 
-  if (product.status !== 'verified') {
-    throw new Error(
-      `Cannot select quote: linked supplier product is not verified (current status: ${product.status}).`
-    );
-  }
+  const finalJustification = requiresJustification
+    ? (justification ?? '').trim()
+    : null;
 
   const { error } = await db
     .from('supplier_item_selections')
@@ -895,11 +993,15 @@ export async function saveItemSelection(
         selected_by:              profile.id,
         selected_at:              now,
         selection_notes:          notes.trim() || null,
+        quote_justification:      finalJustification,
+        requires_justification:   requiresJustification,
       },
       { onConflict: 'rfq_id,pr1_item_id' }
     );
 
   if (error) throw error;
+
+  return { ok: true };
 }
 
 // ─── Substitute item review (requestor) ─────────────────────────────────────
@@ -1258,6 +1360,8 @@ export interface SupplierQuoteDetail {
     unit_of_measure:    string;
     quantity_requested: number;
     pr1_quantity_requested?: number;
+    /** Phase 4 (Raw Mats): forwarded from pr1_items.is_raw_material. */
+    is_raw_material?:   boolean;
   }[];
   quotes: RfqItemQuote[];
 }
@@ -1297,7 +1401,7 @@ export async function fetchSupplierQuoteDetail(
       .eq('id', rfq.pr1_id)
       .maybeSingle(),
     db.from('pr1_items')
-      .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested')
+      .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material')
       .eq('pr1_id', rfq.pr1_id)
       .order('item_order', { ascending: true }),
     collectLegacyPr1ItemIdsForRfq(rfq.id),

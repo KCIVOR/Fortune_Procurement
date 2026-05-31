@@ -180,7 +180,7 @@ export default function SupplierDashboard({ profile }: Props) {
                   <CircleAlert className="w-3.5 h-3.5 shrink-0" />
                   <span>
                     {cStats.rfqsPendingProductValidation} open RFQ
-                    {cStats.rfqsPendingProductValidation !== 1 ? 's' : ''} include quote line(s) linked to products still awaiting verification—awards stay blocked until verified.
+                    {cStats.rfqsPendingProductValidation !== 1 ? 's have' : ' has'} a raw-material line offered with an unverified product. Procurement may need a written justification before awarding—getting your product verified avoids the extra step.
                   </span>
                   <Link href="/supplier/quotations" className="ml-auto font-semibold underline shrink-0">
                     RFQs

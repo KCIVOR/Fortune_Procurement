@@ -7,6 +7,7 @@ import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import RelatedRecords from '@/components/shared/RelatedRecords';
+import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
@@ -323,7 +324,20 @@ export default function PR2ApprovalDetailPage() {
                       <tr key={item.id} className="hover:bg-pq-neutral-50">
                         <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
                         <td className="px-4 py-3 font-mono text-xs text-pq-neutral-500">{item.item_code || '—'}</td>
-                        <td className="px-4 py-3 text-pq-neutral-900 font-medium">{item.description}</td>
+                        <td className="px-4 py-3 text-pq-neutral-900 font-medium">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span>{item.description}</span>
+                            <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                          </div>
+                          {item.quote_justification && (
+                            <p className="text-xs text-pq-warning-700 mt-1 flex items-start gap-1 font-normal">
+                              <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                              <span>
+                                <strong>Award justification:</strong> {item.quote_justification}
+                              </span>
+                            </p>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs text-pq-neutral-500">{item.quantity_requested}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs text-pq-neutral-500">{item.qty_on_hand}</td>

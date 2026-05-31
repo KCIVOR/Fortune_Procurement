@@ -7,6 +7,7 @@ import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import RelatedRecords from '@/components/shared/RelatedRecords';
+import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchPOApprovalDetail,
@@ -97,7 +98,12 @@ export default function POApprovalDetailPage() {
         remarks,
         profile
       );
-      router.push('/approvals/po');
+      // Redirect based on role - procurement goes to /po, approvers go to /approvals/po
+      if (profile.role === 'procurement') {
+        router.push('/po');
+      } else {
+        router.push('/approvals/po');
+      }
     } catch (err: any) {
       setSubmitError(err.message ?? 'Failed to submit action.');
       setSubmitting(false);
@@ -271,7 +277,20 @@ export default function POApprovalDetailPage() {
                   <tr key={item.id} className="hover:bg-pq-neutral-50">
                     <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
                     <td className="px-4 py-3 font-mono text-xs text-pq-neutral-500">{item.item_code || '—'}</td>
-                    <td className="px-4 py-3 text-pq-neutral-900 font-medium">{item.description}</td>
+                    <td className="px-4 py-3 text-pq-neutral-900 font-medium">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>{item.description}</span>
+                        <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                      </div>
+                      {item.quote_justification && (
+                        <p className="text-xs text-pq-warning-700 mt-1 flex items-start gap-1 font-normal">
+                          <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                          <span>
+                            <strong>Award justification:</strong> {item.quote_justification}
+                          </span>
+                        </p>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                     <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_to_purchase}</td>
                     <td className="px-4 py-3 text-right text-xs text-pq-neutral-500">₱{item.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>

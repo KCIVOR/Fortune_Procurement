@@ -12,7 +12,7 @@ import {
 } from '@/lib/pr1';
 import type { PR1WithItems, PR1FormValues, PR1ItemDraft } from '@/types/pr1';
 import { EMPTY_ITEM, PURPOSE_OPTIONS, UNIT_OPTIONS } from '@/types/pr1';
-import { Plus, Trash2, TriangleAlert as AlertTriangle, Save, Send, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, TriangleAlert as AlertTriangle, Save, Send, ChevronUp, ChevronDown, FlaskConical } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +57,8 @@ function buildInitialValues(existing?: PR1WithItems): PR1FormValues {
             unit_of_measure:    i.unit_of_measure,
             stock_on_hand:      i.stock_on_hand,
             quantity_requested: i.quantity_requested,
+            // Phase 3 (Raw Mats): preserve flag when re-loading a draft for edit.
+            is_raw_material:    i.is_raw_material === true,
           }))
         : [EMPTY_ITEM()],
     };
@@ -156,6 +158,15 @@ export default function PR1Form({ existing }: PR1FormProps) {
     setValues(v => ({
       ...v,
       items: v.items.map((item, i) => i === idx ? { ...item, [field]: val } : item),
+    }));
+  };
+
+  // Phase 3 (Raw Mats): boolean toggle kept separate from `setItem` so the
+  // existing string|number signature stays intact and surgical.
+  const setItemRawMaterial = (idx: number, value: boolean) => {
+    setValues(v => ({
+      ...v,
+      items: v.items.map((item, i) => i === idx ? { ...item, is_raw_material: value } : item),
     }));
   };
 
@@ -480,6 +491,12 @@ export default function PR1Form({ existing }: PR1FormProps) {
                 <TableHead className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-36">Unit</TableHead>
                 <TableHead className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-24">SOH</TableHead>
                 <TableHead className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-28">Req. Qty</TableHead>
+                <TableHead
+                  className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-20"
+                  title="Mark as Raw Material — used for production inputs (e.g. chemicals). Verified products are preferred during canvassing."
+                >
+                  Raw Mat.
+                </TableHead>
                 <TableHead className="w-16 px-3 py-2.5" />
               </TableRow>
             </TableHeader>
@@ -571,6 +588,34 @@ export default function PR1Form({ existing }: PR1FormProps) {
                           errors[`item_qty_${idx}`] ? 'border-pq-danger-300 bg-pq-danger-50' : 'border-pq-neutral-200'
                         )}
                       />
+                    </TableCell>
+                    <TableCell className="px-2 py-2 text-center align-middle">
+                      <label
+                        className="inline-flex items-center justify-center cursor-pointer group/raw"
+                        title={
+                          item.is_raw_material
+                            ? 'Raw material — supplier may offer verified, unverified, or manual entry. Procurement will see verification status during canvassing.'
+                            : 'Not a raw material — verification not required.'
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={item.is_raw_material === true}
+                          onChange={e => setItemRawMaterial(idx, e.target.checked)}
+                          className="sr-only"
+                        />
+                        <span
+                          className={cn(
+                            'inline-flex items-center justify-center w-6 h-6 rounded-md border transition',
+                            item.is_raw_material
+                              ? 'bg-pq-primary-50 border-pq-primary-600 text-pq-primary-600'
+                              : 'bg-white border-pq-neutral-300 text-pq-neutral-300 group-hover/raw:border-pq-neutral-400 group-hover/raw:text-pq-neutral-400'
+                          )}
+                          aria-hidden="true"
+                        >
+                          <FlaskConical className="w-3.5 h-3.5" />
+                        </span>
+                      </label>
                     </TableCell>
                     <TableCell className="px-2 py-2 text-center align-middle">
                       {values.items.length > 1 && (

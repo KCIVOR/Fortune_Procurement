@@ -12,7 +12,7 @@ import {
 } from '@/lib/canvassing';
 import type { SupplierQuoteDetail, QuoteDraft } from '@/lib/canvassing';
 import {
-  getVerifiedProductsForCurrentSupplier,
+  getActiveProductsForCurrentSupplier,
   createAndSubmitSupplierProductForRFQ,
   type RFQProductProposalInput,
 } from '@/lib/supplier-products';
@@ -51,6 +51,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 
 const VERIFIED_PRODUCT_PICKER_PAGE_SIZE = 10;
 
@@ -92,8 +93,37 @@ function previewField(val: string | null, maxLen: number): string {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/** Per-item UI mode: how the supplier is filling this line. */
-type LineMode = 'select_verified' | 'propose_new' | 'no_quote';
+/**
+ * Per-item UI mode: how the supplier is filling this line.
+ *
+ * Phase 5 (Raw Mats): added `manual_entry`. Suppliers may now fill a line
+ * without picking from their catalog (no `supplier_product_id`). The
+ * pick-from-catalog mode (`select_verified`) accepts both verified AND
+ * in-flight products under the new rule; the existing label is kept for
+ * UX continuity but the underlying picker is broadened.
+ */
+type LineMode = 'select_verified' | 'manual_entry' | 'propose_new' | 'no_quote';
+
+/** Phase 5 (Raw Mats): visual treatment for the catalog product status. */
+type ProductBadgeKind = 'verified' | 'pending' | 'unknown';
+
+function describeProductStatus(status: string | null | undefined): {
+  kind: ProductBadgeKind;
+  label: string;
+} {
+  switch (status) {
+    case 'verified':
+      return { kind: 'verified', label: 'Verified' };
+    case 'submitted':
+      return { kind: 'pending', label: 'Pending review' };
+    case 'under_review':
+      return { kind: 'pending', label: 'Under review' };
+    case 'pending_tsqa':
+      return { kind: 'pending', label: 'Pending TSQA' };
+    default:
+      return { kind: 'unknown', label: status ? status.replace(/_/g, ' ') : 'Unknown' };
+  }
+}
 
 /** Pending proposal form state per item. */
 interface ProposalForm {
@@ -126,8 +156,10 @@ export default function SupplierQuotationPage() {
   const [submitError, setSubmitError] = useState('');
   const [submitted, setSubmitted]   = useState(false);
 
-  // Phase 7: verified product catalog
-  const [verifiedProducts, setVerifiedProducts] = useState<SupplierProduct[]>([]);
+  // Phase 5 (Raw Mats): renamed from `verifiedProducts`. Now contains
+  // verified AND in-flight catalog products (submitted / under_review /
+  // pending_tsqa) so suppliers can offer them in the relaxed picker.
+  const [availableProducts, setAvailableProducts] = useState<SupplierProduct[]>([]);
   const [productsLoaded,   setProductsLoaded]   = useState(false);
 
   // Phase 8: per-item UI mode and proposal state
@@ -138,7 +170,7 @@ export default function SupplierQuotationPage() {
   // Tracks proposed (pending) products attached to a line (not yet verified)
   const [pendingProducts, setPendingProducts] = useState<Record<number, SupplierProduct>>({});
 
-  // Verified product picker modal (per RFQ line)
+  // Catalog product picker modal (per RFQ line)
   const [pickerLineIndex, setPickerLineIndex] = useState<number | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerCategory, setPickerCategory] = useState<string>('__all__');
@@ -149,12 +181,12 @@ export default function SupplierQuotationPage() {
 
     Promise.all([
       fetchSupplierQuoteDetail(rfqSupplierId, profile.id),
-      getVerifiedProductsForCurrentSupplier(profile),
+      getActiveProductsForCurrentSupplier(profile),
     ])
       .then(([d, products]) => {
         if (!d) { setError('RFQ not found or access denied.'); return; }
         setDetail(d);
-        setVerifiedProducts(products);
+        setAvailableProducts(products);
         setProductsLoaded(true);
 
         const initialDrafts: QuoteDraft[] = d.items.map(item => {
@@ -176,12 +208,19 @@ export default function SupplierQuotationPage() {
         });
         setDrafts(initialDrafts);
 
-        // Determine initial line mode
+        // Determine initial line mode (Phase 5 update — manual entries are
+        // first-class, and the picker carries verified + in-flight products).
         const initialModes: LineMode[] = initialDrafts.map(draft => {
           if (draft.response_status === 'no_quote') return 'no_quote';
-          if (!draft.supplier_product_id) return 'select_verified';
-          const inVerified = products.some(p => p.id === draft.supplier_product_id);
-          return inVerified ? 'select_verified' : 'propose_new';
+          if (!draft.supplier_product_id) {
+            // No product link: brand-new lines start at the catalog picker;
+            // existing quotes that the supplier filled manually before reload
+            // come back as manual_entry. We detect "filled manually" by
+            // checking that the line already has a price.
+            return draft.unit_price > 0 ? 'manual_entry' : 'select_verified';
+          }
+          const inActiveCatalog = products.some(p => p.id === draft.supplier_product_id);
+          return inActiveCatalog ? 'select_verified' : 'propose_new';
         });
         setLineModes(initialModes);
         setProposalForms(d.items.map(() => ({ ...EMPTY_PROPOSAL })));
@@ -205,7 +244,7 @@ export default function SupplierQuotationPage() {
   };
 
   const handleProductSelect = (index: number, productId: string) => {
-    const product = verifiedProducts.find(p => p.id === productId) ?? null;
+    const product = availableProducts.find(p => p.id === productId) ?? null;
     setDrafts(prev => {
       const next = [...prev];
       const currentDesc = next[index].quoted_description;
@@ -248,7 +287,7 @@ export default function SupplierQuotationPage() {
 
   const pickerCategoryKeys = useMemo(() => {
     const keys = new Set<string>();
-    for (const p of verifiedProducts) {
+    for (const p of availableProducts) {
       keys.add(supplierProductCategoryKey(p));
     }
     return Array.from(keys).sort((a, b) => {
@@ -256,10 +295,10 @@ export default function SupplierQuotationPage() {
       if (b === UNCATEGORIZED_CATEGORY_KEY) return -1;
       return a.localeCompare(b);
     });
-  }, [verifiedProducts]);
+  }, [availableProducts]);
 
   const pickerFilteredProducts = useMemo(() => {
-    let list = verifiedProducts;
+    let list = availableProducts;
     if (pickerCategory !== '__all__') {
       list = list.filter(p => supplierProductCategoryKey(p) === pickerCategory);
     }
@@ -279,7 +318,7 @@ export default function SupplierQuotationPage() {
       });
     }
     return list;
-  }, [verifiedProducts, pickerCategory, pickerSearch]);
+  }, [availableProducts, pickerCategory, pickerSearch]);
 
   const pickerTotalPages = Math.max(
     1,
@@ -305,6 +344,37 @@ export default function SupplierQuotationPage() {
         is_alternative:      false,
         response_status:     'quoted',
         no_quote_reason:     null,
+      };
+      return next;
+    });
+  };
+
+  // Phase 5 (Raw Mats): manual-entry mode. Supplier fills price/lead/desc
+  // without picking from the catalog. The quote stores `supplier_product_id = null`
+  // and keeps `response_status = 'quoted'`. Procurement sees this as a
+  // "manual entry" verification status during canvassing (Phase 6) and may
+  // award only after providing a justification when the line is raw mats
+  // (Phase 7).
+  const switchToManualEntry = (index: number) => {
+    setLineModes(prev => { const n = [...prev]; n[index] = 'manual_entry'; return n; });
+    setProposalErrors(prev => { const n = [...prev]; n[index] = ''; return n; });
+    setPendingProducts(prev => { const n = { ...prev }; delete n[index]; return n; });
+    setDrafts(prev => {
+      const next = [...prev];
+      const fallbackDesc = detail?.items[index]?.description ?? next[index].quoted_description;
+      next[index] = {
+        ...next[index],
+        supplier_product_id: null,
+        is_alternative:      false,
+        response_status:     'quoted',
+        no_quote_reason:     null,
+        // If the supplier had a verified product selected, swap the line
+        // text to the original PR1 description so the manual mode starts
+        // from a sensible default rather than the previous product name.
+        quoted_description:
+          next[index].quoted_description.trim().length === 0
+            ? fallbackDesc
+            : next[index].quoted_description,
       };
       return next;
     });
@@ -432,7 +502,12 @@ export default function SupplierQuotationPage() {
       if (mode === 'no_quote') {
         return (d.no_quote_reason?.trim() ?? '').length > 0;
       }
-      if (!d.supplier_product_id) return false;
+      // Phase 5 (Raw Mats): manual entry is now valid without supplier_product_id.
+      // Catalog modes (select_verified / propose_new) still require a product link.
+      if (mode !== 'manual_entry' && !d.supplier_product_id) return false;
+      // Manual entry needs a non-empty description so procurement sees something
+      // beyond the original PR1 line label.
+      if (mode === 'manual_entry' && d.quoted_description.trim().length === 0) return false;
       return d.unit_price > 0;
     });
   }, [drafts, lineModes, productsLoaded, detail]);
@@ -452,10 +527,15 @@ export default function SupplierQuotationPage() {
         }
         continue;
       }
-      if (!d.supplier_product_id) {
+      // Phase 5: catalog modes still need a product link; manual entry doesn't.
+      if (mode !== 'manual_entry' && !d.supplier_product_id) {
         setSubmitError(
-          'Please select a verified product, propose a new product, or mark “No Quote” on each line.'
+          'Please select a catalog product, propose a new one, fill it manually, or mark “No Quote” on each line.'
         );
+        return;
+      }
+      if (mode === 'manual_entry' && d.quoted_description.trim().length === 0) {
+        setSubmitError('Please describe the item for each manual-entry line.');
         return;
       }
       if (d.unit_price <= 0) {
@@ -497,7 +577,7 @@ export default function SupplierQuotationPage() {
   const { rfq, pr1, items } = detail;
   const isClosed   = rfq.status === 'closed';
   const canSubmit  = rfq.status === 'open' && !isClosed;
-  const isReadOnly = submitted || isClosed;
+  const isReadOnly = isClosed;
 
   return (
     <AppShell title="Submit Quotation">
@@ -585,24 +665,32 @@ export default function SupplierQuotationPage() {
             <div className="bg-pq-warning-100 border border-pq-warning-100 rounded-md p-4">
               <p className="text-xs font-semibold text-pq-warning-600 mb-1">Instructions</p>
               <ul className="text-xs text-pq-warning-600 space-y-1 list-disc list-inside">
-                <li>For each item, verify a catalog product, propose a new one, or mark <strong>No Quote</strong> with a reason</li>
+                <li>Per item, choose: <strong>catalog product</strong>, <strong>manual entry</strong>, <strong>propose new product</strong>, or <strong>No Quote</strong></li>
                 <li>Quoted lines need price and lead time</li>
+                <li>Catalog products may be verified or pending — procurement sees the status during canvassing</li>
                 <li>Proposed products await Procurement validation before award</li>
-                <li>Mark &ldquo;Alternative item&rdquo; only when quoting a substitute from verified catalog</li>
+                <li>Mark &ldquo;Alternative item&rdquo; only when quoting a substitute from your catalog</li>
               </ul>
             </div>
           )}
 
-          {productsLoaded && verifiedProducts.length > 0 && !isReadOnly && (
+          {productsLoaded && availableProducts.length > 0 && !isReadOnly && (
             <div className="bg-white rounded-md border border-pq-neutral-200 p-4">
               <div className="flex items-center gap-1.5 mb-1">
                 <Package className="w-3.5 h-3.5 text-pq-neutral-400" />
                 <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                  Verified Products
+                  Catalog Products
                 </p>
               </div>
               <p className="text-xs text-pq-neutral-400">
-                {verifiedProducts.length} available for selection
+                {availableProducts.length} available for selection
+                {(() => {
+                  const verifiedCount = availableProducts.filter(p => p.status === 'verified').length;
+                  const pendingCount = availableProducts.length - verifiedCount;
+                  return pendingCount > 0
+                    ? ` · ${verifiedCount} verified, ${pendingCount} pending`
+                    : ' · all verified';
+                })()}
               </p>
             </div>
           )}
@@ -617,14 +705,15 @@ export default function SupplierQuotationPage() {
             const pendingProduct = pendingProducts[index] ?? null;
             if (!draft) return null;
 
-            const selectedVerified = verifiedProducts.find(
+            const selectedCatalog = availableProducts.find(
               p => p.id === draft.supplier_product_id
             ) ?? null;
             const isProposedCatalogLine =
               mode !== 'no_quote' &&
+              mode !== 'manual_entry' &&
               (mode === 'propose_new' ||
                 (!!draft.supplier_product_id &&
-                  !verifiedProducts.some(p => p.id === draft.supplier_product_id)));
+                  !availableProducts.some(p => p.id === draft.supplier_product_id)));
             const hideQuotePricing =
               mode === 'no_quote' ||
               (isReadOnly && draft.response_status === 'no_quote');
@@ -640,7 +729,10 @@ export default function SupplierQuotationPage() {
                     {item.item_order}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-pq-neutral-900">{item.description}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-pq-neutral-900">{item.description}</p>
+                      <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                    </div>
                     <p className="text-xs text-pq-neutral-400">
                       {item.item_code && <span className="font-mono">{item.item_code} · </span>}
                       Qty: <strong>{item.quantity_requested}</strong> {item.unit_of_measure}
@@ -658,7 +750,7 @@ export default function SupplierQuotationPage() {
                     </div>
                   )}
 
-                  {/* ── Phase 7/8: product section ── */}
+                  {/* ── Phase 5/7/8: product section ── */}
                   {!isReadOnly && productsLoaded && (
                     <>
                       {/* Mode tabs */}
@@ -673,7 +765,19 @@ export default function SupplierQuotationPage() {
                           }`}
                         >
                           <Package className="inline w-3 h-3 mr-1" />
-                          Select Verified Product
+                          Select Catalog Product
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => switchToManualEntry(index)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                            mode === 'manual_entry'
+                              ? 'bg-pq-primary-600 text-white border-pq-primary-600'
+                              : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:bg-pq-neutral-50'
+                          }`}
+                        >
+                          <FileText className="inline w-3 h-3 mr-1" />
+                          Manual Entry
                         </button>
                         <button
                           type="button"
@@ -701,62 +805,102 @@ export default function SupplierQuotationPage() {
                         </button>
                       </div>
 
-                      {/* Select verified product panel */}
+                      {/* Phase 5: raw-mats inline warning when supplier picks
+                          unverified or manual entry on a raw-mats line. The
+                          warning is informational — submission still proceeds. */}
+                      {item.is_raw_material && mode !== 'no_quote' && (() => {
+                        const showWarn =
+                          mode === 'manual_entry' ||
+                          (mode === 'select_verified' && selectedCatalog && selectedCatalog.status !== 'verified') ||
+                          mode === 'propose_new';
+                        if (!showWarn) return null;
+                        return (
+                          <div className="flex items-start gap-2 rounded-md border border-pq-warning-100 bg-pq-warning-100/60 px-3 py-2 text-xs text-pq-warning-700">
+                            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                            <span>
+                              This is a <strong>raw material</strong> line. You may submit with a
+                              {mode === 'manual_entry'
+                                ? ' manual entry'
+                                : mode === 'propose_new'
+                                  ? ' newly proposed product (pending validation)'
+                                  : ' product still pending verification'}
+                              ; procurement will see the verification status during canvassing
+                              and may request justification before awarding.
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Select catalog product panel (Phase 5: verified + in-flight) */}
                       {mode === 'select_verified' && (
                         <div>
-                          {verifiedProducts.length === 0 ? (
-                            <div className="flex items-center gap-2 px-3 py-2 border border-pq-warning-100 bg-pq-warning-100 rounded-md text-xs text-pq-warning-600">
-                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                              No verified products available. Submit products for validation before
-                              offering items in RFQ.{' '}
+                          {availableProducts.length === 0 ? (
+                            <div className="flex items-center gap-2 px-3 py-2 border border-pq-neutral-200 bg-pq-neutral-50 rounded-md text-xs text-pq-neutral-600">
+                              <Info className="w-3.5 h-3.5 shrink-0" />
+                              No catalog products yet.{' '}
                               <Link href="/supplier/products" className="underline font-medium">
-                                Go to Product Catalog
+                                Add to your Product Catalog
                               </Link>{' '}
-                              or use &ldquo;Propose New Product&rdquo; or &ldquo;No Quote&rdquo; above.
+                              or use &ldquo;Manual Entry&rdquo;, &ldquo;Propose New Product&rdquo;, or &ldquo;No Quote&rdquo; above.
                             </div>
                           ) : (
                             <div className="space-y-3">
-                              {selectedVerified ? (
-                                <div className="rounded-md border border-pq-success-100 bg-pq-success-100/80 px-4 py-3">
-                                  <p className="text-[10px] font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
-                                    Selected product
-                                  </p>
-                                  <div className="flex flex-wrap items-center gap-2 text-sm text-pq-neutral-900">
-                                    <span className="font-semibold">{selectedVerified.product_name}</span>
-                                    {selectedVerified.product_code && (
-                                      <>
+                              {selectedCatalog ? (
+                                (() => {
+                                  const productBadge = describeProductStatus(selectedCatalog.status);
+                                  const isUnverified = productBadge.kind !== 'verified';
+                                  const cardTone = isUnverified
+                                    ? 'border-pq-warning-100 bg-pq-warning-100/50'
+                                    : 'border-pq-success-100 bg-pq-success-100/80';
+                                  const badgeClass = isUnverified
+                                    ? 'border-pq-warning-200 text-pq-warning-700 bg-white'
+                                    : 'border-pq-success-200 text-pq-success-600 bg-white';
+                                  const footerNote = isUnverified
+                                    ? 'Procurement will see this product as unverified during canvassing. Award may require justification.'
+                                    : 'Can be awarded when procurement selects this line.';
+                                  return (
+                                    <div className={`rounded-md border px-4 py-3 ${cardTone}`}>
+                                      <p className="text-[10px] font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                                        Selected product
+                                      </p>
+                                      <div className="flex flex-wrap items-center gap-2 text-sm text-pq-neutral-900">
+                                        <span className="font-semibold">{selectedCatalog.product_name}</span>
+                                        {selectedCatalog.product_code && (
+                                          <>
+                                            <span className="text-pq-neutral-400">·</span>
+                                            <span className="font-mono text-xs text-pq-neutral-500">
+                                              {selectedCatalog.product_code}
+                                            </span>
+                                          </>
+                                        )}
                                         <span className="text-pq-neutral-400">·</span>
-                                        <span className="font-mono text-xs text-pq-neutral-500">
-                                          {selectedVerified.product_code}
+                                        <span className="text-xs text-pq-neutral-500">
+                                          {categoryOptionLabel(supplierProductCategoryKey(selectedCatalog))}
                                         </span>
-                                      </>
-                                    )}
-                                    <span className="text-pq-neutral-400">·</span>
-                                    <span className="text-xs text-pq-neutral-500">
-                                      {categoryOptionLabel(supplierProductCategoryKey(selectedVerified))}
-                                    </span>
-                                    <span className="text-pq-neutral-400">·</span>
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[10px] border-pq-success-200 text-pq-success-600 bg-white"
-                                    >
-                                      Verified
-                                    </Badge>
-                                  </div>
-                                  <p className="text-xs text-pq-success-600 mt-2 flex items-center gap-1">
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    Can be awarded when procurement selects this line.
-                                  </p>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="mt-3 h-8 text-xs border-pq-neutral-200"
-                                    onClick={() => openProductPicker(index)}
-                                  >
-                                    Change Product
-                                  </Button>
-                                </div>
+                                        <span className="text-pq-neutral-400">·</span>
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-[10px] ${badgeClass}`}
+                                        >
+                                          {productBadge.label}
+                                        </Badge>
+                                      </div>
+                                      <p className={`text-xs mt-2 flex items-center gap-1 ${isUnverified ? 'text-pq-warning-700' : 'text-pq-success-600'}`}>
+                                        {isUnverified ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                                        {footerNote}
+                                      </p>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-3 h-8 text-xs border-pq-neutral-200"
+                                        onClick={() => openProductPicker(index)}
+                                      >
+                                        Change Product
+                                      </Button>
+                                    </div>
+                                  );
+                                })()
                               ) : (
                                 <Button
                                   type="button"
@@ -764,11 +908,26 @@ export default function SupplierQuotationPage() {
                                   onClick={() => openProductPicker(index)}
                                 >
                                   <Package className="w-4 h-4 mr-2" />
-                                  Choose Verified Product
+                                  Choose Catalog Product
                                 </Button>
                               )}
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Manual entry panel (Phase 5) — explanation only;
+                          the existing description / price / lead time inputs
+                          below already accept manual values. */}
+                      {mode === 'manual_entry' && (
+                        <div className="rounded-md border border-pq-neutral-200 bg-pq-neutral-50 px-4 py-3 text-xs text-pq-neutral-600 flex items-start gap-2">
+                          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-pq-neutral-400" />
+                          <span>
+                            <strong>Manual entry.</strong> Fill the description, unit
+                            price, and lead time below without picking a catalog
+                            product. Procurement will see this line as “Manual entry”
+                            during canvassing.
+                          </span>
                         </div>
                       )}
 
@@ -797,7 +956,7 @@ export default function SupplierQuotationPage() {
                                       {pendingProduct.product_name}
                                     </p>
                                     <p className="text-xs text-pq-warning-600 font-medium">
-                                      Pending Procurement/TSQA validation · Cannot be awarded yet
+                                      Pending Procurement/TSQA validation · Procurement may need to justify before awarding
                                     </p>
                                   </div>
                                 </div>
@@ -945,7 +1104,7 @@ export default function SupplierQuotationPage() {
                       <span className="font-semibold">
                         {isProposedCatalogLine ? 'Proposed Product:' : 'Catalog Product:'}
                       </span>
-                      {selectedVerified?.product_name ?? pendingProducts[index]?.product_name ?? draft.supplier_product_id}
+                      {selectedCatalog?.product_name ?? pendingProducts[index]?.product_name ?? draft.supplier_product_id}
                       {isProposedCatalogLine && (
                         <span className="ml-1 font-semibold">(Pending validation)</span>
                       )}
@@ -1090,7 +1249,7 @@ export default function SupplierQuotationPage() {
       </div>
 
       <Dialog
-        open={pickerLineIndex !== null && verifiedProducts.length > 0}
+        open={pickerLineIndex !== null && availableProducts.length > 0}
         onOpenChange={open => {
           if (!open) closeProductPicker();
         }}
@@ -1098,10 +1257,10 @@ export default function SupplierQuotationPage() {
         <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden sm:rounded-lg border-pq-neutral-200 bg-white">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-pq-neutral-200 shrink-0 text-left space-y-1.5">
             <DialogTitle className="text-lg font-semibold text-pq-neutral-900">
-              Select Verified Product
+              Select Catalog Product
             </DialogTitle>
             <DialogDescription className="text-sm text-pq-neutral-500">
-              Choose a validated product from your catalog for this RFQ line.
+              Choose a verified or in-flight product from your catalog. Procurement will see the verification state during canvassing.
             </DialogDescription>
           </DialogHeader>
 
@@ -1111,7 +1270,7 @@ export default function SupplierQuotationPage() {
               value={pickerSearch}
               onChange={e => setPickerSearch(e.target.value)}
               className="text-sm border-pq-neutral-200 flex-1"
-              aria-label="Search verified products"
+              aria-label="Search catalog products"
             />
             <select
               value={pickerCategory}
@@ -1131,7 +1290,7 @@ export default function SupplierQuotationPage() {
           <div className="flex-1 min-h-0 overflow-auto px-6 py-3">
             {pickerFilteredProducts.length === 0 ? (
               <p className="text-sm text-pq-neutral-500 text-center py-10">
-                No matching verified products found.
+                No matching catalog products found.
               </p>
             ) : (
               <Table>
@@ -1182,12 +1341,22 @@ export default function SupplierQuotationPage() {
                         {previewField(p.specifications, 80)}
                       </TableCell>
                       <TableCell className="align-top">
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] border-pq-success-200 text-pq-success-600 whitespace-nowrap"
-                        >
-                          Verified
-                        </Badge>
+                        {(() => {
+                          const badge = describeProductStatus(p.status);
+                          const cls = badge.kind === 'verified'
+                            ? 'border-pq-success-200 text-pq-success-600'
+                            : badge.kind === 'pending'
+                              ? 'border-pq-warning-200 text-pq-warning-700'
+                              : 'border-pq-neutral-200 text-pq-neutral-600';
+                          return (
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] whitespace-nowrap ${cls}`}
+                            >
+                              {badge.label}
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-xs text-pq-neutral-500 align-top hidden sm:table-cell tabular-nums whitespace-nowrap">
                         {p.verified_at

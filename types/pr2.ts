@@ -56,6 +56,18 @@ export interface PR2Item {
   lead_time_days:          number;
   total_price:             number;
   remarks:                 string | null;
+  /**
+   * Phase 1 (Raw Mats): snapshot of pr1_items.is_raw_material at PR2
+   * creation. Procurement may override on this row only — PR1 stays
+   * unchanged. DB column is NOT NULL DEFAULT false, so always present.
+   */
+  is_raw_material:         boolean;
+  /**
+   * Phase 1 (Raw Mats): free-form justification captured when procurement
+   * awarded an unverified or manual-entry quote on a raw-mats line.
+   * NULL when not required (verified product OR non-raw-mats line).
+   */
+  quote_justification:     string | null;
   created_at:              string;
 }
 
@@ -82,4 +94,16 @@ export interface PR2ItemDraft {
   lead_time_days:          number;
   total_price:             number;
   remarks:                 string;
+  /**
+   * Phase 1 (Raw Mats): optional in drafts — Phase 8 wires the snapshot
+   * on PR2 generation, Phase 10 enables procurement override. Existing
+   * draft builders that don't set this still compile; persistence falls
+   * back to the DB default until those phases land.
+   */
+  is_raw_material?:        boolean;
+  /**
+   * Phase 1 (Raw Mats): optional, populated by Phase 8 from the upstream
+   * `supplier_item_selections.quote_justification`.
+   */
+  quote_justification?:    string | null;
 }

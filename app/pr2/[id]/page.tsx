@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPR2ById, savePR2Items, calcPR2GrandTotal } from '@/lib/pr2';
+import { fetchPR2ById, savePR2Items, calcPR2GrandTotal, updatePR2ItemRawMaterial } from '@/lib/pr2';
 import { submitPR2ForApproval, canActOnPR2Step, fetchPR2ApprovalDetail } from '@/lib/pr2-approvals';
 import { fetchPOsByPR2Id } from '@/lib/po';
 import { supabase } from '@/lib/supabase';
@@ -17,8 +17,9 @@ import type { PORequest } from '@/types/po';
 import type { PR2ApprovalDetail, ApprovalActionRecord, WorkflowStep } from '@/types/approvals';
 import { PR2_STATUS_LABELS } from '@/types/pr2';
 import { format } from 'date-fns';
-import { FileText, Building2, CalendarDays, User, Package, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, Pencil, Save, X as XIcon, RefreshCw, Send, ArrowRight, ShoppingCart, ClipboardList, Lock, RotateCcw, Circle as XCircle, CheckCheck } from 'lucide-react';
+import { FileText, Building2, CalendarDays, User, Package, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, Pencil, Save, X as XIcon, RefreshCw, Send, ArrowRight, ShoppingCart, ClipboardList, Lock, RotateCcw, Circle as XCircle, CheckCheck, FlaskConical } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
+import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import ActionPill from '@/components/shared/ActionPill';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
@@ -54,6 +55,9 @@ interface EditableItem {
   remarks:          string;
   pr1_item_id:      string | null;
   selected_rfq_supplier_id: string | null;
+  // Phase 9 (Raw Mats): forwarded from the PR2Item snapshot for badge / panel rendering.
+  is_raw_material?: boolean;
+  quote_justification?: string | null;
 }
 
 function toEditableItem(item: PR2Item): EditableItem {
@@ -76,6 +80,8 @@ function toEditableItem(item: PR2Item): EditableItem {
     remarks:          item.remarks ?? '',
     pr1_item_id:      item.pr1_item_id,
     selected_rfq_supplier_id: item.selected_rfq_supplier_id,
+    is_raw_material:  item.is_raw_material === true,
+    quote_justification: item.quote_justification ?? null,
   };
 }
 
@@ -181,6 +187,32 @@ export default function PR2DetailPage() {
   const handleCancelEdit = () => {
     setEditing(false);
     setSaveError('');
+  };
+
+  // Phase 10 (Raw Mats): procurement override of the snapshot flag on a
+  // single PR2 line. Persists immediately (independent from the bulk
+  // inventory save) and writes an audit log entry server-side.
+  const handleToggleRawMaterial = async (idx: number, next: boolean) => {
+    if (!profile || !pr2) return;
+    const item = editItems[idx];
+    if (!item) return;
+    // Optimistic update so the toggle feels responsive.
+    setEditItems(prev =>
+      prev.map((it, i) => (i === idx ? { ...it, is_raw_material: next } : it)),
+    );
+    setSaveError('');
+    try {
+      await updatePR2ItemRawMaterial(pr2.id, item.id, next, profile);
+      // Refresh the source-of-truth so the next cancel/reset reflects the
+      // committed value.
+      load();
+    } catch (e: any) {
+      // Roll back the optimistic flip.
+      setEditItems(prev =>
+        prev.map((it, i) => (i === idx ? { ...it, is_raw_material: !next } : it)),
+      );
+      setSaveError(e?.message ?? 'Failed to override raw-material flag.');
+    }
   };
 
   const handleQtyChange = (idx: number, field: 'qty_on_hand' | 'qty_incoming', val: string) => {
@@ -512,7 +544,30 @@ export default function PR2DetailPage() {
                     <tr key={item.id} className="hover:bg-pq-neutral-50 transition">
                       <td className="px-4 py-3 text-xs text-pq-neutral-400">{item.item_order}</td>
                       <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-pq-neutral-900">{item.description}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-pq-neutral-900">{item.description}</p>
+                          {editing && canEdit ? (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleRawMaterial(idx, !(item.is_raw_material === true))}
+                              title={
+                                item.is_raw_material
+                                  ? 'Click to remove raw-material classification on this PR2 line.'
+                                  : 'Click to mark this PR2 line as raw material.'
+                              }
+                              className={`inline-flex items-center gap-1 rounded-full border font-semibold uppercase tracking-wide whitespace-nowrap px-2 py-0.5 text-[11px] transition ${
+                                item.is_raw_material
+                                  ? 'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200 hover:bg-pq-primary-100'
+                                  : 'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200 hover:bg-pq-neutral-100'
+                              }`}
+                            >
+                              <FlaskConical className="w-3 h-3" />
+                              {item.is_raw_material ? 'Raw Mat.' : 'Mark raw'}
+                            </button>
+                          ) : (
+                            <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                          )}
+                        </div>
                         {item.quoted_description && item.quoted_description !== item.description && (
                           <p className="text-xs text-pq-neutral-400 mt-0.5">Quote: {item.quoted_description}</p>
                         )}
@@ -520,6 +575,14 @@ export default function PR2DetailPage() {
                           <span className="inline-block mt-1 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
                             Alt. item
                           </span>
+                        )}
+                        {item.quote_justification && (
+                          <p className="text-xs text-pq-warning-700 mt-1 flex items-start gap-1">
+                            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                            <span>
+                              <strong>Award justification:</strong> {item.quote_justification}
+                            </span>
+                          </p>
                         )}
                         {item.lead_time_days > 0 && (
                           <p className="text-xs text-pq-neutral-400 mt-0.5">Lead: {item.lead_time_days}d</p>

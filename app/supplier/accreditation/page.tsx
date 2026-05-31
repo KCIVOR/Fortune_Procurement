@@ -74,7 +74,7 @@ const STATUS_DESCRIPTION: Record<string, string> = {
   missing_documents:
     'Procurement has requested additional documents. Review the notes below, upload the missing files, and resubmit.',
   approved:
-    'Your company is accredited. Product listings are still validated separately—verified products can be offered in RFQ; pending products cannot be awarded until verified.',
+    'Your company is accredited. Product listings are still validated separately — verified products can be offered and awarded directly; pending products may still be offered, but raw-material awards require procurement justification.',
   rejected:
     'Your accreditation application was rejected. You may start a new application.',
   withdrawn:

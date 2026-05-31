@@ -115,18 +115,22 @@ export async function generatePR2FromRfq(
   if (pr1Err) throw pr1Err;
   if (!pr1) throw new Error('PR1 not found.');
 
-  // Fetch winning selections for this RFQ
+  // Fetch winning selections for this RFQ.
+  // Phase 8 (Raw Mats): also pull `quote_justification` and
+  // `requires_justification` so we can snapshot them onto pr2_items.
   const { data: selections, error: selErr } = await db
     .from('supplier_item_selections')
-    .select('pr1_item_id, selected_rfq_supplier_id, selection_notes')
+    .select('pr1_item_id, selected_rfq_supplier_id, selection_notes, quote_justification, requires_justification')
     .eq('rfq_id', rfqId);
   if (selErr) throw selErr;
   if (!selections || selections.length === 0) throw new Error('No supplier selections found. Close the RFQ first.');
 
-  // Fetch PR1 items (for line metadata; quantities may come from warehouse procurement_qty)
+  // Fetch PR1 items (for line metadata; quantities may come from warehouse procurement_qty).
+  // Phase 8 (Raw Mats): include `is_raw_material` so PR2 lines can carry the
+  // classification snapshot through PO / GRN / delivery downstream.
   const { data: pr1Items, error: pr1ItemsErr } = await db
     .from('pr1_items')
-    .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, stock_on_hand')
+    .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, stock_on_hand, is_raw_material')
     .eq('pr1_id', rfq.pr1_id)
     .order('item_order', { ascending: true });
   if (pr1ItemsErr) throw pr1ItemsErr;
@@ -259,6 +263,14 @@ export async function generatePR2FromRfq(
         lead_time_days:          quote?.lead_time_days ?? 0,
         total_price:             unitPrice * qty,
         remarks:                 sel.selection_notes ?? null,
+        // Phase 8 (Raw Mats): snapshot the requestor's classification (from
+        // pr1_items) and procurement's award-time justification (from
+        // supplier_item_selections). Both default to safe values when the
+        // upstream rows are silent so legacy PR2 generation paths still work.
+        is_raw_material:         item.is_raw_material === true,
+        quote_justification:     sel.requires_justification === true
+          ? (sel.quote_justification ?? null)
+          : null,
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
@@ -336,6 +348,84 @@ export async function savePR2Items(
     document_id:   pr2Id,
     payload:       { updated_by: profile.full_name },
   });
+}
+
+// ─── Phase 10 (Raw Mats): procurement override of the snapshot flag ──────────
+// PR2 inherits `is_raw_material` from the upstream `pr1_items` row at PR2
+// generation. Procurement may flip the snapshot on a single PR2 line at any
+// time after generation — this mutator writes the new value, refreshes the
+// PR2 header `updated_at`, and emits an audit log entry so the override is
+// traceable.
+//
+// The DB-level RLS on `pr2_items` already restricts updates to the
+// `procurement` role; this function does an additional app-layer guard to
+// produce a friendlier error when called from elsewhere by mistake.
+
+export async function updatePR2ItemRawMaterial(
+  pr2Id: string,
+  pr2ItemId: string,
+  isRawMaterial: boolean,
+  profile: UserProfile,
+): Promise<void> {
+  if (profile.role !== 'procurement' && profile.role !== 'admin') {
+    throw new Error(
+      `User role '${profile.role}' is not authorized to override the raw-material flag.`,
+    );
+  }
+
+  const now = new Date().toISOString();
+
+  // Fetch current value first so the audit log captures the before/after.
+  const { data: existing, error: fetchErr } = await db
+    .from('pr2_items')
+    .select('id, pr2_id, item_order, description, is_raw_material')
+    .eq('id', pr2ItemId)
+    .eq('pr2_id', pr2Id)
+    .maybeSingle();
+
+  if (fetchErr) throw fetchErr;
+  if (!existing) {
+    throw new Error('PR2 line not found, or it does not belong to this PR2.');
+  }
+
+  const previous = (existing as any).is_raw_material === true;
+  if (previous === isRawMaterial) return; // no-op
+
+  const { error: updateErr } = await db
+    .from('pr2_items')
+    .update({ is_raw_material: isRawMaterial })
+    .eq('id', pr2ItemId)
+    .eq('pr2_id', pr2Id);
+
+  if (updateErr) throw updateErr;
+
+  // Touch the PR2 header so list views and dashboards register the change.
+  await db
+    .from('pr2_requests')
+    .update({ updated_at: now })
+    .eq('id', pr2Id);
+
+  // Audit log (best-effort — do not fail the override if logging breaks).
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'RAW_MATERIAL_FLAG_CHANGED',
+      document_type: 'PR2_ITEM',
+      document_id:   pr2ItemId,
+      payload: {
+        pr2_id:           pr2Id,
+        item_order:       (existing as any).item_order,
+        item_description: (existing as any).description,
+        previous_value:   previous,
+        new_value:        isRawMaterial,
+        changed_by:       profile.full_name,
+        role:             profile.role,
+        position:         profile.position,
+      },
+    });
+  } catch (auditErr) {
+    console.warn('Failed to write raw-material override audit log:', auditErr);
+  }
 }
 
 // ─── Grand total ──────────────────────────────────────────────────────────────

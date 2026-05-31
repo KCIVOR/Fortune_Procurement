@@ -20,6 +20,8 @@ import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
 import type { RfqDetailView, QuoteMatrixRow, CanvassSupplierCandidate } from '@/types/canvassing';
 import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail, Info, BadgeCheck } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
+import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import JustificationModal, { type JustificationContext } from '@/components/canvassing/JustificationModal';
 import { format } from 'date-fns';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
@@ -63,6 +65,11 @@ export default function RfqDetailPage() {
   // Supplier assignment panel
   const [assigning, setAssigning]       = useState(false);
   const [selectedIds, setSelectedIds]   = useState<Set<string>>(new Set());
+
+  // Phase 7 (Raw Mats): justification modal state.
+  const [justificationCtx, setJustificationCtx] =
+    useState<JustificationContext | null>(null);
+  const [justificationBusy, setJustificationBusy] = useState(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -254,12 +261,62 @@ export default function RfqDetailPage() {
     if (!profile || isClosed) return;
     setActionError('');
     try {
-      await saveItemSelection(rfq.id, pr1ItemId, rfqSupplierId, '', profile);
+      const result = await saveItemSelection(rfq.id, pr1ItemId, rfqSupplierId, '', profile);
+      if (result.ok) {
+        setLoading(true);
+        load();
+        return;
+      }
+      // Phase 7 (Raw Mats): unverified/manual quote on a raw-mats line —
+      // open the justification modal. The same call is replayed once the
+      // modal submits with a valid justification.
+      const matrixRow  = matrix.find(r => r.item.id === pr1ItemId);
+      const supplier   = matrixRow?.quotes.find(q => q.rfq_supplier_id === rfqSupplierId);
+      setJustificationCtx({
+        ...result.context,
+        itemDescription: matrixRow?.item.description ?? '',
+        supplierName:    supplier?.supplier_name ?? '',
+      });
+    } catch (e: any) {
+      setActionError(e.message ?? 'Failed to save selection.');
+    }
+  };
+
+  // Phase 7 (Raw Mats): re-invoke selection with the typed justification.
+  const handleJustificationSubmit = async (justification: string) => {
+    if (!profile || !justificationCtx) return;
+    setActionError('');
+    setJustificationBusy(true);
+    try {
+      const result = await saveItemSelection(
+        justificationCtx.rfqId,
+        justificationCtx.pr1ItemId,
+        justificationCtx.rfqSupplierId,
+        '',
+        profile,
+        justification,
+      );
+      if (!result.ok) {
+        // Modal-side validation should already prevent this branch, but be
+        // explicit so we never silently swallow a second-call rejection.
+        setActionError(
+          'Justification was rejected by the server. Please write a longer reason.',
+        );
+        return;
+      }
+      setJustificationCtx(null);
       setLoading(true);
       load();
     } catch (e: any) {
       setActionError(e.message ?? 'Failed to save selection.');
+    } finally {
+      setJustificationBusy(false);
     }
+  };
+
+  const handleJustificationCancel = () => {
+    if (justificationBusy) return;
+    setJustificationCtx(null);
   };
 
   return (
@@ -452,7 +509,10 @@ export default function RfqDetailPage() {
                   <div className="flex items-baseline gap-2">
                     <span className="text-xs text-pq-neutral-400 w-4 shrink-0">{item.item_order}.</span>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-pq-neutral-900">{item.description}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-pq-neutral-900">{item.description}</p>
+                        <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                      </div>
                       <p className="text-xs text-pq-neutral-400 mt-0.5">
                         {item.item_code && <span className="font-mono">{item.item_code} · </span>}
                         {item.quantity_requested} {item.unit_of_measure}
@@ -584,8 +644,10 @@ export default function RfqDetailPage() {
                 <div className="space-y-1">
                   <p className="font-semibold">Warnings are informational only.</p>
                   <p>
-                    Supplier quote awardability is enforced later when winners are chosen: linked catalog
-                    products must be verified. Suppliers without verified products may still be invited.
+                    Awarding rules: verified catalog products can be selected directly; for
+                    <strong> raw-material lines</strong>, an unverified product or manual entry
+                    can still be awarded with a written justification. Suppliers without verified
+                    products may always be invited.
                   </p>
                 </div>
               </div>
@@ -725,6 +787,16 @@ export default function RfqDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Phase 7 (Raw Mats): justification capture for awarding an
+          unverified or manual-entry quote on a raw-mats line. */}
+      <JustificationModal
+        open={justificationCtx !== null}
+        context={justificationCtx}
+        busy={justificationBusy}
+        onSubmit={handleJustificationSubmit}
+        onCancel={handleJustificationCancel}
+      />
     </AppShell>
   );
 }
@@ -864,7 +936,10 @@ function MatrixRow({
   return (
     <tr className="hover:bg-pq-neutral-50 transition">
       <td className="px-4 py-3 align-top">
-        <p className="font-medium text-pq-neutral-900 text-xs">{row.item.description}</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-medium text-pq-neutral-900 text-xs">{row.item.description}</p>
+          <RawMaterialBadge isRawMaterial={row.item.is_raw_material} size="sm" />
+        </div>
         <p className="text-xs text-pq-neutral-400 mt-0.5">
           {row.item.quantity_requested} {row.item.unit_of_measure}
         </p>
@@ -880,6 +955,11 @@ function MatrixRow({
         const isVerified    = quote?.supplier_product_status === 'verified';
         const isWithdrawn   = quote?.supplier_product_status === 'withdrawn';
         const canAward      = !explicitNoQuote && hasProduct && isVerified;
+
+        // Phase 6 (Raw Mats): verification pill metadata for the comparison cell.
+        // Pill is emphasised on raw-mats rows; quietly informational elsewhere.
+        const verification = quote?.verification_status;
+        const isRawMats    = row.item.is_raw_material === true;
 
         return (
           <td
@@ -904,6 +984,44 @@ function MatrixRow({
               <p className="text-xs text-pq-neutral-400 italic">No quote</p>
             ) : (
               <div className="space-y-1">
+                {/* Phase 6 (Raw Mats): verification pill — emphasised on raw-mats rows */}
+                {verification && (() => {
+                  const tone =
+                    verification === 'verified'
+                      ? (isRawMats
+                          ? 'bg-pq-success-100 text-pq-success-600 border-pq-success-100'
+                          : 'bg-pq-success-50 text-pq-success-600 border-pq-success-100')
+                      : verification === 'unverified'
+                        ? (isRawMats
+                            ? 'bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200'
+                            : 'bg-pq-neutral-50 text-pq-neutral-600 border-pq-neutral-200')
+                        : (isRawMats
+                            ? 'bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200'
+                            : 'bg-pq-neutral-50 text-pq-neutral-600 border-pq-neutral-200');
+                  const label =
+                    verification === 'verified' ? 'Verified product'
+                      : verification === 'unverified' ? 'Unverified product'
+                        : 'Manual entry';
+                  const Icon =
+                    verification === 'verified' ? CheckCircle2
+                      : AlertTriangle;
+                  return (
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] font-semibold border rounded px-1.5 py-0.5 ${tone}`}
+                      title={
+                        verification === 'verified'
+                          ? 'Supplier linked a verified catalog product.'
+                          : verification === 'unverified'
+                            ? 'Supplier linked a catalog product that is not yet verified.'
+                            : 'Supplier filled this line manually without linking a catalog product.'
+                      }
+                    >
+                      <Icon className="w-2.5 h-2.5" />
+                      {label}
+                    </span>
+                  );
+                })()}
+
                 {/* Alternative item badges */}
                 {quote.is_alternative && (
                   <div className="flex flex-wrap items-center gap-1">
@@ -942,7 +1060,11 @@ function MatrixRow({
                     )}
                   </div>
                 ) : hasProduct && !isVerified ? (
-                  // Phase 8: proposed product pending validation
+                  // Phase 8: linked product is in flight (or rejected/withdrawn).
+                  // Phase 7 (Raw Mats): for non-raw-mats lines this is awardable
+                  // without justification; for raw-mats lines the supplier-side
+                  // rule allows the quote, but procurement must justify the
+                  // award via the modal (handled at the Select button below).
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1 text-xs text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded px-1.5 py-0.5 flex-wrap">
                       <AlertTriangle className="w-3 h-3 shrink-0" />
@@ -962,7 +1084,9 @@ function MatrixRow({
                       <span>
                         {isWithdrawn
                           ? 'Supplier withdrew this catalog product — quote stays visible; cannot award.'
-                          : 'Pending validation — cannot award yet.'}
+                          : isRawMats
+                            ? 'Raw material line — award will require a justification.'
+                            : 'Procurement may award; product is still in TSQA / review.'}
                       </span>
                       {quote.supplier_product_id && (
                         <Link
@@ -975,10 +1099,17 @@ function MatrixRow({
                     </div>
                   </div>
                 ) : (
-                  // No catalog product at all (old/legacy quote)
-                  <div className="flex items-center gap-1 text-xs text-pq-warning-600">
-                    <AlertTriangle className="w-3 h-3 shrink-0" />
-                    <span className="font-medium">No catalog product — Cannot Award</span>
+                  // Phase 5/7 (Raw Mats): supplier filled the line manually
+                  // (no catalog product). The verification pill above labels
+                  // it. Award is allowed; raw-mats lines route through the
+                  // justification modal at the Select button below.
+                  <div className="flex items-center gap-1 text-xs text-pq-neutral-500">
+                    <Info className="w-3 h-3 shrink-0" />
+                    <span className="font-medium">
+                      {isRawMats
+                        ? 'Manual entry on raw-mats line — award will require justification.'
+                        : 'Manual entry — award proceeds directly.'}
+                    </span>
                   </div>
                 )}
 
@@ -1003,42 +1134,67 @@ function MatrixRow({
                   <p className="text-xs text-pq-neutral-400 italic">&ldquo;{quote.remarks}&rdquo;</p>
                 )}
 
-                {/* Phase 7: Can Award indicator */}
-                {canSelect && (
-                  <p className={`text-xs font-semibold ${canAward ? 'text-pq-success-600' : 'text-pq-warning-600'}`}>
-                    Can Award: {canAward ? 'Yes' : 'No'}
-                  </p>
-                )}
-
-                {/* Select button — blocked if no verified product */}
+                {/* Phase 7 (Raw Mats): Can Award indicator
+                    - "Yes" when verified or non-raw-mats unverified/manual.
+                    - "Yes (with justification)" for raw-mats unverified/manual.
+                    - "No" only when withdrawn or alternative-not-accepted. */}
                 {canSelect && (() => {
                   const altBlocked     = quote.is_alternative && quote.substitute_decision !== 'accepted';
-                  const productBlocked = !canAward;
-                  const blocked        = altBlocked || productBlocked;
+                  const awardBlocked   = altBlocked || isWithdrawn;
+                  const needsJust      = !awardBlocked && isRawMats &&
+                    (verification === 'unverified' || verification === 'manual');
+                  const tone = awardBlocked
+                    ? 'text-pq-warning-600'
+                    : needsJust
+                      ? 'text-pq-warning-700'
+                      : 'text-pq-success-600';
+                  const label = awardBlocked
+                    ? 'No'
+                    : needsJust
+                      ? 'Yes (with justification)'
+                      : 'Yes';
+                  return (
+                    <p className={`text-xs font-semibold ${tone}`}>
+                      Can Award: {label}
+                    </p>
+                  );
+                })()}
+
+                {/* Select button — Phase 7 (Raw Mats):
+                    - Withdrawn product → blocked.
+                    - Alternative not accepted → blocked.
+                    - Raw-mats + unverified/manual → clickable; the parent
+                      handler opens the justification modal.
+                    - Everything else → clickable, awarded directly. */}
+                {canSelect && (() => {
+                  const altBlocked   = quote.is_alternative && quote.substitute_decision !== 'accepted';
+                  const awardBlocked = altBlocked || isWithdrawn;
+                  const needsJust    = !awardBlocked && isRawMats &&
+                    (verification === 'unverified' || verification === 'manual');
 
                   const tooltip = altBlocked
                     ? (quote.substitute_decision === null
                         ? 'Requestor has not yet decided on this substitute.'
-                        : quote.substitute_decision === 'rejected'
-                          ? 'Requestor rejected this substitute.'
-                          : '')
-                    : productBlocked
-                      ? isWithdrawn
-                        ? 'Supplier withdrew this catalog product. Cannot award.'
-                        : 'Supplier has not linked a verified catalog product to this quote. Cannot award.'
-                      : '';
+                        : 'Requestor rejected this substitute.')
+                    : isWithdrawn
+                      ? 'Supplier withdrew this catalog product. Cannot award.'
+                      : needsJust
+                        ? 'Raw material line — awarding will require a written justification.'
+                        : '';
 
                   return (
                     <button
-                      onClick={() => !blocked && onSelect(row.item.id, supplier.id)}
-                      disabled={blocked}
+                      onClick={() => !awardBlocked && onSelect(row.item.id, supplier.id)}
+                      disabled={awardBlocked}
                       title={tooltip}
                       className={`mt-1.5 inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md transition ${
                         isSelected
                           ? 'bg-pq-success-600 text-white'
-                          : blocked
+                          : awardBlocked
                             ? 'bg-pq-neutral-50 text-pq-neutral-400 cursor-not-allowed'
-                            : 'bg-pq-neutral-50 text-pq-neutral-500 hover:bg-pq-success-100 hover:text-pq-success-600'
+                            : needsJust
+                              ? 'bg-pq-warning-100 text-pq-warning-700 hover:bg-pq-warning-100'
+                              : 'bg-pq-neutral-50 text-pq-neutral-500 hover:bg-pq-success-100 hover:text-pq-success-600'
                       }`}
                     >
                       {isSelected ? (
@@ -1047,8 +1203,10 @@ function MatrixRow({
                         <><Clock className="w-3 h-3" /> Awaiting decision</>
                       ) : altBlocked && quote.substitute_decision === 'rejected' ? (
                         <><XCircle className="w-3 h-3" /> Rejected</>
-                      ) : productBlocked ? (
-                        <><AlertTriangle className="w-3 h-3" /> No catalog product</>
+                      ) : isWithdrawn ? (
+                        <><AlertTriangle className="w-3 h-3" /> Withdrawn</>
+                      ) : needsJust ? (
+                        <><AlertTriangle className="w-3 h-3" /> Award (justify)</>
                       ) : (
                         <><Trophy className="w-3 h-3" /> Select</>
                       )}

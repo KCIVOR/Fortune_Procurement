@@ -416,6 +416,8 @@ export interface Database {
           unit_of_measure: string;
           stock_on_hand: number;
           quantity_requested: number;
+          /** Phase 1 (Raw Mats): NOT NULL DEFAULT false in DB. */
+          is_raw_material: boolean;
           created_at: string;
         };
         Insert: {
@@ -427,6 +429,8 @@ export interface Database {
           unit_of_measure?: string;
           stock_on_hand?: number;
           quantity_requested?: number;
+          /** Phase 1 (Raw Mats): omit to fall back to DB default (false). */
+          is_raw_material?: boolean;
           created_at?: string;
         };
         Update: {
@@ -438,6 +442,8 @@ export interface Database {
           unit_of_measure?: string;
           stock_on_hand?: number;
           quantity_requested?: number;
+          /** Phase 1 (Raw Mats): nullable update — flag is locked once PR1 leaves draft. */
+          is_raw_material?: boolean;
           created_at?: string;
         };
       };

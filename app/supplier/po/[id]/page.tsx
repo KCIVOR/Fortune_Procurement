@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { fetchPOApprovalDetailByPOId, acknowledgeSupplierPO } from '@/lib/po-approvals';
 import type { POApprovalDetail } from '@/types/po';
 import { format } from 'date-fns';
+import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import {
   ChevronLeft, User, Building2, FileText, CalendarDays,
   Package, Truck, CreditCard, MapPin, CircleCheck as CheckCircle2,
@@ -182,7 +183,10 @@ export default function SupplierPODetailPage() {
                     <tr key={item.id} className="hover:bg-pq-neutral-50/50">
                       <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
                       <td className="px-4 py-3">
-                        <p className="text-pq-neutral-900 font-medium">{item.description}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-pq-neutral-900 font-medium">{item.description}</p>
+                          <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                        </div>
                         {item.item_code && <p className="text-xs text-pq-neutral-400 font-mono">{item.item_code}</p>}
                       </td>
                       <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>

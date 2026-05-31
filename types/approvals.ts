@@ -74,6 +74,10 @@ export interface PR2ApprovalItem {
   supplier_name_snapshot:  string;
   unit_price:              number;
   total_price:             number;
+  /** Phase 9 (Raw Mats): forwarded from `pr2_items.is_raw_material` snapshot. */
+  is_raw_material?:        boolean;
+  /** Phase 9 (Raw Mats): forwarded from `pr2_items.quote_justification`. */
+  quote_justification?:    string | null;
 }
 
 // Must match approval_instances_status_check constraint: active | approved | rejected | cancelled
@@ -154,6 +158,8 @@ export interface PR1ApprovalItem {
   quantity_requested: number;
   /** Per-line SOH from warehouse_validation_items after validation */
   validated_soh?: number | null;
+  /** Phase 4 (Raw Mats): forwarded from `pr1_items.is_raw_material` for badge rendering. */
+  is_raw_material?: boolean;
 }
 
 export interface WorkflowStep {

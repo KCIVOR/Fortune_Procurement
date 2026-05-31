@@ -8,6 +8,7 @@ import AppShell from '@/components/layout/AppShell';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import ApprovalInstanceStatusChip from '@/components/shared/ApprovalInstanceStatusChip';
+import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchApprovalDetail,
@@ -270,6 +271,7 @@ export default function ApprovalDetailPage() {
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-8">#</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Code</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase">Description</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-20">Type</th>
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-16">Unit</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">SOH</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Qty Req.</th>
@@ -281,6 +283,13 @@ export default function ApprovalDetailPage() {
                       <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
                       <td className="px-4 py-3 font-mono text-xs text-pq-neutral-500">{item.item_code || '—'}</td>
                       <td className="px-4 py-3 text-pq-neutral-900 font-medium">{item.description}</td>
+                      <td className="px-4 py-3 text-center">
+                        {item.is_raw_material ? (
+                          <RawMaterialBadge isRawMaterial size="sm" />
+                        ) : (
+                          <span className="text-xs text-pq-neutral-300">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 text-right font-mono text-xs text-pq-neutral-500">
                         {item.validated_soh !== undefined && item.validated_soh !== null

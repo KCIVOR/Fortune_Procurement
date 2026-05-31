@@ -683,13 +683,6 @@ export async function logWorkflowAudit(
 export function getWorkflowWarnings(workflowCode: string, stepOrder: number): string[] {
   const warnings: string[] = [];
 
-  // PR2_PHASE1 auto-approval logic
-  if (workflowCode === 'PR2_PHASE1' && (stepOrder === 1 || stepOrder === 2)) {
-    warnings.push(
-      '⚠️ This step has special auto-approval logic. If Step 1 approves and there are no alternatives, Step 2 is automatically approved. Changing the position may affect this automated workflow.'
-    );
-  }
-
   // PO_APPROVAL delivery creation logic
   if (workflowCode === 'PO_APPROVAL' && stepOrder === 4) {
     warnings.push(

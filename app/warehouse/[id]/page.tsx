@@ -34,6 +34,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 
 export default function WarehouseValidationPage() {
   const { id: pr1Id } = useParams<{ id: string }>();
@@ -158,6 +159,14 @@ export default function WarehouseValidationPage() {
     }
   });
 
+  // Phase 4 (Raw Mats): map pr1_item_id → is_raw_material so each validation
+  // row can render the badge. The flag lives on `pr1.items`, not on the
+  // warehouse_validation_items row, so we look it up at render time.
+  const pr1RawMatMap: Record<string, boolean> = {};
+  for (const it of pr1.items ?? []) {
+    pr1RawMatMap[it.id] = it.is_raw_material === true;
+  }
+
   const allItemsHaveSoh =
     formValues.items.length > 0 && routingRows.every(r => r !== null);
   const derivedDecision: WarehouseDecision | null = allItemsHaveSoh
@@ -246,6 +255,7 @@ export default function WarehouseValidationPage() {
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-8">#</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">Code</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">Description</th>
+                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-20">Type</th>
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-16">Unit</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">Req. SOH</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-28">Verified SOH</th>
@@ -267,6 +277,13 @@ export default function WarehouseValidationPage() {
                       <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
                       <td className="px-4 py-3 font-mono text-xs text-pq-neutral-700">{item.item_code || '—'}</td>
                       <td className="px-4 py-3 text-pq-neutral-900 font-medium">{item.description}</td>
+                      <td className="px-4 py-3 text-center">
+                        {pr1RawMatMap[item.pr1_item_id] ? (
+                          <RawMaterialBadge isRawMaterial size="sm" />
+                        ) : (
+                          <span className="text-xs text-pq-neutral-300">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-center text-pq-neutral-700 text-xs">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 text-right text-pq-neutral-700 font-mono text-xs">
                         {item.requestor_soh.toLocaleString()}

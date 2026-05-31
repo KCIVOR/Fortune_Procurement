@@ -304,9 +304,12 @@ export async function fetchPR2ApprovalDetail(
     : [];
 
   // Fetch PR2 items
+  // Phase 9 (Raw Mats): include `is_raw_material` and `quote_justification`
+  // snapshot columns so the PR2 approval detail surfaces the badge and
+  // the procurement justification next to each line.
   const { data: itemRows } = await db
     .from('pr2_items')
-    .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, qty_on_hand, qty_incoming, quantity_to_purchase, supplier_name_snapshot, unit_price, total_price, pr1_item_id')
+    .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, qty_on_hand, qty_incoming, quantity_to_purchase, supplier_name_snapshot, unit_price, total_price, pr1_item_id, is_raw_material, quote_justification')
     .eq('pr2_id', pr2.id)
     .order('item_order', { ascending: true });
 
@@ -350,6 +353,10 @@ export async function fetchPR2ApprovalDetail(
       unit_price:           Number(i.unit_price),
       total_price:          Number(i.total_price),
       pr1_item_id:          i.pr1_item_id,
+      // Phase 9 (Raw Mats): forward the snapshot fields through to the
+      // approval detail surface.
+      is_raw_material:      i.is_raw_material === true,
+      quote_justification:  i.quote_justification ?? null,
     })),
     phase1_instance_id:     phase1Inst?.id ?? inst.id,
     phase1_workflow_id:     phase1Inst?.workflow_id ?? inst.workflow_id,
@@ -466,86 +473,10 @@ export async function submitPR2ApprovalAction(
           .eq('id', pr2Id);
       }
     } else {
-      // Check for PR2_PHASE1 step 1 → auto-approve Department Head (step 2) if no alternatives
-      if (workflowCode === 'PR2_PHASE1' && stepOrder === 1) {
-        const { data: itemsWithAlts, error: altErr } = await db
-          .from('pr2_items')
-          .select('id')
-          .eq('pr2_id', pr2Id)
-          .eq('is_alternative', true)
-          .limit(1);
-
-        if (altErr) throw altErr;
-
-        if (!itemsWithAlts || itemsWithAlts.length === 0) {
-          // No alternatives: auto-approve Step 2 (Department Head)
-          const autoApproveRemarks = 'Auto-approved: No supplier alternative items offered';
-          const { error: autoActionErr } = await db
-            .from('approval_actions')
-            .insert({
-              instance_id:               instanceId,
-              step_order:                2,
-              action:                    'approved',
-              actor_id:                  profile.id,
-              actor_name_snapshot:       'Department Head (auto)',
-              actor_position_snapshot:   'Department Head',
-              actor_department_snapshot: 'Auto',
-              remarks:                   autoApproveRemarks,
-              acted_at:                  now,
-            });
-          if (autoActionErr) throw autoActionErr;
-
-          // Advance directly to step 3
-          await db
-            .from('approval_instances')
-            .update({ current_step: 3 })
-            .eq('id', instanceId);
-
-          // Audit log for auto-approval
-          await db.from('audit_logs').insert({
-            actor_id:      profile.id,
-            action:        'PR2_DEPT_HEAD_AUTO_APPROVED',
-            document_type: 'PR2',
-            document_id:   pr2Id,
-            payload: {
-              instance_id:   instanceId,
-              step_order:    2,
-              workflow_code: workflowCode,
-              reason:        'No supplier alternatives offered',
-              actor:         profile.full_name,
-              position:      profile.position,
-            },
-          });
-
-          // Notify step 3 approvers (best-effort — dept head skipped, step 3 now active)
-          try {
-            const [instData, pr2Data] = await Promise.all([
-              db.from('approval_instances').select('workflow_id').eq('id', instanceId).maybeSingle(),
-              db.from('pr2_requests').select('pr2_number').eq('id', pr2Id).maybeSingle(),
-            ]);
-            if (instData.data?.workflow_id && pr2Data.data?.pr2_number) {
-              await notifyApproversForStep({
-                workflowId:     instData.data.workflow_id,
-                stepOrder:      3,
-                documentId:     pr2Id,
-                documentNumber: pr2Data.data.pr2_number,
-                instanceId,
-                title:          'PR2 Approval Required',
-                body:           'PR2 requires your approval.',
-                documentType:   'pr2',
-                actionUrl:      `/approvals/pr2/${instanceId}`,
-              });
-            }
-          } catch {
-            // Notifications are best-effort
-          }
-
-          // Early return to prevent normal advancement
-          return;
-        }
-      }
-
-      // Normal advancement to next step
+      // Normal advancement to next step.
+      // Note: PR2_PHASE1 Department Head auto-approval was removed when
+      // the Department Head step itself was removed from the workflow
+      // (migration 20260526120000_remove_pr2_phase1_dept_head.sql).
       await db
         .from('approval_instances')
         .update({ current_step: stepOrder + 1 })

@@ -329,7 +329,7 @@ export default function SupplierProductDetailPage() {
                 ? 'Verified = Can Offer in RFQ / awardable when linked on a quote (requestor substitute rules still apply).'
                 : isWithdrawn
                   ? 'This product was withdrawn and cannot be offered in procurement.'
-                  : 'Pending validation = Cannot Offer / cannot be awarded on RFQ until status is verified.'}
+                  : 'Pending validation = Awardable directly only on non-raw-material lines; raw-material awards require procurement justification.'}
             </span>
           </div>
 

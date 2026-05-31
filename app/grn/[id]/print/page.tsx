@@ -103,7 +103,6 @@ export default function GRNPrintPage() {
           <table className="header-table" style={{ paddingLeft: '16px' }}>
             <tbody>
               <tr><td style={{ color: '#64748b', width: '120px', paddingLeft: '16px' }}>Transaction Date:</td><td style={{ fontWeight: '600' }}>{format(new Date(grn.transaction_date), 'MMMM d, yyyy')}</td></tr>
-              <tr><td style={{ color: '#64748b', paddingLeft: '16px' }}>Invoice No.:</td><td>{grn.invoice_no || '—'}</td></tr>
               <tr><td style={{ color: '#64748b', paddingLeft: '16px' }}>DR No.:</td><td>{grn.dr_no || '—'}</td></tr>
               <tr><td style={{ color: '#64748b', paddingLeft: '16px' }}>DR Date:</td><td>{grn.dr_date ? format(new Date(grn.dr_date), 'MMMM d, yyyy') : '—'}</td></tr>
             </tbody>
@@ -154,8 +153,16 @@ export default function GRNPrintPage() {
                 <tr key={item.id} style={{ backgroundColor: idx % 2 === 1 ? '#f8fafc' : 'white' }}>
                   <td style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: '9px', color: '#94a3b8' }}>{item.item_order}</td>
                   <td>
-                    <div style={{ fontWeight: '500' }}>{item.description}</div>
+                    <div style={{ fontWeight: '500' }}>
+                      {item.description}
+                      {item.is_raw_material && (
+                        <span style={{ marginLeft: 4, fontSize: 7, color: '#1e40af', fontWeight: 'bold' }}>[RAW]</span>
+                      )}
+                    </div>
                     {item.item_code && <div style={{ fontSize: '8px', color: '#94a3b8', fontFamily: 'monospace' }}>{item.item_code}</div>}
+                    {item.quote_justification && (
+                      <div style={{ fontSize: '8px', color: '#92400e', fontStyle: 'italic' }}>Justification: {item.quote_justification}</div>
+                    )}
                     {item.remarks && <div style={{ fontSize: '8px', color: '#64748b', fontStyle: 'italic' }}>{item.remarks}</div>}
                   </td>
                   <td style={{ textAlign: 'center', fontSize: '9px' }}>{item.unit_of_measure}</td>
