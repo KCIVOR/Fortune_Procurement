@@ -32,7 +32,15 @@ export default function TopHeader({ title, onMenuToggle }: TopHeaderProps) {
       </div>
 
       {profile && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mobile: Show icons only with tooltips */}
+          <div className="flex sm:hidden items-center gap-1.5 text-xs text-pq-neutral-500" title={profile.department}>
+            <Building2 className="w-4 h-4 text-pq-neutral-400" />
+          </div>
+          <div className="flex sm:hidden items-center gap-1.5 text-xs text-pq-neutral-500" title={profile.position}>
+            <Briefcase className="w-4 h-4 text-pq-neutral-400" />
+          </div>
+          {/* Desktop: Show full text */}
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-pq-neutral-500">
             <Building2 className="w-3.5 h-3.5 text-pq-neutral-400" />
             <span>{profile.department}</span>
@@ -49,7 +57,7 @@ export default function TopHeader({ title, onMenuToggle }: TopHeaderProps) {
           <div className="hidden sm:block w-px h-4 bg-pq-neutral-200" />
           <Link 
             href="/bugtrack" 
-            className="flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition relative group"
+            className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
             title="Bug Track"
           >
             <Bug className="w-5 h-5" />

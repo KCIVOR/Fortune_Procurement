@@ -89,7 +89,9 @@ export default function MessageThread({
 
             // Auto-mark as read if from the other user
             if (record.sender_id !== currentUserId) {
-              markMessagesAsRead(conversationId, currentUserId).catch(() => {});
+              markMessagesAsRead(conversationId, currentUserId).catch((err) => {
+                console.error('Failed to mark messages as read (realtime):', err);
+              });
             }
           }
 
@@ -125,7 +127,9 @@ export default function MessageThread({
       knownIdsRef.current = new Set(data.map((m) => m.id));
 
       // Mark messages as read
-      await markMessagesAsRead(conversationId, currentUserId).catch(() => {});
+      await markMessagesAsRead(conversationId, currentUserId).catch((err) => {
+        console.error('Failed to mark messages as read (initial load):', err);
+      });
     } catch (err) {
       console.error('Failed to load messages:', err);
       setError('Failed to load messages.');

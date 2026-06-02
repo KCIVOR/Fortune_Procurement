@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { MessageSquare } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { getUnreadMessageCount } from '@/lib/messages';
 
 /**
@@ -15,6 +16,13 @@ export default function MessageIcon() {
   const { profile } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Unique instance ID to prevent channel collisions
+  const instanceIdRef = useRef<string>(
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
+
   // Fetch unread count on mount
   useEffect(() => {
     if (!profile) return;
@@ -23,8 +31,7 @@ export default function MessageIcon() {
       .catch(() => {});
   }, [profile]);
 
-  // Periodic refresh of unread count (every 30s) as a lightweight supplement
-  // until the messaging page is open with full realtime subscriptions
+  // Periodic refresh of unread count (every 30s) as a fallback
   useEffect(() => {
     if (!profile) return;
 
@@ -35,6 +42,52 @@ export default function MessageIcon() {
     }, 30_000);
 
     return () => clearInterval(interval);
+  }, [profile]);
+
+  // Realtime subscription for immediate updates when messages change
+  useEffect(() => {
+    if (!profile) return;
+
+    const channel = supabase
+      .channel(`message-icon:${profile.id}:${instanceIdRef.current}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          // When messages are updated (e.g., read_at set), refetch count
+          getUnreadMessageCount(profile.id)
+            .then(setUnreadCount)
+            .catch(() => {});
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          // When new messages arrive, refetch count
+          const record = payload.new as any;
+          // Only refetch if message is NOT from current user
+          if (record && record.sender_id !== profile.id) {
+            getUnreadMessageCount(profile.id)
+              .then(setUnreadCount)
+              .catch(() => {});
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+      supabase.removeChannel(channel);
+    };
   }, [profile]);
 
   if (!profile) return null;

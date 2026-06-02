@@ -6,31 +6,61 @@ const db = supabase as any;
 // ─── Read-side helpers ────────────────────────────────────────────────────────
 
 export async function fetchMyNotifications(userId: string, limit = 10): Promise<Notification[]> {
+  console.log('📥 [notifications.ts] Fetching notifications for user:', userId, 'limit:', limit);
   const { data, error } = await db
     .from('notifications')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
-  if (error) throw error;
+  if (error) {
+    console.error('❌ [notifications.ts] Error fetching notifications:', error);
+    throw error;
+  }
+  console.log('✅ [notifications.ts] Fetched notifications:', data?.length || 0);
   return (data ?? []) as Notification[];
 }
 
 export async function fetchUnreadNotificationCount(userId: string): Promise<number> {
+  console.log('🔢 [notifications.ts] Fetching unread count for user:', userId);
   const { count, error } = await db
     .from('notifications')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('read', false);
-  if (error) throw error;
+  if (error) {
+    console.error('❌ [notifications.ts] Error fetching count:', error);
+    throw error;
+  }
+  console.log('✅ [notifications.ts] Unread count:', count ?? 0);
   return count ?? 0;
 }
 
 export async function markNotificationRead(notificationId: string): Promise<void> {
-  await db
+  console.log('📖 [notifications.ts] Marking notification as read:', notificationId);
+  const { error } = await db
     .from('notifications')
     .update({ read: true })
     .eq('id', notificationId);
+  if (error) {
+    console.error('❌ [notifications.ts] Error marking as read:', error);
+    throw error;
+  }
+  console.log('✅ [notifications.ts] Marked as read successfully');
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  console.log('📖 [notifications.ts] Marking ALL notifications as read for user:', userId);
+  const { error } = await db
+    .from('notifications')
+    .update({ read: true })
+    .eq('user_id', userId)
+    .eq('read', false);
+  if (error) {
+    console.error('❌ [notifications.ts] Error marking all as read:', error);
+    throw error;
+  }
+  console.log('✅ [notifications.ts] All notifications marked as read successfully');
 }
 
 // ─── Single insert ────────────────────────────────────────────────────────────
@@ -46,7 +76,13 @@ export interface NotificationInsert {
 }
 
 export async function createNotification(insert: NotificationInsert): Promise<void> {
-  await db.from('notifications').insert({ ...insert, read: false });
+  console.log('📝 [notifications.ts] Creating notification:', insert);
+  const { error } = await db.from('notifications').insert({ ...insert, read: false });
+  if (error) {
+    console.error('❌ [notifications.ts] Error creating notification:', error);
+    throw error;
+  }
+  console.log('✅ [notifications.ts] Notification created successfully');
 }
 
 // ─── Approver fan-out ─────────────────────────────────────────────────────────

@@ -194,7 +194,10 @@ export async function markMessagesAsRead(
   const { error } = await db.rpc('mark_messages_as_read', {
     p_conversation_id: conversationId,
   });
-  if (error) throw error;
+  if (error) {
+    console.error('Failed to mark messages as read:', error);
+    throw error;
+  }
 }
 
 /**

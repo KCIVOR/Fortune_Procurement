@@ -36,8 +36,8 @@ export default function FilterBar({
     <div className={cn('bg-white rounded-lg border border-pq-neutral-200 shadow-sm overflow-hidden', className)}>
       {/* Header: Tabs */}
       {tabs && tabs.length > 0 && (
-        <div className="flex items-center px-6 py-4 border-b border-pq-neutral-200 bg-pq-neutral-25">
-          <div className="flex gap-1 -mb-4">
+        <div className="flex items-center px-4 sm:px-6 py-4 border-b border-pq-neutral-200 bg-pq-neutral-25 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-1 -mb-4 min-w-max">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.value;
               return (
@@ -47,7 +47,7 @@ export default function FilterBar({
                   onClick={() => onTabChange?.(tab.value)}
                   disabled={loading}
                   className={cn(
-                    'relative px-4 py-2 text-sm font-medium transition-all',
+                    'relative px-4 py-2 text-sm font-medium transition-all whitespace-nowrap',
                     isActive
                       ? 'text-pq-primary-600'
                       : 'text-pq-neutral-600 hover:text-pq-neutral-900',
@@ -66,52 +66,49 @@ export default function FilterBar({
       )}
 
       {/* Filter Container */}
-      <div className="p-6">
-        {/* Filters + Actions in One Row */}
-        <div className="flex flex-col lg:flex-row gap-4 items-end">
-          {/* Filters - Flexible Grid that adapts to filter count */}
-          <div className={cn(
-            'flex-1 grid gap-4',
-            // Dynamic grid columns based on filter count
-            filters.length === 1 && 'grid-cols-1',
-            filters.length === 2 && 'grid-cols-1 sm:grid-cols-2',
-            filters.length === 3 && 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
-            filters.length >= 4 && 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4',
-          )}>
-            {filters.map((filter) => (
-              <FilterInput key={filter.id} filter={filter} loading={loading} />
-            ))}
-          </div>
+      <div className="p-4 sm:p-6">
+        {/* Filters Grid */}
+        <div className={cn(
+          'w-full grid gap-4 mb-4',
+          // Dynamic grid columns based on filter count
+          filters.length === 1 && 'grid-cols-1',
+          filters.length === 2 && 'grid-cols-1 sm:grid-cols-2',
+          filters.length === 3 && 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+          filters.length >= 4 && 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4',
+        )}>
+          {filters.map((filter) => (
+            <FilterInput key={filter.id} filter={filter} loading={loading} />
+          ))}
+        </div>
 
-          {/* Action Buttons - Aligned to Bottom */}
-          <div className="flex gap-2 shrink-0">
-            {onApply && (
-              <Button
-                type="button"
-                onClick={onApply}
-                disabled={loading}
-                className="bg-pq-primary-600 hover:bg-pq-primary-700 text-white font-medium h-[42px] px-6"
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Applying...
-                  </span>
-                ) : (
-                  'Apply'
-                )}
-              </Button>
-            )}
+        {/* Action Buttons - Full width on mobile, auto on larger screens */}
+        <div className="flex flex-col sm:flex-row gap-2 w-full">
+          {onApply && (
             <Button
               type="button"
-              onClick={onClear}
+              onClick={onApply}
               disabled={loading}
-              variant="outline"
-              className="text-pq-neutral-700 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 font-medium h-[42px] px-6"
+              className="w-full sm:w-auto bg-pq-primary-600 hover:bg-pq-primary-700 active:bg-pq-primary-800 text-white font-medium h-12 sm:h-11 px-8 rounded-md transition-colors"
             >
-              Clear All
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Applying...</span>
+                </span>
+              ) : (
+                'Apply'
+              )}
             </Button>
-          </div>
+          )}
+          <Button
+            type="button"
+            onClick={onClear}
+            disabled={loading}
+            variant="outline"
+            className="w-full sm:w-auto text-pq-neutral-700 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 border-pq-neutral-200 font-medium h-12 sm:h-11 px-8 rounded-md transition-colors"
+          >
+            Clear All
+          </Button>
         </div>
 
         {/* Result Count - Below Filters */}
@@ -160,7 +157,7 @@ function FilterInput({
               onChange={(e) => filter.onChange(e.target.value)}
               placeholder={filter.placeholder}
               disabled={loading}
-              className="pl-9 h-[42px] text-sm"
+              className="pl-9 h-12 sm:h-11 text-sm focus:ring-2 focus:ring-pq-primary-600"
             />
           </div>
         </div>
@@ -177,7 +174,7 @@ function FilterInput({
             onValueChange={(value) => filter.onChange(value)}
             disabled={loading || filter.disabled}
           >
-            <SelectTrigger id={filter.id} className="h-[42px] text-sm">
+            <SelectTrigger id={filter.id} className="h-12 sm:h-11 text-sm focus:ring-2 focus:ring-pq-primary-600">
               <SelectValue placeholder={filter.placeholder} />
             </SelectTrigger>
             <SelectContent>
@@ -203,7 +200,7 @@ function FilterInput({
             value={filter.value as string}
             onChange={(e) => filter.onChange(e.target.value)}
             disabled={loading || filter.disabled}
-            className="h-[42px] text-sm"
+            className="h-12 sm:h-11 text-sm focus:ring-2 focus:ring-pq-primary-600"
           />
         </div>
       );
@@ -222,7 +219,7 @@ function FilterInput({
               value={fromDate}
               onChange={(e) => filter.onChange([e.target.value, toDate])}
               disabled={loading || filter.disabled}
-              className="h-[42px] text-sm"
+              className="h-12 sm:h-11 text-sm focus:ring-2 focus:ring-pq-primary-600"
             />
           </div>
           <div className={containerClass}>
@@ -235,7 +232,7 @@ function FilterInput({
               value={toDate}
               onChange={(e) => filter.onChange([fromDate, e.target.value])}
               disabled={loading || filter.disabled}
-              className="h-[42px] text-sm"
+              className="h-12 sm:h-11 text-sm focus:ring-2 focus:ring-pq-primary-600"
             />
           </div>
         </>
