@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, Check, X, Paperclip } from 'lucide-react';
+import { Pencil, Trash2, Check, X, Paperclip, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { editMessage, deleteMessage } from '@/lib/messages';
 import { getMessageAttachments } from '@/lib/message-attachments';
 import type { Message, MessageAttachment } from '@/types/database';
@@ -32,20 +33,84 @@ export default function MessageBubble({
   const isEdited = !!message.edited_at && !isDeleted;
   const hasAttachments = (message.attachment_count ?? 0) > 0;
   const hasContent = message.content && message.content.trim().length > 0 && message.content !== 'Message deleted';
+  const awaitingAttachments = hasAttachments && !isDeleted && attachments.length === 0;
 
-  // Load attachments when message has them
-  useEffect(() => {
-    if (hasAttachments && !isDeleted) {
-      setLoadingAttachments(true);
-      getMessageAttachments(message.id)
-        .then(setAttachments)
-        .catch((err) => {
-          console.error('Failed to load attachments:', err);
-          setAttachments([]);
-        })
-        .finally(() => setLoadingAttachments(false));
+  const loadAttachments = useCallback(async () => {
+    if (!hasAttachments || isDeleted) {
+      setAttachments([]);
+      return;
     }
-  }, [message.id, hasAttachments, isDeleted, message.attachment_count]);
+
+    setLoadingAttachments(true);
+    try {
+      const data = await getMessageAttachments(message.id);
+      setAttachments(data);
+    } catch (err) {
+      console.error('Failed to load attachments:', err);
+      setAttachments([]);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  }, [message.id, hasAttachments, isDeleted]);
+
+  // Initial load when message has attachment_count
+  useEffect(() => {
+    loadAttachments();
+  }, [loadAttachments, message.attachment_count]);
+
+  // Race fix: message is inserted with attachment_count before files finish uploading
+  useEffect(() => {
+    if (!awaitingAttachments || loadingAttachments) return;
+
+    let attempts = 0;
+    const maxAttempts = 12;
+
+    const intervalId = window.setInterval(async () => {
+      attempts += 1;
+      try {
+        const data = await getMessageAttachments(message.id);
+        if (data.length > 0) {
+          setAttachments(data);
+          window.clearInterval(intervalId);
+        } else if (attempts >= maxAttempts) {
+          window.clearInterval(intervalId);
+        }
+      } catch {
+        if (attempts >= maxAttempts) {
+          window.clearInterval(intervalId);
+        }
+      }
+    }, 750);
+
+    return () => window.clearInterval(intervalId);
+  }, [message.id, awaitingAttachments, loadingAttachments]);
+
+  // Realtime: refetch when attachment rows are inserted for this message
+  useEffect(() => {
+    if (!hasAttachments || isDeleted) return;
+
+    const channel = supabase
+      .channel(`message-attachments:${message.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'message_attachments',
+        },
+        (payload) => {
+          const record = payload.new as { message_id?: string };
+          if (record?.message_id === message.id) {
+            loadAttachments();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [message.id, hasAttachments, isDeleted, loadAttachments]);
 
   async function handleSaveEdit() {
     const trimmed = editContent.trim();
@@ -104,9 +169,15 @@ export default function MessageBubble({
               : isOwn
                 ? 'bg-pq-primary-600 text-white rounded-br-none'
                 : 'bg-pq-neutral-100 text-pq-neutral-900 rounded-bl-none',
-            // Adjust padding based on content
-            !isDeleted && (hasContent || isEditing) && 'px-4 py-2.5',
-            !isDeleted && !hasContent && !isEditing && attachments.length > 0 && 'p-1.5'
+            // Keep bubble visible for attachment-only messages (including while loading)
+            !isDeleted &&
+              (hasContent || isEditing) &&
+              'px-4 py-2.5',
+            !isDeleted &&
+              !hasContent &&
+              !isEditing &&
+              (attachments.length > 0 || awaitingAttachments) &&
+              'p-1.5'
           )}
         >
           {isEditing ? (
@@ -159,14 +230,20 @@ export default function MessageBubble({
                 />
               )}
               
-              {/* Loading attachments indicator */}
-              {!isDeleted && loadingAttachments && hasAttachments && (
-                <div className={cn(
-                  'flex items-center gap-1.5 text-xs',
-                  isOwn ? 'text-white/70' : 'text-pq-neutral-500'
-                )}>
-                  <Paperclip className="w-3 h-3" />
-                  <span>Loading attachments...</span>
+              {/* Loading / pending attachments (upload may still be in progress) */}
+              {!isDeleted && awaitingAttachments && (
+                <div
+                  className={cn(
+                    'flex items-center gap-1.5 text-xs min-w-[120px]',
+                    isOwn ? 'text-white/80' : 'text-pq-neutral-500'
+                  )}
+                >
+                  {loadingAttachments ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Paperclip className="w-3 h-3" />
+                  )}
+                  <span>Loading attachment…</span>
                 </div>
               )}
             </div>

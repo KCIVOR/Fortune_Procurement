@@ -5,14 +5,27 @@ const db = supabase as any;
 
 // ─── Read-side helpers ────────────────────────────────────────────────────────
 
-export async function fetchMyNotifications(userId: string, limit = 10): Promise<Notification[]> {
-  console.log('📥 [notifications.ts] Fetching notifications for user:', userId, 'limit:', limit);
-  const { data, error } = await db
+export async function fetchMyNotifications(
+  userId: string, 
+  limit = 10, 
+  beforeTimestamp?: string
+): Promise<Notification[]> {
+  console.log('📥 [notifications.ts] Fetching notifications for user:', userId, 'limit:', limit, 'before:', beforeTimestamp);
+  
+  let query = db
     .from('notifications')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
+  
+  // If beforeTimestamp is provided, fetch older notifications (cursor-based pagination)
+  if (beforeTimestamp) {
+    query = query.lt('created_at', beforeTimestamp);
+  }
+  
+  const { data, error } = await query;
+  
   if (error) {
     console.error('❌ [notifications.ts] Error fetching notifications:', error);
     throw error;

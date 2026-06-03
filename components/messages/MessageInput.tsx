@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { Send, Paperclip, X, Loader2 } from 'lucide-react';
-import { sendMessage } from '@/lib/messages';
+import { sendMessage, rollbackUnsentMessage } from '@/lib/messages';
 import { 
   uploadMessageAttachment, 
   MESSAGE_ATTACHMENT_LIMITS,
@@ -119,14 +119,21 @@ export default function MessageInput({
     setError(null);
     setSending(true);
 
+    let createdMessageId: string | null = null;
+
     try {
-      // 1. Create the message (with hasAttachments flag if we have files)
+      const attachmentCount = pendingFiles.length;
+      const hasAttachments = attachmentCount > 0;
+
+      // 1. Create the message (attachment_count set so empty text passes DB check)
       const newMessage = await sendMessage(
-        conversationId, 
-        senderId, 
+        conversationId,
+        senderId,
         trimmed,
-        pendingFiles.length > 0 // hasAttachments
+        hasAttachments,
+        attachmentCount
       );
+      createdMessageId = newMessage.id;
 
       // 2. Immediately notify parent to add to known IDs and state
       // This MUST happen before uploading attachments to prevent
@@ -134,11 +141,11 @@ export default function MessageInput({
       onMessageSent?.(newMessage);
 
       // 3. Upload attachments if any
-      if (pendingFiles.length > 0) {
-        setUploadProgress(`Uploading 0/${pendingFiles.length}...`);
-        
-        for (let i = 0; i < pendingFiles.length; i++) {
-          setUploadProgress(`Uploading ${i + 1}/${pendingFiles.length}...`);
+      if (attachmentCount > 0) {
+        setUploadProgress(`Uploading 0/${attachmentCount}...`);
+
+        for (let i = 0; i < attachmentCount; i++) {
+          setUploadProgress(`Uploading ${i + 1}/${attachmentCount}...`);
           await uploadMessageAttachment(
             conversationId,
             newMessage.id,
@@ -147,6 +154,8 @@ export default function MessageInput({
           );
         }
       }
+
+      createdMessageId = null;
 
       // 4. Clear state
       setContent('');
@@ -159,6 +168,13 @@ export default function MessageInput({
       }
     } catch (err) {
       console.error('Failed to send message:', err);
+
+      if (createdMessageId) {
+        await rollbackUnsentMessage(createdMessageId, senderId).catch((cleanupErr) => {
+          console.error('Failed to rollback unsent message after error:', cleanupErr);
+        });
+      }
+
       setError(err instanceof Error ? err.message : 'Failed to send. Try again.');
     } finally {
       setSending(false);

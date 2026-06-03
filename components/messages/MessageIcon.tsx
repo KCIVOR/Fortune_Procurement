@@ -6,6 +6,7 @@ import { MessageSquare } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getUnreadMessageCount } from '@/lib/messages';
+import CountBadge from '@/components/ui/CountBadge';
 
 /**
  * Header icon for messaging with unread badge.
@@ -100,11 +101,7 @@ export default function MessageIcon() {
       title="Messages"
     >
       <MessageSquare className="w-4 h-4" />
-      {unreadCount > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-pq-danger-600 text-white text-[10px] font-bold leading-none px-1 pointer-events-none">
-          {unreadCount > 99 ? '99+' : unreadCount}
-        </span>
-      )}
+      <CountBadge count={unreadCount} />
     </Link>
   );
 }

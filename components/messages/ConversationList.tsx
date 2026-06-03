@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare } from 'lucide-react';
+import { ChevronDown, Loader2, MessageSquare } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { fetchMyConversations, type ConversationWithProfiles } from '@/lib/messages';
+import {
+  fetchMyConversations,
+  getUnreadConversationIds,
+  type ConversationWithProfiles,
+} from '@/lib/messages';
 import ConversationItem from './ConversationItem';
 import LoadingState from '@/components/shared/LoadingState';
 import EmptyState from '@/components/shared/EmptyState';
@@ -24,10 +28,16 @@ export default function ConversationList({
 }: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationWithProfiles[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unreadConversationIds, setUnreadConversationIds] = useState<Set<string>>(new Set());
+
+  const PAGE_SIZE = 20;
 
   // Debounce refetch to prevent rapid-fire updates from multiple realtime events
   const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unreadRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Unique channel ID per component instance to avoid binding mismatch
   // when multiple instances mount (e.g., responsive layouts)
@@ -40,6 +50,35 @@ export default function ConversationList({
   useEffect(() => {
     loadConversations();
   }, []);
+
+  const refreshUnreadIds = useCallback(async () => {
+    try {
+      const ids = await getUnreadConversationIds(currentUserId);
+      setUnreadConversationIds(new Set(ids));
+    } catch (err) {
+      console.error('Failed to refresh unread conversations:', err);
+    }
+  }, [currentUserId]);
+
+  const debouncedRefreshUnreadIds = useCallback(() => {
+    if (unreadRefreshTimerRef.current) {
+      clearTimeout(unreadRefreshTimerRef.current);
+    }
+    unreadRefreshTimerRef.current = setTimeout(() => {
+      refreshUnreadIds();
+    }, 300);
+  }, [refreshUnreadIds]);
+
+  // Clear unread highlight for the open conversation (read happens in MessageThread)
+  useEffect(() => {
+    if (!selectedConversationId) return;
+    setUnreadConversationIds((prev) => {
+      if (!prev.has(selectedConversationId)) return prev;
+      const next = new Set(prev);
+      next.delete(selectedConversationId);
+      return next;
+    });
+  }, [selectedConversationId]);
 
   /**
    * Debounced refetch: coalesces rapid realtime events (e.g., multiple messages
@@ -88,11 +127,62 @@ export default function ConversationList({
     };
   }, [currentUserId, debouncedRefetch]);
 
-  /** Silent refetch — does not show loading spinner, just updates data. */
+  // Realtime: keep unread indicators in sync when messages arrive or are read
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const channel = supabase
+      .channel(`conversation-unread:${currentUserId}:${instanceIdRef.current}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          const record = payload.new as { sender_id?: string; conversation_id?: string };
+          if (
+            record?.conversation_id &&
+            record.sender_id &&
+            record.sender_id !== currentUserId
+          ) {
+            setUnreadConversationIds((prev) => {
+              const next = new Set(prev);
+              next.add(record.conversation_id!);
+              return next;
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          debouncedRefreshUnreadIds();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+      supabase.removeChannel(channel);
+      if (unreadRefreshTimerRef.current) {
+        clearTimeout(unreadRefreshTimerRef.current);
+      }
+    };
+  }, [currentUserId, debouncedRefreshUnreadIds]);
+
+  /** Silent refetch — resets to the first page without showing the main spinner. */
   async function refetchConversations() {
     try {
-      const data = await fetchMyConversations();
+      const data = await fetchMyConversations(PAGE_SIZE);
       setConversations(data);
+      setHasMore(data.length >= PAGE_SIZE);
     } catch (err) {
       // Silent failure on background refetch — don't disrupt UI
       console.error('Background conversation refetch failed:', err);
@@ -102,9 +192,15 @@ export default function ConversationList({
   async function loadConversations() {
     setLoading(true);
     setError(null);
+    setHasMore(true);
     try {
-      const data = await fetchMyConversations();
+      const [data, unreadIds] = await Promise.all([
+        fetchMyConversations(PAGE_SIZE),
+        getUnreadConversationIds(currentUserId),
+      ]);
       setConversations(data);
+      setHasMore(data.length >= PAGE_SIZE);
+      setUnreadConversationIds(new Set(unreadIds));
     } catch (err) {
       console.error('Failed to load conversations:', err);
       setError('Failed to load conversations.');
@@ -112,6 +208,35 @@ export default function ConversationList({
       setLoading(false);
     }
   }
+
+  const loadOlderConversations = useCallback(async () => {
+    if (loadingOlder || !hasMore || conversations.length === 0) return;
+
+    setLoadingOlder(true);
+    try {
+      const oldest = conversations[conversations.length - 1];
+      const olderData = await fetchMyConversations(
+        PAGE_SIZE,
+        oldest.last_message_at ?? undefined,
+        oldest.last_message_at ? undefined : oldest.created_at ?? undefined
+      );
+
+      if (olderData.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      if (olderData.length < PAGE_SIZE) {
+        setHasMore(false);
+      }
+
+      setConversations((prev) => [...prev, ...olderData]);
+    } catch (err) {
+      console.error('Failed to load older conversations:', err);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [loadingOlder, hasMore, conversations, PAGE_SIZE]);
 
   if (loading) {
     return (
@@ -156,17 +281,46 @@ export default function ConversationList({
             ? conversation.user_b_profile?.full_name
             : conversation.user_a_profile?.full_name;
 
+        const isSelected = selectedConversationId === conversation.id;
+        const hasUnread =
+          unreadConversationIds.has(conversation.id) && !isSelected;
+
         return (
           <ConversationItem
             key={conversation.id}
             conversation={conversation}
             currentUserId={currentUserId}
-            isSelected={selectedConversationId === conversation.id}
+            isSelected={isSelected}
+            hasUnread={hasUnread}
             onClick={() => onSelectConversation(conversation)}
             otherUserName={otherUserName || undefined}
           />
         );
       })}
+
+      {hasMore && (
+        <div className="flex justify-center py-3 border-t border-pq-neutral-100">
+          <button
+            type="button"
+            onClick={loadOlderConversations}
+            disabled={loadingOlder}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-pq-neutral-600 hover:text-pq-primary-600 bg-pq-neutral-50 hover:bg-pq-primary-50 border border-pq-neutral-200 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Load older conversations"
+          >
+            {loadingOlder ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-3 h-3" />
+                Load older conversations
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ interface ConversationItemProps {
   conversation: Conversation;
   currentUserId: string;
   isSelected?: boolean;
+  hasUnread?: boolean;
   onClick: () => void;
   /** Resolved display name of the other participant */
   otherUserName?: string;
@@ -17,6 +18,7 @@ export default function ConversationItem({
   conversation,
   currentUserId,
   isSelected = false,
+  hasUnread = false,
   onClick,
   otherUserName,
 }: ConversationItemProps) {
@@ -42,9 +44,15 @@ export default function ConversationItem({
         'w-full text-left px-4 py-3 flex items-center gap-3 transition-all group border-l-2',
         isSelected
           ? 'bg-pq-primary-50 border-l-pq-primary-600'
-          : 'hover:bg-pq-neutral-50 border-l-transparent'
+          : hasUnread
+            ? 'bg-pq-primary-50/60 hover:bg-pq-primary-50 border-l-transparent'
+            : 'hover:bg-pq-neutral-50 border-l-transparent'
       )}
-      aria-label={`Conversation with ${displayName}`}
+      aria-label={
+        hasUnread
+          ? `Conversation with ${displayName}, unread messages`
+          : `Conversation with ${displayName}`
+      }
       aria-current={isSelected ? 'page' : undefined}
     >
       {/* Avatar */}
@@ -60,21 +68,49 @@ export default function ConversationItem({
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-1">
+      <div className="flex flex-1 min-w-0 items-start gap-2">
+        {hasUnread && (
           <span
+            className="mt-2 w-1.5 h-1.5 rounded-full shrink-0 bg-pq-primary-600"
+            aria-hidden
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span
+              className={cn(
+                'text-sm truncate',
+                isSelected
+                  ? 'font-semibold text-pq-primary-700'
+                  : hasUnread
+                    ? 'font-bold text-pq-neutral-900'
+                    : 'font-semibold text-pq-neutral-900'
+              )}
+            >
+              {displayName}
+            </span>
+            {timeAgo && (
+              <span
+                className={cn(
+                  'text-[10px] shrink-0',
+                  hasUnread && !isSelected ? 'text-pq-neutral-600' : 'text-pq-neutral-400'
+                )}
+              >
+                {timeAgo}
+              </span>
+            )}
+          </div>
+          <p
             className={cn(
-              'text-sm font-semibold truncate',
-              isSelected ? 'text-pq-primary-700' : 'text-pq-neutral-900'
+              'text-xs truncate',
+              hasUnread && !isSelected
+                ? 'font-medium text-pq-neutral-800'
+                : 'text-pq-neutral-500'
             )}
           >
-            {displayName}
-          </span>
-          {timeAgo && (
-            <span className="text-[10px] text-pq-neutral-400 shrink-0">{timeAgo}</span>
-          )}
+            {preview}
+          </p>
         </div>
-        <p className="text-xs text-pq-neutral-500 truncate">{preview}</p>
       </div>
     </button>
   );

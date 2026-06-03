@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +13,7 @@ import {
   markAllNotificationsRead,
 } from '@/lib/notifications';
 import type { Notification } from '@/types/database';
+import CountBadge from '@/components/ui/CountBadge';
 
 const TYPE_DOT: Record<string, string> = {
   action_required: 'bg-pq-warning-1000',
@@ -30,8 +31,13 @@ export default function NotificationBell() {
   const [notifications, setNotifications]   = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount]       = useState(0);
   const [loading, setLoading]               = useState(false);
+  const [loadingOlder, setLoadingOlder]     = useState(false);
+  const [hasMore, setHasMore]               = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Number of notifications to fetch per page
+  const PAGE_SIZE = 20;
 
   // Debug: Component mount
   useEffect(() => {
@@ -194,21 +200,60 @@ export default function NotificationBell() {
     if (!profile) return;
     console.log('📥 [NotificationBell] Loading notifications for dropdown...');
     setLoading(true);
+    setHasMore(true);
     try {
       const [notifs, count] = await Promise.all([
-        fetchMyNotifications(profile.id, 10),
+        fetchMyNotifications(profile.id, PAGE_SIZE),
         fetchUnreadNotificationCount(profile.id),
       ]);
       console.log('✅ [NotificationBell] Loaded notifications:', notifs.length);
       console.log('✅ [NotificationBell] Refreshed count:', count);
       setNotifications(notifs);
       setUnreadCount(count);
+      
+      // If we got fewer than PAGE_SIZE, there are no more notifications
+      setHasMore(notifs.length >= PAGE_SIZE);
     } catch (err) {
       console.error('❌ [NotificationBell] Error loading notifications:', err);
     } finally {
       setLoading(false);
     }
-  }, [profile]);
+  }, [profile, PAGE_SIZE]);
+
+  const loadOlderNotifications = useCallback(async () => {
+    if (!profile || loadingOlder || !hasMore || notifications.length === 0) return;
+    
+    console.log('📥 [NotificationBell] Loading older notifications...');
+    setLoadingOlder(true);
+    try {
+      // Get the oldest notification's timestamp as cursor
+      const oldestNotification = notifications[notifications.length - 1];
+      const olderNotifs = await fetchMyNotifications(
+        profile.id,
+        PAGE_SIZE,
+        oldestNotification.created_at
+      );
+      
+      console.log('✅ [NotificationBell] Loaded older notifications:', olderNotifs.length);
+      
+      if (olderNotifs.length === 0) {
+        setHasMore(false);
+        return;
+      }
+      
+      // If we got fewer than PAGE_SIZE, no more older notifications
+      if (olderNotifs.length < PAGE_SIZE) {
+        setHasMore(false);
+      }
+      
+      // Append older notifications to the list
+      setNotifications(prev => [...prev, ...olderNotifs]);
+    } catch (err) {
+      console.error('❌ [NotificationBell] Error loading older notifications:', err);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [profile, loadingOlder, hasMore, notifications, PAGE_SIZE]);
 
   const handleBellClick = () => {
     const next = !open;
@@ -304,25 +349,7 @@ export default function NotificationBell() {
         className="relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
       >
         <Bell className="w-4 h-4" />
-        {unreadCount > 0 && (
-          <span 
-            className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-pq-danger-1000 text-white text-[10px] font-bold leading-none px-1 pointer-events-none"
-            style={{
-              backgroundColor: '#DC2626',
-              color: 'white',
-              display: 'flex',
-              zIndex: 9999,
-              fontSize: '10px',
-              fontWeight: 'bold',
-              minWidth: '16px',
-              height: '16px',
-              border: '2px solid white',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-            }}
-          >
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
+        <CountBadge count={unreadCount} />
       </button>
 
       {/* Dropdown panel with backdrop on mobile */}
@@ -375,57 +402,84 @@ export default function NotificationBell() {
                 <p className="text-sm text-pq-neutral-400">No notifications</p>
               </div>
             ) : (
-              notifications.map(notif => (
-                <div
-                  key={notif.id}
-                  className={`relative group ${
-                    !notif.read ? 'bg-pq-primary-50/60' : 'bg-white'
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => handleNotificationClick(notif)}
-                    className={`w-full text-left px-4 py-4 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors`}
+              <>
+                {notifications.map(notif => (
+                  <div
+                    key={notif.id}
+                    className={`relative group ${
+                      !notif.read ? 'bg-pq-primary-50/60' : 'bg-white'
+                    }`}
                   >
-                    <div className="flex items-start gap-2.5">
-                      {/* Type-coloured dot */}
-                      <span
-                        className={`mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 ${
-                          !notif.read
-                            ? (TYPE_DOT[notif.type] ?? 'bg-pq-neutral-400')
-                            : 'bg-pq-neutral-200'
-                        }`}
-                      />
-                      <div className="flex-1 min-w-0 pr-8">
-                        <p className={`text-xs font-semibold truncate ${
-                          !notif.read ? 'text-pq-neutral-900' : 'text-pq-neutral-500'
-                        }`}>
-                          {notif.title}
-                        </p>
-                        <p className="text-xs text-pq-neutral-500 mt-0.5 line-clamp-2 leading-relaxed">
-                          {notif.body}
-                        </p>
-                        <p className="text-[10px] text-pq-neutral-400 mt-1">
-                          {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  {/* Mark as Read button - only show for unread notifications */}
-                  {!notif.read && (
                     <button
                       type="button"
-                      onClick={(e) => handleMarkAsRead(notif, e)}
-                      className="absolute top-4 right-4 p-1.5 rounded-md text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-primary-50 border border-transparent hover:border-pq-primary-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                      title="Mark as read"
-                      aria-label="Mark as read"
+                      onClick={() => handleNotificationClick(notif)}
+                      className={`w-full text-left px-4 py-4 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors`}
                     >
-                      <Check className="w-3.5 h-3.5" />
+                      <div className="flex items-start gap-2.5">
+                        {/* Type-coloured dot */}
+                        <span
+                          className={`mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 ${
+                            !notif.read
+                              ? (TYPE_DOT[notif.type] ?? 'bg-pq-neutral-400')
+                              : 'bg-pq-neutral-200'
+                          }`}
+                        />
+                        <div className="flex-1 min-w-0 pr-8">
+                          <p className={`text-xs font-semibold truncate ${
+                            !notif.read ? 'text-pq-neutral-900' : 'text-pq-neutral-500'
+                          }`}>
+                            {notif.title}
+                          </p>
+                          <p className="text-xs text-pq-neutral-500 mt-0.5 line-clamp-2 leading-relaxed">
+                            {notif.body}
+                          </p>
+                          <p className="text-[10px] text-pq-neutral-400 mt-1">
+                            {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
                     </button>
-                  )}
-                </div>
-              ))
+                    
+                    {/* Mark as Read button - only show for unread notifications */}
+                    {!notif.read && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleMarkAsRead(notif, e)}
+                        className="absolute top-4 right-4 p-1.5 rounded-md text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-primary-50 border border-transparent hover:border-pq-primary-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        title="Mark as read"
+                        aria-label="Mark as read"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                
+                {/* Load older notifications button */}
+                {hasMore && (
+                  <div className="flex justify-center py-3 border-t border-pq-neutral-100">
+                    <button
+                      type="button"
+                      onClick={loadOlderNotifications}
+                      disabled={loadingOlder}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-pq-neutral-600 hover:text-pq-primary-600 bg-pq-neutral-50 hover:bg-pq-primary-50 border border-pq-neutral-200 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Load older notifications"
+                    >
+                      {loadingOlder ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-3 h-3" />
+                          Load older notifications
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

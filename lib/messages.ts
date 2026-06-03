@@ -38,8 +38,17 @@ export interface ConversationWithProfiles extends Conversation {
   user_b_profile: ProfileInfo | null;
 }
 
-export async function fetchMyConversations(limit = 50): Promise<ConversationWithProfiles[]> {
-  const { data, error } = await db
+/**
+ * Fetches conversations for the current user, ordered by most recent activity.
+ * Supports cursor-based pagination via `beforeLastMessageAt` or `beforeCreatedAt`
+ * (for conversations with no messages yet).
+ */
+export async function fetchMyConversations(
+  limit = 20,
+  beforeLastMessageAt?: string,
+  beforeCreatedAt?: string
+): Promise<ConversationWithProfiles[]> {
+  let query = db
     .from('conversations')
     .select(`
       *,
@@ -62,6 +71,14 @@ export async function fetchMyConversations(limit = 50): Promise<ConversationWith
     `)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .limit(limit);
+
+  if (beforeLastMessageAt) {
+    query = query.lt('last_message_at', beforeLastMessageAt);
+  } else if (beforeCreatedAt) {
+    query = query.is('last_message_at', null).lt('created_at', beforeCreatedAt);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as ConversationWithProfiles[];
 }
@@ -113,13 +130,15 @@ export async function fetchConversationMessages(
  * @param senderId - The sender's user ID
  * @param content - The message text content
  * @param hasAttachments - If true, allows empty content (for attachment-only messages)
+ * @param expectedAttachmentCount - Pending uploads; satisfies DB check until attachments are saved
  * @returns The created message
  */
 export async function sendMessage(
   conversationId: string,
   senderId: string,
   content: string,
-  hasAttachments: boolean = false
+  hasAttachments: boolean = false,
+  expectedAttachmentCount: number = 0
 ): Promise<Message> {
   const trimmed = content.trim();
   
@@ -127,23 +146,55 @@ export async function sendMessage(
   if (!trimmed && !hasAttachments) {
     throw new Error('Message content cannot be empty');
   }
+
+  if (hasAttachments && expectedAttachmentCount < 1) {
+    throw new Error('Attachment count is required for attachment-only messages');
+  }
   
   if (trimmed.length > 2000) {
     throw new Error('Message exceeds maximum length');
   }
 
+  const insertRow: Record<string, unknown> = {
+    conversation_id: conversationId,
+    sender_id: senderId,
+    content: trimmed || '',
+  };
+
+  // DB constraint requires attachment_count > 0 OR non-empty content at insert time.
+  // Attachments are uploaded after the row exists; set count from pending files.
+  if (hasAttachments && expectedAttachmentCount > 0) {
+    insertRow.attachment_count = expectedAttachmentCount;
+  }
+
   const { data, error } = await db
     .from('messages')
-    .insert({
-      conversation_id: conversationId,
-      sender_id: senderId,
-      content: trimmed || '', // Allow empty string if attachments will be added
-    })
+    .insert(insertRow)
     .select()
     .single();
 
   if (error) throw error;
   return data as Message;
+}
+
+/**
+ * Soft-deletes a message created by the sender (e.g. rollback failed attachment upload).
+ * Hard DELETE is not allowed by RLS; updates is_deleted instead.
+ */
+export async function rollbackUnsentMessage(
+  messageId: string,
+  senderId: string
+): Promise<void> {
+  const { error } = await db
+    .from('messages')
+    .update({
+      is_deleted: true,
+      content: 'Message deleted',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', messageId)
+    .eq('sender_id', senderId);
+  if (error) throw error;
 }
 
 /**
@@ -198,6 +249,26 @@ export async function markMessagesAsRead(
     console.error('Failed to mark messages as read:', error);
     throw error;
   }
+}
+
+/**
+ * Returns conversation IDs that have at least one unread message for the user.
+ * RLS ensures only the user's conversations are included.
+ */
+export async function getUnreadConversationIds(currentUserId: string): Promise<string[]> {
+  const { data, error } = await db
+    .from('messages')
+    .select('conversation_id')
+    .neq('sender_id', currentUserId)
+    .is('read_at', null)
+    .eq('is_deleted', false);
+  if (error) throw error;
+
+  const ids = new Set<string>();
+  for (const row of data ?? []) {
+    if (row.conversation_id) ids.add(row.conversation_id as string);
+  }
+  return Array.from(ids);
 }
 
 /**

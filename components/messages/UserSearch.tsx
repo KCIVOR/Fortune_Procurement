@@ -49,11 +49,12 @@ export default function UserSearch({
       setLoading(true);
       try {
         const db = supabase as any;
+        const searchTerm = query.trim();
         const { data, error } = await db
           .from('profiles')
           .select('id, full_name, email')
           .neq('id', currentUserId)
-          .ilike('full_name', `%${query.trim()}%`)
+          .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
           .limit(8);
 
         if (error) throw error;
@@ -94,9 +95,9 @@ export default function UserSearch({
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search users to message..."
+          placeholder="Search by name or email..."
           className="w-full h-10 pl-9 pr-9 rounded-md border border-pq-neutral-300 bg-pq-white text-sm text-pq-neutral-900 placeholder:text-pq-neutral-400 focus-visible:outline-none focus-visible:border-pq-primary-500 focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 transition"
-          aria-label="Search users"
+          aria-label="Search users by name or email"
         />
         {query && (
           <button

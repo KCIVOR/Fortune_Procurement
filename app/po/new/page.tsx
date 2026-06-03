@@ -397,7 +397,7 @@ export default function PONewPage() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {filteredCandidates.length > 0 && (
             <PaginationControls
               currentPage={currentPage}
               totalPages={totalPages}
