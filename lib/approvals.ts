@@ -6,7 +6,7 @@ import type {
   PR1ApprovalSignatories,
   ApprovalAction,
 } from '@/types/approvals';
-import { createNotification, notifyApproversForStep } from '@/lib/notifications';
+import { createNotification, notifyApproversForStep, notifyByRole } from '@/lib/notifications';
 
 const db = supabase as any;
 
@@ -361,6 +361,19 @@ export async function submitApprovalAction(
             document_id:   pr1Id,
             action_url:    `/pr1/${pr1Id}`,
           });
+
+          await notifyByRole(
+            'procurement',
+            {
+              title:         'PR1 Ready for Canvassing',
+              body:          `PR1 ${pr1Row.pr1_number} is approved and ready for canvassing.`,
+              type:          'action_required',
+              document_type: 'pr1',
+              document_id:   pr1Id,
+              action_url:    '/rfq',
+            },
+            { dedupeUnreadForDocument: true }
+          );
         } else {
           // Step advanced — notify the next step's approvers
           const { data: inst } = await db

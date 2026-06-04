@@ -453,6 +453,40 @@ export async function submitPOApprovalAction(
           });
         }
       }
+
+      const { data: poFull } = await db
+        .from('po_requests')
+        .select('po_number, pr2_id')
+        .eq('id', poId)
+        .maybeSingle();
+
+      if (poFull?.pr2_id) {
+        const { data: pr2 } = await db
+          .from('pr2_requests')
+          .select('pr1_id')
+          .eq('id', poFull.pr2_id)
+          .maybeSingle();
+
+        if (pr2?.pr1_id) {
+          const { data: pr1 } = await db
+            .from('pr1_requests')
+            .select('requisitioner_id')
+            .eq('id', pr2.pr1_id)
+            .maybeSingle();
+
+          if (pr1?.requisitioner_id) {
+            await createNotification({
+              user_id:       pr1.requisitioner_id,
+              title:         'Purchase Order Approved',
+              body:          `PO ${poFull.po_number} has been approved.`,
+              type:          'approved',
+              document_type: 'po',
+              document_id:   poId,
+              action_url:    `/pr1/${pr2.pr1_id}`,
+            });
+          }
+        }
+      }
     } catch {
       // Notifications are best-effort; do not fail the approval action
     }

@@ -74,4 +74,7 @@ export interface FilterBarProps {
   
   /** Additional CSS classes for the container */
   className?: string;
+
+  /** Tighter spacing for dialogs and embedded panels */
+  compact?: boolean;
 }

@@ -183,3 +183,50 @@ export async function notifyApproversForStep({
 
   await db.from('notifications').insert(rows);
 }
+
+// ─── Role fan-out ─────────────────────────────────────────────────────────────
+// Notifies every profile with the given role name (e.g. warehouse, procurement).
+
+export async function notifyByRole(
+  roleName: string,
+  notification: Omit<NotificationInsert, 'user_id'>,
+  options?: { dedupeUnreadForDocument?: boolean }
+): Promise<void> {
+  const { data: role } = await db
+    .from('roles')
+    .select('id')
+    .eq('name', roleName)
+    .maybeSingle();
+  if (!role?.id) return;
+
+  const { data: recipients, error: profErr } = await db
+    .from('profiles')
+    .select('id')
+    .eq('role_id', role.id);
+  if (profErr || !recipients?.length) return;
+
+  let targetIds = (recipients as { id: string }[]).map((p) => p.id);
+
+  if (options?.dedupeUnreadForDocument && notification.document_id) {
+    const { data: existing } = await db
+      .from('notifications')
+      .select('user_id')
+      .eq('document_id', notification.document_id)
+      .eq('type', notification.type)
+      .eq('read', false)
+      .in('user_id', targetIds);
+
+    const skip = new Set((existing ?? []).map((n: { user_id: string }) => n.user_id));
+    targetIds = targetIds.filter((id) => !skip.has(id));
+    if (targetIds.length === 0) return;
+  }
+
+  const rows = targetIds.map((userId) => ({
+    ...notification,
+    user_id: userId,
+    read: false,
+  }));
+
+  const { error } = await db.from('notifications').insert(rows);
+  if (error) throw error;
+}

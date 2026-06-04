@@ -14,6 +14,7 @@ import type {
 } from '@/types/pr1';
 import type { WarehouseItemRoute } from '@/types/warehouse';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
+import { notifyByRole } from '@/lib/notifications';
 
 const db = supabase as any;
 
@@ -595,6 +596,23 @@ export async function submitPR1(
       position:    profile.position,
     },
   });
+
+  try {
+    await notifyByRole(
+      'warehouse',
+      {
+        title:         'PR1 Awaiting Validation',
+        body:          `PR1 ${values.pr1_number.trim()} requires warehouse validation.`,
+        type:          'action_required',
+        document_type: 'pr1',
+        document_id:   pr1Id,
+        action_url:    `/warehouse/${pr1Id}`,
+      },
+      { dedupeUnreadForDocument: true }
+    );
+  } catch {
+    // Notifications are best-effort; do not fail submit
+  }
 
   return pr1Id;
 }

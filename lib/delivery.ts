@@ -8,7 +8,7 @@ import type {
   DeliverySupplierUpdateValues,
   DeliveryFollowUpValues,
 } from '@/types/delivery';
-import { createNotification } from '@/lib/notifications';
+import { createNotification, notifyByRole } from '@/lib/notifications';
 
 const db = supabase as any;
 
@@ -337,6 +337,34 @@ export async function createDeliveryForPO(input: CreateDeliveryInput): Promise<s
     .select('id')
     .single();
   if (error) throw error;
+
+  if (input.requisitioner_id) {
+    try {
+      const { data: existing } = await db
+        .from('notifications')
+        .select('id')
+        .eq('user_id', input.requisitioner_id)
+        .eq('document_id', delivery.id)
+        .eq('title', 'Delivery Tracking Started')
+        .eq('read', false)
+        .maybeSingle();
+
+      if (!existing) {
+        await createNotification({
+          user_id:       input.requisitioner_id,
+          title:         'Delivery Tracking Started',
+          body:          `Delivery tracking is active for PO ${input.po_number}.`,
+          type:          'info',
+          document_type: 'delivery',
+          document_id:   delivery.id,
+          action_url:    `/delivery/${delivery.id}`,
+        });
+      }
+    } catch {
+      // Notifications are best-effort; do not fail delivery creation
+    }
+  }
+
   return delivery.id;
 }
 
@@ -509,5 +537,22 @@ export async function markDelivered(
     } catch {
       // Notifications are best-effort; do not fail markDelivered
     }
+  }
+
+  try {
+    await notifyByRole(
+      'warehouse',
+      {
+        title:         'Delivery Ready for GRN',
+        body:          'A delivery has been marked delivered and is ready for goods receipt.',
+        type:          'action_required',
+        document_type: 'delivery',
+        document_id:   deliveryId,
+        action_url:    `/delivery/${deliveryId}`,
+      },
+      { dedupeUnreadForDocument: true }
+    );
+  } catch {
+    // Notifications are best-effort; do not fail markDelivered
   }
 }

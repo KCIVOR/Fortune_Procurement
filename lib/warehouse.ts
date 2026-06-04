@@ -9,7 +9,7 @@ import type {
   WarehouseItemRoute,
   ItemAvailability,
 } from '@/types/warehouse';
-import { notifyApproversForStep } from '@/lib/notifications';
+import { createNotification, notifyApproversForStep } from '@/lib/notifications';
 
 const db = supabase as any;
 
@@ -505,4 +505,28 @@ export async function submitValidationDecision(
       derived_all_internal: decision === 'sufficient',
     },
   });
+
+  if (decision === 'sufficient') {
+    try {
+      const { data: pr1Row } = await db
+        .from('pr1_requests')
+        .select('pr1_number, requisitioner_id')
+        .eq('id', pr1Id)
+        .maybeSingle();
+
+      if (pr1Row?.requisitioner_id) {
+        await createNotification({
+          user_id:       pr1Row.requisitioner_id,
+          title:         'Request Fulfilled from Stock',
+          body:          `PR1 ${pr1Row.pr1_number} was fulfilled from warehouse stock.`,
+          type:          'approved',
+          document_type: 'pr1',
+          document_id:   pr1Id,
+          action_url:    `/pr1/${pr1Id}`,
+        });
+      }
+    } catch {
+      // Notifications are best-effort; do not fail validation
+    }
+  }
 }

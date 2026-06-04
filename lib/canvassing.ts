@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
-import { createNotification } from '@/lib/notifications';
+import { createNotification, notifyByRole } from '@/lib/notifications';
 import type {
   RfqBatch,
   RfqSupplier,
@@ -838,6 +838,42 @@ export async function closeRfq(rfqId: string, pr1Id: string, profile: UserProfil
     document_id:   rfqId,
     payload:       { closed_by: profile.full_name, pr1_id: pr1Id },
   });
+
+  try {
+    const [{ data: pr1 }, { data: rfq }] = await Promise.all([
+      db.from('pr1_requests').select('pr1_number, requisitioner_id').eq('id', pr1Id).maybeSingle(),
+      db.from('rfq_batches').select('rfq_number').eq('id', rfqId).maybeSingle(),
+    ]);
+
+    const pr1Label = pr1?.pr1_number ?? 'PR1';
+
+    await notifyByRole(
+      'procurement',
+      {
+        title:         'Canvassing Complete',
+        body:          `RFQ for ${pr1Label} is closed. Review quotes and proceed to PR2.`,
+        type:          'action_required',
+        document_type: 'rfq',
+        document_id:   rfqId,
+        action_url:    `/rfq/${rfqId}`,
+      },
+      { dedupeUnreadForDocument: true }
+    );
+
+    if (pr1?.requisitioner_id) {
+      await createNotification({
+        user_id:       pr1.requisitioner_id,
+        title:         'Canvassing Complete',
+        body:          `Canvassing is complete for your request ${pr1Label}.`,
+        type:          'info',
+        document_type: 'pr1',
+        document_id:   pr1Id,
+        action_url:    `/pr1/${pr1Id}`,
+      });
+    }
+  } catch {
+    // Notifications are best-effort; do not fail closeRfq
+  }
 }
 
 // ─── Save supplier selection ──────────────────────────────────────────────────
@@ -1496,6 +1532,41 @@ export async function submitSupplierQuotation(
     .eq('id', rfqSupplierId);
 
   if (statusErr) throw statusErr;
+
+  try {
+    const { data: rs } = await db
+      .from('rfq_suppliers')
+      .select('rfq_id')
+      .eq('id', rfqSupplierId)
+      .maybeSingle();
+
+    if (rs?.rfq_id) {
+      const { data: rfq } = await db
+        .from('rfq_batches')
+        .select('id, rfq_number, pr1_id')
+        .eq('id', rs.rfq_id)
+        .maybeSingle();
+
+      if (rfq?.pr1_id) {
+        const { data: pr1 } = await db
+          .from('pr1_requests')
+          .select('pr1_number')
+          .eq('id', rfq.pr1_id)
+          .maybeSingle();
+
+        await notifyByRole('procurement', {
+          title:         'Supplier Quotation Received',
+          body:          `A supplier submitted a quotation for ${pr1?.pr1_number ?? 'a request'}.`,
+          type:          'info',
+          document_type: 'rfq',
+          document_id:   rfq.id,
+          action_url:    `/rfq/${rfq.id}`,
+        });
+      }
+    }
+  } catch {
+    // Notifications are best-effort; do not fail quotation submit
+  }
 }
 
 // ─── Procurement dashboard stats ──────────────────────────────────────────────

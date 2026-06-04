@@ -318,6 +318,33 @@ export async function openGRNForDelivery(
     if (iErr) throw iErr;
   }
 
+  if (delivery.requisitioner_id) {
+    try {
+      const { data: existing } = await db
+        .from('notifications')
+        .select('id')
+        .eq('user_id', delivery.requisitioner_id)
+        .eq('document_id', grn.id)
+        .eq('title', 'GRN Started')
+        .eq('read', false)
+        .maybeSingle();
+
+      if (!existing) {
+        await createNotification({
+          user_id:       delivery.requisitioner_id,
+          title:         'GRN Started',
+          body:          'Goods receipt has started for your delivery.',
+          type:          'info',
+          document_type: 'grn',
+          document_id:   grn.id,
+          action_url:    `/grn/${grn.id}`,
+        });
+      }
+    } catch {
+      // Notifications are best-effort; do not fail GRN open
+    }
+  }
+
   return grn.id;
 }
 

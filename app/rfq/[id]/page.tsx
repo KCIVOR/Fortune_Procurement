@@ -18,7 +18,7 @@ import {
 } from '@/lib/canvassing';
 import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
 import type { RfqDetailView, QuoteMatrixRow, CanvassSupplierCandidate } from '@/types/canvassing';
-import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail, Info, BadgeCheck } from 'lucide-react';
+import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail, Info } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import JustificationModal, { type JustificationContext } from '@/components/canvassing/JustificationModal';
@@ -27,6 +27,8 @@ import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
 import DetailInfoField from '@/components/shared/DetailInfoField';
+import type { FilterConfig } from '@/components/shared/FilterBar.types';
+import AssignSuppliersModal from '@/components/canvassing/AssignSuppliersModal';
 import { toast } from 'sonner';
 import { formatRfqForViber } from '@/lib/viber-utils';
 import { db } from '@/lib/supabase';
@@ -65,6 +67,12 @@ export default function RfqDetailPage() {
   // Supplier assignment panel
   const [assigning, setAssigning]       = useState(false);
   const [selectedIds, setSelectedIds]   = useState<Set<string>>(new Set());
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [appliedSupplierSearch, setAppliedSupplierSearch] = useState('');
+  const [accreditationFilter, setAccreditationFilter] = useState('all');
+  const [appliedAccreditationFilter, setAppliedAccreditationFilter] = useState('all');
+  const [supplierPage, setSupplierPage] = useState(1);
+  const supplierRowsPerPage = 20;
 
   // Phase 7 (Raw Mats): justification modal state.
   const [justificationCtx, setJustificationCtx] =
@@ -111,6 +119,82 @@ export default function RfqDetailPage() {
   const assignedIds = new Set(suppliers.map(s => s.supplier_id));
   const availableSuppliers = allSuppliers.filter(s => !assignedIds.has(s.id));
 
+  const filteredAvailableSuppliers = availableSuppliers.filter(c => {
+    const term = appliedSupplierSearch.trim().toLowerCase();
+    if (term) {
+      const matchName = c.full_name.toLowerCase().includes(term);
+      const matchEmail = (c.email ?? '').toLowerCase().includes(term);
+      if (!matchName && !matchEmail) return false;
+    }
+    return matchesAccreditationFilter(c, appliedAccreditationFilter);
+  });
+  const supplierTotalCount = filteredAvailableSuppliers.length;
+  const supplierTotalPages = Math.max(1, Math.ceil(supplierTotalCount / supplierRowsPerPage));
+  const paginatedAvailableSuppliers = filteredAvailableSuppliers.slice(
+    (supplierPage - 1) * supplierRowsPerPage,
+    supplierPage * supplierRowsPerPage,
+  );
+
+  const supplierModalFilters: FilterConfig[] = [
+    {
+      type: 'search',
+      id: 'supplier-search',
+      label: 'Search',
+      placeholder: 'Supplier name or email…',
+      value: supplierSearch,
+      onChange: (value) => setSupplierSearch(value as string),
+    },
+    {
+      type: 'select',
+      id: 'supplier-accreditation',
+      label: 'Accreditation',
+      placeholder: 'All accreditation',
+      value: accreditationFilter,
+      onChange: (value) => setAccreditationFilter(value as string),
+      options: [
+        { value: 'all', label: 'All accreditation' },
+        { value: 'accredited', label: 'Accredited' },
+        { value: 'pending', label: 'Pending accreditation' },
+        { value: 'rejected', label: 'Rejected' },
+        { value: 'withdrawn', label: 'Withdrawn' },
+        { value: 'none', label: 'No accreditation' },
+      ],
+    },
+  ];
+
+  const openAssignModal = () => {
+    setSupplierSearch('');
+    setAppliedSupplierSearch('');
+    setAccreditationFilter('all');
+    setAppliedAccreditationFilter('all');
+    setSupplierPage(1);
+    setAssigning(true);
+  };
+
+  const closeAssignModal = () => {
+    setAssigning(false);
+    setSelectedIds(new Set());
+    setSupplierSearch('');
+    setAppliedSupplierSearch('');
+    setAccreditationFilter('all');
+    setAppliedAccreditationFilter('all');
+    setSupplierPage(1);
+  };
+
+  const handleSupplierFilterApply = () => {
+    setAppliedSupplierSearch(supplierSearch);
+    setAppliedAccreditationFilter(accreditationFilter);
+    setSupplierPage(1);
+  };
+
+  const handleSupplierFilterClear = () => {
+    setSupplierSearch('');
+    setAppliedSupplierSearch('');
+    setAccreditationFilter('all');
+    setAppliedAccreditationFilter('all');
+    setSupplierPage(1);
+  };
+
   // TODO(close/finalize): If every supplier marks `no_quote` on a line, Procurement may need a
   // future "No Award / Re-canvass" path — today, closing still expects a winner per item.
   const allItemsSelected = matrix.length > 0 && matrix.every(r => r.selected_rfq_supplier_id !== null);
@@ -125,8 +209,7 @@ export default function RfqDetailPage() {
     setActionError('');
     try {
       await assignSuppliers(rfq.id, Array.from(selectedIds), allSuppliers);
-      setAssigning(false);
-      setSelectedIds(new Set());
+      closeAssignModal();
       setLoading(true);
       load();
     } catch (e: any) {
@@ -391,7 +474,7 @@ export default function RfqDetailPage() {
                 icon={UserPlus}
                 label="Canvass Supplier"
                 color="slate"
-                onClick={() => setAssigning(true)}
+                onClick={openAssignModal}
                 disabled={working || availableSuppliers.length === 0}
               />
             )}
@@ -628,165 +711,30 @@ export default function RfqDetailPage() {
         </div>
       </div>
 
-      {/* Assign suppliers panel */}
-      {assigning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-md w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-pq-neutral-200 shadow-lg">
-            <div className="px-6 py-4 border-b border-pq-neutral-200 shrink-0">
-              <h2 className="text-lg font-semibold text-pq-neutral-900">Canvass Suppliers</h2>
-              <p className="text-xs text-pq-neutral-500 mt-1">
-                Select suppliers to invite. Review accreditation and product readiness before assigning.
-              </p>
-            </div>
-            <div className="px-6 py-3 bg-pq-warning-100/80 border-b border-amber-100 shrink-0">
-              <div className="flex gap-2 text-xs text-pq-warning-600">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="font-semibold">Warnings are informational only.</p>
-                  <p>
-                    Awarding rules: verified catalog products can be selected directly; for
-                    <strong> raw-material lines</strong>, an unverified product or manual entry
-                    can still be awarded with a written justification. Suppliers without verified
-                    products may always be invited.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-2 border-b border-pq-neutral-200 shrink-0 flex gap-2 text-[11px] text-pq-neutral-500">
-              <Info className="w-3.5 h-3.5 shrink-0 text-pq-neutral-400" />
-              <p>
-                Suppliers without verified products may still be invited, but their quote items cannot be
-                awarded until a verified product is linked on the quotation.
-              </p>
-            </div>
-            <div className="flex-1 min-h-0 overflow-auto">
-              {availableSuppliers.length === 0 ? (
-                <p className="text-sm text-pq-neutral-400 text-center py-10 px-6">
-                  {allSuppliers.length === 0
-                    ? 'No supplier users are registered in the system.'
-                    : 'All suppliers are already assigned to this RFQ.'}
-                </p>
-              ) : (
-                <table className="w-full text-sm text-left">
-                  <thead className="sticky top-0 bg-pq-neutral-50 border-b border-pq-neutral-200 z-10">
-                    <tr className="text-[10px] font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                      <th className="w-10 px-3 py-2.5" aria-label="Select" />
-                      <th className="px-3 py-2.5">Supplier</th>
-                      <th className="px-3 py-2.5 hidden md:table-cell">Email</th>
-                      <th className="px-3 py-2.5 min-w-[120px]">Accreditation</th>
-                      <th className="px-3 py-2.5 text-center min-w-[6rem]">Verified products</th>
-                      <th className="px-3 py-2.5 text-center min-w-[7rem] hidden sm:table-cell">
-                        Pending validation
-                      </th>
-                      <th className="px-3 py-2.5 text-center min-w-[4.5rem] hidden sm:table-cell">
-                        Rejected
-                      </th>
-                      <th className="px-3 py-2.5 text-center min-w-[5rem] hidden lg:table-cell">
-                        Withdrawn
-                      </th>
-                      <th className="px-3 py-2.5 min-w-[160px]">Readiness</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-pq-neutral-200">
-                    {availableSuppliers.map(c => {
-                      const checked = selectedIds.has(c.id);
-                      const acc = accreditationLabelForCandidate(c);
-                      const readiness = readinessForCandidate(c);
-                      return (
-                        <tr
-                          key={c.id}
-                          className={`hover:bg-pq-neutral-50/80 ${checked ? 'bg-pq-primary-50/50' : ''}`}
-                        >
-                          <td className="px-3 py-2.5 align-top">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              aria-label={`Select ${c.full_name}`}
-                              onChange={() => {
-                                const next = new Set(selectedIds);
-                                checked ? next.delete(c.id) : next.add(c.id);
-                                setSelectedIds(next);
-                              }}
-                              className="w-4 h-4 rounded border-pq-neutral-200 text-pq-primary-600 mt-1"
-                            />
-                          </td>
-                          <td className="px-3 py-2.5 align-top font-medium text-pq-neutral-900">
-                            {c.full_name}
-                          </td>
-                          <td className="px-3 py-2.5 align-top text-xs text-pq-neutral-500 hidden md:table-cell">
-                            {c.email && c.email.trim() !== '' ? c.email : '—'}
-                          </td>
-                          <td className="px-3 py-2.5 align-top">
-                            <div className="flex flex-wrap gap-1">
-                              <span
-                                className={`inline-flex items-center gap-0.5 text-[10px] font-medium border rounded px-1.5 py-0.5 ${acc.className}`}
-                              >
-                                {acc.icon}
-                                {acc.label}
-                              </span>
-                              {productInventoryBadges(c)}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5 align-top text-center tabular-nums">
-                            {c.verified_product_count}
-                          </td>
-                          <td className="px-3 py-2.5 align-top text-center tabular-nums hidden sm:table-cell">
-                            {c.pending_product_count}
-                          </td>
-                          <td className="px-3 py-2.5 align-top text-center tabular-nums hidden sm:table-cell">
-                            {c.rejected_product_count}
-                          </td>
-                          <td className="px-3 py-2.5 align-top text-center tabular-nums hidden lg:table-cell">
-                            {c.withdrawn_product_count}
-                          </td>
-                          <td className="px-3 py-2.5 align-top text-xs">
-                            <div className="space-y-1">
-                              {readiness.lines.map((line, i) => (
-                                <p
-                                  key={i}
-                                  className={
-                                    readiness.level === 'ok'
-                                      ? 'text-pq-success-600 font-medium'
-                                      : 'text-pq-warning-600'
-                                  }
-                                >
-                                  {line}
-                                </p>
-                              ))}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            {actionError && (
-              <p className="text-sm text-pq-danger-600 px-6 py-2 border-t border-pq-neutral-200">{actionError}</p>
-            )}
-            <div className="px-6 py-4 flex items-center justify-end gap-3 border-t border-pq-neutral-200 shrink-0 bg-white">
-              <button
-                type="button"
-                onClick={() => { setAssigning(false); setSelectedIds(new Set()); }}
-                disabled={working}
-                className="px-4 py-2 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleAssign}
-                disabled={working || selectedIds.size === 0}
-                className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50 flex items-center gap-2"
-              >
-                {working && <Loader2 className="w-4 h-4 animate-spin" />}
-                Assign {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AssignSuppliersModal
+        open={assigning}
+        working={working}
+        actionError={actionError}
+        hasRegisteredSuppliers={allSuppliers.length > 0}
+        allAlreadyAssigned={availableSuppliers.length === 0 && allSuppliers.length > 0}
+        filteredCount={supplierTotalCount}
+        paginatedSuppliers={paginatedAvailableSuppliers}
+        filters={supplierModalFilters}
+        onApplyFilters={handleSupplierFilterApply}
+        onClearFilters={handleSupplierFilterClear}
+        supplierPage={supplierPage}
+        supplierTotalPages={supplierTotalPages}
+        supplierRowsPerPage={supplierRowsPerPage}
+        selectedIds={selectedIds}
+        onToggleSupplier={(id, selected) => {
+          const next = new Set(selectedIds);
+          selected ? next.add(id) : next.delete(id);
+          setSelectedIds(next);
+        }}
+        onPageChange={setSupplierPage}
+        onClose={closeAssignModal}
+        onAssign={handleAssign}
+      />
 
       {/* Phase 7 (Raw Mats): justification capture for awarding an
           unverified or manual-entry quote on a raw-mats line. */}
@@ -801,123 +749,31 @@ export default function RfqDetailPage() {
   );
 }
 
-function accreditationLabelForCandidate(c: CanvassSupplierCandidate): {
-  label: string;
-  className: string;
-  icon: ReactNode;
-} {
+function matchesAccreditationFilter(
+  c: CanvassSupplierCandidate,
+  filter: string,
+): boolean {
+  if (filter === 'all') return true;
   const st = c.accreditation_status;
-  if (!st) {
-    return {
-      label: 'No Accreditation',
-      className: 'text-pq-neutral-500 bg-pq-neutral-50 border-pq-neutral-200',
-      icon: null,
-    };
-  }
-  switch (st) {
-    case 'approved':
-      return {
-        label: 'Accredited',
-        className: 'text-pq-success-600 bg-pq-success-100 border-pq-success-100',
-        icon: <BadgeCheck className="w-3 h-3 shrink-0" aria-hidden />,
-      };
-    case 'submitted':
-    case 'under_review':
-    case 'draft':
-      return {
-        label: 'Pending Accreditation',
-        className: 'text-pq-warning-600 bg-pq-warning-100 border-pq-warning-100',
-        icon: null,
-      };
-    case 'missing_documents':
-      return {
-        label: 'Missing Documents',
-        className: 'text-pq-warning-600 bg-pq-warning-100 border-pq-warning-100',
-        icon: null,
-      };
+  switch (filter) {
+    case 'accredited':
+      return st === 'approved';
+    case 'pending':
+      return (
+        st === 'submitted' ||
+        st === 'under_review' ||
+        st === 'draft' ||
+        st === 'missing_documents'
+      );
     case 'rejected':
-      return {
-        label: 'Rejected',
-        className: 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100',
-        icon: null,
-      };
+      return st === 'rejected';
     case 'withdrawn':
-      return {
-        label: 'Withdrawn',
-        className: 'text-pq-neutral-500 bg-pq-neutral-100 border-pq-neutral-200',
-        icon: null,
-      };
+      return st === 'withdrawn';
+    case 'none':
+      return !st;
     default:
-      return {
-        label: st.replace(/_/g, ' '),
-        className: 'text-pq-neutral-500 bg-pq-neutral-50 border-pq-neutral-200',
-        icon: null,
-      };
+      return true;
   }
-}
-
-function productInventoryBadges(c: CanvassSupplierCandidate) {
-  const chip =
-    'inline-flex items-center text-[10px] font-medium border rounded px-1.5 py-0.5';
-  const nodes: ReactNode[] = [];
-  if (c.verified_product_count > 0) {
-    nodes.push(
-      <span
-        key="verified"
-        className={`${chip} text-pq-success-600 bg-white border-pq-success-100`}
-      >
-        Has Verified Products
-      </span>,
-    );
-  } else {
-    nodes.push(
-      <span
-        key="no-verified"
-        className={`${chip} text-pq-neutral-500 bg-white border-pq-neutral-200`}
-      >
-        No Verified Products
-      </span>,
-    );
-  }
-  if (c.pending_product_count > 0) {
-    nodes.push(
-      <span
-        key="pending-val"
-        className={`${chip} text-pq-warning-600 bg-white border-pq-warning-100`}
-      >
-        Pending Validation
-      </span>,
-    );
-  }
-  return nodes;
-}
-
-function readinessForCandidate(c: CanvassSupplierCandidate): {
-  level: 'ok' | 'warn';
-  lines: string[];
-} {
-  const approved = c.accreditation_status === 'approved';
-  if (approved && c.verified_product_count > 0) {
-    return { level: 'ok', lines: ['Ready'] };
-  }
-  const lines: string[] = [];
-  if (!c.accreditation_status) {
-    lines.push('Not accredited');
-  } else if (!approved) {
-    if (c.accreditation_status === 'rejected') lines.push('Accreditation rejected');
-    else if (c.accreditation_status === 'withdrawn') lines.push('Accreditation withdrawn');
-    else lines.push('Not accredited');
-  }
-  if (c.verified_product_count === 0) {
-    lines.push('No verified products');
-  }
-  if (c.pending_product_count > 0) {
-    lines.push('Pending validation');
-  }
-  if (lines.length === 0) {
-    lines.push('Review accreditation and catalog');
-  }
-  return { level: 'warn', lines };
 }
 
 // ─── Matrix row ───────────────────────────────────────────────────────────────
