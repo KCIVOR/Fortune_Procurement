@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { fetchUserProfile } from '@/lib/profile';
-import { Eye, EyeOff, Lock, Mail, CircleAlert as AlertCircle, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, CircleAlert as AlertCircle } from 'lucide-react';
 import LightmodeLogo from '@/logo/lightmode_logo.png';
 
 // Import ProcureIQ v2.0 UI components
@@ -14,9 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 
 function LoginForm() {
   const router = useRouter();
@@ -195,91 +194,6 @@ function LoginForm() {
 
             </form>
           </CardContent>
-        </Card>
-
-        {/* Re-designed Collapsible Developer Demo Accounts section */}
-        <Card className="border-pq-neutral-200 bg-pq-white shadow-sm overflow-hidden">
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="demo-credentials" className="border-0">
-              <AccordionTrigger className="px-5 py-3 hover:no-underline text-xs font-medium text-pq-neutral-500 hover:text-pq-neutral-900 transition flex items-center justify-between [&[data-state=open]]:bg-pq-neutral-50">
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-pq-primary-500" />
-                  Quick Access Developer Credentials
-                </span>
-              </AccordionTrigger>
-              <AccordionContent className="p-5 pt-3 space-y-4 text-xs bg-pq-neutral-50 border-t border-pq-neutral-100">
-                
-                {/* Admin */}
-                <div>
-                  <p className="font-semibold text-pq-neutral-400 uppercase tracking-wider text-[10px] mb-2">Administration</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setEmail('admin@fortune.com'); setPassword('Fortune2024!'); }}
-                      className="px-2.5 py-1.5 bg-pq-white border border-pq-neutral-200 text-pq-neutral-700 hover:border-pq-primary-300 hover:text-pq-primary-600 rounded transition text-left truncate font-medium shadow-2xs"
-                    >
-                      Super Admin
-                    </button>
-                  </div>
-                </div>
-
-                {/* PO Approval flow */}
-                <div>
-                  <p className="font-semibold text-pq-neutral-400 uppercase tracking-wider text-[10px] mb-2">PO Approval Flow</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      ['buyer@fortune.com', 'Buyer'],
-                      ['proc.manager@fortune.com', 'Proc. Manager'],
-                      ['finance.director@fortune.com', 'Finance Dir.'],
-                      ['supplier@fortune.com', 'Supplier'],
-                    ].map(([email, label]) => (
-                      <button
-                        key={email}
-                        type="button"
-                        onClick={() => { setEmail(email); setPassword('Fortune2024!'); }}
-                        className="px-2.5 py-1.5 bg-pq-white border border-pq-neutral-200 text-pq-neutral-700 hover:border-pq-primary-300 hover:text-pq-primary-600 rounded transition text-left truncate font-medium shadow-2xs"
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Other roles */}
-                <div>
-                  <p className="font-semibold text-pq-neutral-400 uppercase tracking-wider text-[10px] mb-2">Other Operations</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      ['employee@fortune.com', 'Employee'],
-                      ['warehouse@fortune.com', 'Warehouse'],
-                      ['wh.manager@fortune.com', 'WH Manager'],
-                      ['procurement@fortune.com', 'Procurement'],
-                      ['supervisor@fortune.com', 'Supervisor'],
-                      ['dept.head@fortune.com', 'Dept Head'],
-                      ['director@fortune.com', 'Director'],
-                    ].map(([email, label]) => (
-                      <button
-                        key={email}
-                        type="button"
-                        onClick={() => { setEmail(email); setPassword('Fortune2024!'); }}
-                        className="px-2.5 py-1.5 bg-pq-white border border-pq-neutral-200 text-pq-neutral-700 hover:border-pq-primary-300 hover:text-pq-primary-600 rounded transition text-left truncate font-medium shadow-2xs"
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-pq-neutral-200 flex justify-between items-center text-pq-neutral-500">
-                  <span>Standard Password:</span>
-                  <code className="px-1.5 py-0.5 bg-pq-white border border-pq-neutral-200 rounded font-mono font-semibold text-pq-neutral-800">
-                    Fortune2024!
-                  </code>
-                </div>
-
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
         </Card>
 
         {/* Minimal Accessible Footer */}
