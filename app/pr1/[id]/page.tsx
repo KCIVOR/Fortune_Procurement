@@ -18,6 +18,8 @@ import PriorityChip from '@/components/shared/PriorityChip';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
 import { useAuth } from '@/context/AuthContext';
+import AccessDenied from '@/components/layout/AccessDenied';
+import { canViewPr1Detail } from '@/lib/pr1-access';
 import { Pencil, Clock, CircleCheck as CheckCircle2, User, Building2, FileText, CalendarDays, CircleAlert as AlertCircle, Circle as XCircle, RotateCcw, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import ActionPill from '@/components/shared/ActionPill';
@@ -153,6 +155,22 @@ export default function PR1DetailPage() {
     return (
       <AppShell title="PR1 Detail">
         <DetailPageSkeleton />
+      </AppShell>
+    );
+  }
+
+  if (profile && pr1 && !canViewPr1Detail(profile, pr1)) {
+    return (
+      <AppShell title="PR1 Detail">
+        <AccessDenied description="You can only view your own purchase requests." />
+      </AppShell>
+    );
+  }
+
+  if (!pr1 && profile?.role === 'employee' && !error) {
+    return (
+      <AppShell title="PR1 Detail">
+        <AccessDenied description="You can only view your own purchase requests." />
       </AppShell>
     );
   }

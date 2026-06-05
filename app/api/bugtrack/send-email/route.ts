@@ -1,26 +1,55 @@
-import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { isAuthError, requireApiAuth } from '@/lib/api-auth';
 
-export async function POST(req: Request) {
+const SEVERITIES = new Set(['low', 'medium', 'high']);
+
+export async function POST(req: NextRequest) {
   try {
+    const auth = await requireApiAuth(req);
+    if (isAuthError(auth)) return auth;
+
     const body = await req.json();
     const { bugTitle, bugDescription, severity, location, reporterName } = body;
 
-    const { data: settings } = await supabase
+    if (
+      typeof bugTitle !== 'string' || !bugTitle.trim() ||
+      typeof bugDescription !== 'string' || !bugDescription.trim() ||
+      typeof severity !== 'string' || !SEVERITIES.has(severity) ||
+      typeof location !== 'string' || !location.trim() ||
+      typeof reporterName !== 'string' || !reporterName.trim()
+    ) {
+      return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 });
+    }
+
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json(
+        { success: false, error: 'Server configuration error' },
+        { status: 500 },
+      );
+    }
+
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
+
+    const { data: settings } = await admin
       .from('bugtrack_settings')
       .select('notification_email')
       .single();
     const email = (settings as { notification_email?: string } | null)?.notification_email;
 
     if (!email) {
-      console.log('No bugtrack notification email configured.');
       return NextResponse.json({ success: true, message: 'No notification email configured.' });
     }
 
     const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
     const payload = {
-      sender: { name: "BugTrack System", email: "johndaveb892@gmail.com" },
+      sender: { name: 'BugTrack System', email: 'johndaveb892@gmail.com' },
       to: [{ email }],
       subject: `[${severity.toUpperCase()} SEVERITY] New Bug Reported: ${bugTitle}`,
       htmlContent: `
@@ -79,7 +108,7 @@ export async function POST(req: Request) {
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
+        accept: 'application/json',
         'api-key': BREVO_API_KEY || '',
         'content-type': 'application/json',
       },
@@ -87,14 +116,15 @@ export async function POST(req: Request) {
     });
 
     const data = await res.json();
-    
+
     if (!res.ok) {
       return NextResponse.json({ success: false, data }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, data });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('BugTrack Email sending error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

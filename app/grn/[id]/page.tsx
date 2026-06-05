@@ -20,6 +20,7 @@ import DetailPrintButton from '@/components/shared/DetailPrintButton';
 import DetailTableCard from '@/components/shared/DetailTableCard';
 import DetailInfoField from '@/components/shared/DetailInfoField';
 import { FormFieldLabel } from '@/components/shared/FormFieldLabel';
+import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 
 export default function GRNDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -160,9 +161,10 @@ export default function GRNDetailPage() {
   );
 
   const isClosed = grn.status === 'closed';
-  const receivedTotal = form.items.reduce(
-    (s, i) => s + (Number(i.quantity_received) || 0) * i.unit_price, 0
-  );
+  const canViewPrices = canViewCommercialPricing(profile);
+  const receivedTotal = canViewPrices
+    ? form.items.reduce((s, i) => s + (Number(i.quantity_received) || 0) * i.unit_price, 0)
+    : null;
 
   return (
     <AppShell title={`GRN ${grn.grn_number}`}>
@@ -323,9 +325,11 @@ export default function GRNDetailPage() {
               </div>
             }
             right={
-              <div className="text-xs font-semibold text-pq-neutral-900">
-                Total Received: ₱{receivedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-              </div>
+              canViewPrices ? (
+                <div className="text-xs font-semibold text-pq-neutral-900">
+                  Total Received: {formatCommercialAmount(receivedTotal ?? 0, true)}
+                </div>
+              ) : null
             }
             headerClassName="bg-pq-neutral-50 px-5"
           >
@@ -341,8 +345,14 @@ export default function GRNDetailPage() {
                       Received
                     </th>
                     <th className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-20">Rejected</th>
-                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Unit Price</th>
-                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-28">Amount</th>
+                    {canViewPrices ? (
+                      <>
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Unit Price</th>
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-28">Amount</th>
+                      </>
+                    ) : (
+                      <th className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-28">Pricing</th>
+                    )}
                     {!isReadOnly && <th className="px-3 py-2.5 w-32 text-xs font-semibold text-pq-neutral-500 uppercase">Remarks</th>}
                   </tr>
                 </thead>
@@ -406,12 +416,20 @@ export default function GRNDetailPage() {
                             />
                           )}
                         </td>
-                        <td className="px-3 py-3 text-right text-xs text-pq-neutral-500 font-mono">
-                          ₱{item.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-3 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">
-                          ₱{amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                        </td>
+                        {canViewPrices ? (
+                          <>
+                            <td className="px-3 py-3 text-right text-xs text-pq-neutral-500 font-mono">
+                              {formatCommercialAmount(item.unit_price, true)}
+                            </td>
+                            <td className="px-3 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">
+                              {formatCommercialAmount(amount, true)}
+                            </td>
+                          </>
+                        ) : (
+                          <td colSpan={2} className="px-3 py-3 text-center text-xs text-pq-neutral-400">
+                            {formatCommercialAmount(0, false)}
+                          </td>
+                        )}
                         {!isReadOnly && (
                           <td className="px-3 py-3">
                             <input
@@ -427,16 +445,18 @@ export default function GRNDetailPage() {
                     );
                   })}
                 </tbody>
-                <tfoot>
-                  <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                    <td colSpan={isReadOnly ? 7 : 8} className="px-3 py-3 text-right text-xs font-semibold text-pq-neutral-900">
-                      Total Received Value
-                    </td>
-                    <td className="px-3 py-3 text-right text-sm font-bold text-pq-neutral-900 font-mono">
-                      ₱{receivedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                </tfoot>
+                {canViewPrices && (
+                  <tfoot>
+                    <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
+                      <td colSpan={isReadOnly ? 7 : 8} className="px-3 py-3 text-right text-xs font-semibold text-pq-neutral-900">
+                        Total Received Value
+                      </td>
+                      <td className="px-3 py-3 text-right text-sm font-bold text-pq-neutral-900 font-mono">
+                        {formatCommercialAmount(receivedTotal ?? 0, true)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </DetailTableCard>
@@ -489,7 +509,7 @@ export default function GRNDetailPage() {
                       <p className="text-sm font-semibold text-pq-warning-600">Close this GRN?</p>
                       <p className="text-xs text-pq-warning-600 mt-1">
                         This will finalize the goods receipt and close the transaction. You cannot edit the GRN after closing.
-                        Total: <strong>₱{receivedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</strong>
+                        Total: <strong>{formatCommercialAmount(receivedTotal ?? 0, canViewPrices)}</strong>
                       </p>
                     </div>
                   </div>

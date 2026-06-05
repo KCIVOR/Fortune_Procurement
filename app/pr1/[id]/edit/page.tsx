@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import LoadingState from '@/components/shared/LoadingState';
 import PR1Form from '@/components/pr1/PR1Form';
 import { fetchPR1ById } from '@/lib/pr1';
 import { useAuth } from '@/context/AuthContext';
+import AccessDenied from '@/components/layout/AccessDenied';
 import type { PR1WithItems } from '@/types/pr1';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
@@ -15,7 +16,6 @@ import { ChevronLeft } from 'lucide-react';
 export default function PR1EditPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
-  const router = useRouter();
   const [pr1, setPR1] = useState<PR1WithItems | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,19 +32,20 @@ export default function PR1EditPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Guard: only owner can edit
-  useEffect(() => {
-    if (pr1 && profile && pr1.requisitioner_id !== profile.id) {
-      router.replace(`/pr1/${id}`);
-    }
-  }, [pr1, profile, id, router]);
-
   if (loading) {
     return (
       <AppShell title="Edit PR1">
         <div className="flex items-center justify-center h-64">
           <LoadingState message="Loading..." />
         </div>
+      </AppShell>
+    );
+  }
+
+  if (pr1 && profile && pr1.requisitioner_id !== profile.id) {
+    return (
+      <AppShell title="Edit PR1">
+        <AccessDenied description="Only the request owner can edit this draft." />
       </AppShell>
     );
   }

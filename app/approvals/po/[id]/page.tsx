@@ -29,6 +29,7 @@ import DetailInfoGrid from '@/components/shared/DetailInfoGrid';
 import DetailInfoField from '@/components/shared/DetailInfoField';
 import DetailWideInfoRow from '@/components/shared/DetailWideInfoRow';
 import DetailTableCard from '@/components/shared/DetailTableCard';
+import { canViewCommercialPricing, formatCommercialAmount, PRICE_HIDDEN_LABEL } from '@/lib/price-visibility';
 import {
   User, Building2, FileText, CalendarDays, Clock,
   CircleCheck as CheckCircle2, Circle as XCircle, RotateCcw,
@@ -125,7 +126,10 @@ export default function POApprovalDetailPage() {
   );
 
   const isClosed = detail.instance_status !== 'active';
-  const grandTotal = detail.items.reduce((sum, i) => sum + i.unit_price * i.quantity_to_purchase, 0);
+  const canViewPrices = canViewCommercialPricing(profile);
+  const grandTotal = canViewPrices
+    ? detail.items.reduce((sum, i) => sum + i.unit_price * i.quantity_to_purchase, 0)
+    : null;
 
   // Internal steps only (steps 1-3); step 4 is supplier
   const internalSteps = detail.steps.filter(s => s.step_order <= 3);
@@ -254,9 +258,11 @@ export default function POApprovalDetailPage() {
             </div>
           }
           right={
-            <div className="text-xs font-semibold text-pq-neutral-900">
-              Grand Total: ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-            </div>
+            canViewPrices ? (
+              <div className="text-xs font-semibold text-pq-neutral-900">
+                Grand Total: {formatCommercialAmount(grandTotal ?? 0, true)}
+              </div>
+            ) : undefined
           }
         >
           <div className="overflow-x-auto">
@@ -268,8 +274,14 @@ export default function POApprovalDetailPage() {
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase">Description</th>
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-16">Unit</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-20">Qty</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-28">Unit Price</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-28">Total</th>
+                  {canViewPrices ? (
+                    <>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-28">Unit Price</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-28">Total</th>
+                    </>
+                  ) : (
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-28">Pricing</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-pq-neutral-200">
@@ -293,19 +305,27 @@ export default function POApprovalDetailPage() {
                     </td>
                     <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                     <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_to_purchase}</td>
-                    <td className="px-4 py-3 text-right text-xs text-pq-neutral-500">₱{item.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">₱{(item.unit_price * item.quantity_to_purchase).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
+                    {canViewPrices ? (
+                      <>
+                        <td className="px-4 py-3 text-right text-xs text-pq-neutral-500">{formatCommercialAmount(item.unit_price, true)}</td>
+                        <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">{formatCommercialAmount(item.unit_price * item.quantity_to_purchase, true)}</td>
+                      </>
+                    ) : (
+                      <td colSpan={2} className="px-4 py-3 text-center text-xs text-pq-neutral-400">{PRICE_HIDDEN_LABEL}</td>
+                    )}
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                  <td colSpan={6} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
-                  <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
-                    ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              </tfoot>
+              {canViewPrices && (
+                <tfoot>
+                  <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
+                    <td colSpan={6} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
+                    <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
+                      {formatCommercialAmount(grandTotal ?? 0, true)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </DetailTableCard>

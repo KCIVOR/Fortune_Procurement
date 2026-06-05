@@ -16,6 +16,7 @@ import {
 } from '@/lib/delivery';
 import type { Delivery, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
+import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 import { format } from 'date-fns';
 import { Truck, Package, Calendar, Building2, ChevronRight, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban } from 'lucide-react';
 
@@ -197,7 +198,7 @@ export default function DeliveryQueuePage() {
         <div className="space-y-4">
           <div className="space-y-3">
             {deliveries.map(d => (
-              <DeliveryCard key={d.id} delivery={d} />
+              <DeliveryCard key={d.id} delivery={d} canViewPrices={canViewCommercialPricing(profile)} />
             ))}
           </div>
 
@@ -222,7 +223,7 @@ export default function DeliveryQueuePage() {
   );
 }
 
-function DeliveryCard({ delivery: d }: { delivery: Delivery }) {
+function DeliveryCard({ delivery: d, canViewPrices }: { delivery: Delivery; canViewPrices: boolean }) {
   const cfg = STATUS_CONFIG[d.status];
   const Icon = cfg.icon;
 
@@ -271,7 +272,7 @@ function DeliveryCard({ delivery: d }: { delivery: Delivery }) {
         {/* Amount + chevron */}
         <div className="flex-shrink-0 text-right">
           <p className="text-sm font-bold text-pq-neutral-900 font-mono">
-            ₱{d.grand_total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+            {formatCommercialAmount(d.grand_total, canViewPrices)}
           </p>
           <p className="text-xs text-pq-neutral-400 mt-0.5">PR1 Ref: {d.pr1_number_snapshot}</p>
         </div>

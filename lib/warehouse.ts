@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { requireAuthUserId } from '@/lib/auth-session';
 import type { UserProfile } from '@/types/auth';
 import type {
   WarehouseValidationWithItems,
@@ -215,22 +216,21 @@ export async function openValidation(
 
   if (itemsErr) throw itemsErr;
 
-  // Insert validation header. If a concurrent opener already inserted one
-  // (race between two warehouse users), the UNIQUE constraint will fire — we
-  // catch that specific code and fall back to fetching the existing row.
-  const { data: vRow, error: vErr } = await db
+  const authUserId = await requireAuthUserId();
+
+  // Insert header without RETURNING — avoids a second RLS SELECT check on insert
+  // (?select=id was failing after Phase 1E even when WITH CHECK passed).
+  const { error: vErr } = await db
     .from('warehouse_validations')
     .insert({
       pr1_id:                      pr1Id,
-      validator_id:                profile.id,
+      validator_id:                authUserId,
       validator_name_snapshot:     profile.full_name,
       validator_position_snapshot: profile.position,
       decision:                    null,
       notes:                       '',
       updated_at:                  new Date().toISOString(),
-    })
-    .select('*')
-    .single();
+    });
 
   if (vErr) {
     // Postgres unique_violation code = '23505'
@@ -241,9 +241,14 @@ export async function openValidation(
     throw vErr;
   }
 
+  const created = await fetchValidationByPR1Id(pr1Id);
+  if (!created) {
+    throw new Error('Failed to retrieve validation record after creation.');
+  }
+
   // Seed validation items
   const itemRows = (pr1Items ?? []).map((item: any) => ({
-    validation_id:      vRow.id,
+    validation_id:      created.id,
     pr1_item_id:        item.id,
     item_order:         item.item_order,
     item_code:          item.item_code,
@@ -264,7 +269,6 @@ export async function openValidation(
     if (itemInsertErr) throw itemInsertErr;
   }
 
-  // Fetch the completed record with items to return consistent shape
   const result = await fetchValidationByPR1Id(pr1Id);
   if (!result) throw new Error('Failed to retrieve validation record after creation.');
   return result;

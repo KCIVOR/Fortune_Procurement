@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { fetchGRNById } from '@/lib/grn';
+import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 import type { GRNWithItems } from '@/types/grn';
 import { format } from 'date-fns';
 
 export default function GRNPrintPage() {
   const { id } = useParams<{ id: string }>();
+  const { profile } = useAuth();
   const [grn, setGRN]     = useState<GRNWithItems | null>(null);
   const [error, setError] = useState('');
 
@@ -30,12 +33,13 @@ export default function GRNPrintPage() {
     <div className="p-8 text-pq-neutral-400 text-sm">Loading...</div>
   );
 
-  const receivedTotal = grn.items.reduce(
-    (s, i) => s + i.quantity_received * i.unit_price, 0
-  );
-  const orderedTotal = grn.items.reduce(
-    (s, i) => s + i.quantity_ordered * i.unit_price, 0
-  );
+  const canViewPrices = canViewCommercialPricing(profile);
+  const receivedTotal = canViewPrices
+    ? grn.items.reduce((s, i) => s + i.quantity_received * i.unit_price, 0)
+    : null;
+  const orderedTotal = canViewPrices
+    ? grn.items.reduce((s, i) => s + i.quantity_ordered * i.unit_price, 0)
+    : null;
 
   return (
     <>
@@ -141,8 +145,14 @@ export default function GRNPrintPage() {
               <th style={{ width: '70px', textAlign: 'right' }}>Ordered</th>
               <th style={{ width: '70px', textAlign: 'right' }}>Received</th>
               <th style={{ width: '60px', textAlign: 'right' }}>Rejected</th>
-              <th style={{ width: '80px', textAlign: 'right' }}>Unit Price</th>
-              <th style={{ width: '90px', textAlign: 'right' }}>Amount</th>
+              {canViewPrices ? (
+                <>
+                  <th style={{ width: '80px', textAlign: 'right' }}>Unit Price</th>
+                  <th style={{ width: '90px', textAlign: 'right' }}>Amount</th>
+                </>
+              ) : (
+                <th style={{ width: '90px', textAlign: 'center' }}>Pricing</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -174,36 +184,46 @@ export default function GRNPrintPage() {
                   <td style={{ textAlign: 'right', fontFamily: 'monospace', color: item.quantity_rejected > 0 ? '#dc2626' : '#94a3b8' }}>
                     {item.quantity_rejected > 0 ? item.quantity_rejected : '—'}
                   </td>
-                  <td style={{ textAlign: 'right', fontFamily: 'monospace', fontSize: '10px' }}>
-                    ₱{item.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: '600' }}>
-                    ₱{amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                  </td>
+                  {canViewPrices ? (
+                    <>
+                      <td style={{ textAlign: 'right', fontFamily: 'monospace', fontSize: '10px' }}>
+                        {formatCommercialAmount(item.unit_price, true)}
+                      </td>
+                      <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: '600' }}>
+                        {formatCommercialAmount(amount, true)}
+                      </td>
+                    </>
+                  ) : (
+                    <td style={{ textAlign: 'center', fontSize: '9px', color: '#94a3b8' }}>
+                      {formatCommercialAmount(0, false)}
+                    </td>
+                  )}
                 </tr>
               );
             })}
           </tbody>
-          <tfoot>
-            <tr style={{ backgroundColor: '#f1f5f9' }}>
-              <td colSpan={3} style={{ textAlign: 'right', fontWeight: '600', border: '1px solid #cbd5e1', fontSize: '9px', color: '#64748b' }}>
-                PO Total Value
-              </td>
-              <td colSpan={4} style={{ border: '1px solid #cbd5e1' }}></td>
-              <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: '600', border: '1px solid #cbd5e1', color: '#64748b' }}>
-                ₱{orderedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-              </td>
-            </tr>
-            <tr style={{ backgroundColor: '#0f172a' }}>
-              <td colSpan={3} style={{ textAlign: 'right', fontWeight: '700', border: '1px solid #334155', color: 'white', fontSize: '10px' }}>
-                TOTAL RECEIVED
-              </td>
-              <td colSpan={4} style={{ border: '1px solid #334155' }}></td>
-              <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: '700', border: '1px solid #334155', color: 'white', fontSize: '11px' }}>
-                ₱{receivedTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-              </td>
-            </tr>
-          </tfoot>
+          {canViewPrices && (
+            <tfoot>
+              <tr style={{ backgroundColor: '#f1f5f9' }}>
+                <td colSpan={3} style={{ textAlign: 'right', fontWeight: '600', border: '1px solid #cbd5e1', fontSize: '9px', color: '#64748b' }}>
+                  PO Total Value
+                </td>
+                <td colSpan={4} style={{ border: '1px solid #cbd5e1' }}></td>
+                <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: '600', border: '1px solid #cbd5e1', color: '#64748b' }}>
+                  {formatCommercialAmount(orderedTotal ?? 0, true)}
+                </td>
+              </tr>
+              <tr style={{ backgroundColor: '#0f172a' }}>
+                <td colSpan={3} style={{ textAlign: 'right', fontWeight: '700', border: '1px solid #334155', color: 'white', fontSize: '10px' }}>
+                  TOTAL RECEIVED
+                </td>
+                <td colSpan={4} style={{ border: '1px solid #334155' }}></td>
+                <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: '700', border: '1px solid #334155', color: 'white', fontSize: '11px' }}>
+                  {formatCommercialAmount(receivedTotal ?? 0, true)}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
 
         {/* Remarks */}

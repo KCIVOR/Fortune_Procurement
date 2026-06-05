@@ -68,7 +68,9 @@ export default function WarehouseValidationPage() {
         setValidation(valData);
         setFormValues(buildFormValues(valData));
       })
-      .catch(() => setError('Failed to load validation data.'))
+      .catch((err: { message?: string }) =>
+        setError(err?.message ?? 'Failed to load validation data.'),
+      )
       .finally(() => setLoading(false));
   }, [pr1Id, profile]);
 

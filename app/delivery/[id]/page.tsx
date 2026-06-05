@@ -19,6 +19,7 @@ import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
 import DetailInfoField from '@/components/shared/DetailInfoField';
+import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 
 const STATUS_CONFIG: Record<DeliveryStatus, {
   bg: string; text: string; border: string; icon: React.ElementType;
@@ -124,6 +125,7 @@ export default function DeliveryDetailPage() {
   const Icon   = cfg.icon;
   const isProcurement = profile?.role === 'procurement';
   const isWarehouse   = profile?.role === 'warehouse';
+  const canViewPrices = canViewCommercialPricing(profile);
   const canMarkDelivered = (isProcurement || isWarehouse) && delivery.status !== 'delivered' && delivery.status !== 'cancelled';
   const canFollowUp      = isProcurement && delivery.status !== 'delivered' && delivery.status !== 'cancelled';
   const canOpenGRN       = isWarehouse && delivery.status === 'delivered';
@@ -190,7 +192,7 @@ export default function DeliveryDetailPage() {
             )}
             <div className="text-right">
               <p className="text-lg font-bold text-pq-neutral-900 font-mono">
-                ₱{delivery.grand_total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                {formatCommercialAmount(delivery.grand_total, canViewPrices)}
               </p>
               <p className="text-xs text-pq-neutral-400">Grand Total</p>
             </div>

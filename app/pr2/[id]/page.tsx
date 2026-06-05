@@ -26,6 +26,7 @@ import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
 import DetailPrintButton from '@/components/shared/DetailPrintButton';
 import DetailTableCard from '@/components/shared/DetailTableCard';
+import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:                   'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
@@ -294,7 +295,8 @@ export default function PR2DetailPage() {
   );
 
   const displayItems = editing ? editItems : pr2.items.map(toEditableItem);
-  const grandTotal = calcPR2GrandTotal(displayItems);
+  const canViewPrices = canViewCommercialPricing(profile);
+  const grandTotal = canViewPrices ? calcPR2GrandTotal(displayItems) : null;
 
   const userCanActNow = !!(
     profile &&
@@ -508,7 +510,7 @@ export default function PR2DetailPage() {
           <div className="bg-pq-neutral-900 rounded-md p-5">
             <p className="text-xs font-bold text-pq-neutral-400 uppercase tracking-wide mb-1">Grand Total</p>
             <p className="text-2xl font-bold text-white">
-              ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              {formatCommercialAmount(grandTotal ?? 0, canViewPrices)}
             </p>
             <p className="text-xs text-pq-neutral-400 mt-1">{displayItems.length} item{displayItems.length !== 1 ? 's' : ''}</p>
           </div>
@@ -535,8 +537,14 @@ export default function PR2DetailPage() {
                     <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-20">In-Transit</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-20">To Buy</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500">Supplier</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-24">Unit Price</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-28">Total</th>
+                    {canViewPrices ? (
+                      <>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-24">Unit Price</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-28">Total</th>
+                      </>
+                    ) : (
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-pq-neutral-500 w-28">Pricing</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-pq-neutral-200">
@@ -627,27 +635,37 @@ export default function PR2DetailPage() {
                       <td className="px-4 py-3">
                         <p className="text-xs font-medium text-pq-neutral-900">{item.supplier_name_snapshot}</p>
                       </td>
-                      <td className="px-4 py-3 text-right text-sm text-pq-neutral-900">
-                        ₱{item.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-semibold text-pq-neutral-900">
-                          ₱{(item.unit_price * item.quantity_to_purchase).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                        </span>
-                      </td>
+                      {canViewPrices ? (
+                        <>
+                          <td className="px-4 py-3 text-right text-sm text-pq-neutral-900">
+                            {formatCommercialAmount(item.unit_price, true)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="text-sm font-semibold text-pq-neutral-900">
+                              {formatCommercialAmount(item.unit_price * item.quantity_to_purchase, true)}
+                            </span>
+                          </td>
+                        </>
+                      ) : (
+                        <td colSpan={2} className="px-4 py-3 text-center text-xs text-pq-neutral-400">
+                          {formatCommercialAmount(0, false)}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                    <td colSpan={9} className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">
-                      Grand Total
-                    </td>
-                    <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
-                      ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                </tfoot>
+                {canViewPrices && (
+                  <tfoot>
+                    <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
+                      <td colSpan={9} className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">
+                        Grand Total
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
+                        {formatCommercialAmount(grandTotal ?? 0, true)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </DetailTableCard>

@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { fetchPR2ById } from '@/lib/pr2';
+import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 import { fetchPR2ApprovalDetailByPR2Id } from '@/lib/pr2-approvals';
 import { labelForApprovalAction, latestActionForStep } from '@/lib/print-approval-signatures';
 import type { PR2WithItems } from '@/types/pr2';
@@ -85,6 +87,7 @@ function SignatureCell({ slot, width }: { slot: SignatureSlot; width: string }) 
 
 export default function PR2PrintPage() {
   const { id } = useParams<{ id: string }>();
+  const { profile } = useAuth();
   const [pr2, setPR2] = useState<PR2WithItems | null>(null);
   const [detail, setDetail] = useState<PR2ApprovalDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -137,10 +140,13 @@ export default function PR2PrintPage() {
     ...Array(Math.max(0, MINIMUM_ROWS - pr2.items.length)).fill(null),
   ];
 
-  const grandTotal = pr2.items.reduce(
-    (sum, item) => sum + Number(item.unit_price) * Number(item.quantity_to_purchase),
-    0
-  );
+  const canViewPrices = canViewCommercialPricing(profile);
+  const grandTotal = canViewPrices
+    ? pr2.items.reduce(
+        (sum, item) => sum + Number(item.unit_price) * Number(item.quantity_to_purchase),
+        0
+      )
+    : null;
 
   // Build signature slots from fetched detail, or fallback to static hints
   const phase1Slots: SignatureSlot[] = detail
@@ -278,8 +284,14 @@ export default function PR2PrintPage() {
               <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 5px', fontSize: 8, textAlign: 'center', width: 44 }}>In-Transit</th>
               <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 5px', fontSize: 8, textAlign: 'center', width: 44 }}>To Buy</th>
               <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 5px', fontSize: 8, textAlign: 'left', width: 90 }}>Supplier</th>
-              <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 5px', fontSize: 8, textAlign: 'right', width: 62 }}>Unit Price</th>
-              <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 5px', fontSize: 8, textAlign: 'right', width: 68 }}>Total</th>
+              {canViewPrices ? (
+                <>
+                  <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 5px', fontSize: 8, textAlign: 'right', width: 62 }}>Unit Price</th>
+                  <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 5px', fontSize: 8, textAlign: 'right', width: 68 }}>Total</th>
+                </>
+              ) : (
+                <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 5px', fontSize: 8, textAlign: 'center', width: 68 }}>Pricing</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -327,26 +339,36 @@ export default function PR2PrintPage() {
                   <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8 }}>
                     {item?.supplier_name_snapshot || ''}
                   </td>
-                  <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8, textAlign: 'right' }}>
-                    {item ? `₱${Number(item.unit_price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}` : ''}
-                  </td>
-                  <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8, textAlign: 'right', fontWeight: item ? 'bold' : 'normal' }}>
-                    {item ? `₱${total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}` : ''}
-                  </td>
+                  {canViewPrices ? (
+                    <>
+                      <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8, textAlign: 'right' }}>
+                        {item ? formatCommercialAmount(Number(item.unit_price), true) : ''}
+                      </td>
+                      <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8, textAlign: 'right', fontWeight: item ? 'bold' : 'normal' }}>
+                        {item ? formatCommercialAmount(total, true) : ''}
+                      </td>
+                    </>
+                  ) : (
+                    <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8, textAlign: 'center', color: '#94a3b8' }}>
+                      {item ? formatCommercialAmount(0, false) : ''}
+                    </td>
+                  )}
                 </tr>
               );
             })}
           </tbody>
-          <tfoot>
-            <tr style={{ backgroundColor: '#f0f0f0' }}>
-              <td colSpan={10} style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', fontSize: 9, textAlign: 'right', fontWeight: 'bold' }}>
-                Grand Total
-              </td>
-              <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', fontSize: 9, textAlign: 'right', fontWeight: 'bold' }}>
-                ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-              </td>
-            </tr>
-          </tfoot>
+          {canViewPrices && (
+            <tfoot>
+              <tr style={{ backgroundColor: '#f0f0f0' }}>
+                <td colSpan={10} style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', fontSize: 9, textAlign: 'right', fontWeight: 'bold' }}>
+                  Grand Total
+                </td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', fontSize: 9, textAlign: 'right', fontWeight: 'bold' }}>
+                  {formatCommercialAmount(grandTotal ?? 0, true)}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
 
         {/* ── Phase 1 Signature Block ── */}

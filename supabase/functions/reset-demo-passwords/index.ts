@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireAdminJwt } from '../_shared/admin-auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,6 +53,19 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    if (Deno.env.get('ALLOW_DEMO_PASSWORD_RESET') !== 'true') {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Demo password reset is disabled. Set ALLOW_DEMO_PASSWORD_RESET=true only in non-production environments.',
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    const auth = await requireAdminJwt(req, corsHeaders);
+    if (auth instanceof Response) return auth;
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey     = Deno.env.get('SUPABASE_ANON_KEY')!;

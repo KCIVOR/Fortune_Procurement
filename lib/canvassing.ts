@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { authFetch } from '@/lib/authenticated-fetch';
 import type { UserProfile } from '@/types/auth';
 import { createNotification, notifyByRole } from '@/lib/notifications';
 import type {
@@ -790,9 +791,8 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
       }));
 
     if (emailTargets.length > 0) {
-      await fetch('/api/rfq/send-email', {
+      await authFetch('/api/rfq/send-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rfqId,
           rfqNumber: rfq.rfq_number,

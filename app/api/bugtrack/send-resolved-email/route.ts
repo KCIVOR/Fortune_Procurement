@@ -1,19 +1,29 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { isAuthError, requireApiAuth } from '@/lib/api-auth';
 
-export async function POST(req: Request) {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export async function POST(req: NextRequest) {
   try {
+    const auth = await requireApiAuth(req, ['admin']);
+    if (isAuthError(auth)) return auth;
+
     const body = await req.json();
     const { email, bugId, bugTitle, reporterName } = body;
 
-    if (!email) {
-      console.log('No reporter email provided to send resolution notification.');
-      return NextResponse.json({ success: true, message: 'No notification sent.' });
+    if (
+      typeof email !== 'string' || !EMAIL_RE.test(email) ||
+      typeof bugId !== 'string' || !bugId.trim() ||
+      typeof bugTitle !== 'string' || !bugTitle.trim() ||
+      typeof reporterName !== 'string' || !reporterName.trim()
+    ) {
+      return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 });
     }
 
     const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
     const payload = {
-      sender: { name: "BugTrack System", email: "johndaveb892@gmail.com" },
+      sender: { name: 'BugTrack System', email: 'johndaveb892@gmail.com' },
       to: [{ email }],
       subject: `[RESOLVED] Bug Report: ${bugTitle}`,
       htmlContent: `
@@ -60,7 +70,7 @@ export async function POST(req: Request) {
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
+        accept: 'application/json',
         'api-key': BREVO_API_KEY || '',
         'content-type': 'application/json',
       },
@@ -68,14 +78,15 @@ export async function POST(req: Request) {
     });
 
     const data = await res.json();
-    
+
     if (!res.ok) {
       return NextResponse.json({ success: false, data }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, data });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Resolved Email sending error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

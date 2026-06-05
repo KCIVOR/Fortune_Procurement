@@ -100,7 +100,7 @@ function getActiveNavHref(pathname: string, items: NavItem[]): string | null {
 export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedChange }: SidebarProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
-  const { rules, rulesLoading } = useModuleVisibility(profile);
+  const { rules, rulesLoading, rulesFetchFailed } = useModuleVisibility(profile);
 
   const navItems = useMemo((): NavItem[] | null => {
     if (!profile) return null;
@@ -110,8 +110,11 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
       return resolveVisibleModules(base, [], profile.position_id);
     }
     if (rulesLoading || rules === null) return null;
+    if (rulesFetchFailed) {
+      return base.filter((item) => item.module_key === 'dashboard');
+    }
     return resolveVisibleModules(base, rules, profile.position_id);
-  }, [profile, rules, rulesLoading]);
+  }, [profile, rules, rulesLoading, rulesFetchFailed]);
 
   const activeHref = navItems !== null ? getActiveNavHref(pathname, navItems) : null;
   const toggleCollapse = () => onCollapsedChange?.(!isCollapsed);

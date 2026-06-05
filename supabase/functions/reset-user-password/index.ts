@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireAdminJwt } from '../_shared/admin-auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,7 +9,7 @@ const corsHeaders = {
 interface ResetPasswordRequest {
   user_id: string;
   new_password: string;
-  admin_id: string;
+  admin_id?: string;
 }
 
 interface ResetPasswordResponse {
@@ -34,37 +34,29 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const auth = await requireAdminJwt(req, corsHeaders);
+    if (auth instanceof Response) return auth;
+
     const body = await req.json() as ResetPasswordRequest;
 
-    const { user_id, new_password, admin_id } = body;
+    const { user_id, new_password } = body;
 
-    if (!user_id || !new_password || !admin_id) {
+    if (!user_id || !new_password) {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     if (new_password.length < 8) {
       return new Response(
         JSON.stringify({ success: false, error: 'Password must be at least 8 characters' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Server configuration error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const admin = auth.serviceClient;
+    const adminId = auth.userId;
 
     const { error: updateError } = await admin.auth.admin.updateUserById(user_id, {
       password: new_password,
@@ -73,7 +65,7 @@ Deno.serve(async (req: Request) => {
     if (updateError) {
       return new Response(
         JSON.stringify({ success: false, error: `Password update failed: ${updateError.message}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -81,7 +73,7 @@ Deno.serve(async (req: Request) => {
     const targetEmail = targetUser?.user?.email || 'unknown';
 
     await admin.from('audit_logs').insert({
-      actor_id: admin_id,
+      actor_id: adminId,
       action: 'USER_PASSWORD_RESET',
       document_type: 'USER',
       document_id: user_id,
@@ -102,7 +94,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     return new Response(
       JSON.stringify({ success: false, error: `Server error: ${String(err)}` }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
 });

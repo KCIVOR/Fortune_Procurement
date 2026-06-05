@@ -102,6 +102,27 @@ await saveAddedModulesForPosition(roleId, positionId, [
 ]);
 ```
 
+## Route access alignment (Phase 5 / D6)
+
+Module keys map to URL prefixes in `config/module-route-map.ts`. **Route enforcement** is in `config/route-access.ts` + `middleware.ts` (Phases 3–4).
+
+| Module key | Route prefix |
+|------------|----------------|
+| `goods_receipt` | `/grn` |
+| `canvassing_rfq` | `/rfq` |
+| `purchase_orders` | `/po` |
+| `purchase_requests` | `/pr2` |
+| `warehouse_validation` | `/warehouse` |
+| `my_requests` | `/pr1` |
+
+Hiding a module in admin UI does **not** block direct URLs — middleware does.
+
+### Fail-closed behavior (Phase 5)
+
+If visibility rules cannot be loaded, the sidebar and dashboards only show the **`dashboard`** module until the fetch succeeds. This replaces the previous fail-open behavior (empty rules = show all).
+
+---
+
 ## Important Notes
 
 1. **This only affects navigation visibility** - it does not change route permissions or RLS policies

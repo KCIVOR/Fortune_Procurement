@@ -6,6 +6,33 @@
 
 ---
 
+## Fortune Procurement — RBAC implementation track (Phases 0–7)
+
+**Plan:** [`docs/SECURITY_RBAC_IMPLEMENTATION_PLAN.md`](../SECURITY_RBAC_IMPLEMENTATION_PLAN.md)  
+**Last verified:** June 4, 2026
+
+| Phase | Focus | Status |
+|-------|--------|--------|
+| 0–1 | RLS migrations, baseline audit | ✅ |
+| 2 | API auth (`lib/api-auth.ts`), protected routes | ✅ |
+| 3 | `middleware.ts`, `config/route-access.ts` | ✅ |
+| 4 | `RequireRoles`, AppShell, print layouts | ✅ |
+| 5 | Fail-closed module visibility | ✅ |
+| 6 | Commercial price masking (D7), Director logistics (D2) | ✅ |
+| 7 | Test pages gated; route matrix documented | ✅ (7.3 build: run `npm run typecheck` / `npm run build` per deploy) |
+
+**Phase 7 artifacts:** [`docs/phase7-post-audit-snapshot.md`](../phase7-post-audit-snapshot.md)
+
+| Check | Result |
+|-------|--------|
+| `/test-dashboard`, `/test-filter` blocked in production | ✅ Pass (middleware + layout) |
+| Director → `/grn`, `/rfq`, `/pr2`, `/po`, `/delivery` | ✅ Pass (code) |
+| Warehouse GRN prices hidden | ✅ Pass (UI) |
+| `npm run typecheck` | ✅ Pass (June 4, 2026) |
+| `npm run build` | ✅ Pass (June 4, 2026) |
+
+---
+
 ## 🔴 Phase 1: Critical Fixes (Week 1)
 
 **Target:** June 1, 2026  

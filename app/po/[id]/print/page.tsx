@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { fetchPOById, calcPOGrandTotal } from '@/lib/po';
+import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 import { fetchPOApprovalDetailByPOId } from '@/lib/po-approvals';
 import { labelForApprovalAction, latestActionForStep } from '@/lib/print-approval-signatures';
 import type { POWithItems, POApprovalDetail, POApprovalAction, POReceipt } from '@/types/po';
@@ -130,6 +132,7 @@ function POReceivedSignatureCell({
 
 export default function POPrintPage() {
   const { id } = useParams<{ id: string }>();
+  const { profile } = useAuth();
   const [po, setPO] = useState<POWithItems | null>(null);
   const [approvalDetail, setApprovalDetail] = useState<POApprovalDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -160,7 +163,8 @@ export default function POPrintPage() {
     );
   }
 
-  const grandTotal = calcPOGrandTotal(po.items);
+  const canViewPrices = canViewCommercialPricing(profile);
+  const grandTotal = canViewPrices ? calcPOGrandTotal(po.items) : null;
 
   const actions = approvalDetail?.actions ?? [];
   const preparedAction = latestActionForStep(actions, 1);
@@ -305,8 +309,14 @@ export default function POPrintPage() {
               <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'left', fontSize: 8, fontWeight: 'bold' }}>Description</th>
               <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'center', width: 40, fontSize: 8, fontWeight: 'bold' }}>Unit</th>
               <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'right', width: 50, fontSize: 8, fontWeight: 'bold' }}>Qty</th>
-              <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'right', width: 80, fontSize: 8, fontWeight: 'bold' }}>Unit Price</th>
-              <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'right', width: 90, fontSize: 8, fontWeight: 'bold' }}>Amount</th>
+              {canViewPrices ? (
+                <>
+                  <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'right', width: 80, fontSize: 8, fontWeight: 'bold' }}>Unit Price</th>
+                  <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'right', width: 90, fontSize: 8, fontWeight: 'bold' }}>Amount</th>
+                </>
+              ) : (
+                <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'center', width: 90, fontSize: 8, fontWeight: 'bold' }}>Pricing</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -329,12 +339,20 @@ export default function POPrintPage() {
                 <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right', fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }}>
                   {Number(item.quantity_to_purchase).toLocaleString()}
                 </td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right', fontSize: 8 }}>
-                  ₱{Number(item.unit_price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                </td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right', fontSize: 9, fontWeight: 'bold' }}>
-                  ₱{(Number(item.unit_price) * Number(item.quantity_to_purchase)).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                </td>
+                {canViewPrices ? (
+                  <>
+                    <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right', fontSize: 8 }}>
+                      {formatCommercialAmount(Number(item.unit_price), true)}
+                    </td>
+                    <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right', fontSize: 9, fontWeight: 'bold' }}>
+                      {formatCommercialAmount(Number(item.unit_price) * Number(item.quantity_to_purchase), true)}
+                    </td>
+                  </>
+                ) : (
+                  <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'center', fontSize: 8, color: '#94a3b8' }}>
+                    {formatCommercialAmount(0, false)}
+                  </td>
+                )}
               </tr>
             ))}
             {/* Blank rows to fill space */}
@@ -350,16 +368,18 @@ export default function POPrintPage() {
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={5} style={{ border: '1px solid #ccc', padding: '5px 8px', textAlign: 'right', fontSize: 9, fontWeight: 'bold' }}>
-                GRAND TOTAL
-              </td>
-              <td colSpan={2} style={{ border: '1px solid #ccc', padding: '5px 8px', textAlign: 'right', fontSize: 11, fontWeight: 'bold', background: '#f0f4f8' }}>
-                ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-              </td>
-            </tr>
-          </tfoot>
+          {canViewPrices && (
+            <tfoot>
+              <tr>
+                <td colSpan={5} style={{ border: '1px solid #ccc', padding: '5px 8px', textAlign: 'right', fontSize: 9, fontWeight: 'bold' }}>
+                  GRAND TOTAL
+                </td>
+                <td colSpan={2} style={{ border: '1px solid #ccc', padding: '5px 8px', textAlign: 'right', fontSize: 11, fontWeight: 'bold', background: '#f0f4f8' }}>
+                  {formatCommercialAmount(grandTotal ?? 0, true)}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
 
         {/* Remarks */}

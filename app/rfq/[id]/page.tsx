@@ -32,6 +32,8 @@ import AssignSuppliersModal from '@/components/canvassing/AssignSuppliersModal';
 import { toast } from 'sonner';
 import { formatRfqForViber } from '@/lib/viber-utils';
 import { db } from '@/lib/supabase';
+import { authFetch } from '@/lib/authenticated-fetch';
+import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 
 
 
@@ -115,6 +117,7 @@ export default function RfqDetailPage() {
   const isOpen   = rfq.status === 'open';
   const isDraft  = rfq.status === 'draft';
   const isClosed = rfq.status === 'closed';
+  const canViewPrices = canViewCommercialPricing(profile);
 
   const assignedIds = new Set(suppliers.map(s => s.supplier_id));
   const availableSuppliers = allSuppliers.filter(s => !assignedIds.has(s.id));
@@ -301,9 +304,8 @@ export default function RfqDetailPage() {
         return;
       }
 
-      const res = await fetch('/api/rfq/send-email', {
+      const res = await authFetch('/api/rfq/send-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rfqId: detail.rfq.id,
           rfqNumber: detail.rfq.rfq_number,
@@ -700,6 +702,7 @@ export default function RfqDetailPage() {
                         row={row}
                         suppliers={suppliers}
                         canSelect={isOpen && !isClosed}
+                        canViewPrices={canViewPrices}
                         onSelect={handleSelectWinner}
                       />
                     ))}
@@ -782,11 +785,13 @@ function MatrixRow({
   row,
   suppliers,
   canSelect,
+  canViewPrices,
   onSelect,
 }: {
   row: QuoteMatrixRow;
   suppliers: { id: string; supplier_name_snapshot: string; status: string }[];
   canSelect: boolean;
+  canViewPrices: boolean;
   onSelect: (pr1ItemId: string, rfqSupplierId: string) => void;
 }) {
   return (
@@ -977,13 +982,15 @@ function MatrixRow({
                       : 'text-pq-neutral-900'
                   }`}
                 >
-                  ₱{quote.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                  <span className="text-xs font-normal text-pq-neutral-400">
-                    {' '}/ {row.item.unit_of_measure}
-                  </span>
+                  {formatCommercialAmount(quote.unit_price, canViewPrices)}
+                  {canViewPrices && (
+                    <span className="text-xs font-normal text-pq-neutral-400">
+                      {' '}/ {row.item.unit_of_measure}
+                    </span>
+                  )}
                 </p>
                 <p className="text-xs text-pq-neutral-400">
-                  Total: ₱{quote.total_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                  Total: {formatCommercialAmount(quote.total_price, canViewPrices)}
                 </p>
                 <p className="text-xs text-pq-neutral-400">Lead: {quote.lead_time_days}d</p>
                 {quote.remarks && (

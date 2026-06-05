@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { requireAuthUserId } from '@/lib/auth-session';
 import type { UserProfile } from '@/types/auth';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import type {
@@ -486,9 +487,10 @@ export async function saveDraftPR1(
   profile: UserProfile,
   existingId?: string
 ): Promise<string> {
+  const authUserId = await requireAuthUserId();
   const header = {
     pr1_number:                  values.pr1_number.trim(),
-    requisitioner_id:            profile.id,
+    requisitioner_id:            authUserId,
     requisitioner_name_snapshot: profile.full_name,
     department_id:               profile.department_id,
     department_name_snapshot:    profile.department,
@@ -531,6 +533,7 @@ export async function submitPR1(
   existingId?: string
 ): Promise<string> {
   const now = new Date().toISOString();
+  const authUserId = await requireAuthUserId();
 
   let pr1Id: string;
 
@@ -542,7 +545,7 @@ export async function submitPR1(
       .from('pr1_requests')
       .insert({
         pr1_number:                  values.pr1_number.trim(),
-        requisitioner_id:            profile.id,
+        requisitioner_id:            authUserId,
         requisitioner_name_snapshot: profile.full_name,
         department_id:               profile.department_id,
         department_name_snapshot:    profile.department,
@@ -569,7 +572,7 @@ export async function submitPR1(
       date_required:                values.date_required,
       status:                       'pending_warehouse',
       submitted_at:                 now,
-      prepared_by_id:               profile.id,
+      prepared_by_id:               authUserId,
       prepared_by_name_snapshot:    profile.full_name,
       prepared_by_position_snapshot: profile.position,
       prepared_at:                  now,

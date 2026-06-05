@@ -1,14 +1,43 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { isAuthError, requireApiAuth } from '@/lib/api-auth';
 
-export async function POST(req: Request) {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidRfqEmailBody(body: unknown): body is {
+  rfqNumber: string;
+  supplierEmails: string[];
+  actionUrls: string[];
+  rfqId?: string;
+  department?: string;
+  purpose?: string;
+  deadline?: string | null;
+} {
+  if (!body || typeof body !== 'object') return false;
+  const b = body as Record<string, unknown>;
+  if (typeof b.rfqNumber !== 'string' || !b.rfqNumber.trim()) return false;
+  if (!Array.isArray(b.supplierEmails) || !Array.isArray(b.actionUrls)) return false;
+  if (b.supplierEmails.length !== b.actionUrls.length) return false;
+  if (!b.supplierEmails.every((e) => typeof e === 'string' && EMAIL_RE.test(e))) return false;
+  if (!b.actionUrls.every((u) => typeof u === 'string' && u.startsWith('/'))) return false;
+  return true;
+}
+
+export async function POST(req: NextRequest) {
   try {
+    const auth = await requireApiAuth(req, ['procurement']);
+    if (isAuthError(auth)) return auth;
+
     const body = await req.json();
-    const { rfqId, rfqNumber, department, purpose, deadline, supplierEmails, actionUrls } = body;
+    if (!isValidRfqEmailBody(body)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid request body' },
+        { status: 400 },
+      );
+    }
 
-    console.log('--- Brevo API (Direct) Triggered ---');
-    console.log('RFQ Number:', rfqNumber);
+    const { rfqNumber, department, purpose, deadline, supplierEmails, actionUrls } = body;
 
-    if (!supplierEmails || supplierEmails.length === 0) {
+    if (supplierEmails.length === 0) {
       return NextResponse.json({ success: true, message: 'No suppliers to notify.' });
     }
 
@@ -17,7 +46,7 @@ export async function POST(req: Request) {
     const results = await Promise.all(
       supplierEmails.map(async (email: string, idx: number) => {
         const payload = {
-          sender: { name: "Fortune Procurement", email: "johndaveb892@gmail.com" },
+          sender: { name: 'Fortune Procurement', email: 'johndaveb892@gmail.com' },
           to: [{ email }],
           subject: `RFQ Issued: ${rfqNumber}`,
           htmlContent: `
@@ -38,11 +67,11 @@ export async function POST(req: Request) {
                     </tr>
                     <tr>
                       <td style="padding: 4px 0; color: #64748b;">Department:</td>
-                      <td style="padding: 4px 0;">${department}</td>
+                      <td style="padding: 4px 0;">${department ?? ''}</td>
                     </tr>
                     <tr>
                       <td style="padding: 4px 0; color: #64748b;">Purpose:</td>
-                      <td style="padding: 4px 0;">${purpose}</td>
+                      <td style="padding: 4px 0;">${purpose ?? ''}</td>
                     </tr>
                     ${deadline ? `
                     <tr>
@@ -74,7 +103,7 @@ export async function POST(req: Request) {
         const res = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
-            'accept': 'application/json',
+            accept: 'application/json',
             'api-key': BREVO_API_KEY || '',
             'content-type': 'application/json',
           },
@@ -82,25 +111,25 @@ export async function POST(req: Request) {
         });
 
         const data = await res.json();
-        console.log(`Brevo response for ${email}:`, data);
-        
-        return { 
-          email, 
-          success: res.ok, 
-          data, 
-          error: !res.ok ? data : null 
+
+        return {
+          email,
+          success: res.ok,
+          data,
+          error: !res.ok ? data : null,
         };
-      })
+      }),
     );
 
-    const hasError = results.some(r => !r.success);
+    const hasError = results.some((r) => !r.success);
     if (hasError) {
       return NextResponse.json({ success: false, results }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, results });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Email sending error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

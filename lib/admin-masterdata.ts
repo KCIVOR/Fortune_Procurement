@@ -66,7 +66,7 @@ export async function listPositions(): Promise<AdminPosition[]> {
 export async function listDepartments(): Promise<AdminDepartment[]> {
   const { data, error } = await supabase
     .from('departments')
-    .select('id, name, code, created_at')
+    .select('id, name, code, active, created_at')
     .order('name', { ascending: true });
 
   if (error) {

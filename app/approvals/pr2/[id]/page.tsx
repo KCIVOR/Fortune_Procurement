@@ -29,6 +29,12 @@ import DetailInfoGrid from '@/components/shared/DetailInfoGrid';
 import DetailWideInfoRow from '@/components/shared/DetailWideInfoRow';
 import DetailInfoField from '@/components/shared/DetailInfoField';
 import {
+  canViewCommercialPricing,
+  canViewCanvassPricing,
+  formatCommercialAmount,
+  PRICE_HIDDEN_LABEL,
+} from '@/lib/price-visibility';
+import {
   User, Building2, FileText, CalendarDays, Clock,
   CircleCheck as CheckCircle2, Circle as XCircle, RotateCcw,
   Package, TriangleAlert as AlertTriangle, CheckCheck, Lock,
@@ -168,8 +174,8 @@ export default function PR2ApprovalDetailPage() {
   const isFullyClosed = detail.active_instance_status !== 'active' || !detail.active_instance_id;
   const isClosed = isFullyClosed || detail.active_instance_id !== instanceId;
 
-  const canViewPrice = profile?.role === 'procurement' || (profile?.role === 'approver' && profile?.position === 'Director');
-  const canViewCanvass = profile?.role === 'procurement' || (profile?.role === 'approver' && profile?.position === 'Director');
+  const canViewPrice = canViewCommercialPricing(profile);
+  const canViewCanvass = canViewCanvassPricing(profile);
   const grandTotal = canViewPrice
     ? detail.items.reduce((sum, i) => sum + i.unit_price * i.quantity_to_purchase, 0)
     : null;
@@ -279,7 +285,7 @@ export default function PR2ApprovalDetailPage() {
             {canViewPrice && (
               <div className="flex items-center gap-1.5 text-xs font-semibold text-pq-neutral-900">
                 <DollarSign className="w-3.5 h-3.5 text-pq-neutral-400" />
-                Grand Total: ₱{grandTotal?.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                Grand Total: {formatCommercialAmount(grandTotal ?? 0, true)}
               </div>
             )}
           </div>
@@ -346,11 +352,11 @@ export default function PR2ApprovalDetailPage() {
                         <td className="px-4 py-3 text-xs text-pq-neutral-900">{item.supplier_name_snapshot}</td>
                         {canViewPrice ? (
                           <>
-                            <td className="px-4 py-3 text-right text-xs text-pq-neutral-500">₱{item.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
-                            <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">₱{(item.unit_price * item.quantity_to_purchase).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
+                            <td className="px-4 py-3 text-right text-xs text-pq-neutral-500">{formatCommercialAmount(item.unit_price, true)}</td>
+                            <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">{formatCommercialAmount(item.unit_price * item.quantity_to_purchase, true)}</td>
                           </>
                         ) : (
-                          <td colSpan={2} className="px-4 py-3 text-center text-xs text-pq-neutral-400">Price Hidden</td>
+                          <td colSpan={2} className="px-4 py-3 text-center text-xs text-pq-neutral-400">{PRICE_HIDDEN_LABEL}</td>
                         )}
                       </tr>
                       {canViewCanvass && quotes.length > 0 && (
@@ -365,7 +371,7 @@ export default function PR2ApprovalDetailPage() {
                                   {quotes.map((q, idx) => (
                                     <div key={idx} className="text-pq-neutral-500">
                                       <div className="font-mono">{q.supplier}</div>
-                                      <div className="text-pq-neutral-900 font-semibold">₱{q.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</div>
+                                      <div className="text-pq-neutral-900 font-semibold">{formatCommercialAmount(q.unit_price, true)}</div>
                                       <div className="text-pq-neutral-400 text-xs">{q.lead_time}d</div>
                                     </div>
                                   ))}
@@ -384,7 +390,7 @@ export default function PR2ApprovalDetailPage() {
                   <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
                     <td colSpan={10} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
                     <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
-                      ₱{grandTotal?.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                      {formatCommercialAmount(grandTotal ?? 0, true)}
                     </td>
                   </tr>
                 ) : (

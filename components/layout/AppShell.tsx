@@ -3,10 +3,12 @@
 import { useEffect, useState, createContext, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useRequireRoles } from '@/hooks/use-require-roles';
 import { cn } from '@/lib/utils';
 import Sidebar from './Sidebar';
 import TopHeader from './TopHeader';
 import LoadingState from '@/components/shared/LoadingState';
+import AccessDenied from '@/components/layout/AccessDenied';
 
 // ─── Sidebar Context ──────────────────────────────────────────────────────────
 // Exposes sidebar collapsed state to child components (e.g., messages page)
@@ -30,6 +32,7 @@ interface AppShellProps {
 
 export default function AppShell({ children, title }: AppShellProps) {
   const { session, loading } = useAuth();
+  const { pending: rolePending, allowed: roleAllowed } = useRequireRoles();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -40,7 +43,7 @@ export default function AppShell({ children, title }: AppShellProps) {
     }
   }, [loading, session, router]);
 
-  if (loading) {
+  if (loading || rolePending) {
     return (
       <div className="min-h-screen bg-pq-neutral-50 flex items-center justify-center">
         <LoadingState message="Loading your workspace..." />
@@ -49,6 +52,14 @@ export default function AppShell({ children, title }: AppShellProps) {
   }
 
   if (!session) return null;
+
+  if (!roleAllowed) {
+    return (
+      <div className="min-h-screen bg-pq-neutral-50 flex items-center justify-center">
+        <AccessDenied />
+      </div>
+    );
+  }
 
   return (
     <SidebarContext.Provider value={{ isCollapsed: sidebarCollapsed }}>

@@ -21,6 +21,7 @@ import {
   Loader as Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 
 export default function SubstituteReviewPage() {
   const { pr1Id } = useParams<{ pr1Id: string }>();
@@ -139,6 +140,7 @@ function SubstituteCard({
   const [error, setError]           = useState('');
 
   const decided = substitute.decision !== null;
+  const canViewPrices = canViewCommercialPricing(profile);
 
   const decide = async (decision: 'accepted' | 'rejected') => {
     if (!profile) return;
@@ -216,7 +218,7 @@ function SubstituteCard({
             <div>
               <p className="text-xs text-pq-neutral-500">Unit price</p>
               <p className="text-lg font-bold text-pq-neutral-900">
-                ₱{substitute.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                {formatCommercialAmount(substitute.unit_price, canViewPrices)}
               </p>
             </div>
             <div>

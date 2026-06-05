@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireAdminJwt } from '../_shared/admin-auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,6 +49,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const auth = await requireAdminJwt(req, corsHeaders);
+    if (auth instanceof Response) return auth;
+
     const body = await req.json() as CreateUserRequest;
 
     const { email, full_name, role_id, department_id, position_id, password } = body;
@@ -56,27 +59,13 @@ Deno.serve(async (req: Request) => {
     if (!email || !full_name || !role_id || !department_id || !position_id) {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Server configuration error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
+    const admin = auth.serviceClient;
     const tempPassword = password || generateTempPassword();
 
-    // Create auth user
     const { data: authData, error: authError } = await admin.auth.admin.createUser({
       email,
       password: tempPassword,
@@ -86,13 +75,12 @@ Deno.serve(async (req: Request) => {
     if (authError || !authData.user) {
       return new Response(
         JSON.stringify({ success: false, error: `Auth creation failed: ${authError?.message || 'Unknown error'}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
     const userId = authData.user.id;
 
-    // Insert profile
     const { error: profileError } = await admin.from('profiles').insert({
       id: userId,
       full_name,
@@ -103,11 +91,10 @@ Deno.serve(async (req: Request) => {
     });
 
     if (profileError) {
-      // Clean up: delete the auth user if profile creation fails
       await admin.auth.admin.deleteUser(userId);
       return new Response(
         JSON.stringify({ success: false, error: `Profile creation failed: ${profileError.message}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
@@ -124,7 +111,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     return new Response(
       JSON.stringify({ success: false, error: `Server error: ${String(err)}` }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
 });

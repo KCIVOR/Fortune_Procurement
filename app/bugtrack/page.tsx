@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/context/AuthContext';
 import { getBugReports, createBugReport, type BugReport } from '@/lib/bugtrack';
+import { authFetch } from '@/lib/authenticated-fetch';
 import { format } from 'date-fns';
 import {
   Bug,
@@ -432,9 +433,8 @@ function BugReportForm({ profile }: { profile: any }) {
       });
       
       // Trigger email notification
-      await fetch('/api/bugtrack/send-email', {
+      await authFetch('/api/bugtrack/send-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bugTitle: formData.title,
           bugDescription: formData.description,

@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createBugReport } from '@/lib/bugtrack';
+import { authFetch } from '@/lib/authenticated-fetch';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -57,9 +58,8 @@ export default function ReportBugModal({ open, onOpenChange, onSuccess }: Report
       });
       
       // Trigger email notification
-      await fetch('/api/bugtrack/send-email', {
+      await authFetch('/api/bugtrack/send-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bugTitle: formData.title,
           bugDescription: formData.description,

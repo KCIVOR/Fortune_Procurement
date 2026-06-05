@@ -7,6 +7,7 @@ import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import StatusChip from '@/components/shared/StatusChip';
 import { useAuth } from '@/context/AuthContext';
 import { getBugReport, updateBugReport, generateAIReadyPrompt, type BugReport } from '@/lib/bugtrack';
+import { authFetch } from '@/lib/authenticated-fetch';
 import { format } from 'date-fns';
 import {
   ArrowLeft,
@@ -74,9 +75,8 @@ export default function BugDetailPage() {
       
       // Dispatch email if resolved
       if (newStatus === 'resolved' && bug.reporter?.email) {
-        await fetch('/api/bugtrack/send-resolved-email', {
+        await authFetch('/api/bugtrack/send-resolved-email', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: bug.reporter.email,
             bugId: bug.id,
