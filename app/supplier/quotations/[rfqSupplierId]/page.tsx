@@ -1109,7 +1109,7 @@ export default function SupplierQuotationPage() {
                   {!hideQuotePricing && (
                     <>
                   {/* Alternative item toggle — available for all quoted response modes */}
-                  {!isReadOnly && mode !== 'no_quote' && (
+                  {!isReadOnly && (
                     <label className="flex items-center gap-3 cursor-pointer">
                       <div className="relative">
                         <input
