@@ -1216,6 +1216,43 @@ export async function saveSubstituteDecision(
     document_id:   quoteId,
     payload:       { pr1_id: pr1Id, notes },
   });
+
+  try {
+    const { data: quote } = await db
+      .from('rfq_item_quotes')
+      .select('quoted_description, rfq_supplier_id')
+      .eq('id', quoteId)
+      .maybeSingle();
+
+    const [{ data: pr1 }, { data: rs }] = await Promise.all([
+      db.from('pr1_requests').select('pr1_number').eq('id', pr1Id).maybeSingle(),
+      quote?.rfq_supplier_id
+        ? db
+            .from('rfq_suppliers')
+            .select('rfq_id, supplier_name_snapshot')
+            .eq('id', quote.rfq_supplier_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    if (!rs?.rfq_id) return;
+
+    const pr1Label     = pr1?.pr1_number ?? 'PR1';
+    const supplierName = rs.supplier_name_snapshot ?? 'A supplier';
+    const itemDesc     = (quote?.quoted_description ?? 'substitute item').trim();
+    const accepted     = decision === 'accepted';
+
+    await notifyByRole('procurement', {
+      title:         accepted ? 'Substitute Item Accepted' : 'Substitute Item Rejected',
+      body:          `Requestor ${accepted ? 'accepted' : 'rejected'} ${supplierName}'s substitute offer "${itemDesc}" for ${pr1Label}.`,
+      type:          'info',
+      document_type: 'rfq',
+      document_id:   rs.rfq_id,
+      action_url:    `/rfq/${rs.rfq_id}`,
+    });
+  } catch {
+    // Notifications are best-effort; do not fail substitute decision
+  }
 }
 
 export async function fetchPendingSubstituteCount(requisitionerId: string): Promise<number> {
@@ -1533,36 +1570,84 @@ export async function submitSupplierQuotation(
 
   if (statusErr) throw statusErr;
 
+  const alternativeCount = quotes.filter(
+    q => q.response_status !== 'no_quote' && q.is_alternative
+  ).length;
+
   try {
     const { data: rs } = await db
       .from('rfq_suppliers')
-      .select('rfq_id')
+      .select('rfq_id, supplier_name_snapshot')
       .eq('id', rfqSupplierId)
       .maybeSingle();
 
-    if (rs?.rfq_id) {
-      const { data: rfq } = await db
-        .from('rfq_batches')
-        .select('id, rfq_number, pr1_id')
-        .eq('id', rs.rfq_id)
-        .maybeSingle();
+    if (!rs?.rfq_id) return;
 
-      if (rfq?.pr1_id) {
-        const { data: pr1 } = await db
-          .from('pr1_requests')
-          .select('pr1_number')
-          .eq('id', rfq.pr1_id)
-          .maybeSingle();
+    const { data: rfq } = await db
+      .from('rfq_batches')
+      .select('id, rfq_number, pr1_id')
+      .eq('id', rs.rfq_id)
+      .maybeSingle();
 
-        await notifyByRole('procurement', {
-          title:         'Supplier Quotation Received',
-          body:          `A supplier submitted a quotation for ${pr1?.pr1_number ?? 'a request'}.`,
-          type:          'info',
+    if (!rfq?.pr1_id) return;
+
+    const { data: pr1 } = await db
+      .from('pr1_requests')
+      .select('pr1_number, requisitioner_id')
+      .eq('id', rfq.pr1_id)
+      .maybeSingle();
+
+    const pr1Label     = pr1?.pr1_number ?? 'a request';
+    const supplierName = rs.supplier_name_snapshot ?? 'A supplier';
+
+    await notifyByRole('procurement', {
+      title:         'Supplier Quotation Received',
+      body:          `${supplierName} submitted a quotation for ${pr1Label}.`,
+      type:          'info',
+      document_type: 'rfq',
+      document_id:   rfq.id,
+      action_url:    `/rfq/${rfq.id}`,
+    });
+
+    if (alternativeCount > 0) {
+      const altLabel = `${alternativeCount} substitute item${alternativeCount !== 1 ? 's' : ''}`;
+
+      if (pr1?.requisitioner_id) {
+        const { data: existing } = await db
+          .from('notifications')
+          .select('id')
+          .eq('user_id', pr1.requisitioner_id)
+          .eq('document_id', rfq.pr1_id)
+          .eq('type', 'action_required')
+          .eq('read', false)
+          .ilike('title', 'Substitute Item%')
+          .limit(1);
+
+        if (!existing?.length) {
+          await createNotification({
+            user_id:       pr1.requisitioner_id,
+            title:         'Substitute Item Review Required',
+            body:          `${supplierName} offered ${altLabel} for ${pr1Label}. Review and decide before procurement can award.`,
+            type:          'action_required',
+            document_type: 'pr1',
+            document_id:   rfq.pr1_id,
+            action_url:    `/substitutes/${rfq.pr1_id}`,
+          });
+        }
+      }
+
+      await notifyByRole(
+        'procurement',
+        {
+          title:         'Substitute Items Pending Requestor Review',
+          body:          `${supplierName} submitted ${altLabel} for ${pr1Label}. Award is blocked until the requestor decides.`,
+          type:          'action_required',
           document_type: 'rfq',
           document_id:   rfq.id,
           action_url:    `/rfq/${rfq.id}`,
-        });
-      }
+        },
+        { dedupeUnreadForDocument: true }
+      );
     }
   } catch {
     // Notifications are best-effort; do not fail quotation submit
