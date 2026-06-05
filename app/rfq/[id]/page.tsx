@@ -15,6 +15,7 @@ import {
   issueRfq,
   closeRfq,
   saveItemSelection,
+  clearItemSelection,
 } from '@/lib/canvassing';
 import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
 import type { RfqDetailView, QuoteMatrixRow, CanvassSupplierCandidate } from '@/types/canvassing';
@@ -346,6 +347,14 @@ export default function RfqDetailPage() {
     if (!profile || isClosed) return;
     setActionError('');
     try {
+      const matrixRow = matrix.find(r => r.item.id === pr1ItemId);
+      if (matrixRow?.selected_rfq_supplier_id === rfqSupplierId) {
+        await clearItemSelection(rfq.id, pr1ItemId, profile);
+        setLoading(true);
+        load();
+        return;
+      }
+
       const result = await saveItemSelection(rfq.id, pr1ItemId, rfqSupplierId, '', profile);
       if (result.ok) {
         setLoading(true);
@@ -355,8 +364,7 @@ export default function RfqDetailPage() {
       // Phase 7 (Raw Mats): unverified/manual quote on a raw-mats line —
       // open the justification modal. The same call is replayed once the
       // modal submits with a valid justification.
-      const matrixRow  = matrix.find(r => r.item.id === pr1ItemId);
-      const supplier   = matrixRow?.quotes.find(q => q.rfq_supplier_id === rfqSupplierId);
+      const supplier = matrixRow?.quotes.find(q => q.rfq_supplier_id === rfqSupplierId);
       setJustificationCtx({
         ...result.context,
         itemDescription: matrixRow?.item.description ?? '',
@@ -1019,12 +1027,12 @@ function MatrixRow({
 
                   return (
                     <button
-                      onClick={() => !awardBlocked && onSelect(row.item.id, supplier.id)}
-                      disabled={awardBlocked}
-                      title={tooltip}
+                      onClick={() => (isSelected || !awardBlocked) && onSelect(row.item.id, supplier.id)}
+                      disabled={!isSelected && awardBlocked}
+                      title={isSelected ? 'Click to clear this selection' : tooltip}
                       className={`mt-1.5 inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md transition ${
                         isSelected
-                          ? 'bg-pq-success-600 text-white'
+                          ? 'bg-pq-success-600 text-white hover:bg-pq-success-700'
                           : awardBlocked
                             ? 'bg-pq-neutral-50 text-pq-neutral-400 cursor-not-allowed'
                             : needsJust

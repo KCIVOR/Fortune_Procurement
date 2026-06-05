@@ -1040,6 +1040,41 @@ export async function saveItemSelection(
   return { ok: true };
 }
 
+/** Clear procurement's winner selection for one RFQ line (RFQ must still be open). */
+export async function clearItemSelection(
+  rfqId: string,
+  pr1ItemId: string,
+  profile: UserProfile,
+): Promise<void> {
+  const { data: rfq, error: rfqErr } = await db
+    .from('rfq_batches')
+    .select('status')
+    .eq('id', rfqId)
+    .maybeSingle();
+
+  if (rfqErr) throw rfqErr;
+  if (!rfq) throw new Error('RFQ not found.');
+  if (rfq.status !== 'open') {
+    throw new Error('Cannot change selection — this RFQ is no longer open.');
+  }
+
+  const { error } = await db
+    .from('supplier_item_selections')
+    .delete()
+    .eq('rfq_id', rfqId)
+    .eq('pr1_item_id', pr1ItemId);
+
+  if (error) throw error;
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'RFQ_SELECTION_CLEARED',
+    document_type: 'RFQ',
+    document_id:   rfqId,
+    payload:       { pr1_item_id: pr1ItemId },
+  });
+}
+
 // ─── Substitute item review (requestor) ─────────────────────────────────────
 
 /**
