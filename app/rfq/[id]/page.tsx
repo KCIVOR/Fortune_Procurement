@@ -679,15 +679,21 @@ export default function RfqDetailPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="text-sm w-max min-w-full table-fixed">
+                  <colgroup>
+                    <col className="w-[200px]" />
+                    {suppliers.map(s => (
+                      <col key={s.id} className="w-[220px]" />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr className="bg-pq-neutral-50 border-b border-pq-neutral-200">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-pq-neutral-500 w-1/3">Item</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500">Item</th>
                       {suppliers.map(s => (
-                        <th key={s.id} className="text-left px-4 py-3 text-xs font-semibold text-pq-neutral-500 min-w-[160px]">
-                          <div className="flex items-center gap-1.5">
-                            {s.supplier_name_snapshot}
-                            <span className={`text-xs border rounded-full px-1.5 py-0.5 ${SUPPLIER_STATUS_COLOR[s.status]}`}>
+                        <th key={s.id} className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 border-l border-pq-neutral-200">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="truncate">{s.supplier_name_snapshot}</span>
+                            <span className={`shrink-0 text-xs border rounded-full px-1.5 py-0.5 ${SUPPLIER_STATUS_COLOR[s.status]}`}>
                               {s.status === 'submitted' ? '✓' : '…'}
                             </span>
                           </div>
@@ -796,9 +802,9 @@ function MatrixRow({
 }) {
   return (
     <tr className="hover:bg-pq-neutral-50 transition">
-      <td className="px-4 py-3 align-top">
+      <td className="px-3 py-2.5 align-top">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-medium text-pq-neutral-900 text-xs">{row.item.description}</p>
+          <p className="font-medium text-pq-neutral-900 text-xs leading-snug">{row.item.description}</p>
           <RawMaterialBadge isRawMaterial={row.item.is_raw_material} size="sm" />
         </div>
         <p className="text-xs text-pq-neutral-400 mt-0.5">
@@ -815,7 +821,6 @@ function MatrixRow({
         const hasProduct    = !!quote?.supplier_product_id;
         const isVerified    = quote?.supplier_product_status === 'verified';
         const isWithdrawn   = quote?.supplier_product_status === 'withdrawn';
-        const canAward      = !explicitNoQuote && hasProduct && isVerified;
 
         // Phase 6 (Raw Mats): verification pill metadata for the comparison cell.
         // Pill is emphasised on raw-mats rows; quietly informational elsewhere.
@@ -825,7 +830,7 @@ function MatrixRow({
         return (
           <td
             key={supplier.id}
-            className={`px-4 py-3 align-top border-l border-pq-neutral-200 ${isSelected ? 'bg-pq-success-100' : ''}`}
+            className={`px-3 py-2.5 align-top border-l border-pq-neutral-200 ${isSelected ? 'bg-pq-success-100' : ''}`}
           >
             {!quote ? (
               <p className="text-xs text-pq-neutral-400 italic">No quote</p>
@@ -844,157 +849,124 @@ function MatrixRow({
             ) : quote.unit_price === 0 ? (
               <p className="text-xs text-pq-neutral-400 italic">No quote</p>
             ) : (
-              <div className="space-y-1">
-                {/* Phase 6 (Raw Mats): verification pill — emphasised on raw-mats rows */}
-                {verification && (() => {
-                  const tone =
-                    verification === 'verified'
-                      ? (isRawMats
-                          ? 'bg-pq-success-100 text-pq-success-600 border-pq-success-100'
-                          : 'bg-pq-success-50 text-pq-success-600 border-pq-success-100')
-                      : verification === 'unverified'
-                        ? (isRawMats
-                            ? 'bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200'
-                            : 'bg-pq-neutral-50 text-pq-neutral-600 border-pq-neutral-200')
-                        : (isRawMats
-                            ? 'bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200'
-                            : 'bg-pq-neutral-50 text-pq-neutral-600 border-pq-neutral-200');
-                  const label =
-                    verification === 'verified' ? 'Verified product'
-                      : verification === 'unverified' ? 'Unverified product'
-                        : 'Manual entry';
-                  const Icon =
-                    verification === 'verified' ? CheckCircle2
-                      : AlertTriangle;
+              <div className="space-y-1.5">
+                {(() => {
+                  const productName = quote.supplier_product_name?.trim() ?? '';
+                  const quotedDesc  = quote.quoted_description?.trim() ?? '';
+                  const showQuotedDesc =
+                    quotedDesc.length > 0 &&
+                    quotedDesc.toLowerCase() !== productName.toLowerCase();
+
                   return (
-                    <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-semibold border rounded px-1.5 py-0.5 ${tone}`}
-                      title={
-                        verification === 'verified'
-                          ? 'Supplier linked a verified catalog product.'
-                          : verification === 'unverified'
-                            ? 'Supplier linked a catalog product that is not yet verified.'
-                            : 'Supplier filled this line manually without linking a catalog product.'
-                      }
-                    >
-                      <Icon className="w-2.5 h-2.5" />
-                      {label}
-                    </span>
+                    <>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {hasProduct && isVerified ? (
+                          <span
+                            className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded px-1.5 py-0.5"
+                            title="Supplier linked a verified catalog product."
+                          >
+                            <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
+                            <span className="truncate max-w-[140px]">
+                              {productName || 'Verified product'}
+                            </span>
+                            {quote.supplier_product_code && (
+                              <span className="font-mono text-pq-success-700/80">
+                                {quote.supplier_product_code}
+                              </span>
+                            )}
+                          </span>
+                        ) : hasProduct && !isVerified ? (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-pq-warning-700 bg-pq-warning-100 border border-pq-warning-200 rounded px-1.5 py-0.5">
+                            <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                            <span className="truncate max-w-[120px]">
+                              {productName || 'Proposed product'}
+                            </span>
+                            {isWithdrawn ? (
+                              <span>· Withdrawn</span>
+                            ) : (
+                              <span className="capitalize">
+                                · {(quote.supplier_product_status ?? 'pending').replace(/_/g, ' ')}
+                              </span>
+                            )}
+                          </span>
+                        ) : verification === 'manual' ? (
+                          <span
+                            className={`inline-flex items-center gap-0.5 text-[10px] font-semibold border rounded px-1.5 py-0.5 ${
+                              isRawMats
+                                ? 'bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200'
+                                : 'bg-pq-neutral-50 text-pq-neutral-600 border-pq-neutral-200'
+                            }`}
+                          >
+                            <Info className="w-2.5 h-2.5 shrink-0" />
+                            Manual entry
+                          </span>
+                        ) : verification === 'unverified' ? (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-pq-neutral-50 text-pq-neutral-600 border border-pq-neutral-200 rounded px-1.5 py-0.5">
+                            <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                            Unverified product
+                          </span>
+                        ) : null}
+
+                        {quote.is_alternative && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
+                            Alt.
+                          </span>
+                        )}
+                        {quote.is_alternative && quote.substitute_decision === 'accepted' && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded px-1.5 py-0.5">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> Accepted
+                          </span>
+                        )}
+                        {quote.is_alternative && quote.substitute_decision === 'rejected' && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5">
+                            <XCircle className="w-2.5 h-2.5" /> Rejected
+                          </span>
+                        )}
+                        {quote.is_alternative && quote.substitute_decision === null && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded px-1.5 py-0.5">
+                            <Clock className="w-2.5 h-2.5" /> Pending
+                          </span>
+                        )}
+                      </div>
+
+                      {hasProduct && !isVerified && !isWithdrawn && quote.supplier_product_id && (
+                        <Link
+                          href={`/accreditation/products/${quote.supplier_product_id}`}
+                          className="inline-block text-[10px] text-pq-warning-700 underline font-medium hover:text-pq-neutral-900 transition"
+                        >
+                          Review product →
+                        </Link>
+                      )}
+
+                      {showQuotedDesc && (
+                        <p className="text-xs text-pq-neutral-500 leading-snug">{quotedDesc}</p>
+                      )}
+                    </>
                   );
                 })()}
 
-                {/* Alternative item badges */}
-                {quote.is_alternative && (
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="inline-block text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5">
-                      Alt. item
-                    </span>
-                    {quote.substitute_decision === 'accepted' && (
-                      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded px-1.5 py-0.5">
-                        <CheckCircle2 className="w-2.5 h-2.5" /> Accepted
+                <div className="text-xs text-pq-neutral-500 leading-snug">
+                  <p
+                    className={`font-bold text-sm ${
+                      quote.substitute_decision === 'rejected'
+                        ? 'text-pq-neutral-400 line-through'
+                        : 'text-pq-neutral-900'
+                    }`}
+                  >
+                    {formatCommercialAmount(quote.unit_price, canViewPrices)}
+                    {canViewPrices && (
+                      <span className="text-xs font-normal text-pq-neutral-400">
+                        {' '}/ {row.item.unit_of_measure}
                       </span>
                     )}
-                    {quote.substitute_decision === 'rejected' && (
-                      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5">
-                        <XCircle className="w-2.5 h-2.5" /> Rejected
-                      </span>
-                    )}
-                    {quote.substitute_decision === null && (
-                      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded px-1.5 py-0.5">
-                        <Clock className="w-2.5 h-2.5" /> Pending
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Phase 7/8: catalog product line */}
-                {hasProduct && isVerified ? (
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <span className="inline-flex items-center gap-0.5 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded px-1.5 py-0.5">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
-                      {quote.supplier_product_name ?? 'Verified product'}
-                    </span>
-                    {quote.supplier_product_code && (
-                      <span className="text-xs font-mono text-pq-neutral-400">
-                        {quote.supplier_product_code}
-                      </span>
-                    )}
-                  </div>
-                ) : hasProduct && !isVerified ? (
-                  // Phase 8: linked product is in flight (or rejected/withdrawn).
-                  // Phase 7 (Raw Mats): for non-raw-mats lines this is awardable
-                  // without justification; for raw-mats lines the supplier-side
-                  // rule allows the quote, but procurement must justify the
-                  // award via the modal (handled at the Select button below).
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-1 text-xs text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded px-1.5 py-0.5 flex-wrap">
-                      <AlertTriangle className="w-3 h-3 shrink-0" />
-                      <span className="font-medium">
-                        {quote.supplier_product_name ?? 'Proposed product'}
-                        {quote.supplier_product_code ? ` (${quote.supplier_product_code})` : ''}
-                      </span>
-                      {isWithdrawn ? (
-                        <span className="text-pq-warning-600 font-semibold">— Withdrawn — Cannot Award</span>
-                      ) : (
-                        <span className="text-pq-warning-600 capitalize">
-                          — {(quote.supplier_product_status ?? 'pending').replace(/_/g, ' ')}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-pq-warning-600">
-                      <span>
-                        {isWithdrawn
-                          ? 'Supplier withdrew this catalog product — quote stays visible; cannot award.'
-                          : isRawMats
-                            ? 'Raw material line — award will require a justification.'
-                            : 'Procurement may award; product is still in TSQA / review.'}
-                      </span>
-                      {quote.supplier_product_id && (
-                        <Link
-                          href={`/accreditation/products/${quote.supplier_product_id}`}
-                          className="underline font-medium hover:text-pq-neutral-900 transition"
-                        >
-                          Review →
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  // Phase 5/7 (Raw Mats): supplier filled the line manually
-                  // (no catalog product). The verification pill above labels
-                  // it. Award is allowed; raw-mats lines route through the
-                  // justification modal at the Select button below.
-                  <div className="flex items-center gap-1 text-xs text-pq-neutral-500">
-                    <Info className="w-3 h-3 shrink-0" />
-                    <span className="font-medium">
-                      {isRawMats
-                        ? 'Manual entry on raw-mats line — award will require justification.'
-                        : 'Manual entry — award proceeds directly.'}
-                    </span>
-                  </div>
-                )}
-
-                <p className="text-xs text-pq-neutral-500 leading-snug">{quote.quoted_description || '—'}</p>
-                <p
-                  className={`text-sm font-bold ${
-                    quote.substitute_decision === 'rejected'
-                      ? 'text-pq-neutral-400 line-through'
-                      : 'text-pq-neutral-900'
-                  }`}
-                >
-                  {formatCommercialAmount(quote.unit_price, canViewPrices)}
-                  {canViewPrices && (
-                    <span className="text-xs font-normal text-pq-neutral-400">
-                      {' '}/ {row.item.unit_of_measure}
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-pq-neutral-400">
-                  Total: {formatCommercialAmount(quote.total_price, canViewPrices)}
-                </p>
-                <p className="text-xs text-pq-neutral-400">Lead: {quote.lead_time_days}d</p>
+                  </p>
+                  <p>
+                    Total {formatCommercialAmount(quote.total_price, canViewPrices)}
+                    {' · '}Lead {quote.lead_time_days}d
+                  </p>
+                </div>
                 {quote.remarks && (
-                  <p className="text-xs text-pq-neutral-400 italic">&ldquo;{quote.remarks}&rdquo;</p>
+                  <p className="text-xs text-pq-neutral-400 italic leading-snug">&ldquo;{quote.remarks}&rdquo;</p>
                 )}
 
                 {/* Phase 7 (Raw Mats): Can Award indicator
