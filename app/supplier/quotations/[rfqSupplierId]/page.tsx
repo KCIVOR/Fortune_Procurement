@@ -365,7 +365,6 @@ export default function SupplierQuotationPage() {
       next[index] = {
         ...next[index],
         supplier_product_id: null,
-        is_alternative:      false,
         response_status:     'quoted',
         no_quote_reason:     null,
         // If the supplier had a verified product selected, swap the line
@@ -453,10 +452,6 @@ export default function SupplierQuotationPage() {
         next[index] = {
           ...next[index],
           supplier_product_id: product.id,
-          // Catalog proposals use Procurement/TSQA validation — not the requisitioner
-          // substitute-decision workflow (is_alternative). Keeping false avoids blocking
-          // award in saveItemSelection / RFQ matrix once the product is verified.
-          is_alternative:      false,
           response_status:     'quoted',
           no_quote_reason:     null,
           quoted_description:  product.product_name,
@@ -669,7 +664,7 @@ export default function SupplierQuotationPage() {
                 <li>Quoted lines need price and lead time</li>
                 <li>Catalog products may be verified or pending — procurement sees the status during canvassing</li>
                 <li>Proposed products await Procurement validation before award</li>
-                <li>Mark &ldquo;Alternative item&rdquo; only when quoting a substitute from your catalog</li>
+                <li>Mark &ldquo;Alternative item&rdquo; when offering a substitute — requestor must approve before award</li>
               </ul>
             </div>
           )}
@@ -1113,15 +1108,15 @@ export default function SupplierQuotationPage() {
 
                   {!hideQuotePricing && (
                     <>
-                  {/* Alternative item toggle — show only for select_verified mode or when already alternative */}
-                  {(!isReadOnly && (mode === 'select_verified' || draft.is_alternative)) && (
+                  {/* Alternative item toggle — available for all quoted response modes */}
+                  {!isReadOnly && mode !== 'no_quote' && (
                     <label className="flex items-center gap-3 cursor-pointer">
                       <div className="relative">
                         <input
                           type="checkbox"
                           checked={draft.is_alternative}
                           onChange={e => updateDraft(index, 'is_alternative', e.target.checked)}
-                          disabled={isReadOnly || mode === 'propose_new'}
+                          disabled={isReadOnly}
                           className="sr-only"
                         />
                         <div className={`w-10 h-5 rounded-full transition ${draft.is_alternative ? 'bg-orange-500' : 'bg-pq-neutral-200'}`} />
