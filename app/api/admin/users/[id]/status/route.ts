@@ -45,9 +45,9 @@ export async function PATCH(
       .maybeSingle();
 
     const actorRole = (actorProfile as { roles?: { name?: string } } | null)?.roles?.name;
-    if (actorRole !== 'admin') {
+    if (actorRole !== 'admin' && actorRole !== 'procurement') {
       return NextResponse.json(
-        { success: false, error: 'Access denied. Admin role required.' },
+        { success: false, error: 'Access denied. Admin or procurement role required.' },
         { status: 403 }
       );
     }
@@ -109,6 +109,13 @@ export async function PATCH(
       active: boolean;
       roles?: { name?: string };
     };
+
+    if (actorRole === 'procurement' && row.roles?.name !== 'supplier') {
+      return NextResponse.json(
+        { success: false, error: 'Procurement can only deactivate or reactivate supplier accounts.' },
+        { status: 403 }
+      );
+    }
 
     if (row.active === body.active) {
       const { data: existing, error: existErr } = await admin

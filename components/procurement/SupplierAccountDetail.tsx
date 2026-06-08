@@ -1,16 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import SupplierPaymentTermsForm from '@/components/admin/SupplierPaymentTermsForm';
+import UserDeactivateDialog from '@/components/admin/UserDeactivateDialog';
+import UserReactivateDialog from '@/components/admin/UserReactivateDialog';
+import { setUserActiveStatus } from '@/lib/admin-users';
+import type { AdminUser } from '@/lib/admin-users';
 import type { SupplierAccount, SupplierAccreditationStatus } from '@/lib/procurement-suppliers';
-import { ArrowRight, ExternalLink } from 'lucide-react';
+import { ArrowRight, ExternalLink, Power, PowerOff } from 'lucide-react';
 
 interface SupplierAccountDetailProps {
   supplier: SupplierAccount;
   onPaymentTermsUpdated?: (paymentTerms: string | null) => void;
+  onStatusChanged?: (active: boolean) => void;
 }
 
 const ACCRED_LABELS: Record<SupplierAccreditationStatus, string> = {
@@ -24,12 +30,71 @@ const ACCRED_LABELS: Record<SupplierAccreditationStatus, string> = {
   withdrawn: 'Withdrawn',
 };
 
+function toDialogUser(supplier: SupplierAccount): AdminUser {
+  return {
+    id: supplier.id,
+    full_name: supplier.full_name,
+    email: supplier.email,
+    role_id: null,
+    role_name: 'supplier',
+    position_id: null,
+    position_title: null,
+    department_id: null,
+    department_name: null,
+    payment_terms: supplier.payment_terms,
+    created_at: supplier.created_at,
+    active: supplier.active,
+  };
+}
+
 export default function SupplierAccountDetail({
   supplier,
   onPaymentTermsUpdated,
+  onStatusChanged,
 }: SupplierAccountDetailProps) {
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
+  const [isStatusLoading, setIsStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  const dialogUser = toDialogUser(supplier);
+
+  async function handleDeactivate() {
+    setIsStatusLoading(true);
+    setStatusError(null);
+    const result = await setUserActiveStatus(supplier.id, false);
+    if (!result.success) {
+      setStatusError(result.error ?? 'Failed to deactivate supplier');
+      setIsStatusLoading(false);
+      return;
+    }
+    setDeactivateDialogOpen(false);
+    onStatusChanged?.(false);
+    setIsStatusLoading(false);
+  }
+
+  async function handleReactivate() {
+    setIsStatusLoading(true);
+    setStatusError(null);
+    const result = await setUserActiveStatus(supplier.id, true);
+    if (!result.success) {
+      setStatusError(result.error ?? 'Failed to reactivate supplier');
+      setIsStatusLoading(false);
+      return;
+    }
+    setReactivateDialogOpen(false);
+    onStatusChanged?.(true);
+    setIsStatusLoading(false);
+  }
+
   return (
     <div className="space-y-6">
+      {statusError && (
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-4">
+          <p className="text-sm text-pq-danger-600">{statusError}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="bg-white rounded-lg border border-pq-neutral-200 p-4">
           <p className="text-xs font-medium text-pq-neutral-500 mb-2">Company</p>
@@ -37,16 +102,39 @@ export default function SupplierAccountDetail({
         </Card>
 
         <Card className="bg-white rounded-lg border border-pq-neutral-200 p-4">
-          <p className="text-xs font-medium text-pq-neutral-500 mb-2">Account Status</p>
-          {supplier.active ? (
-            <span className="inline-flex px-2 py-1 bg-pq-success-100 text-pq-success-600 rounded text-xs font-medium">
-              Active
-            </span>
-          ) : (
-            <span className="inline-flex px-2 py-1 bg-pq-neutral-100 text-pq-neutral-500 rounded text-xs font-medium">
-              Inactive
-            </span>
-          )}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-pq-neutral-500 mb-2">Account Status</p>
+              {supplier.active ? (
+                <span className="inline-flex px-2 py-1 bg-pq-success-100 text-pq-success-600 rounded text-xs font-medium">
+                  Active
+                </span>
+              ) : (
+                <span className="inline-flex px-2 py-1 bg-pq-neutral-100 text-pq-neutral-500 rounded text-xs font-medium">
+                  Inactive
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 justify-end">
+              {supplier.active ? (
+                <Button
+                  onClick={() => setDeactivateDialogOpen(true)}
+                  className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs h-8"
+                >
+                  <PowerOff className="w-3.5 h-3.5 mr-1.5" />
+                  Deactivate
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setReactivateDialogOpen(true)}
+                  className="bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 text-xs h-8"
+                >
+                  <Power className="w-3.5 h-3.5 mr-1.5" />
+                  Reactivate
+                </Button>
+              )}
+            </div>
+          </div>
         </Card>
 
         <Card className="bg-white rounded-lg border border-pq-neutral-200 p-4">
@@ -61,6 +149,26 @@ export default function SupplierAccountDetail({
           </p>
         </Card>
       </div>
+
+      <UserDeactivateDialog
+        user={dialogUser}
+        isOpen={deactivateDialogOpen}
+        isLoading={isStatusLoading}
+        onConfirm={handleDeactivate}
+        onCancel={() => {
+          if (!isStatusLoading) setDeactivateDialogOpen(false);
+        }}
+      />
+
+      <UserReactivateDialog
+        user={dialogUser}
+        isOpen={reactivateDialogOpen}
+        isLoading={isStatusLoading}
+        onConfirm={handleReactivate}
+        onCancel={() => {
+          if (!isStatusLoading) setReactivateDialogOpen(false);
+        }}
+      />
 
       <Card className="bg-white rounded-lg border border-pq-neutral-200 p-6">
         <h3 className="text-sm font-semibold text-pq-neutral-900 mb-1">Accreditation</h3>

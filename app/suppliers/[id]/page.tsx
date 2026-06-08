@@ -133,6 +133,9 @@ export default function SupplierAccountDetailPage() {
           onPaymentTermsUpdated={(paymentTerms) =>
             setSupplier((prev) => (prev ? { ...prev, payment_terms: paymentTerms } : prev))
           }
+          onStatusChanged={(active) =>
+            setSupplier((prev) => (prev ? { ...prev, active } : prev))
+          }
         />
       </div>
     </AppShell>

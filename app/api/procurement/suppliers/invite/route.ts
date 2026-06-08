@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'User exists but is deactivated. Reactivate them from User Management instead.',
+          error: 'User exists but is deactivated. Reactivate them from Supplier Accounts instead.',
         },
         { status: 400 },
       );
