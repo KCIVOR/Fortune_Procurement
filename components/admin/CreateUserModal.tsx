@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Copy, Check, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/utils';
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -24,6 +25,14 @@ interface PasswordDisplayState {
   copied: boolean;
 }
 
+const MODAL_SHELL =
+  'flex flex-col gap-0 p-0 overflow-hidden w-[calc(100%-1rem)] max-w-md max-h-[min(92dvh,840px)] sm:rounded-lg';
+
+const SCROLL_BODY = 'flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4';
+
+const FOOTER =
+  'shrink-0 border-t border-pq-neutral-100 bg-pq-white px-4 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]';
+
 function readCreateUserApiError(data: unknown): string {
   if (!data || typeof data !== 'object') return 'Failed to create user';
   const o = data as Record<string, unknown>;
@@ -32,6 +41,20 @@ function readCreateUserApiError(data: unknown): string {
     if (typeof v === 'string' && v.trim()) return v.trim();
   }
   return 'Failed to create user';
+}
+
+function ModalActions({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn('flex flex-col-reverse sm:flex-row gap-2', className)}>
+      {children}
+    </div>
+  );
 }
 
 export default function CreateUserModal({
@@ -54,7 +77,6 @@ export default function CreateUserModal({
   const [passwordDisplay, setPasswordDisplay] = useState<PasswordDisplayState>({ show: false, copied: false });
   const [passwordFieldDisplay, setPasswordFieldDisplay] = useState<PasswordDisplayState>({ show: false, copied: false });
 
-  // Form fields
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -113,7 +135,7 @@ export default function CreateUserModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
         },
         body: JSON.stringify(formData),
       });
@@ -127,8 +149,7 @@ export default function CreateUserModal({
         return;
       }
 
-      const failed =
-        !response.ok || data.success === false;
+      const failed = !response.ok || data.success === false;
 
       if (failed) {
         setError(readCreateUserApiError(data));
@@ -137,9 +158,11 @@ export default function CreateUserModal({
 
       setTempPassword(typeof data.temp_password === 'string' ? data.temp_password : '');
       setUserEmail(
-        typeof data.user_email === 'string' ? data.user_email :
-        typeof data.email === 'string' ? data.email :
-        formData.email
+        typeof data.user_email === 'string'
+          ? data.user_email
+          : typeof data.email === 'string'
+            ? data.email
+            : formData.email,
       );
       setStep('success');
       setPasswordDisplay({ show: true, copied: false });
@@ -225,30 +248,28 @@ export default function CreateUserModal({
     setError('');
     setPasswordDisplay({ show: false, copied: false });
     setPasswordFieldDisplay({ show: false, copied: false });
-    if (onUserCreated) {
-      onUserCreated();
-    }
+    onUserCreated?.();
     onClose();
   }
 
+  const title =
+    mainTab === 'create'
+      ? step === 'success'
+        ? 'User Created Successfully'
+        : error
+          ? 'Failed to Create User'
+          : 'Create New User'
+      : inviteStep === 'success'
+        ? 'Invitation Sent'
+        : error
+          ? 'Invitation Failed'
+          : 'Invite by Email';
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {mainTab === 'create'
-              ? step === 'success'
-                ? 'User Created Successfully'
-                : error
-                  ? 'Failed to Create User'
-                  : 'Create New User'
-              : inviteStep === 'success'
-                ? 'Invitation Sent'
-                : error
-                  ? 'Invitation Failed'
-                  : 'Invite by Email'}
-          </DialogTitle>
-          <DialogClose />
+      <DialogContent className={MODAL_SHELL}>
+        <DialogHeader className="shrink-0 px-4 sm:px-6 pt-5 sm:pt-6 pb-3 border-b border-pq-neutral-100 text-left">
+          <DialogTitle className="pr-8 text-base sm:text-lg leading-snug">{title}</DialogTitle>
         </DialogHeader>
 
         <Tabs
@@ -260,419 +281,456 @@ export default function CreateUserModal({
             setStep('form');
             setInviteStep('form');
           }}
+          className="flex flex-col flex-1 min-h-0 overflow-hidden"
         >
-          <TabsList className="grid w-full grid-cols-2 mb-2 h-auto p-1 bg-pq-neutral-50">
-            <TabsTrigger value="create" className="text-xs">
-              Create user
-            </TabsTrigger>
-            <TabsTrigger value="invite" className="text-xs">
-              Invite by email
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="create" className="mt-0">
-        {step === 'form' ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-3">
-                <p className="text-xs text-pq-danger-600">{error}</p>
-              </div>
-            )}
-
-            {/* Full Name */}
-            <div className="space-y-2">
-              <Label htmlFor="full-name" className="text-xs font-medium text-pq-neutral-500">
-                Full Name
-              </Label>
-              <Input
-                id="full-name"
-                type="text"
-                placeholder="e.g., John Doe"
-                value={formData.full_name}
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                required
-                disabled={loading}
-                className="text-sm"
-              />
-            </div>
-
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs font-medium text-pq-neutral-500">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="e.g., john@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-                disabled={loading}
-                className="text-sm"
-              />
-            </div>
-
-            {/* Role */}
-            <div className="space-y-2">
-              <Label htmlFor="role" className="text-xs font-medium text-pq-neutral-500">
-                Role
-              </Label>
-              <Select
-                value={formData.role_id}
-                onValueChange={handleRoleChange}
-                disabled={loading}
-              >
-                <SelectTrigger id="role" className="text-sm">
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Position */}
-            <div className="space-y-2">
-              <Label htmlFor="position" className="text-xs font-medium text-pq-neutral-500">
-                Position
-              </Label>
-              <Select
-                value={formData.position_id}
-                onValueChange={(value) => setFormData({ ...formData, position_id: value })}
-                disabled={loading || !formData.role_id}
-              >
-                <SelectTrigger id="position" className="text-sm">
-                  <SelectValue placeholder={formData.role_id ? 'Select a position' : 'Choose role first'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredPositions.map((pos) => (
-                    <SelectItem key={pos.id} value={pos.id}>
-                      {pos.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Department */}
-            <div className="space-y-2">
-              <Label htmlFor="department" className="text-xs font-medium text-pq-neutral-500">
-                Department
-              </Label>
-              <Select
-                value={formData.department_id}
-                onValueChange={(value) => setFormData({ ...formData, department_id: value })}
-                disabled={loading}
-              >
-                <SelectTrigger id="department" className="text-sm">
-                  <SelectValue placeholder="Select a department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Password */}
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-xs font-medium text-pq-neutral-500">
-                Temporary Password
-              </Label>
-              <div className="flex gap-2 items-end">
-                <div className="flex-1 relative">
-                  <Input
-                    id="password"
-                    type={passwordFieldDisplay.show ? 'text' : 'password'}
-                    placeholder="Leave empty to auto-generate"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    disabled={loading}
-                    className="text-sm pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setPasswordFieldDisplay({ ...passwordFieldDisplay, show: !passwordFieldDisplay.show })}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-pq-neutral-500 hover:text-pq-neutral-900 transition"
-                    title={passwordFieldDisplay.show ? 'Hide' : 'Show'}
-                  >
-                    {passwordFieldDisplay.show ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleGeneratePassword}
-                  disabled={loading}
-                  className="px-3 py-2"
-                  title="Generate random password"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-pq-neutral-500">
-                {formData.password ? `${formData.password.length} characters` : 'Will be auto-generated if left empty'}
-              </p>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleClose}
-                disabled={loading}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={loading || !formData.full_name || !formData.email || !formData.role_id || !formData.position_id || !formData.department_id || Boolean(formData.password && formData.password.length < 8)}
-                className="flex-1 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white"
-              >
-                {loading ? 'Creating...' : 'Create User'}
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <div className="space-y-4">
-            <div className="bg-pq-success-100 border border-pq-success-100 rounded-lg p-4">
-              <p className="text-sm text-pq-success-600 font-medium">User created successfully!</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-pq-neutral-500">Email</Label>
-              <div className="p-3 bg-pq-neutral-50 border border-pq-neutral-200 rounded-lg">
-                <p className="text-sm font-mono text-pq-neutral-900">{userEmail}</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-pq-neutral-500">Temporary Password</Label>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 p-3 bg-pq-neutral-50 border border-pq-neutral-200 rounded-lg">
-                  <p className="text-sm font-mono text-pq-neutral-900 break-all">
-                    {passwordDisplay.show ? tempPassword : '•'.repeat(tempPassword.length)}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPasswordDisplay({ ...passwordDisplay, show: !passwordDisplay.show })}
-                  className="p-2 text-pq-neutral-500 hover:bg-pq-neutral-50 rounded transition"
-                  title={passwordDisplay.show ? 'Hide' : 'Show'}
-                >
-                  {passwordDisplay.show ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-pq-primary-50 border border-pq-primary-200 rounded-lg p-3">
-              <p className="text-xs text-pq-primary-600">
-                <strong>Share this password with the user.</strong> It will be hidden after you close this modal and cannot be recovered. The user must change their password on first login.
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleClose}
-                className="flex-1"
-              >
-                Close
-              </Button>
-              <Button
-                type="button"
-                onClick={handleCopyPassword}
-                className="flex-1 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white flex items-center gap-2 justify-center"
-              >
-                {passwordDisplay.copied ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    Copy Password
-                  </>
-                )}
-              </Button>
-            </div>
+          <div className="shrink-0 px-4 sm:px-6 pt-3">
+            <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-pq-neutral-50">
+              <TabsTrigger value="create" className="text-xs sm:text-sm px-2 py-2">
+                Create user
+              </TabsTrigger>
+              <TabsTrigger value="invite" className="text-xs sm:text-sm px-2 py-2">
+                Invite by email
+              </TabsTrigger>
+            </TabsList>
           </div>
-        )}
-          </TabsContent>
 
-          <TabsContent value="invite" className="mt-0">
-            {inviteStep === 'form' ? (
-              <form onSubmit={handleInviteSubmit} className="space-y-4">
-                {error && (
-                  <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-3">
-                    <p className="text-xs text-pq-danger-600">{error}</p>
-                  </div>
-                )}
+          <TabsContent
+            value="create"
+            className="mt-0 flex flex-col flex-1 min-h-0 overflow-hidden focus-visible:outline-none data-[state=inactive]:hidden"
+          >
+            {step === 'form' ? (
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className={SCROLL_BODY}>
+                  <div className="space-y-4">
+                    {error && (
+                      <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-3">
+                        <p className="text-xs text-pq-danger-600 break-words">{error}</p>
+                      </div>
+                    )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="invite-full-name" className="text-xs font-medium text-pq-neutral-500">
-                    Full Name
-                  </Label>
-                  <Input
-                    id="invite-full-name"
-                    type="text"
-                    placeholder="e.g., John Doe"
-                    value={inviteForm.full_name}
-                    onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })}
-                    required
-                    disabled={loading}
-                    className="text-sm"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invite-email" className="text-xs font-medium text-pq-neutral-500">
-                    Email
-                  </Label>
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    placeholder="e.g., john@example.com"
-                    value={inviteForm.email}
-                    onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                    required
-                    disabled={loading}
-                    className="text-sm"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invite-role" className="text-xs font-medium text-pq-neutral-500">
-                    Role
-                  </Label>
-                  <Select
-                    value={inviteForm.role_id}
-                    onValueChange={handleInviteRoleChange}
-                    disabled={loading}
-                  >
-                    <SelectTrigger id="invite-role" className="text-sm">
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role.id} value={role.id}>
-                          {role.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invite-position" className="text-xs font-medium text-pq-neutral-500">
-                    Position
-                  </Label>
-                  <Select
-                    value={inviteForm.position_id}
-                    onValueChange={(value) => setInviteForm({ ...inviteForm, position_id: value })}
-                    disabled={loading || !inviteForm.role_id}
-                  >
-                    <SelectTrigger id="invite-position" className="text-sm">
-                      <SelectValue
-                        placeholder={inviteForm.role_id ? 'Select a position' : 'Choose role first'}
+                    <div className="space-y-2">
+                      <Label htmlFor="full-name" className="text-xs font-medium text-pq-neutral-500">
+                        Full Name
+                      </Label>
+                      <Input
+                        id="full-name"
+                        type="text"
+                        placeholder="e.g., John Doe"
+                        value={formData.full_name}
+                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                        required
+                        disabled={loading}
+                        className="text-sm w-full"
                       />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {inviteFilteredPositions.map((pos) => (
-                        <SelectItem key={pos.id} value={pos.id}>
-                          {pos.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="text-xs font-medium text-pq-neutral-500">
+                        Email
+                      </Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="e.g., john@example.com"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        required
+                        disabled={loading}
+                        className="text-sm w-full"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="role" className="text-xs font-medium text-pq-neutral-500">
+                        Role
+                      </Label>
+                      <Select value={formData.role_id} onValueChange={handleRoleChange} disabled={loading}>
+                        <SelectTrigger id="role" className="text-sm w-full">
+                          <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                        <SelectContent position="popper" className="max-h-[min(240px,40vh)]">
+                          {roles.map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="position" className="text-xs font-medium text-pq-neutral-500">
+                        Position
+                      </Label>
+                      <Select
+                        value={formData.position_id}
+                        onValueChange={(value) => setFormData({ ...formData, position_id: value })}
+                        disabled={loading || !formData.role_id}
+                      >
+                        <SelectTrigger id="position" className="text-sm w-full">
+                          <SelectValue placeholder={formData.role_id ? 'Select a position' : 'Choose role first'} />
+                        </SelectTrigger>
+                        <SelectContent position="popper" className="max-h-[min(240px,40vh)]">
+                          {filteredPositions.map((pos) => (
+                            <SelectItem key={pos.id} value={pos.id}>
+                              {pos.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="department" className="text-xs font-medium text-pq-neutral-500">
+                        Department
+                      </Label>
+                      <Select
+                        value={formData.department_id}
+                        onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                        disabled={loading}
+                      >
+                        <SelectTrigger id="department" className="text-sm w-full">
+                          <SelectValue placeholder="Select a department" />
+                        </SelectTrigger>
+                        <SelectContent position="popper" className="max-h-[min(240px,40vh)]">
+                          {departments.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="password" className="text-xs font-medium text-pq-neutral-500">
+                        Temporary Password
+                      </Label>
+                      <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+                        <div className="flex-1 relative min-w-0">
+                          <Input
+                            id="password"
+                            type={passwordFieldDisplay.show ? 'text' : 'password'}
+                            placeholder="Leave empty to auto-generate"
+                            value={formData.password}
+                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            disabled={loading}
+                            className="text-sm pr-10 w-full"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPasswordFieldDisplay({
+                                ...passwordFieldDisplay,
+                                show: !passwordFieldDisplay.show,
+                              })
+                            }
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+                            aria-label={passwordFieldDisplay.show ? 'Hide password' : 'Show password'}
+                          >
+                            {passwordFieldDisplay.show ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleGeneratePassword}
+                          disabled={loading}
+                          className="shrink-0 w-full sm:w-auto"
+                          aria-label="Generate random password"
+                        >
+                          <RefreshCw className="w-4 h-4 sm:mr-0" />
+                          <span className="sm:sr-only">Generate</span>
+                          <span className="sm:hidden ml-2">Generate password</span>
+                        </Button>
+                      </div>
+                      <p className="text-xs text-pq-neutral-500">
+                        {formData.password
+                          ? `${formData.password.length} characters`
+                          : 'Will be auto-generated if left empty'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="invite-dept" className="text-xs font-medium text-pq-neutral-500">
-                    Department
-                  </Label>
-                  <Select
-                    value={inviteForm.department_id}
-                    onValueChange={(value) => setInviteForm({ ...inviteForm, department_id: value })}
-                    disabled={loading}
-                  >
-                    <SelectTrigger id="invite-dept" className="text-sm">
-                      <SelectValue placeholder="Select a department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <p className="text-xs text-pq-neutral-500">
-                  The user will receive an email to set their own password. No temporary password is
-                  shown here.
-                </p>
-
-                <div className="flex gap-2 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleClose}
-                    disabled={loading}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={
-                      loading ||
-                      !inviteForm.full_name ||
-                      !inviteForm.email ||
-                      !inviteForm.role_id ||
-                      !inviteForm.position_id ||
-                      !inviteForm.department_id
-                    }
-                    className="flex-1 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white"
-                  >
-                    {loading ? 'Sending…' : 'Send invitation'}
-                  </Button>
+                <div className={FOOTER}>
+                  <ModalActions>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleClose}
+                      disabled={loading}
+                      className="flex-1 w-full"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={
+                        loading ||
+                        !formData.full_name ||
+                        !formData.email ||
+                        !formData.role_id ||
+                        !formData.position_id ||
+                        !formData.department_id ||
+                        Boolean(formData.password && formData.password.length < 8)
+                      }
+                      className="flex-1 w-full bg-pq-primary-600 hover:bg-pq-neutral-900 text-white"
+                    >
+                      {loading ? 'Creating...' : 'Create User'}
+                    </Button>
+                  </ModalActions>
                 </div>
               </form>
             ) : (
-              <div className="space-y-4">
-                <div className="bg-pq-success-100 border border-pq-success-100 rounded-lg p-4">
-                  <p className="text-sm text-pq-success-600 font-medium">
-                    Invitation sent to{' '}
-                    <span className="font-mono">{inviteSentToEmail}</span>. The user will set their
-                    password from the email link.
-                  </p>
+              <>
+                <div className={SCROLL_BODY}>
+                  <div className="space-y-4">
+                    <div className="bg-pq-success-100 border border-pq-success-100 rounded-lg p-4">
+                      <p className="text-sm text-pq-success-600 font-medium">User created successfully!</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-pq-neutral-500">Email</Label>
+                      <div className="p-3 bg-pq-neutral-50 border border-pq-neutral-200 rounded-lg">
+                        <p className="text-sm font-mono text-pq-neutral-900 break-all">{userEmail}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-pq-neutral-500">Temporary Password</Label>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <div className="flex-1 min-w-0 p-3 bg-pq-neutral-50 border border-pq-neutral-200 rounded-lg">
+                          <p className="text-sm font-mono text-pq-neutral-900 break-all">
+                            {passwordDisplay.show ? tempPassword : '•'.repeat(tempPassword.length)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPasswordDisplay({ ...passwordDisplay, show: !passwordDisplay.show })
+                          }
+                          className="p-2 text-pq-neutral-500 hover:bg-pq-neutral-50 rounded transition shrink-0 self-end sm:self-auto border border-pq-neutral-200 sm:border-0"
+                          aria-label={passwordDisplay.show ? 'Hide password' : 'Show password'}
+                        >
+                          {passwordDisplay.show ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-pq-primary-50 border border-pq-primary-200 rounded-lg p-3">
+                      <p className="text-xs text-pq-primary-600 break-words">
+                        <strong>Share this password with the user.</strong> It will be hidden after you close this
+                        modal and cannot be recovered. The user must change their password on first login.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <Button type="button" onClick={handleClose} className="w-full bg-pq-primary-600 hover:bg-pq-neutral-900">
-                  Close
-                </Button>
-              </div>
+
+                <div className={FOOTER}>
+                  <ModalActions>
+                    <Button type="button" variant="outline" onClick={handleClose} className="flex-1 w-full">
+                      Close
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleCopyPassword}
+                      className="flex-1 w-full bg-pq-primary-600 hover:bg-pq-neutral-900 text-white flex items-center gap-2 justify-center"
+                    >
+                      {passwordDisplay.copied ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          Copy Password
+                        </>
+                      )}
+                    </Button>
+                  </ModalActions>
+                </div>
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent
+            value="invite"
+            className="mt-0 flex flex-col flex-1 min-h-0 overflow-hidden focus-visible:outline-none data-[state=inactive]:hidden"
+          >
+            {inviteStep === 'form' ? (
+              <form onSubmit={handleInviteSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className={SCROLL_BODY}>
+                  <div className="space-y-4">
+                    {error && (
+                      <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-3">
+                        <p className="text-xs text-pq-danger-600 break-words">{error}</p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-full-name" className="text-xs font-medium text-pq-neutral-500">
+                        Full Name
+                      </Label>
+                      <Input
+                        id="invite-full-name"
+                        type="text"
+                        placeholder="e.g., John Doe"
+                        value={inviteForm.full_name}
+                        onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })}
+                        required
+                        disabled={loading}
+                        className="text-sm w-full"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-email" className="text-xs font-medium text-pq-neutral-500">
+                        Email
+                      </Label>
+                      <Input
+                        id="invite-email"
+                        type="email"
+                        placeholder="e.g., john@example.com"
+                        value={inviteForm.email}
+                        onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                        required
+                        disabled={loading}
+                        className="text-sm w-full"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-role" className="text-xs font-medium text-pq-neutral-500">
+                        Role
+                      </Label>
+                      <Select
+                        value={inviteForm.role_id}
+                        onValueChange={handleInviteRoleChange}
+                        disabled={loading}
+                      >
+                        <SelectTrigger id="invite-role" className="text-sm w-full">
+                          <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                        <SelectContent position="popper" className="max-h-[min(240px,40vh)]">
+                          {roles.map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-position" className="text-xs font-medium text-pq-neutral-500">
+                        Position
+                      </Label>
+                      <Select
+                        value={inviteForm.position_id}
+                        onValueChange={(value) => setInviteForm({ ...inviteForm, position_id: value })}
+                        disabled={loading || !inviteForm.role_id}
+                      >
+                        <SelectTrigger id="invite-position" className="text-sm w-full">
+                          <SelectValue
+                            placeholder={inviteForm.role_id ? 'Select a position' : 'Choose role first'}
+                          />
+                        </SelectTrigger>
+                        <SelectContent position="popper" className="max-h-[min(240px,40vh)]">
+                          {inviteFilteredPositions.map((pos) => (
+                            <SelectItem key={pos.id} value={pos.id}>
+                              {pos.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-dept" className="text-xs font-medium text-pq-neutral-500">
+                        Department
+                      </Label>
+                      <Select
+                        value={inviteForm.department_id}
+                        onValueChange={(value) => setInviteForm({ ...inviteForm, department_id: value })}
+                        disabled={loading}
+                      >
+                        <SelectTrigger id="invite-dept" className="text-sm w-full">
+                          <SelectValue placeholder="Select a department" />
+                        </SelectTrigger>
+                        <SelectContent position="popper" className="max-h-[min(240px,40vh)]">
+                          {departments.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <p className="text-xs text-pq-neutral-500">
+                      The user will receive an email to set their own password. No temporary password is shown here.
+                    </p>
+                  </div>
+                </div>
+
+                <div className={FOOTER}>
+                  <ModalActions>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleClose}
+                      disabled={loading}
+                      className="flex-1 w-full"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={
+                        loading ||
+                        !inviteForm.full_name ||
+                        !inviteForm.email ||
+                        !inviteForm.role_id ||
+                        !inviteForm.position_id ||
+                        !inviteForm.department_id
+                      }
+                      className="flex-1 w-full bg-pq-primary-600 hover:bg-pq-neutral-900 text-white"
+                    >
+                      {loading ? 'Sending…' : 'Send invitation'}
+                    </Button>
+                  </ModalActions>
+                </div>
+              </form>
+            ) : (
+              <>
+                <div className={SCROLL_BODY}>
+                  <div className="bg-pq-success-100 border border-pq-success-100 rounded-lg p-4">
+                    <p className="text-sm text-pq-success-600 font-medium break-words">
+                      Invitation sent to <span className="font-mono">{inviteSentToEmail}</span>. The user will set
+                      their password from the email link.
+                    </p>
+                  </div>
+                </div>
+                <div className={FOOTER}>
+                  <Button
+                    type="button"
+                    onClick={handleClose}
+                    className="w-full bg-pq-primary-600 hover:bg-pq-neutral-900 text-white"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </>
             )}
           </TabsContent>
         </Tabs>

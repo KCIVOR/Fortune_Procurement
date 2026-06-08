@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Users, Shield, Activity, ChartBar as BarChart3, Clock, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { StatCard } from '@/components/shared/StatCard';
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import type { UserProfile } from '@/types/auth';
 import { getAdminUserStats } from '@/lib/admin-users';
 import { getRolesWithUserCounts, getDepartmentsWithUserCounts, listPositions } from '@/lib/admin-masterdata';
@@ -88,9 +89,9 @@ export default function AdminDashboard({ profile }: AdminDashboardProps) {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className={KPI_GRID_CLASS}>
         {/* Total Users */}
-        <Link href="/admin/users" className="block transition hover:-translate-y-0.5">
+        <Link href="/admin/users" className="block w-full min-w-0 transition hover:-translate-y-0.5">
           <StatCard
             label="Total Users"
             value={stats.totalUsers}
@@ -101,7 +102,7 @@ export default function AdminDashboard({ profile }: AdminDashboardProps) {
         </Link>
 
         {/* Total Roles */}
-        <Link href="/admin/roles" className="block transition hover:-translate-y-0.5">
+        <Link href="/admin/roles" className="block w-full min-w-0 transition hover:-translate-y-0.5">
           <StatCard
             label="Roles"
             value={stats.totalRoles}
@@ -112,7 +113,7 @@ export default function AdminDashboard({ profile }: AdminDashboardProps) {
         </Link>
 
         {/* Total Positions */}
-        <Link href="/admin/positions" className="block transition hover:-translate-y-0.5">
+        <Link href="/admin/positions" className="block w-full min-w-0 transition hover:-translate-y-0.5">
           <StatCard
             label="Positions"
             value={stats.totalPositions}
@@ -123,7 +124,7 @@ export default function AdminDashboard({ profile }: AdminDashboardProps) {
         </Link>
 
         {/* Total Departments */}
-        <Link href="/admin/departments" className="block transition hover:-translate-y-0.5">
+        <Link href="/admin/departments" className="block w-full min-w-0 transition hover:-translate-y-0.5">
           <StatCard
             label="Departments"
             value={stats.totalDepartments}
@@ -134,7 +135,7 @@ export default function AdminDashboard({ profile }: AdminDashboardProps) {
         </Link>
 
         {/* Total Audit Logs */}
-        <Link href="/admin/audit" className="block transition hover:-translate-y-0.5">
+        <Link href="/admin/audit" className="block w-full min-w-0 transition hover:-translate-y-0.5">
           <StatCard
             label="Audit Logs"
             value={stats.totalAuditLogs}

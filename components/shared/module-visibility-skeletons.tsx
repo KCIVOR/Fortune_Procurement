@@ -1,12 +1,11 @@
 ﻿import { cn } from '@/lib/utils';
-
-const KPI_AUTO_FIT = 'grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]';
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 
 function PulseCard({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'rounded-md border border-pq-neutral-200 animate-pulse bg-pq-neutral-50',
+        'w-full rounded-md border border-pq-neutral-200 animate-pulse bg-pq-neutral-50',
         className,
       )}
     />
@@ -45,7 +44,7 @@ export function ProcurementDashboardVisibilitySkeleton() {
         <div className="h-3 w-56 rounded bg-[#E8EDF7] animate-pulse" />
         <div className="h-2.5 w-full max-w-md rounded bg-pq-neutral-50 animate-pulse" />
       </div>
-      <div className={KPI_AUTO_FIT}>
+      <div className={KPI_GRID_CLASS}>
         {Array.from({ length: 8 }, (_, i) => (
           <PulseCard key={i} className="min-h-[88px]" />
         ))}
@@ -63,14 +62,14 @@ export function SupplierDashboardVisibilitySkeleton() {
     <div className="space-y-6 mb-4 mt-1" aria-busy="true" aria-label="Loading dashboard modules">
       <div>
         <div className="h-3 w-44 rounded bg-[#E8EDF7] animate-pulse mb-2" />
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))]">
+        <div className={KPI_GRID_CLASS}>
           {Array.from({ length: 6 }, (_, i) => (
             <PulseCard key={i} className="min-h-[88px]" />
           ))}
         </div>
       </div>
       <div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] mb-4">
+        <div className={`${KPI_GRID_CLASS} mb-4`}>
           {Array.from({ length: 3 }, (_, i) => (
             <PulseCard key={i} className="min-h-[72px]" />
           ))}
@@ -84,7 +83,7 @@ export function SupplierDashboardVisibilitySkeleton() {
 export function WarehouseDashboardVisibilitySkeleton() {
   return (
     <div className="space-y-4 mb-4 mt-1" aria-busy="true" aria-label="Loading dashboard modules">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]">
+      <div className={KPI_GRID_CLASS}>
         {Array.from({ length: 4 }, (_, i) => (
           <PulseCard key={i} className="min-h-[72px]" />
         ))}
@@ -100,7 +99,7 @@ export function WarehouseDashboardVisibilitySkeleton() {
 export function ApproverDashboardVisibilitySkeleton() {
   return (
     <div className="space-y-4 mb-4 mt-1" aria-busy="true" aria-label="Loading dashboard modules">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className={KPI_GRID_CLASS}>
         {Array.from({ length: 4 }, (_, i) => (
           <PulseCard key={i} className="min-h-[72px]" />
         ))}

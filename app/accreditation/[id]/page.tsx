@@ -15,6 +15,8 @@ import {
   requestMissingDocuments,
   approveAccreditation,
   rejectAccreditation,
+  revokeAccreditation,
+  reopenAccreditationForReview,
 } from '@/lib/accreditation';
 import {
   getDocumentsByAccreditationId,
@@ -36,6 +38,7 @@ import {
   XCircle,
   Eye,
   MessageSquare,
+  RotateCcw,
 } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
@@ -55,7 +58,7 @@ function accreditationChip(status: string): { variant: StatusVariant; label: str
 
 // ─── Action types ─────────────────────────────────────────────────────────────
 
-type ActionPanel = 'none' | 'missing_docs' | 'approve' | 'reject';
+type ActionPanel = 'none' | 'missing_docs' | 'approve' | 'reject' | 'revoke' | 'reopen';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -185,6 +188,48 @@ export default function AccreditationDetailPage() {
     }
   };
 
+  const handleRevoke = async () => {
+    if (!profile || !accreditation) return;
+    if (!noteInput.trim()) {
+      setActionError('Please enter a reason for revoking accreditation.');
+      return;
+    }
+    setBusy(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await revokeAccreditation(accreditation.id, profile, noteInput.trim());
+      await load();
+      setActivePanel('none');
+      setActionSuccess('Accreditation revoked. Supplier has been notified.');
+    } catch (err: unknown) {
+      setActionError((err as Error)?.message || 'Action failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReopen = async () => {
+    if (!profile || !accreditation) return;
+    setBusy(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await reopenAccreditationForReview(
+        accreditation.id,
+        profile,
+        noteInput.trim() || undefined
+      );
+      await load();
+      setActivePanel('none');
+      setActionSuccess('Accreditation reopened for review. Supplier has been notified.');
+    } catch (err: unknown) {
+      setActionError((err as Error)?.message || 'Action failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const status = accreditation?.status ?? '';
@@ -192,7 +237,9 @@ export default function AccreditationDetailPage() {
   const canRequestDocs     = status === 'submitted' || status === 'under_review';
   const canApprove         = status === 'submitted' || status === 'under_review' || status === 'missing_documents';
   const canReject          = status === 'submitted' || status === 'under_review' || status === 'missing_documents';
-  const isTerminal         = status === 'approved' || status === 'rejected' || status === 'withdrawn';
+  const isClosed           = status === 'rejected' || status === 'withdrawn';
+  const canPostApproval    = status === 'approved';
+  const showReviewActions  = !isClosed && !canPostApproval;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -300,8 +347,8 @@ export default function AccreditationDetailPage() {
             )}
           </div>
 
-          {/* ── Action bar + panels (hidden when terminal) ── */}
-          {!isTerminal && (
+          {/* ── Action bar + panels (in-review applications) ── */}
+          {showReviewActions && (
             <div className="bg-white rounded-md border border-pq-neutral-200">
               <div className="flex items-center gap-2 px-5 py-3.5 border-b border-pq-neutral-200 flex-wrap">
                 <p className="text-sm font-semibold text-pq-neutral-900 mr-2">Actions</p>
@@ -471,8 +518,124 @@ export default function AccreditationDetailPage() {
             </div>
           )}
 
-          {/* Terminal state success banner */}
-          {isTerminal && actionSuccess && (
+          {/* ── Post-approval actions ── */}
+          {canPostApproval && (
+            <div className="bg-white rounded-md border border-pq-neutral-200">
+              <div className="flex items-center gap-2 px-5 py-3.5 border-b border-pq-neutral-200 flex-wrap">
+                <p className="text-sm font-semibold text-pq-neutral-900 mr-2">Post-Approval Actions</p>
+
+                <button
+                  onClick={() => openPanel(activePanel === 'reopen' ? 'none' : 'reopen')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                    activePanel === 'reopen'
+                      ? 'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200'
+                      : 'text-pq-primary-700 bg-pq-primary-50 border-pq-primary-200 hover:bg-pq-primary-100'
+                  }`}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Reopen for Review
+                </button>
+
+                <button
+                  onClick={() => openPanel(activePanel === 'revoke' ? 'none' : 'revoke')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                    activePanel === 'revoke'
+                      ? 'bg-pq-danger-100 text-pq-danger-600 border-red-300'
+                      : 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100 hover:bg-pq-danger-100'
+                  }`}
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  Revoke Accreditation
+                </button>
+              </div>
+
+              {activePanel !== 'none' && (
+                <div className="p-5 space-y-3 border-b border-pq-neutral-200">
+                  {actionError && (
+                    <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
+                      {actionError}
+                    </div>
+                  )}
+
+                  {activePanel === 'reopen' && (
+                    <>
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                        Reopen Notes (optional)
+                      </p>
+                      <p className="text-xs text-pq-neutral-400">
+                        Returns this application to Under Review. The supplier can be asked to provide updates if needed.
+                      </p>
+                      <textarea
+                        value={noteInput}
+                        onChange={e => setNoteInput(e.target.value)}
+                        rows={2}
+                        placeholder="Optional notes for the supplier."
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleReopen}
+                          disabled={busy}
+                          className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
+                        >
+                          {busy ? 'Reopening…' : 'Confirm Reopen'}
+                        </button>
+                        <button
+                          onClick={() => openPanel('none')}
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {activePanel === 'revoke' && (
+                    <>
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                        Revocation Reason (required)
+                      </p>
+                      <p className="text-xs text-pq-neutral-400">
+                        Marks accreditation as rejected. Existing RFQ assignments are not automatically cancelled.
+                      </p>
+                      <textarea
+                        value={noteInput}
+                        onChange={e => setNoteInput(e.target.value)}
+                        rows={2}
+                        placeholder="Reason for revoking accreditation."
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleRevoke}
+                          disabled={busy}
+                          className="px-4 py-2 bg-pq-danger-600 hover:bg-pq-danger-600 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
+                        >
+                          {busy ? 'Revoking…' : 'Confirm Revocation'}
+                        </button>
+                        <button
+                          onClick={() => openPanel('none')}
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {actionSuccess && (
+                <div className="px-5 py-3.5 bg-pq-success-100 border-b border-pq-success-100 text-sm text-pq-success-600 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  {actionSuccess}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Success banner for closed / post-action states */}
+          {(isClosed || canPostApproval) && actionSuccess && !canPostApproval && (
             <div className="bg-pq-success-100 border border-pq-success-100 rounded-md p-3 text-sm text-pq-success-600 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               {actionSuccess}

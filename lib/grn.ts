@@ -206,6 +206,31 @@ export async function fetchGRNByDeliveryId(deliveryId: string): Promise<GRNWithI
   return fetchGRNById(data.id);
 }
 
+/** Next 4-digit suffix for DR-{year}-#### (e.g. 0001). Guide only — not reserved. */
+export async function fetchSuggestedDRSequence(year?: number): Promise<string> {
+  const y = year ?? new Date().getFullYear();
+  const prefix = `DR-${y}-`;
+
+  const { data, error } = await db
+    .from('grn_receipts')
+    .select('dr_no')
+    .ilike('dr_no', `${prefix}%`);
+
+  if (error) throw error;
+
+  let max = 0;
+  const re = new RegExp(`^DR-${y}-(\\d+)`, 'i');
+  for (const row of data ?? []) {
+    const num = String((row as { dr_no?: string }).dr_no ?? '');
+    const match = num.match(re);
+    if (!match) continue;
+    const parsed = parseInt(match[1], 10);
+    if (!Number.isNaN(parsed) && parsed > max) max = parsed;
+  }
+
+  return String(max + 1).padStart(4, '0');
+}
+
 // ─── Open GRN for a delivery (idempotent) ────────────────────────────────────
 // Called when warehouse staff clicks "Receive Goods" on a delivered delivery.
 // Seeds GRN items from po_items. Safe to call multiple times.

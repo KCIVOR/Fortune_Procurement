@@ -14,6 +14,8 @@ import {
   markProductUnderReview,
   markProductVerified,
   markProductRejected,
+  revokeProductVerification,
+  reopenProductForReview,
 } from '@/lib/supplier-products';
 import {
   createRSEFromSupplierProduct,
@@ -39,6 +41,7 @@ import {
   FlaskConical,
   Circle,
   AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Select,
@@ -66,7 +69,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 
 // ─── Action panel type ────────────────────────────────────────────────────────
 
-type ActionPanel = 'none' | 'verify' | 'reject' | 'rse';
+type ActionPanel = 'none' | 'verify' | 'reject' | 'rse' | 'revoke' | 'reopen';
 
 /** Radix Select forbids empty string values on SelectItem. */
 const RSE_ASSIGNEE_UNASSIGNED = 'unassigned';
@@ -253,6 +256,44 @@ export default function ProductReviewDetailPage() {
     }
   };
 
+  const handleRevokeVerification = async () => {
+    if (!profile || !product) return;
+    if (!noteInput.trim()) {
+      setActionError('Please enter a reason for revoking verification.');
+      return;
+    }
+    setBusy(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await revokeProductVerification(product.id, profile, noteInput.trim());
+      await load();
+      setActivePanel('none');
+      setActionSuccess('Verification revoked. Product is inactive and Can Offer = No.');
+    } catch (err: unknown) {
+      setActionError((err as Error)?.message || 'Action failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReopenForReview = async () => {
+    if (!profile || !product) return;
+    setBusy(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await reopenProductForReview(product.id, profile, noteInput.trim() || undefined);
+      await load();
+      setActivePanel('none');
+      setActionSuccess('Product reopened for review. Supplier has been notified.');
+    } catch (err: unknown) {
+      setActionError((err as Error)?.message || 'Action failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const status         = product?.status ?? '';
@@ -260,8 +301,11 @@ export default function ProductReviewDetailPage() {
   const canVerify      = status === 'submitted' || status === 'under_review';
   const canRejectProd  = status === 'submitted' || status === 'under_review';
   const canCreateRSE   = status === 'submitted' || status === 'under_review';
-  const isTerminal     =
-    status === 'verified' || status === 'rejected' || status === 'inactive' || status === 'withdrawn';
+  const isClosed       = status === 'rejected' || status === 'withdrawn';
+  const canRevoke      = status === 'verified';
+  const canReopen      = status === 'verified' || status === 'inactive';
+  const showReviewActions = status === 'submitted' || status === 'under_review';
+  const showPostVerifyActions = canRevoke || status === 'inactive';
   const canOffer       = status === 'verified';
   const chip           = product ? productChip(status) : null;
 
@@ -332,6 +376,12 @@ export default function ProductReviewDetailPage() {
                 This listing is read-only. Documents remain on file for audit.
               </div>
             )}
+            {status === 'inactive' && (
+              <div className="rounded-md border border-pq-warning-100 bg-pq-warning-100 px-4 py-3 text-sm text-pq-warning-600">
+                <span className="font-semibold">Verification revoked.</span>{' '}
+                This product is inactive and cannot be offered in RFQ until re-verified.
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoField label="Product Code" value={product.product_code ?? '—'} />
               <InfoField label="Category"     value={product.category     ?? '—'} />
@@ -373,8 +423,8 @@ export default function ProductReviewDetailPage() {
             )}
           </div>
 
-          {/* ── Action bar + panels ── */}
-          {!isTerminal && (
+          {/* ── Action bar + panels (in-review) ── */}
+          {showReviewActions && (
             <div className="bg-white rounded-md border border-pq-neutral-200">
               <div className="flex items-center gap-2 px-5 py-3.5 border-b border-pq-neutral-200 flex-wrap">
                 <p className="text-sm font-semibold text-pq-neutral-900 mr-2">Actions</p>
@@ -607,8 +657,128 @@ export default function ProductReviewDetailPage() {
             </div>
           )}
 
-          {/* Terminal success banner */}
-          {isTerminal && actionSuccess && (
+          {/* ── Post-verification actions ── */}
+          {showPostVerifyActions && (
+            <div className="bg-white rounded-md border border-pq-neutral-200">
+              <div className="flex items-center gap-2 px-5 py-3.5 border-b border-pq-neutral-200 flex-wrap">
+                <p className="text-sm font-semibold text-pq-neutral-900 mr-2">Post-Verification Actions</p>
+
+                {canReopen && (
+                  <button
+                    onClick={() => openPanel(activePanel === 'reopen' ? 'none' : 'reopen')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                      activePanel === 'reopen'
+                        ? 'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200'
+                        : 'text-pq-primary-700 bg-pq-primary-50 border-pq-primary-200 hover:bg-pq-primary-100'
+                    }`}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reopen for Review
+                  </button>
+                )}
+
+                {canRevoke && (
+                  <button
+                    onClick={() => openPanel(activePanel === 'revoke' ? 'none' : 'revoke')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                      activePanel === 'revoke'
+                        ? 'bg-pq-danger-100 text-pq-danger-600 border-red-300'
+                        : 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100 hover:bg-pq-danger-100'
+                    }`}
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Revoke Verification
+                  </button>
+                )}
+              </div>
+
+              {activePanel !== 'none' && (
+                <div className="p-5 space-y-3 border-b border-pq-neutral-200">
+                  {actionError && (
+                    <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
+                      {actionError}
+                    </div>
+                  )}
+
+                  {activePanel === 'reopen' && (
+                    <>
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                        Reopen Notes (optional)
+                      </p>
+                      <p className="text-xs text-pq-neutral-400">
+                        Returns this product to Under Review. Can Offer becomes No until verified again.
+                      </p>
+                      <textarea
+                        value={noteInput}
+                        onChange={e => setNoteInput(e.target.value)}
+                        rows={2}
+                        placeholder="Optional notes for the supplier."
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleReopenForReview}
+                          disabled={busy}
+                          className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
+                        >
+                          {busy ? 'Reopening…' : 'Confirm Reopen'}
+                        </button>
+                        <button
+                          onClick={() => openPanel('none')}
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {activePanel === 'revoke' && (
+                    <>
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                        Revocation Reason (required)
+                      </p>
+                      <p className="text-xs text-pq-neutral-400">
+                        Sets product to Inactive. Existing RFQ quotes are not automatically removed.
+                      </p>
+                      <textarea
+                        value={noteInput}
+                        onChange={e => setNoteInput(e.target.value)}
+                        rows={2}
+                        placeholder="Reason for revoking verification."
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleRevokeVerification}
+                          disabled={busy}
+                          className="px-4 py-2 bg-pq-danger-600 hover:bg-pq-danger-600 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
+                        >
+                          {busy ? 'Revoking…' : 'Confirm Revocation'}
+                        </button>
+                        <button
+                          onClick={() => openPanel('none')}
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {actionSuccess && (
+                <div className="px-5 py-3.5 bg-pq-success-100 border-b border-pq-success-100 text-sm text-pq-success-600 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  {actionSuccess}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Success banner for closed states */}
+          {isClosed && actionSuccess && (
             <div className="bg-pq-success-100 border border-pq-success-100 rounded-md p-3 text-sm text-pq-success-600 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               {actionSuccess}

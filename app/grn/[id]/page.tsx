@@ -7,7 +7,7 @@ import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
-import { fetchGRNById, saveGRNProgress, closeGRN } from '@/lib/grn';
+import { fetchGRNById, fetchSuggestedDRSequence, saveGRNProgress, closeGRN } from '@/lib/grn';
 import type { GRNWithItems, GRNFormValues, GRNItemDraft } from '@/types/grn';
 import { format } from 'date-fns';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
@@ -45,6 +45,7 @@ export default function GRNDetailPage() {
   const [saveMsg, setSaveMsg] = useState('');
   const [formError, setFormError] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
+  const [suggestedDRSequence, setSuggestedDRSequence] = useState<string | null>(null);
 
   const isWarehouse = profile?.role === 'warehouse';
   const isReadOnly  = grn?.status === 'closed' || !isWarehouse;
@@ -68,7 +69,7 @@ export default function GRNDetailPage() {
 
   // Helper to set DR number with prefix
   const setDRNumber = (suffix: string) => {
-    const cleanSuffix = suffix.replace(/^DR-\d{4}-/i, '');
+    const cleanSuffix = suffix.replace(/^DR-\d{4}-/i, '').replace(/\D/g, '');
     setForm(f => ({ ...f, dr_no: drPrefix + cleanSuffix }));
   };
 
@@ -106,6 +107,31 @@ export default function GRNDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!grn || grn.status === 'closed' || !isWarehouse) return;
+
+    const yearMatch = drPrefix.match(/^DR-(\d{4})-/i);
+    const year = yearMatch ? parseInt(yearMatch[1], 10) : currentYear;
+    let cancelled = false;
+
+    fetchSuggestedDRSequence(year)
+      .then((suffix) => {
+        if (cancelled) return;
+        setSuggestedDRSequence(suffix);
+        setForm((f) => {
+          if (getDRSuffix(f.dr_no).trim()) return f;
+          return { ...f, dr_no: `${drPrefix}${suffix}` };
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestedDRSequence(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [grn?.id, grn?.status, isWarehouse, drPrefix, currentYear]);
 
   const setItemField = useCallback((idx: number, field: keyof GRNItemDraft, value: any) => {
     setForm(f => {
@@ -273,10 +299,17 @@ export default function GRNDetailPage() {
                   value={getDRSuffix(form.dr_no)}
                   onChange={e => setDRNumber(e.target.value)}
                   disabled={isReadOnly}
-                  placeholder="e.g. 001"
+                  placeholder={suggestedDRSequence ?? '0001'}
                   className="flex-1 px-3 py-2 border-0 text-sm font-mono focus:outline-none bg-transparent disabled:bg-pq-neutral-50 disabled:text-pq-neutral-500"
                 />
               </div>
+              {!isReadOnly && (
+                <p className="mt-1 text-xs text-pq-neutral-400">
+                  {suggestedDRSequence
+                    ? `Suggested: ${drPrefix}${suggestedDRSequence} — you may edit this number.`
+                    : 'Enter a 4-digit sequence (e.g. 0001) or use the suggested value when it loads.'}
+                </p>
+              )}
             </Field>
 
             <Field label="DR Date">

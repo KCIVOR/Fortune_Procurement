@@ -22,6 +22,15 @@ const AuthContext = createContext<AuthContextValue>({
   refreshProfile: async () => {},
 });
 
+async function loadProfileOrSignOut(userId: string): Promise<UserProfile | null> {
+  const p = await fetchUserProfile(userId);
+  if (p && p.active === false) {
+    await supabase.auth.signOut();
+    return null;
+  }
+  return p;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -78,10 +87,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (wasSignedOut) return;
 
       const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
       if (session?.user) {
-        const p = await fetchUserProfile(session.user.id);
-        setProfile(p);
+        const p = await loadProfileOrSignOut(session.user.id);
+        if (!p) {
+          setSession(null);
+          setProfile(null);
+        } else {
+          setSession(session);
+          setProfile(p);
+        }
+      } else {
+        setSession(null);
+        setProfile(null);
       }
       setLoading(false);
     };
@@ -89,13 +106,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
       if (session?.user) {
         (async () => {
-          const p = await fetchUserProfile(session.user.id);
-          setProfile(p);
+          const p = await loadProfileOrSignOut(session.user.id);
+          if (!p) {
+            setSession(null);
+            setProfile(null);
+          } else {
+            setSession(session);
+            setProfile(p);
+          }
         })();
       } else {
+        setSession(null);
         setProfile(null);
       }
     });
@@ -115,7 +138,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = async () => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     if (!currentSession?.user) return;
-    const p = await fetchUserProfile(currentSession.user.id);
+    const p = await loadProfileOrSignOut(currentSession.user.id);
+    if (!p) {
+      setSession(null);
+      setProfile(null);
+      return;
+    }
     setProfile(p);
   };
 

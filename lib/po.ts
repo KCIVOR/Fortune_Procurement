@@ -258,6 +258,25 @@ export async function fetchPOGenerationCandidates(): Promise<POGenerationCandida
 
 // ─── Supplier payment terms ────────────────────────────────────────────────────
 
+export async function fetchSupplierPaymentTermsBySupplierId(
+  supplierProfileId: string,
+): Promise<string | null> {
+  const id = String(supplierProfileId ?? '').trim();
+  if (!id) return null;
+
+  const { data: supplierProfile, error: profErr } = await db
+    .from('profiles')
+    .select('payment_terms')
+    .eq('id', id)
+    .maybeSingle();
+  if (profErr) throw profErr;
+  const raw = supplierProfile?.payment_terms;
+  if (raw == null || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return trimmed || null;
+}
+
+/** @deprecated Prefer fetchSupplierPaymentTermsBySupplierId — name matching is fragile. */
 export async function fetchSupplierPaymentTermsBySupplierName(supplierName: string): Promise<string | null> {
   const name = String(supplierName ?? '').trim();
   if (!name) return null;
@@ -274,7 +293,7 @@ export async function fetchSupplierPaymentTermsBySupplierName(supplierName: stri
   return trimmed || null;
 }
 
-/** @deprecated Use fetchSupplierPaymentTermsBySupplierName with the supplier for the PO candidate. */
+/** @deprecated Use fetchSupplierPaymentTermsBySupplierId with the PO candidate supplier_id. */
 export async function fetchSupplierPaymentTermsForPR2(pr2Id: string): Promise<string | null> {
   const { data: items, error: itemsErr } = await db
     .from('pr2_items')
@@ -285,6 +304,31 @@ export async function fetchSupplierPaymentTermsForPR2(pr2Id: string): Promise<st
   if (itemsErr) throw itemsErr;
   const supplierName = items?.[0]?.supplier_name_snapshot ?? '';
   return fetchSupplierPaymentTermsBySupplierName(String(supplierName));
+}
+
+/** Next 4-digit suffix for PO-{year}-#### (e.g. 0001). Guide only — not reserved. */
+export async function fetchSuggestedPOSequence(year?: number): Promise<string> {
+  const y = year ?? new Date().getFullYear();
+  const prefix = `PO-${y}-`;
+
+  const { data, error } = await db
+    .from('po_requests')
+    .select('po_number')
+    .ilike('po_number', `${prefix}%`);
+
+  if (error) throw error;
+
+  let max = 0;
+  const re = new RegExp(`^PO-${y}-(\\d+)`, 'i');
+  for (const row of data ?? []) {
+    const num = String((row as { po_number?: string }).po_number ?? '');
+    const match = num.match(re);
+    if (!match) continue;
+    const parsed = parseInt(match[1], 10);
+    if (!Number.isNaN(parsed) && parsed > max) max = parsed;
+  }
+
+  return String(max + 1).padStart(4, '0');
 }
 
 // ─── Generate PO from approved PR2 (one supplier slice) ───────────────────────

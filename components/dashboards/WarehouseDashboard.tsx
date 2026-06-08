@@ -7,6 +7,7 @@ import type { UserProfile } from '@/types/auth';
 import PageHeader from '@/components/shared/PageHeader';
 import { WarehouseDashboardVisibilitySkeleton } from '@/components/shared/module-visibility-skeletons';
 import { useModuleVisibility } from '@/hooks/use-module-visibility';
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import { supabase } from '@/lib/supabase';
 import { fetchWarehouseQueue } from '@/lib/warehouse';
 import { fetchGRNQueue } from '@/lib/grn';
@@ -18,8 +19,7 @@ import { DashboardQueueSkeleton } from '@/components/shared/structural-skeletons
 
 interface Props { profile: UserProfile; }
 
-const STAT_GRID_CLASS =
-  'grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] mb-4 mt-1';
+const STAT_GRID_CLASS = KPI_GRID_CLASS + ' mb-4 mt-1';
 
 interface Stats {
   pendingValidation: number;

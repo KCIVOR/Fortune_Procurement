@@ -1,0 +1,2907 @@
+{
+  "Login Page": {
+    "path": "/login",
+    "url": "http://localhost:3000/login",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "Sign In"
+    ],
+    "h2s": [],
+    "h3s": [
+      "Welcome Back"
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "absolute right-3 top-1/2 -translate-y-1/2 text-pq-neutral-400 hover:text-pq-neutral-500 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 rounded"
+      },
+      {
+        "text": "on",
+        "id": "remember",
+        "disabled": false,
+        "classes": "peer h-4 w-4 shrink-0 rounded-sm border ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:text-primary-foreground border-pq-neutral-300 data-[state=checked]:bg-pq-primary-600 data-[state=checked]:border-pq-primary-600"
+      },
+      {
+        "text": "Sign in",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 bg-pq-primary-600 text-pq-white hover:bg-pq-primary-700 px-4 py-2 w-full h-10 mt-2 font-medium"
+      }
+    ],
+    "links": [
+      {
+        "text": "Forgot password?",
+        "href": "/forgot-password",
+        "classes": "text-xs font-medium text-pq-primary-600 hover:text-pq-primary-700 hover:underline"
+      },
+      {
+        "text": "Developer Console",
+        "href": "/bugtrack",
+        "classes": "hover:text-pq-neutral-900 transition"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "email",
+        "name": "",
+        "id": "email",
+        "placeholder": "you@fortune.com",
+        "label": "Email address"
+      },
+      {
+        "tagName": "input",
+        "type": "password",
+        "name": "",
+        "id": "password",
+        "placeholder": "••••••••",
+        "label": "Password"
+      },
+      {
+        "tagName": "input",
+        "type": "checkbox",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      }
+    ],
+    "tableHeaders": [],
+    "badges": [],
+    "alerts": [],
+    "bodyText": "Sign In\nWelcome Back\n\nPlease enter your credentials below to access your account.\n\nEmail address\nPassword\nForgot password?\nRemember this device for 30 days\nSign in\n© 2026 Fortune Procurement Inc.\n·\nDeveloper Console"
+  },
+  "Dashboard": {
+    "path": "/dashboard",
+    "url": "http://localhost:3000/dashboard",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "Dashboard",
+      "Welcome back, Juan"
+    ],
+    "h2s": [
+      "Recent Requests"
+    ],
+    "h3s": [],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      },
+      {
+        "text": "New PR1",
+        "href": "/pr1/new",
+        "classes": "inline-flex items-center gap-2 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/d9c6d629-d050-49df-a972-7a8e00e34afb",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/f51a11d1-d136-4b30-a31c-a5c91e2c3c71",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/34cf8245-44a5-498d-9252-d100fd788fba",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/83238f5e-135b-424f-85dc-fc22eccf04df",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/836a09d2-b1aa-43f9-98bb-f26c06ad4c05",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      }
+    ],
+    "formFields": [],
+    "tableHeaders": [
+      {
+        "tableIndex": 0,
+        "headers": [
+          "PR1 No.",
+          "Purpose",
+          "Submitted",
+          "Priority",
+          "Status",
+          ""
+        ]
+      }
+    ],
+    "badges": [
+      "22",
+      "Normal",
+      "Pending Warehouse Validation",
+      "Canvassing Complete"
+    ],
+    "alerts": [],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nDashboard\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nWelcome back, Juan\n\nTrack and manage your purchase requests from here.\n\nNew PR1\nTOTAL REQUESTS\n10\nPENDING APPROVAL\n0\nAPPROVED\n0\nREJECTED\n0\nRecent Requests\nPR1 No.\tPurpose\tSubmitted\tPriority\tStatus\t\nPR1-2026-0006\tMaintenance & Repair\tJun 6, 2026\tNormal\t\nPending Warehouse Validation\t\nView\nPR1-2026-0013\tMaintenance & Repair\tJun 6, 2026\tNormal\t\nCanvassing Complete\t\nView\nPR1-2026-TEST-001\tOffice equipment for new staff\tJun 5, 2026\tNormal\t\nCanvassing Complete\t\nView\nPR1-2026-005\tMaintenance & Repair\tJun 5, 2026\tNormal\t\nCanvassing Complete\t\nView\nPR1-2026-004\tProject Materials\tJun 5, 2026\tNormal\t\nCanvassing Complete\t\nView"
+  },
+  "My Requests List": {
+    "path": "/pr1",
+    "url": "http://localhost:3000/pr1",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "My Requests",
+      "Purchase Requests (PR1)"
+    ],
+    "h2s": [],
+    "h3s": [],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "All statuses",
+        "id": "pr1-status",
+        "disabled": false,
+        "classes": "flex w-full items-center justify-between rounded-md border border-pq-neutral-300 bg-pq-white px-3 py-2 text-pq-neutral-900 placeholder:text-pq-neutral-400 focus:outline-none focus:border-pq-primary-500 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 text-sm focus:ring-2 focus:ring-pq-primary-600 h-12 sm:h-11"
+      },
+      {
+        "text": "Apply",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 py-2 w-full sm:w-auto bg-pq-primary-600 hover:bg-pq-primary-700 active:bg-pq-primary-800 text-white font-medium px-8 rounded-md transition-colors h-12 sm:h-11"
+      },
+      {
+        "text": "Clear All",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 border bg-pq-white py-2 w-full sm:w-auto text-pq-neutral-700 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 border-pq-neutral-200 font-medium px-8 rounded-md transition-colors h-12 sm:h-11"
+      },
+      {
+        "text": "Previous",
+        "id": "",
+        "disabled": true,
+        "classes": "px-4 py-2 sm:px-3 sm:py-1 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded hover:bg-pq-neutral-200 active:bg-pq-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed transition min-w-[80px] sm:min-w-0"
+      },
+      {
+        "text": "Next",
+        "id": "",
+        "disabled": true,
+        "classes": "px-4 py-2 sm:px-3 sm:py-1 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded hover:bg-pq-neutral-200 active:bg-pq-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed transition min-w-[80px] sm:min-w-0"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      },
+      {
+        "text": "New PR1",
+        "href": "/pr1/new",
+        "classes": "inline-flex items-center gap-2 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/d9c6d629-d050-49df-a972-7a8e00e34afb",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/f51a11d1-d136-4b30-a31c-a5c91e2c3c71",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/34cf8245-44a5-498d-9252-d100fd788fba",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/83238f5e-135b-424f-85dc-fc22eccf04df",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/836a09d2-b1aa-43f9-98bb-f26c06ad4c05",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/7a1ddae0-6dd8-49fd-92e9-487dd2e265bc",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/7c57523b-01f6-4616-925a-44a8d4b11b6b",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/223edde6-3346-437d-a474-9bfba12f329a",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/91d2f94c-09ea-48b8-9a9b-e6e6b0013f5f",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      },
+      {
+        "text": "View",
+        "href": "/pr1/a1b0db7a-da32-4f5a-acef-0da8eb152bce",
+        "classes": "inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-medium transition"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "search",
+        "name": "",
+        "id": "pr1-search",
+        "placeholder": "PR1 number or purpose...",
+        "label": "SEARCH"
+      },
+      {
+        "tagName": "input",
+        "type": "date",
+        "name": "",
+        "id": "pr1-date-from",
+        "placeholder": "",
+        "label": "DATE CREATED FROM"
+      },
+      {
+        "tagName": "input",
+        "type": "date",
+        "name": "",
+        "id": "pr1-date-to",
+        "placeholder": "",
+        "label": "DATE CREATED TO"
+      }
+    ],
+    "tableHeaders": [
+      {
+        "tableIndex": 0,
+        "headers": [
+          "PR1 NO.",
+          "PURPOSE",
+          "DATE REQUIRED",
+          "SUBMITTED",
+          "PRIORITY",
+          "STATUS",
+          ""
+        ]
+      }
+    ],
+    "badges": [
+      "22",
+      "Normal",
+      "Pending Warehouse Validation",
+      "Partial GRN",
+      "Completed (GRN Closed)",
+      "PR2 — Pending Approval",
+      "Medium",
+      "Canvassing Complete",
+      "Draft"
+    ],
+    "alerts": [
+      "Completed (GRN Closed)",
+      "Canvassing Complete"
+    ],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nMy Requests\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nPurchase Requests (PR1)\n\nCreate and track your purchase requisitions.\n\nNew PR1\nSEARCH\nSTATUS\nAll statuses\nDATE CREATED FROM\nDATE CREATED TO\nApply\nClear All\n\n10 requests found\n\nPR1 NO.\tPURPOSE\tDATE REQUIRED\tSUBMITTED\tPRIORITY\tSTATUS\t\nPR1-2026-0006\tMaintenance & Repair\tJun 8, 2026\t\nJun 6, 2026\n\tNormal\t\nPending Warehouse Validation\t\nView\nPR1-2026-0013\tMaintenance & Repair\tJun 7, 2026\t\nJun 6, 2026\n\tNormal\t\nPartial GRN\t\nView\nPR1-2026-TEST-001\tOffice equipment for new staff\tJun 5, 2026\t\nJun 5, 2026\n\tNormal\t\nCompleted (GRN Closed)\t\nView\nPR1-2026-005\tMaintenance & Repair\tJun 5, 2026\t\nJun 5, 2026\n\tNormal\t\nCompleted (GRN Closed)\t\nView\nPR1-2026-004\tProject Materials\tJun 6, 2026\t\nJun 5, 2026\n\tNormal\t\nPR2 — Pending Approval\t\nView\nPR1-2026-003\tOffice Supplies\tJun 3, 2026\t\nJun 5, 2026\n\tMedium\t\nCanvassing Complete\t\nView\nPR"
+  },
+  "New PR1 Form (Empty)": {
+    "path": "/pr1/new",
+    "url": "http://localhost:3000/pr1/new",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "New PR1",
+      "New Purchase Request"
+    ],
+    "h2s": [
+      "PURCHASE REQUEST — PR1"
+    ],
+    "h3s": [
+      "Items Requested"
+    ],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "Add Item",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center gap-1.5 text-xs font-medium text-pq-primary-600 hover:text-pq-neutral-900 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": true,
+        "classes": "text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": true,
+        "classes": "text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
+      },
+      {
+        "text": "Cancel",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 hover:bg-pq-neutral-100 h-10 px-4 py-2 text-pq-neutral-500 hover:text-pq-neutral-900 transition text-sm"
+      },
+      {
+        "text": "Save Draft",
+        "id": "",
+        "disabled": false,
+        "classes": "justify-center whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 border border-pq-neutral-300 bg-pq-white text-pq-neutral-700 hover:bg-pq-neutral-50 hover:text-pq-neutral-900 h-10 px-4 py-2 inline-flex items-center gap-2 hover:border-pq-primary-600 transition"
+      },
+      {
+        "text": "Submit PR1",
+        "id": "",
+        "disabled": false,
+        "classes": "justify-center whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 inline-flex items-center gap-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-pq-white transition"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      },
+      {
+        "text": "Back to My Requests",
+        "href": "/pr1",
+        "classes": "inline-flex items-center gap-1 text-xs text-pq-neutral-500 hover:text-pq-neutral-500 transition"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "e.g. 001",
+        "label": ""
+      },
+      {
+        "tagName": "select",
+        "type": "select-one",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "date",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "Optional",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "Item description",
+        "label": ""
+      },
+      {
+        "tagName": "select",
+        "type": "select-one",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "number",
+        "name": "",
+        "id": "",
+        "placeholder": "1",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "checkbox",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      }
+    ],
+    "tableHeaders": [
+      {
+        "tableIndex": 0,
+        "headers": [
+          "#",
+          "ITEM CODE",
+          "DESCRIPTION",
+          "UNIT",
+          "SOH",
+          "REQ. QTY",
+          "RAW MAT.",
+          ""
+        ]
+      }
+    ],
+    "badges": [
+      "22"
+    ],
+    "alerts": [],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nNew PR1\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nBack to My Requests\nNew Purchase Request\n\nComplete the form below and submit to start the procurement process.\n\nPURCHASE REQUEST — PR1\n\nFortune Procurement Automation System\n\nForm No. PR1-v1\nREQUISITIONER / USER\nJuan dela Cruz\nDEPARTMENT\nOperations\nPR1 NUMBER *\nPR1-2026-\nDATE\nJune 7, 2026\nPURPOSE *\n— Select purpose —\nOffice Supplies\nIT Equipment\nMaintenance & Repair\nProject Materials\nOperations Support\nOther\nDATE REQUIRED *\nItems Requested\nAdd Item\n#\tITEM CODE\tDESCRIPTION\tUNIT\tSOH\tREQ. QTY\tRAW MAT.\t\n\n1\n\t\n\t\n\t\n— Unit —\npcs\nbox\nset\npack\nream\nroll\nbottle\nliter\nkg\nmeter\npair\nunit\nOther\n\t—\t\n\t\n\t\nCancel\nSave Draft\nSubmit PR1"
+  },
+  "New PR1 Validation Errors": {
+    "path": "/pr1/new",
+    "url": "http://localhost:3000/pr1/new",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "New PR1",
+      "New Purchase Request"
+    ],
+    "h2s": [
+      "PURCHASE REQUEST — PR1"
+    ],
+    "h3s": [
+      "Items Requested"
+    ],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "Add Item",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center gap-1.5 text-xs font-medium text-pq-primary-600 hover:text-pq-neutral-900 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": true,
+        "classes": "text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": true,
+        "classes": "text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
+      },
+      {
+        "text": "Cancel",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 hover:bg-pq-neutral-100 h-10 px-4 py-2 text-pq-neutral-500 hover:text-pq-neutral-900 transition text-sm"
+      },
+      {
+        "text": "Save Draft",
+        "id": "",
+        "disabled": false,
+        "classes": "justify-center whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 border border-pq-neutral-300 bg-pq-white text-pq-neutral-700 hover:bg-pq-neutral-50 hover:text-pq-neutral-900 h-10 px-4 py-2 inline-flex items-center gap-2 hover:border-pq-primary-600 transition"
+      },
+      {
+        "text": "Submit PR1",
+        "id": "",
+        "disabled": false,
+        "classes": "justify-center whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 inline-flex items-center gap-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-pq-white transition"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      },
+      {
+        "text": "Back to My Requests",
+        "href": "/pr1",
+        "classes": "inline-flex items-center gap-1 text-xs text-pq-neutral-500 hover:text-pq-neutral-500 transition"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "e.g. 001",
+        "label": ""
+      },
+      {
+        "tagName": "select",
+        "type": "select-one",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "date",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "Optional",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "Item description",
+        "label": ""
+      },
+      {
+        "tagName": "select",
+        "type": "select-one",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "number",
+        "name": "",
+        "id": "",
+        "placeholder": "1",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "checkbox",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      }
+    ],
+    "tableHeaders": [
+      {
+        "tableIndex": 0,
+        "headers": [
+          "#",
+          "ITEM CODE",
+          "DESCRIPTION",
+          "UNIT",
+          "SOH",
+          "REQ. QTY",
+          "RAW MAT.",
+          ""
+        ]
+      }
+    ],
+    "badges": [
+      "22"
+    ],
+    "alerts": [],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nNew PR1\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nBack to My Requests\nNew Purchase Request\n\nComplete the form below and submit to start the procurement process.\n\nPURCHASE REQUEST — PR1\n\nFortune Procurement Automation System\n\nForm No. PR1-v1\nREQUISITIONER / USER\nJuan dela Cruz\nDEPARTMENT\nOperations\nPR1 NUMBER *\nPR1-2026-\nDATE\nJune 7, 2026\nPURPOSE *\n— Select purpose —\nOffice Supplies\nIT Equipment\nMaintenance & Repair\nProject Materials\nOperations Support\nOther\n\nPurpose is required.\n\nDATE REQUIRED *\nItems Requested\nAdd Item\n#\tITEM CODE\tDESCRIPTION\tUNIT\tSOH\tREQ. QTY\tRAW MAT.\t\n\n1\n\t\n\t\n\t\n— Unit —\npcs\nbox\nset\npack\nream\nroll\nbottle\nliter\nkg\nmeter\npair\nunit\nOther\n\t—\t\n\t\n\t\nAt least one item is required.\nCancel\nSave Draft\nSubmit PR1"
+  },
+  "New PR1 Form (Filled)": {
+    "path": "/pr1/new",
+    "url": "http://localhost:3000/pr1/new",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "New PR1",
+      "New Purchase Request"
+    ],
+    "h2s": [
+      "PURCHASE REQUEST — PR1"
+    ],
+    "h3s": [
+      "Items Requested"
+    ],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "Add Item",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center gap-1.5 text-xs font-medium text-pq-primary-600 hover:text-pq-neutral-900 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": true,
+        "classes": "text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "text-pq-neutral-400 hover:text-pq-danger-600 transition opacity-0 group-hover:opacity-100"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": true,
+        "classes": "text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "text-pq-neutral-400 hover:text-pq-danger-600 transition opacity-0 group-hover:opacity-100"
+      },
+      {
+        "text": "Cancel",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 hover:bg-pq-neutral-100 h-10 px-4 py-2 text-pq-neutral-500 hover:text-pq-neutral-900 transition text-sm"
+      },
+      {
+        "text": "Save Draft",
+        "id": "",
+        "disabled": false,
+        "classes": "justify-center whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 border border-pq-neutral-300 bg-pq-white text-pq-neutral-700 hover:bg-pq-neutral-50 hover:text-pq-neutral-900 h-10 px-4 py-2 inline-flex items-center gap-2 hover:border-pq-primary-600 transition"
+      },
+      {
+        "text": "Submit PR1",
+        "id": "",
+        "disabled": false,
+        "classes": "justify-center whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 inline-flex items-center gap-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-pq-white transition"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      },
+      {
+        "text": "Back to My Requests",
+        "href": "/pr1",
+        "classes": "inline-flex items-center gap-1 text-xs text-pq-neutral-500 hover:text-pq-neutral-500 transition"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "e.g. 001",
+        "label": ""
+      },
+      {
+        "tagName": "select",
+        "type": "select-one",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "date",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "Optional",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "Item description",
+        "label": ""
+      },
+      {
+        "tagName": "select",
+        "type": "select-one",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "number",
+        "name": "",
+        "id": "",
+        "placeholder": "1",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "checkbox",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "Optional",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "Item description",
+        "label": ""
+      },
+      {
+        "tagName": "select",
+        "type": "select-one",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "number",
+        "name": "",
+        "id": "",
+        "placeholder": "1",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "checkbox",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      }
+    ],
+    "tableHeaders": [
+      {
+        "tableIndex": 0,
+        "headers": [
+          "#",
+          "ITEM CODE",
+          "DESCRIPTION",
+          "UNIT",
+          "SOH",
+          "REQ. QTY",
+          "RAW MAT.",
+          ""
+        ]
+      }
+    ],
+    "badges": [
+      "22"
+    ],
+    "alerts": [],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nNew PR1\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nBack to My Requests\nNew Purchase Request\n\nComplete the form below and submit to start the procurement process.\n\nPURCHASE REQUEST — PR1\n\nFortune Procurement Automation System\n\nForm No. PR1-v1\nREQUISITIONER / USER\nJuan dela Cruz\nDEPARTMENT\nOperations\nPR1 NUMBER *\nPR1-2026-\nDATE\nJune 7, 2026\nPURPOSE *\n— Select purpose —\nOffice Supplies\nIT Equipment\nMaintenance & Repair\nProject Materials\nOperations Support\nOther\nDATE REQUIRED *\nItems Requested\nAdd Item\n#\tITEM CODE\tDESCRIPTION\tUNIT\tSOH\tREQ. QTY\tRAW MAT.\t\n\n1\n\t\n\t\n\t\n— Unit —\npcs\nbox\nset\npack\nream\nroll\nbottle\nliter\nkg\nmeter\npair\nunit\nOther\n\t—\t\n\t\n\t\n\n\n2\n\t\n\t\n\t\n— Unit —\npcs\nbox\nset\npack\nream\nroll\nbottle\nliter\nkg\nmeter\npair\nunit\nOther\n\t—\t\n\t\n\t\nAt least one item is required.\nCancel\nSave Draft\nSubmit PR1"
+  },
+  "PR1 Details": {
+    "path": "/pr1/d9c6d629-d050-49df-a972-7a8e00e34afb",
+    "url": "http://localhost:3000/pr1/d9c6d629-d050-49df-a972-7a8e00e34afb",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "PR1 Detail",
+      "PR1-2026-0006"
+    ],
+    "h2s": [
+      "REQUEST HEADER",
+      "ITEMS REQUESTED",
+      "SIGNATORIES"
+    ],
+    "h3s": [],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "Back",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center gap-1 text-xs text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      },
+      {
+        "text": "Print",
+        "href": "/pr1/d9c6d629-d050-49df-a972-7a8e00e34afb/print",
+        "classes": "inline-flex items-center gap-1.5 px-3 py-2 bg-pq-white border border-pq-neutral-200 hover:border-pq-neutral-300 text-pq-neutral-700 text-sm font-medium rounded-md transition"
+      }
+    ],
+    "formFields": [],
+    "tableHeaders": [
+      {
+        "tableIndex": 0,
+        "headers": [
+          "#",
+          "ITEM CODE",
+          "DESCRIPTION",
+          "TYPE",
+          "UNIT",
+          "SOH",
+          "REQ. QTY",
+          "WAREHOUSE ROUTE"
+        ]
+      }
+    ],
+    "badges": [
+      "22",
+      "Pending Warehouse Validation",
+      "Normal"
+    ],
+    "alerts": [],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nPR1 Detail\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nBack\nPR1-2026-0006\nPending Warehouse Validation\nNormal\n\nCreated June 6, 2026\n\nPrint\nREQUEST HEADER\nForm No. PR1-v1\nREQUISITIONER\nJuan dela Cruz\nDEPARTMENT\nOperations\nPR1 NUMBER\nPR1-2026-0006\nDATE\nJune 6, 2026\nDATE REQUIRED\nJune 8, 2026\nPURPOSE\nMaintenance & Repair\nITEMS REQUESTED\n#\tITEM CODE\tDESCRIPTION\tTYPE\tUNIT\tSOH\tREQ. QTY\tWAREHOUSE ROUTE\n1\t—\tPackaging Tape\t—\troll\t—\t5\t—\n2\t—\tTape Dispenser\t—\tunit\t—\t1\t—\n3\t—\tBubble Wrap\t—\troll\t—\t5\t—\n4\t—\tStrapping Seals\t—\tpack\t—\t10\t—\n5\t—\tIndustrial Degreaser\t—\tliter\t—\t5\t—\nSIGNATORIES\nPrepared By / Requestor\nJuan dela Cruz\n\nStaff\n\nOperations\n\nPrepared · Jun 6, 2026 4:52 PM\n\nSubmitted · Jun 6, 2026 4:52 PM\n\nApproval workflow not started yet."
+  },
+  "Substitute Review List": {
+    "path": "/substitutes",
+    "url": "http://localhost:3000/substitutes",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "Substitute Review",
+      "Substitute Item Review"
+    ],
+    "h2s": [],
+    "h3s": [],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "All statuses",
+        "id": "sub-status",
+        "disabled": false,
+        "classes": "flex w-full items-center justify-between rounded-md border border-pq-neutral-300 bg-pq-white px-3 py-2 text-pq-neutral-900 placeholder:text-pq-neutral-400 focus:outline-none focus:border-pq-primary-500 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 text-sm focus:ring-2 focus:ring-pq-primary-600 h-12 sm:h-11"
+      },
+      {
+        "text": "Apply",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 py-2 w-full sm:w-auto bg-pq-primary-600 hover:bg-pq-primary-700 active:bg-pq-primary-800 text-white font-medium px-8 rounded-md transition-colors h-12 sm:h-11"
+      },
+      {
+        "text": "Clear All",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 border bg-pq-white py-2 w-full sm:w-auto text-pq-neutral-700 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 border-pq-neutral-200 font-medium px-8 rounded-md transition-colors h-12 sm:h-11"
+      },
+      {
+        "text": "Previous",
+        "id": "",
+        "disabled": true,
+        "classes": "px-4 py-2 sm:px-3 sm:py-1 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded hover:bg-pq-neutral-200 active:bg-pq-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed transition min-w-[80px] sm:min-w-0"
+      },
+      {
+        "text": "Next",
+        "id": "",
+        "disabled": true,
+        "classes": "px-4 py-2 sm:px-3 sm:py-1 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded hover:bg-pq-neutral-200 active:bg-pq-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed transition min-w-[80px] sm:min-w-0"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      },
+      {
+        "text": "PR1-2026-003 All decided Office Supplies Operations · 1 substitute offered",
+        "href": "/substitutes/7a1ddae0-6dd8-49fd-92e9-487dd2e265bc",
+        "classes": "block bg-white rounded-md border border-pq-neutral-200 hover:border-pq-primary-600 transition"
+      },
+      {
+        "text": "PR1-2026-004 All decided Project Materials Operations · 1 substitute offered",
+        "href": "/substitutes/836a09d2-b1aa-43f9-98bb-f26c06ad4c05",
+        "classes": "block bg-white rounded-md border border-pq-neutral-200 hover:border-pq-primary-600 transition"
+      },
+      {
+        "text": "PR1-2026-0013 All decided Maintenance & Repair Operations · 2 substitutes offered",
+        "href": "/substitutes/f51a11d1-d136-4b30-a31c-a5c91e2c3c71",
+        "classes": "block bg-white rounded-md border border-pq-neutral-200 hover:border-pq-primary-600 transition"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "search",
+        "name": "",
+        "id": "sub-search",
+        "placeholder": "PR1 number, purpose, or supplier...",
+        "label": "SEARCH"
+      }
+    ],
+    "tableHeaders": [],
+    "badges": [
+      "22",
+      "All decided"
+    ],
+    "alerts": [
+      "All decided"
+    ],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nSubstitute Review\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nSubstitute Item Review\n\nSuppliers sometimes offer alternatives to what you requested. Review and decide before procurement finalises selection.\n\nSEARCH\nSTATUS\nAll statuses\nApply\nClear All\n\n3 bundles found\n\n0\n\nPending Decision\n\n4\n\nAccepted\n\n0\n\nRejected\n\nPR1-2026-003\nAll decided\n\nOffice Supplies\n\nOperations · 1 substitute offered\n\nPR1-2026-004\nAll decided\n\nProject Materials\n\nOperations · 1 substitute offered\n\nPR1-2026-0013\nAll decided\n\nMaintenance & Repair\n\nOperations · 2 substitutes offered\n\nShowing 1–3 of 3 PR1 bundles\nPrevious\nPage 1 of 1\nNext"
+  },
+  "Substitute Review Details": {
+    "path": "/substitutes/7a1ddae0-6dd8-49fd-92e9-487dd2e265bc",
+    "url": "http://localhost:3000/substitutes/7a1ddae0-6dd8-49fd-92e9-487dd2e265bc",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "Substitute Review",
+      "PR1-2026-003"
+    ],
+    "h2s": [],
+    "h3s": [],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "Change decision to Rejected",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex px-2.5 py-1.5 text-xs font-medium border border-pq-neutral-200 bg-white text-pq-neutral-500 rounded-md hover:bg-pq-neutral-50 hover:border-pq-primary-600 hover:text-pq-neutral-900 transition focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:ring-offset-1"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      },
+      {
+        "text": "Back to Substitutes",
+        "href": "/substitutes",
+        "classes": "inline-flex items-center gap-1 text-xs text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+      }
+    ],
+    "formFields": [],
+    "tableHeaders": [],
+    "badges": [
+      "22",
+      "All decided",
+      "1",
+      "Accepted"
+    ],
+    "alerts": [
+      "All decided",
+      "1 From Ace Supply Corp RFQ RFQ-2026-0003 Accepted YOU REQUESTED 1 4 pair SUPPLIER IS OFFERING 1 Unit price Price hidden Lead time 1 day Decided on Jun 5, 2026 · 4:31 PM Change decision to Rejected",
+      "Accepted"
+    ],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nSubstitute Review\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nBack to Substitutes\nPR1-2026-003\nAll decided\n\nOperations · Office Supplies\n\n1\n\nFrom\n\nAce Supply Corp\n\nRFQ\n\nRFQ-2026-0003\n\nAccepted\n\nYOU REQUESTED\n\n1\n\n4 pair\n\nSUPPLIER IS OFFERING\n\n1\n\nUnit price\n\nPrice hidden\n\nLead time\n\n1 day\n\nDecided on Jun 5, 2026 · 4:31 PM\nChange decision to Rejected"
+  },
+  "Delivery Tracking List": {
+    "path": "/delivery",
+    "url": "http://localhost:3000/delivery",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "Delivery Tracking",
+      "My Delivery Status"
+    ],
+    "h2s": [],
+    "h3s": [],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "All (5)",
+        "id": "",
+        "disabled": false,
+        "classes": "relative px-4 py-2 text-sm font-medium transition-all whitespace-nowrap text-pq-primary-600"
+      },
+      {
+        "text": "Pending (0)",
+        "id": "",
+        "disabled": false,
+        "classes": "relative px-4 py-2 text-sm font-medium transition-all whitespace-nowrap text-pq-neutral-600 hover:text-pq-neutral-900"
+      },
+      {
+        "text": "Scheduled (0)",
+        "id": "",
+        "disabled": false,
+        "classes": "relative px-4 py-2 text-sm font-medium transition-all whitespace-nowrap text-pq-neutral-600 hover:text-pq-neutral-900"
+      },
+      {
+        "text": "In Transit (0)",
+        "id": "",
+        "disabled": false,
+        "classes": "relative px-4 py-2 text-sm font-medium transition-all whitespace-nowrap text-pq-neutral-600 hover:text-pq-neutral-900"
+      },
+      {
+        "text": "Delayed (0)",
+        "id": "",
+        "disabled": false,
+        "classes": "relative px-4 py-2 text-sm font-medium transition-all whitespace-nowrap text-pq-neutral-600 hover:text-pq-neutral-900"
+      },
+      {
+        "text": "Delivered (5)",
+        "id": "",
+        "disabled": false,
+        "classes": "relative px-4 py-2 text-sm font-medium transition-all whitespace-nowrap text-pq-neutral-600 hover:text-pq-neutral-900"
+      },
+      {
+        "text": "Apply",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 py-2 w-full sm:w-auto bg-pq-primary-600 hover:bg-pq-primary-700 active:bg-pq-primary-800 text-white font-medium px-8 rounded-md transition-colors h-12 sm:h-11"
+      },
+      {
+        "text": "Clear All",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 border bg-pq-white py-2 w-full sm:w-auto text-pq-neutral-700 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 border-pq-neutral-200 font-medium px-8 rounded-md transition-colors h-12 sm:h-11"
+      },
+      {
+        "text": "Previous",
+        "id": "",
+        "disabled": true,
+        "classes": "px-4 py-2 sm:px-3 sm:py-1 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded hover:bg-pq-neutral-200 active:bg-pq-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed transition min-w-[80px] sm:min-w-0"
+      },
+      {
+        "text": "Next",
+        "id": "",
+        "disabled": true,
+        "classes": "px-4 py-2 sm:px-3 sm:py-1 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded hover:bg-pq-neutral-200 active:bg-pq-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed transition min-w-[80px] sm:min-w-0"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      },
+      {
+        "text": "PO-2026-0024 Delivered Maintenance & Repair Metro Office Supplies Main Warehouse Delivered Jun 6, 2026 Price hidden PR1 Ref: PR1-2026-0013",
+        "href": "/delivery/38f657da-6210-44ea-b3a4-3ef6854efd61",
+        "classes": "block group"
+      },
+      {
+        "text": "PO-2026-0004 Delivered Office equipment for new staff Ace Supply Corp Main Warehouse Delivered Jun 5, 2026 Price hidden PR1 Ref: PR1-2026-TEST-001",
+        "href": "/delivery/47378b63-f288-48b9-adfc-ed348b4f9301",
+        "classes": "block group"
+      },
+      {
+        "text": "PO-2026-003 Delivered Maintenance & Repair Prime Tech Solutions Main Warehouse Delivered Jun 6, 2026 Price hidden PR1 Ref: PR1-2026-005",
+        "href": "/delivery/26fe86a3-bc1e-4ab3-8d53-de4308668dfa",
+        "classes": "block group"
+      },
+      {
+        "text": "PO-2026-002 Delivered Maintenance & Repair Ace Supply Corp Warehouse A Delivered Jun 5, 2026 Price hidden PR1 Ref: PR1-2026-005",
+        "href": "/delivery/cbc3137c-9591-45d1-8cb3-e1d3b4856fe4",
+        "classes": "block group"
+      },
+      {
+        "text": "PO-2026-001 Delivered Office Supplies Ace Supply Corp Main Warehouse Delivered Jun 4, 2026 Price hidden PR1 Ref: PR1-2026-001",
+        "href": "/delivery/da414141-d1f1-4472-8d9a-045385b2bd5d",
+        "classes": "block group"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "search",
+        "name": "",
+        "id": "delivery-search",
+        "placeholder": "PO number, purpose, supplier, or warehouse...",
+        "label": "SEARCH"
+      }
+    ],
+    "tableHeaders": [],
+    "badges": [
+      "22",
+      "Delivered"
+    ],
+    "alerts": [
+      "Delivered"
+    ],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nDelivery Tracking\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nMy Delivery Status\n\nTrack delivery progress for your purchase requisitions.\n\nAll (5)\nPending (0)\nScheduled (0)\nIn Transit (0)\nDelayed (0)\nDelivered (5)\nSEARCH\nApply\nClear All\n\n5 deliverys found\n\nPO-2026-0024\nDelivered\n\nMaintenance & Repair\n\nMetro Office Supplies\nMain Warehouse\nDelivered Jun 6, 2026\n\nPrice hidden\n\nPR1 Ref: PR1-2026-0013\n\nPO-2026-0004\nDelivered\n\nOffice equipment for new staff\n\nAce Supply Corp\nMain Warehouse\nDelivered Jun 5, 2026\n\nPrice hidden\n\nPR1 Ref: PR1-2026-TEST-001\n\nPO-2026-003\nDelivered\n\nMaintenance & Repair\n\nPrime Tech Solutions\nMain Warehouse\nDelivered Jun 6, 2026\n\nPrice hidden\n\nPR1 Ref: PR1-2026-005\n\nPO-2026-002\nDelivered\n\nMaintenance & Repair\n\nAce Supply Corp\nWarehouse A\nDelivered Jun 5, 2026\n\nPrice hidden\n\nPR1 Ref: PR1-2026-005\n\nPO-2026-001\nDelivered\n\nOffice Supplies\n\nAce Sup"
+  },
+  "Delivery Tracking Details": {
+    "path": "/delivery/38f657da-6210-44ea-b3a4-3ef6854efd61",
+    "url": "http://localhost:3000/delivery/38f657da-6210-44ea-b3a4-3ef6854efd61",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "Delivery — PO PO-2026-0024",
+      "PO-2026-0024"
+    ],
+    "h2s": [
+      "DELIVERY INFO",
+      "KEY DATES",
+      "STATUS HISTORY (3)"
+    ],
+    "h3s": [],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "Back",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center gap-1 text-xs text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group bg-pq-primary-600 text-white"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      }
+    ],
+    "formFields": [],
+    "tableHeaders": [],
+    "badges": [
+      "22",
+      "Delivered"
+    ],
+    "alerts": [
+      "Delivered"
+    ],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nDelivery — PO PO-2026-0024\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nBack\nPO-2026-0024\nDelivered\n\nOperations · Maintenance & Repair\n\nPR2 Ref: PR2-2026-0006\nPR1 Ref: PR1-2026-0013\nRFQ Ref: RFQ-2026-0006\n\nPrice hidden\n\nGrand Total\n\nDELIVERY INFO\nSUPPLIER\nMetro Office Supplies\nREQUISITIONER\nJuan dela Cruz\nDELIVER TO\nMain Warehouse\nADDRESS\nDemo Address\nKEY DATES\nACTUAL DELIVERY\nJune 6, 2026\n\nNo dates confirmed yet.\n\nSTATUS HISTORY (3)\nPedro Santos\nwarehouse\n\nGRN closed by Pedro Santos. GRN No: b8384ed0-9f1a-406b-b6b7-8af94a88a081.\n\nJun 6, 2026 8:29 PM\n\nMetro Office Supplies\nsupplier\n→ Delivered\n\nJun 6, 2026 8:28 PM\n\nMetro Office Supplies\nsupplier\n→ Scheduled\n\nJun 6, 2026 7:50 PM"
+  },
+  "Messages": {
+    "path": "/messages",
+    "url": "http://localhost:3000/messages",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "Messages"
+    ],
+    "h2s": [],
+    "h3s": [
+      "Select a conversation"
+    ],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "A Ana Gomez 1 day ago hello",
+        "id": "",
+        "disabled": false,
+        "classes": "w-full text-left px-4 py-3 flex items-center gap-3 transition-all group border-l-2 hover:bg-pq-neutral-50 border-l-transparent"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "Search by name or email...",
+        "label": ""
+      }
+    ],
+    "tableHeaders": [],
+    "badges": [
+      "22"
+    ],
+    "alerts": [],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nMessages\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nA\nAna Gomez\n1 day ago\n\nhello\n\nSelect a conversation\n\nChoose a conversation from the list or start a new one."
+  },
+  "Profile": {
+    "path": "/profile",
+    "url": "http://localhost:3000/profile",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "My Profile",
+      "My Profile"
+    ],
+    "h2s": [
+      "PROFILE INFORMATION",
+      "CHANGE PASSWORD"
+    ],
+    "h3s": [],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "Save Changes",
+        "id": "",
+        "disabled": true,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 text-pq-white h-9 rounded-md px-3 text-xs bg-pq-primary-600 hover:bg-pq-neutral-900 w-full sm:w-auto"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "absolute right-3 top-1/2 -translate-y-1/2 text-pq-neutral-400 hover:text-pq-neutral-500 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "absolute right-3 top-1/2 -translate-y-1/2 text-pq-neutral-400 hover:text-pq-neutral-500 transition"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "absolute right-3 top-1/2 -translate-y-1/2 text-pq-neutral-400 hover:text-pq-neutral-500 transition"
+      },
+      {
+        "text": "Update Password",
+        "id": "",
+        "disabled": true,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 text-pq-white h-9 rounded-md px-3 text-xs bg-pq-primary-600 hover:bg-pq-neutral-900 w-full sm:w-auto"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "full_name",
+        "placeholder": "Your full name",
+        "label": "FULL NAME"
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "input",
+        "type": "password",
+        "name": "",
+        "id": "current_password",
+        "placeholder": "Enter current password",
+        "label": "CURRENT PASSWORD"
+      },
+      {
+        "tagName": "input",
+        "type": "password",
+        "name": "",
+        "id": "new_password",
+        "placeholder": "Minimum 8 characters",
+        "label": "NEW PASSWORD"
+      },
+      {
+        "tagName": "input",
+        "type": "password",
+        "name": "",
+        "id": "confirm_password",
+        "placeholder": "Re-enter new password",
+        "label": "CONFIRM PASSWORD"
+      }
+    ],
+    "tableHeaders": [],
+    "badges": [
+      "22"
+    ],
+    "alerts": [],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nMy Profile\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nMy Profile\n\nManage your display name and account password.\n\nPROFILE INFORMATION\nFULL NAME\nEMAIL\nread-only\nROLE\nread-only\nPOSITION\nread-only\nDEPARTMENT\nread-only\nSave Changes\nCHANGE PASSWORD\nCURRENT PASSWORD\nNEW PASSWORD\nCONFIRM PASSWORD\nUpdate Password"
+  },
+  "Bug Reports (Empty)": {
+    "path": "/bugtrack",
+    "url": "http://localhost:3000/bugtrack",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "Report a Bug",
+      "Report a Bug"
+    ],
+    "h2s": [],
+    "h3s": [
+      "Submit a Bug Report"
+    ],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "Medium",
+        "id": "",
+        "disabled": false,
+        "classes": "flex w-full items-center justify-between rounded-md border border-pq-neutral-300 bg-pq-white px-3 py-2 text-sm text-pq-neutral-900 placeholder:text-pq-neutral-400 focus:outline-none focus:border-pq-primary-500 focus:ring-2 focus:ring-pq-primary-500/25 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 h-10"
+      },
+      {
+        "text": "Submit Bug Report",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 px-4 py-2 w-full bg-pq-primary-600 hover:bg-pq-primary-700 text-white h-11"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "title",
+        "placeholder": "e.g. Navigation bar is overlapping on mobile",
+        "label": "Issue Summary *"
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "location",
+        "placeholder": "e.g. /dashboard or Sidebar",
+        "label": "Where it Happens *"
+      },
+      {
+        "tagName": "select",
+        "type": "select-one",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "textarea",
+        "type": "textarea",
+        "name": "",
+        "id": "description",
+        "placeholder": "Describe the bug in detail...",
+        "label": "What I See (Description) *"
+      },
+      {
+        "tagName": "textarea",
+        "type": "textarea",
+        "name": "",
+        "id": "expected",
+        "placeholder": "What should happen instead?",
+        "label": "Expected Behavior *"
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "error_message",
+        "placeholder": "e.g. Uncaught TypeError: ...",
+        "label": "Error Message (Optional)"
+      }
+    ],
+    "tableHeaders": [],
+    "badges": [
+      "22"
+    ],
+    "alerts": [],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nReport a Bug\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nReport a Bug\n\nFound an issue? Let us know and we'll get it fixed as soon as possible.\n\nSubmit a Bug Report\n\nDescribe the issue you encountered in detail. Our team will review and address it promptly.\n\nIssue Summary *\nWhere it Happens *\nSeverity *\nMedium\nLow\nMedium\nHigh\nWhat I See (Description) *\nExpected Behavior *\nError Message (Optional)\nSubmit Bug Report\nWHAT TO INCLUDE\nClear description of what went wrong\nWhere in the system the issue occurred\nWhat you expected to happen instead\nAny error messages you saw (optional)"
+  },
+  "Bug Reports Validation Errors": {
+    "path": "/bugtrack",
+    "url": "http://localhost:3000/bugtrack",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "Report a Bug",
+      "Report a Bug"
+    ],
+    "h2s": [],
+    "h3s": [
+      "Submit a Bug Report"
+    ],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "Medium",
+        "id": "",
+        "disabled": false,
+        "classes": "flex w-full items-center justify-between rounded-md border border-pq-neutral-300 bg-pq-white px-3 py-2 text-sm text-pq-neutral-900 placeholder:text-pq-neutral-400 focus:outline-none focus:border-pq-primary-500 focus:ring-2 focus:ring-pq-primary-500/25 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 h-10"
+      },
+      {
+        "text": "Submit Bug Report",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 px-4 py-2 w-full bg-pq-primary-600 hover:bg-pq-primary-700 text-white h-11"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "title",
+        "placeholder": "e.g. Navigation bar is overlapping on mobile",
+        "label": "Issue Summary *"
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "location",
+        "placeholder": "e.g. /dashboard or Sidebar",
+        "label": "Where it Happens *"
+      },
+      {
+        "tagName": "select",
+        "type": "select-one",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "textarea",
+        "type": "textarea",
+        "name": "",
+        "id": "description",
+        "placeholder": "Describe the bug in detail...",
+        "label": "What I See (Description) *"
+      },
+      {
+        "tagName": "textarea",
+        "type": "textarea",
+        "name": "",
+        "id": "expected",
+        "placeholder": "What should happen instead?",
+        "label": "Expected Behavior *"
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "error_message",
+        "placeholder": "e.g. Uncaught TypeError: ...",
+        "label": "Error Message (Optional)"
+      }
+    ],
+    "tableHeaders": [],
+    "badges": [
+      "22"
+    ],
+    "alerts": [],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nReport a Bug\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nReport a Bug\n\nFound an issue? Let us know and we'll get it fixed as soon as possible.\n\nSubmit a Bug Report\n\nDescribe the issue you encountered in detail. Our team will review and address it promptly.\n\nIssue Summary *\nWhere it Happens *\nSeverity *\nMedium\nLow\nMedium\nHigh\nWhat I See (Description) *\nExpected Behavior *\nError Message (Optional)\nSubmit Bug Report\nWHAT TO INCLUDE\nClear description of what went wrong\nWhere in the system the issue occurred\nWhat you expected to happen instead\nAny error messages you saw (optional)"
+  },
+  "Bug Reports (Filled)": {
+    "path": "/bugtrack",
+    "url": "http://localhost:3000/bugtrack",
+    "title": "Fortune Procurement System",
+    "h1s": [
+      "Report a Bug",
+      "Report a Bug"
+    ],
+    "h2s": [],
+    "h3s": [
+      "Submit a Bug Report"
+    ],
+    "buttons": [
+      {
+        "text": "Fortune Procurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "FortuneProcurement System",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center h-14 border-b border-white/10 shrink-0 transition-all duration-200 hover:bg-white/5 rounded-none gap-3 px-5"
+      },
+      {
+        "text": "Sign out",
+        "id": "",
+        "disabled": false,
+        "classes": "flex items-center gap-2 rounded-md text-sm text-pq-neutral-400 hover:text-white hover:bg-white/10 transition w-full px-3 py-2"
+      },
+      {
+        "text": "",
+        "id": "",
+        "disabled": false,
+        "classes": "lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "22",
+        "id": "",
+        "disabled": false,
+        "classes": "relative flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-neutral-900 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+      },
+      {
+        "text": "Medium",
+        "id": "",
+        "disabled": false,
+        "classes": "flex w-full items-center justify-between rounded-md border border-pq-neutral-300 bg-pq-white px-3 py-2 text-sm text-pq-neutral-900 placeholder:text-pq-neutral-400 focus:outline-none focus:border-pq-primary-500 focus:ring-2 focus:ring-pq-primary-500/25 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 h-10"
+      },
+      {
+        "text": "Submit Bug Report",
+        "id": "",
+        "disabled": false,
+        "classes": "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pq-primary-500/25 disabled:pointer-events-none disabled:opacity-50 px-4 py-2 w-full bg-pq-primary-600 hover:bg-pq-primary-700 text-white h-11"
+      }
+    ],
+    "links": [
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Dashboard",
+        "href": "/dashboard",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "My Requests",
+        "href": "/pr1",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Delivery Status",
+        "href": "/delivery",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "Substitute Review",
+        "href": "/substitutes",
+        "classes": "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group text-pq-neutral-400 hover:text-white hover:bg-white/10"
+      },
+      {
+        "text": "",
+        "href": "/messages",
+        "classes": "relative flex items-center justify-center w-8 h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 transition"
+      },
+      {
+        "text": "Bug Track",
+        "href": "/bugtrack",
+        "classes": "flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+      },
+      {
+        "text": "J Juan dela Cruz",
+        "href": "/profile",
+        "classes": "flex items-center gap-2 group"
+      }
+    ],
+    "formFields": [
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "title",
+        "placeholder": "e.g. Navigation bar is overlapping on mobile",
+        "label": "Issue Summary *"
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "location",
+        "placeholder": "e.g. /dashboard or Sidebar",
+        "label": "Where it Happens *"
+      },
+      {
+        "tagName": "select",
+        "type": "select-one",
+        "name": "",
+        "id": "",
+        "placeholder": "",
+        "label": ""
+      },
+      {
+        "tagName": "textarea",
+        "type": "textarea",
+        "name": "",
+        "id": "description",
+        "placeholder": "Describe the bug in detail...",
+        "label": "What I See (Description) *"
+      },
+      {
+        "tagName": "textarea",
+        "type": "textarea",
+        "name": "",
+        "id": "expected",
+        "placeholder": "What should happen instead?",
+        "label": "Expected Behavior *"
+      },
+      {
+        "tagName": "input",
+        "type": "text",
+        "name": "",
+        "id": "error_message",
+        "placeholder": "e.g. Uncaught TypeError: ...",
+        "label": "Error Message (Optional)"
+      }
+    ],
+    "tableHeaders": [],
+    "badges": [
+      "22"
+    ],
+    "alerts": [],
+    "bodyText": "Fortune\n\nProcurement System\n\nDashboard\nMy Requests\nDelivery Status\nSubstitute Review\nJ\n\nJuan dela Cruz\n\nEmployee\n\nSign out\nReport a Bug\nOperations\nStaff\n22\nBug Track\nJ\nJuan dela Cruz\nReport a Bug\n\nFound an issue? Let us know and we'll get it fixed as soon as possible.\n\nSubmit a Bug Report\n\nDescribe the issue you encountered in detail. Our team will review and address it promptly.\n\nIssue Summary *\nWhere it Happens *\nSeverity *\nMedium\nLow\nMedium\nHigh\nWhat I See (Description) *\nExpected Behavior *\nError Message (Optional)\nSubmit Bug Report\nWHAT TO INCLUDE\nClear description of what went wrong\nWhere in the system the issue occurred\nWhat you expected to happen instead\nAny error messages you saw (optional)"
+  }
+}

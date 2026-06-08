@@ -15,6 +15,8 @@ import type { CanvassingQueueRow } from '@/types/canvassing';
 import { SendHorizontal as SendHorizonal, ArrowRight, Clock, Plus, CalendarDays, Building2, CircleDot, CheckCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
+import { StatCard } from '@/components/shared/StatCard';
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 
 const RFQ_STATUS_LABEL: Record<string, string> = {
   draft:     'Draft',
@@ -152,10 +154,25 @@ export default function RFQQueuePage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard label="Awaiting RFQ"         value={noRfq.length}  color="amber"   icon={Clock} />
-            <StatCard label="Active RFQs"           value={hasRfq.filter(r => r.rfq_status === 'open').length}   color="blue"    icon={CircleDot} />
-            <StatCard label="Canvassing Complete"   value={hasRfq.filter(r => r.rfq_status === 'closed').length} color="emerald" icon={CheckCheck} />
+          <div className={`${KPI_GRID_CLASS} mb-1`}>
+            <StatCard
+              label="Awaiting RFQ"
+              value={noRfq.length}
+              accent="amber"
+              icon={<Clock className="w-5 h-5" />}
+            />
+            <StatCard
+              label="Active RFQs"
+              value={hasRfq.filter(r => r.rfq_status === 'open').length}
+              accent="blue"
+              icon={<CircleDot className="w-5 h-5" />}
+            />
+            <StatCard
+              label="Canvassing Complete"
+              value={hasRfq.filter(r => r.rfq_status === 'closed').length}
+              accent="green"
+              icon={<CheckCheck className="w-5 h-5" />}
+            />
           </div>
 
           {noRfq.length > 0 && (
@@ -338,35 +355,6 @@ function Section({
         <span className={`text-xs font-semibold border rounded-full px-2 py-0.5 ${accentClass}`}>{count}</span>
       </div>
       {children}
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  color,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  color: 'amber' | 'blue' | 'emerald' | 'slate';
-  icon: React.ElementType;
-}) {
-  const colorClass = {
-    amber:   'text-pq-warning-600 bg-pq-warning-100',
-    blue:    'text-pq-primary-600 bg-pq-primary-50',
-    emerald: 'text-pq-success-600 bg-pq-success-100',
-    slate:   'text-pq-neutral-500 bg-pq-neutral-50',
-  }[color];
-
-  return (
-    <div className="bg-white rounded-md border border-pq-neutral-200 p-4">
-      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-md mb-3 ${colorClass}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <p className="text-2xl font-bold text-pq-neutral-900">{value}</p>
-      <p className="text-xs text-pq-neutral-500 mt-0.5">{label}</p>
     </div>
   );
 }

@@ -11,7 +11,42 @@ export interface AdminUser {
   position_title: string | null;
   department_id: string | null;
   department_name: string | null;
+  payment_terms?: string | null;
   created_at: string;
+  active: boolean;
+}
+
+const ADMIN_USER_SELECT = `id, full_name, email, role_id, position_id, department_id, payment_terms, created_at, active,
+ roles(name), positions(title), departments(name)`;
+
+function mapRowToAdminUser(user: {
+  id: string;
+  full_name: string;
+  email: string;
+  role_id: string | null;
+  position_id: string | null;
+  department_id: string | null;
+  payment_terms?: string | null;
+  created_at: string;
+  active?: boolean;
+  roles?: { name: string } | null;
+  positions?: { title: string } | null;
+  departments?: { name: string } | null;
+}): AdminUser {
+  return {
+    id: user.id,
+    full_name: user.full_name,
+    email: user.email,
+    role_id: user.role_id,
+    role_name: user.roles?.name ?? null,
+    position_id: user.position_id,
+    position_title: user.positions?.title ?? null,
+    department_id: user.department_id,
+    department_name: user.departments?.name ?? null,
+    payment_terms: user.payment_terms ?? null,
+    created_at: user.created_at,
+    active: user.active ?? true,
+  };
 }
 
 export interface AdminUserFilters {
@@ -27,10 +62,7 @@ export async function listAdminUsers(filters: AdminUserFilters = {}): Promise<Ad
 
   let query = supabase
     .from('profiles')
-    .select(
-      `id, full_name, email, role_id, position_id, department_id, created_at,
-       roles(name), positions(title), departments(name)`
-    )
+    .select(ADMIN_USER_SELECT)
     .order('full_name', { ascending: true })
     .range(offset, offset + limit - 1);
 
@@ -54,18 +86,7 @@ export async function listAdminUsers(filters: AdminUserFilters = {}): Promise<Ad
     return [];
   }
 
-  return (data || []).map((user: any) => ({
-    id: user.id,
-    full_name: user.full_name,
-    email: user.email,
-    role_id: user.role_id,
-    role_name: user.roles?.name || null,
-    position_id: user.position_id,
-    position_title: user.positions?.title || null,
-    department_id: user.department_id,
-    department_name: user.departments?.name || null,
-    created_at: user.created_at,
-  }));
+  return (data || []).map((user: any) => mapRowToAdminUser(user));
 }
 
 export async function listAdminUsersWithCount(filters: AdminUserFilters = {}): Promise<{ users: AdminUser[]; total_count: number }> {
@@ -74,10 +95,7 @@ export async function listAdminUsersWithCount(filters: AdminUserFilters = {}): P
   const buildBaseQuery = () => {
     let query = supabase
       .from('profiles')
-      .select(
-        `id, full_name, email, role_id, position_id, department_id, created_at,
-         roles(name), positions(title), departments(name)`
-      )
+      .select(ADMIN_USER_SELECT)
       .order('full_name', { ascending: true });
 
     if (search && search.trim()) {
@@ -106,18 +124,7 @@ export async function listAdminUsersWithCount(filters: AdminUserFilters = {}): P
     return { users: [], total_count: 0 };
   }
 
-  const users = (usersResult.data || []).map((user: any) => ({
-    id: user.id,
-    full_name: user.full_name,
-    email: user.email,
-    role_id: user.role_id,
-    role_name: user.roles?.name || null,
-    position_id: user.position_id,
-    position_title: user.positions?.title || null,
-    department_id: user.department_id,
-    department_name: user.departments?.name || null,
-    created_at: user.created_at,
-  }));
+  const users = (usersResult.data || []).map((user: any) => mapRowToAdminUser(user));
 
   const totalCount = (countResult.data || []).length;
 
@@ -127,10 +134,7 @@ export async function listAdminUsersWithCount(filters: AdminUserFilters = {}): P
 export async function getAdminUserById(id: string): Promise<AdminUser | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select(
-      `id, full_name, email, role_id, position_id, department_id, created_at,
-       roles(name), positions(title), departments(name)`
-    )
+    .select(ADMIN_USER_SELECT)
     .eq('id', id)
     .maybeSingle();
 
@@ -141,19 +145,7 @@ export async function getAdminUserById(id: string): Promise<AdminUser | null> {
 
   if (!data) return null;
 
-  const user = data as any;
-  return {
-    id: user.id,
-    full_name: user.full_name,
-    email: user.email,
-    role_id: user.role_id,
-    role_name: user.roles?.name || null,
-    position_id: user.position_id,
-    position_title: user.positions?.title || null,
-    department_id: user.department_id,
-    department_name: user.departments?.name || null,
-    created_at: user.created_at,
-  };
+  return mapRowToAdminUser(data as any);
 }
 
 export async function getAdminUserStats(): Promise<{
@@ -246,6 +238,51 @@ export async function getInactiveAssignments(userId: string): Promise<{
   } catch (err) {
     console.error('Error checking inactive assignments:', err);
     return { inactivePosition: null, inactiveDepartment: null };
+  }
+}
+
+export async function setUserActiveStatus(
+  userId: string,
+  active: boolean
+): Promise<{ success: boolean; error?: string; user?: AdminUser }> {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const res = await fetch(
+      `/api/admin/users/${encodeURIComponent(userId)}/status`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ active }),
+      }
+    );
+
+    const json = (await res.json().catch(() => ({}))) as {
+      success?: boolean;
+      error?: string;
+      user?: AdminUser;
+    };
+
+    if (!res.ok || !json.success || !json.user) {
+      return {
+        success: false,
+        error: json.error ?? `Request failed (${res.status})`,
+      };
+    }
+
+    return { success: true, user: json.user };
+  } catch (err) {
+    console.error('Error updating user status:', err);
+    return { success: false, error: 'Failed to update user status' };
   }
 }
 

@@ -113,7 +113,12 @@ export default function UserDetailPage() {
 
   return (
     <AppShell title="User Detail">
-      <UserDetail user={user} isAdmin={profile?.role === 'admin'} />
+      <UserDetail
+        user={user}
+        isAdmin={profile?.role === 'admin'}
+        currentAdminId={profile?.id}
+        onStatusChanged={setUser}
+      />
     </AppShell>
   );
 }

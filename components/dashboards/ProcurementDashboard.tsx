@@ -19,11 +19,9 @@ import {
   FlaskConical,
 } from 'lucide-react';
 
-interface Props { profile: UserProfile; }
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 
-/** Fills row width without fixed column counts (avoids 1 card in a 6-col grid). */
-const KPI_GRID_CLASS =
-  'grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]';
+interface Props { profile: UserProfile; }
 
 export default function ProcurementDashboard({ profile }: Props) {
   const { isModuleVisible, rulesLoading } = useModuleVisibility(profile);
@@ -86,7 +84,7 @@ export default function ProcurementDashboard({ profile }: Props) {
       <Link
         key="accreditation-queue"
         href={accreditationQueueCard.href}
-        className="block transition hover:-translate-y-0.5"
+        className="block w-full min-w-0 transition hover:-translate-y-0.5"
       >
         <StatCard
           label={accreditationQueueCard.label}
@@ -110,7 +108,7 @@ export default function ProcurementDashboard({ profile }: Props) {
         : 'blue';
 
       kpiNodes.push(
-        <Link key={card.label} href={card.href} className="block transition hover:-translate-y-0.5">
+        <Link key={card.label} href={card.href} className="block w-full min-w-0 transition hover:-translate-y-0.5">
           <StatCard
             label={card.label}
             value={card.value}
@@ -132,7 +130,7 @@ export default function ProcurementDashboard({ profile }: Props) {
         : 'blue';
 
       kpiNodes.push(
-        <Link key={card.label} href={card.href} className="block transition hover:-translate-y-0.5">
+        <Link key={card.label} href={card.href} className="block w-full min-w-0 transition hover:-translate-y-0.5">
           <StatCard
             label={card.label}
             value={card.value}
@@ -146,7 +144,7 @@ export default function ProcurementDashboard({ profile }: Props) {
   if (showPurchaseOrders) {
     const Icon = purchaseOrderStatCard.icon;
     kpiNodes.push(
-      <Link key={purchaseOrderStatCard.label} href={purchaseOrderStatCard.href} className="block transition hover:-translate-y-0.5">
+      <Link key={purchaseOrderStatCard.label} href={purchaseOrderStatCard.href} className="block w-full min-w-0 transition hover:-translate-y-0.5">
         <StatCard
           label={purchaseOrderStatCard.label}
           value={purchaseOrderStatCard.value}

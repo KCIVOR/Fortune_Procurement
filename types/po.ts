@@ -103,6 +103,7 @@ export const WAREHOUSE_OPTIONS = [
   'Cold Storage',
   'Hazmat Storage',
   'Off-Site Warehouse',
+  'Other',
 ] as const;
 
 export const PAYMENT_TERMS_OPTIONS = [
@@ -113,7 +114,22 @@ export const PAYMENT_TERMS_OPTIONS = [
   'COD (Cash on Delivery)',
   'Advance Payment',
   'Letter of Credit',
+  'Other',
 ] as const;
+
+export const PO_OTHER_OPTION = 'Other';
+
+/** Map a stored value back to dropdown + custom field when editing or pre-filling. */
+export function resolvePOOptionSelection(
+  stored: string,
+  options: readonly string[],
+): { sel: string; custom: string } {
+  if (!stored) return { sel: '', custom: '' };
+  if ((options as readonly string[]).includes(stored) && stored !== PO_OTHER_OPTION) {
+    return { sel: stored, custom: '' };
+  }
+  return { sel: PO_OTHER_OPTION, custom: stored };
+}
 
 // ─── Approval queue / detail ──────────────────────────────────────────────────
 

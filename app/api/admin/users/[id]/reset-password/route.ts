@@ -1,99 +1,165 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+type ResetPasswordBody = {
+  new_password?: string;
+};
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } },
+) {
   try {
-    const userId = params.id;
+    const targetUserId = params.id;
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const accessToken = authHeader.replace('Bearer ', '');
 
-    const supabase = createClient(
+    const supabaseUser = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+      { global: { headers: { Authorization: `Bearer ${accessToken}` } } },
     );
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
+    const {
+      data: { user: actor },
+      error: userError,
+    } = await supabaseUser.auth.getUser(accessToken);
 
-    if (userError || !user) {
+    if (userError || !actor) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    const { data: profile } = await supabase
+    const { data: actorProfile } = await supabaseUser
       .from('profiles')
       .select('role_id, roles(name)')
-      .eq('id', user.id)
+      .eq('id', actor.id)
       .maybeSingle();
 
-    if (!profile) {
+    if (!actorProfile) {
       return NextResponse.json(
         { success: false, error: 'Profile not found' },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    const userRole = (profile as any).roles?.name;
-    if (userRole !== 'admin') {
+    const actorRole = (actorProfile as { roles?: { name?: string } }).roles?.name;
+    if (actorRole !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Access denied. Admin role required.' },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
-    const body = await req.json();
-    const { new_password } = body;
-
-    if (!new_password || new_password.length < 8) {
-      return NextResponse.json(
-        { success: false, error: 'Password must be at least 8 characters' },
-        { status: 400 }
-      );
-    }
-
-    if (!userId) {
+    if (!targetUserId) {
       return NextResponse.json(
         { success: false, error: 'User ID is required' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const edgeFunctionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/reset-user-password`;
-    const response = await fetch(edgeFunctionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-        'Apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      },
-      body: JSON.stringify({ user_id: userId, new_password, admin_id: user.id }),
+    let body: ResetPasswordBody;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON body' },
+        { status: 400 },
+      );
+    }
+
+    const newPassword = typeof body.new_password === 'string' ? body.new_password : '';
+    if (!newPassword || newPassword.length < 8) {
+      return NextResponse.json(
+        { success: false, error: 'Password must be at least 8 characters' },
+        { status: 400 },
+      );
+    }
+
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      console.error('[admin/users/reset-password] SUPABASE_SERVICE_ROLE_KEY is not set');
+      return NextResponse.json(
+        { success: false, error: 'Server configuration error' },
+        { status: 500 },
+      );
+    }
+
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
+
+    const { data: targetProfile, error: targetProfileErr } = await admin
+      .from('profiles')
+      .select('id, email, full_name')
+      .eq('id', targetUserId)
+      .maybeSingle();
+
+    if (targetProfileErr) {
+      console.error('[admin/users/reset-password] Target lookup failed:', targetProfileErr);
+      return NextResponse.json(
+        { success: false, error: 'Failed to look up user' },
+        { status: 400 },
+      );
+    }
+
+    if (!targetProfile) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 },
+      );
+    }
+
+    const { error: updateError } = await admin.auth.admin.updateUserById(targetUserId, {
+      password: newPassword,
     });
 
-    const result = await response.json();
-
-    if (!response.ok) {
+    if (updateError) {
+      console.error('[admin/users/reset-password] Password update failed:', updateError.message);
       return NextResponse.json(
-        { success: false, error: result.error || 'Failed to reset password' },
-        { status: response.status }
+        { success: false, error: updateError.message || 'Failed to reset password' },
+        { status: 400 },
       );
     }
 
-    return NextResponse.json(result);
+    const targetEmail =
+      (targetProfile as { email?: string | null }).email ?? 'unknown';
+
+    const { error: auditErr } = await admin.from('audit_logs').insert({
+      actor_id: actor.id,
+      action: 'USER_PASSWORD_RESET',
+      document_type: 'USER',
+      document_id: targetUserId,
+      payload: {
+        target_user_id: targetUserId,
+        target_user_email: targetEmail,
+        target_user_name: (targetProfile as { full_name?: string }).full_name ?? null,
+      },
+    });
+
+    if (auditErr) {
+      console.error('[admin/users/reset-password] Audit log failed:', auditErr);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Password reset successfully',
+    });
   } catch (err) {
-    console.error('Error resetting password:', err);
-    return NextResponse.json(
-      { success: false, error: 'Server error' },
-      { status: 500 }
-    );
+    console.error('[admin/users/reset-password] Unexpected error:', err);
+    const message = err instanceof Error ? err.message : 'Server error';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

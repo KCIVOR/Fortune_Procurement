@@ -33,6 +33,16 @@ export default function AuditLogDetail({ log, isOpen, onClose }: AuditLogDetailP
   const timestamp = log.created_at ? format(new Date(log.created_at), 'PPP p') : 'N/A';
   const payload = log.payload as any;
 
+  const formatAccountStatus = (value: unknown) => {
+    if (value === false || value === 'false') return 'Inactive';
+    return 'Active';
+  };
+
+  const showFriendlyUserPayload =
+    log.action === 'USER_ASSIGNMENT_UPDATED' ||
+    log.action === 'USER_DEACTIVATED' ||
+    log.action === 'USER_REACTIVATED';
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -81,6 +91,31 @@ export default function AuditLogDetail({ log, isOpen, onClose }: AuditLogDetailP
                   <span> {enrichedNames.old_department_name || payload.old_department_id || 'None'} → {enrichedNames.new_department_name || payload.new_department_id || 'None'}</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {(log.action === 'USER_DEACTIVATED' || log.action === 'USER_REACTIVATED') && payload && (
+            <div className="bg-pq-primary-50 border border-pq-neutral-200 rounded-lg p-4 space-y-3">
+              <p className="text-sm font-semibold text-pq-neutral-900">
+                {log.action === 'USER_DEACTIVATED' ? 'User Deactivated' : 'User Reactivated'}
+              </p>
+
+              {payload.target_user_name && (
+                <div className="text-sm text-pq-neutral-500">
+                  <span className="font-medium">Target User:</span> {payload.target_user_name}
+                  {payload.target_user_email && (
+                    <span className="text-pq-neutral-500"> ({payload.target_user_email})</span>
+                  )}
+                </div>
+              )}
+
+              <div className="text-sm text-pq-neutral-500 ml-4 py-1 px-3 bg-white rounded border border-pq-neutral-200">
+                <span className="font-medium">Status:</span>
+                <span>
+                  {' '}
+                  {formatAccountStatus(payload.old_active)} → {formatAccountStatus(payload.new_active)}
+                </span>
+              </div>
             </div>
           )}
 
@@ -162,7 +197,7 @@ export default function AuditLogDetail({ log, isOpen, onClose }: AuditLogDetailP
                 </div>
               )}
               {/* Fallback: Raw JSON for other payload types */}
-              {!((log.action?.includes('APPROVAL_') || log.action?.includes('PR2_') || log.action?.includes('PO_')) && payload) && (
+              {!(log.action?.includes('APPROVAL_') || log.action?.includes('PR2_') || log.action?.includes('PO_') || showFriendlyUserPayload) && payload && (
                 <pre className="bg-pq-neutral-50 border border-pq-neutral-200 rounded p-3 text-xs text-pq-neutral-900 overflow-x-auto max-h-64 overflow-y-auto">
                   {JSON.stringify(log.payload, null, 2)}
                 </pre>

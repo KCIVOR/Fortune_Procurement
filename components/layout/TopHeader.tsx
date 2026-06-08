@@ -58,10 +58,12 @@ export default function TopHeader({ title, onMenuToggle }: TopHeaderProps) {
           <Link 
             href="/bugtrack" 
             className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
-            title="Bug Track"
+            aria-label="Bug Track"
           >
             <Bug className="w-5 h-5" />
-            <span className="absolute -bottom-8 scale-0 transition-all rounded bg-gray-800 p-2 text-xs text-white group-hover:scale-100 whitespace-nowrap">Bug Track</span>
+            <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 scale-0 transition-all rounded bg-gray-800 px-2 py-1 text-xs text-white group-hover:scale-100 whitespace-nowrap z-50">
+              Bug Track
+            </span>
           </Link>
           <div className="hidden sm:block w-px h-4 bg-pq-neutral-200" />
           <Link href="/profile" className="flex items-center gap-2 group" aria-label="My Profile">

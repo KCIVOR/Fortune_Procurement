@@ -13,11 +13,13 @@ import { StatCard } from '@/components/shared/StatCard';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchPOGenerationCandidates,
-  fetchSupplierPaymentTermsBySupplierName,
+  fetchSuggestedPOSequence,
+  fetchSupplierPaymentTermsBySupplierId,
   generatePOFromPR2,
 } from '@/lib/po';
 import type { POFormValues, POGenerationCandidate } from '@/types/po';
-import { WAREHOUSE_OPTIONS, PAYMENT_TERMS_OPTIONS } from '@/types/po';
+import { WAREHOUSE_OPTIONS, PO_OTHER_OPTION } from '@/types/po';
+import PaymentTermsSelect from '@/components/shared/PaymentTermsSelect';
 import {
   ChevronLeft, Building2, Package,
   RefreshCw, ShoppingCart, TriangleAlert as AlertTriangle,
@@ -38,6 +40,7 @@ export default function PONewPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<POGenerationCandidate | null>(null);
   const [loading, setLoading] = useState(true);
   const [poNumberError, setPONumberError] = useState('');
+  const [suggestedSequence, setSuggestedSequence] = useState<string | null>(null);
 
   // Filter states
   const [search, setSearch] = useState('');
@@ -58,6 +61,9 @@ export default function PONewPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [warehouseSel, setWarehouseSel] = useState('');
+  const [warehouseCustom, setWarehouseCustom] = useState('');
+  const [paymentTermsPrefilled, setPaymentTermsPrefilled] = useState(false);
 
   const setPONumber = useCallback((val: string) => {
     let suffix = val;
@@ -104,27 +110,52 @@ export default function PONewPage() {
   }, [loadCandidates]);
 
   useEffect(() => {
-    const name = selectedCandidate?.supplier_name_snapshot?.trim();
-    if (!name) return;
+    const yearMatch = poPrefix.match(/^PO-(\d{4})-/i);
+    const year = yearMatch ? parseInt(yearMatch[1], 10) : currentYear;
     let cancelled = false;
+
+    fetchSuggestedPOSequence(year)
+      .then((suffix) => {
+        if (cancelled) return;
+        setSuggestedSequence(suffix);
+        setForm((f) => {
+          const currentSuffix = f.po_number.slice(poPrefix.length).trim();
+          if (currentSuffix) return f;
+          return { ...f, po_number: `${poPrefix}${suffix}` };
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestedSequence(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [poPrefix, currentYear]);
+
+  useEffect(() => {
+    const candidate = selectedCandidate;
+    if (!candidate || candidate.has_po) return;
+
+    let cancelled = false;
+    setForm((prev) => ({ ...prev, payment_terms: '' }));
+    setPaymentTermsPrefilled(false);
 
     (async () => {
       try {
-        const terms = await fetchSupplierPaymentTermsBySupplierName(name);
+        const terms = await fetchSupplierPaymentTermsBySupplierId(candidate.supplier_id);
         if (cancelled || !terms) return;
-        setForm(prev => {
-          if (prev.payment_terms.trim() !== '') return prev;
-          return { ...prev, payment_terms: terms };
-        });
+        setForm((prev) => ({ ...prev, payment_terms: terms }));
+        setPaymentTermsPrefilled(true);
       } catch {
-        /* leave payment_terms unchanged */
+        /* leave payment_terms empty for manual entry */
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [selectedCandidate?.supplier_name_snapshot]);
+  }, [selectedCandidate?.candidateKey]);
 
   // Computed stats
   const stats = useMemo(() => {
@@ -437,14 +468,18 @@ export default function PONewPage() {
                     type="text"
                     value={form.po_number.startsWith(poPrefix) ? form.po_number.slice(poPrefix.length) : form.po_number}
                     onChange={e => setPONumber(poPrefix + e.target.value)}
-                    placeholder="e.g. 0001"
+                    placeholder={suggestedSequence ?? '0001'}
                     className="flex-1 px-3 py-2.5 border-0 text-sm font-mono focus:outline-none bg-inherit"
                   />
                 </div>
                 {poNumberError && (
                   <p className="mt-1 text-xs text-pq-danger-600">{poNumberError}</p>
                 )}
-                <p className="text-xs text-pq-neutral-400 mt-1">Must be unique across all purchase orders.</p>
+                <p className="text-xs text-pq-neutral-400 mt-1">
+                  {suggestedSequence
+                    ? `Suggested: ${poPrefix}${suggestedSequence} — you may edit this number. Must be unique across all purchase orders.`
+                    : 'Enter a 4-digit sequence (e.g. 0001) or use the suggested value when it loads. Must be unique across all purchase orders.'}
+                </p>
               </div>
 
               <div className="md:col-span-1">
@@ -465,9 +500,16 @@ export default function PONewPage() {
                   Warehouse <span className="text-pq-danger-600">*</span>
                 </label>
                 <select
-                  value={form.warehouse}
-                  onChange={e => setForm(f => ({ ...f, warehouse: e.target.value }))}
-                  required
+                  value={warehouseSel}
+                  onChange={e => {
+                    const sel = e.target.value;
+                    setWarehouseSel(sel);
+                    setForm(f => ({
+                      ...f,
+                      warehouse: sel === PO_OTHER_OPTION ? warehouseCustom.trim() : sel,
+                    }));
+                  }}
+                  required={warehouseSel !== PO_OTHER_OPTION}
                   className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition bg-white"
                 >
                   <option value="">Select warehouse...</option>
@@ -475,23 +517,47 @@ export default function PONewPage() {
                     <option key={w} value={w}>{w}</option>
                   ))}
                 </select>
+                {warehouseSel === PO_OTHER_OPTION && (
+                  <input
+                    type="text"
+                    value={warehouseCustom}
+                    onChange={e => {
+                      const custom = e.target.value;
+                      setWarehouseCustom(custom);
+                      setForm(f => ({ ...f, warehouse: custom.trim() }));
+                    }}
+                    placeholder="Enter warehouse name..."
+                    required
+                    className="mt-2 w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition"
+                  />
+                )}
               </div>
 
               <div className="md:col-span-1">
-                <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                <label
+                  htmlFor="payment_terms"
+                  className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5"
+                >
                   Payment Terms <span className="text-pq-danger-600">*</span>
                 </label>
-                <select
+                <PaymentTermsSelect
+                  id="payment_terms"
                   value={form.payment_terms}
-                  onChange={e => setForm(f => ({ ...f, payment_terms: e.target.value }))}
-                  required
-                  className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition bg-white"
-                >
-                  <option value="">Select terms...</option>
-                  {PAYMENT_TERMS_OPTIONS.map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+                  onChange={(value) => {
+                    setPaymentTermsPrefilled(false);
+                    setForm((f) => ({ ...f, payment_terms: value }));
+                  }}
+                />
+                {paymentTermsPrefilled && form.payment_terms.trim() && (
+                  <p className="text-xs text-pq-primary-600 mt-1.5">
+                    Prefilled from supplier profile — you may override for this PO.
+                  </p>
+                )}
+                {!paymentTermsPrefilled && !form.payment_terms.trim() && selectedCandidate && (
+                  <p className="text-xs text-pq-neutral-400 mt-1.5">
+                    No default on supplier profile. Select terms or choose Other.
+                  </p>
+                )}
               </div>
 
               <div className="md:col-span-2">

@@ -17,7 +17,7 @@ interface UserTableProps {
 
 export default function UserTable({ users, isLoading = false }: UserTableProps) {
   if (isLoading) {
-    return <TableSkeleton rows={5} cols={7} />;
+    return <TableSkeleton rows={5} cols={8} />;
   }
 
   if (users.length === 0) {
@@ -47,7 +47,7 @@ export default function UserTable({ users, isLoading = false }: UserTableProps) 
             {users.map((user) => (
               <TableRow
                 key={user.id}
-                className="border-b border-pq-neutral-200 hover:bg-pq-neutral-50 transition"
+                className={`border-b border-pq-neutral-200 hover:bg-pq-neutral-50 transition ${!user.active ? 'opacity-60' : ''}`}
               >
                 <TableCell className="text-xs text-pq-neutral-900 font-medium">
                   {user.full_name}
@@ -67,6 +67,17 @@ export default function UserTable({ users, isLoading = false }: UserTableProps) 
                 </TableCell>
                 <TableCell className="text-xs text-pq-neutral-500">
                   {user.department_name || '—'}
+                </TableCell>
+                <TableCell className="text-xs text-pq-neutral-500">
+                  {user.active ? (
+                    <span className="px-2 py-1 bg-pq-success-100 text-pq-success-600 rounded text-xs font-medium">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 bg-pq-neutral-100 text-pq-neutral-500 rounded text-xs font-medium">
+                      Inactive
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell className="text-xs text-pq-neutral-500">
                   {user.created_at ? format(new Date(user.created_at), 'MMM d, yyyy') : '—'}

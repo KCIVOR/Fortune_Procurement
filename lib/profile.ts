@@ -8,6 +8,23 @@ export async function updateOwnFullName(userId: string, fullName: string): Promi
   if (error) throw new Error(error.message);
 }
 
+export async function updateOwnPaymentTerms(
+  userId: string,
+  paymentTerms: string | null,
+  role?: AppRole,
+): Promise<void> {
+  if (role && role !== 'supplier') {
+    throw new Error('Only supplier accounts can set default payment terms.');
+  }
+  const trimmed = paymentTerms?.trim() ?? '';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const table = supabase.from('profiles') as any;
+  const { error } = await table
+    .update({ payment_terms: trimmed || null })
+    .eq('id', userId);
+  if (error) throw new Error(error.message);
+}
+
 export async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
@@ -18,6 +35,8 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
       role_id,
       position_id,
       department_id,
+      active,
+      payment_terms,
       roles:role_id ( name ),
       positions:position_id ( title ),
       departments:department_id ( name )
@@ -39,5 +58,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
     position_id: row.position_id,
     department: row.departments?.name,
     department_id: row.department_id,
+    active: row.active ?? true,
+    payment_terms: row.payment_terms ?? null,
   };
 }

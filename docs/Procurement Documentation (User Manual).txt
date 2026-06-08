@@ -1,0 +1,2347 @@
+
+
+
+
+
+Fortune Procurement System
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date Prepared:
+June 6, 2026
+
+
+Prepared by:
+
+
+
+Date:
+June 6, 2026
+
+
+
+Table of Contents
+Table of Contents1
+Revision History2
+Introduction3
+Purpose3
+System Scope3
+Getting Started5
+How to Access5
+User Roles & Access Levels6
+Access Control Principles8
+The system applies the following access control rules:8
+● Users can only access modules assigned to their role.8
+● Approval actions are only available when assigned within an active workflow step.8
+● Procurement records are visible only to authorized participants within the procurement process.8
+● Supplier users can only access their own organization’s records and submissions.8
+● Administrative users have access to audit logs and system configuration functions.8
+● All user actions are recorded in the system audit trail for accountability and compliance.8
+Workflow-Based Permissions8
+Certain permissions are dynamically granted based on workflow assignments.8
+Workflow Stage8
+Authorized Roles8
+PR1 Creation8
+Employee / Requestor8
+Warehouse Validation8
+Warehouse Personnel8
+PR1 Approval8
+Assigned Approvers8
+RFQ Management8
+Procurement Officer8
+Supplier Quotation Submission9
+Supplier9
+Alternative Item Review9
+Employee / Requestor9
+PR2 Creation9
+Procurement Officer9
+PR2 Approval Phase 19
+Assigned Approvers9
+PR2 Approval Phase 29
+Assigned Approvers9
+Purchase Order Creation9
+Procurement Officer9
+Purchase Order Approval9
+Assigned Approvers9
+Supplier Acknowledgement9
+Supplier9
+Goods Receipt Note (GRN) Processing9
+Warehouse Personnel9
+RSE / TSQA Review9
+TSQA Reviewer9
+Administrative Note: Roles, workflow assignments, module visibility, approval hierarchies, and position-based permissions can be configured by system administrators through the User Management and Workflow Configuration modules.10
+User Interface Overview10
+Core Interface Components10
+Navigation Overview11
+Administrator Dashboard11
+KPI Cards11
+Recent Activity12
+Sidebar Navigation13
+Top Navigation Bar13
+Dashboard Actions14
+Accessible Modules15
+Notes16
+Employee / Requestor Dashboard16
+KPI Cards16
+Recent Activity16
+Sidebar Navigation17
+Top Navigation Bar18
+Dashboard Actions18
+Accessible Modules19
+Notes19
+Warehouse Dashboard19
+KPI Cards20
+Recent Activity20
+Pending Validation Queue20
+Open Goods Receipts21
+Sidebar Navigation21
+Top Navigation Bar21
+Dashboard Actions22
+Accessible Modules22
+Workflow Information Displayed23
+Notes23
+Procurement Dashboard23
+KPI Cards23
+Recent Activity24
+Canvassing Queue24
+Open RFQs24
+Sidebar Navigation24
+Top Navigation Bar25
+Dashboard Actions25
+Accessible Modules26
+Workflow Information Displayed26
+Notes27
+Approver Dashboard27
+KPI Cards27
+Recent Activity28
+Pending Approvals28
+Sidebar Navigation28
+Top Navigation Bar29
+Dashboard Actions29
+Accessible Modules30
+Workflow Information Displayed30
+Notes30
+Supplier Dashboard31
+KPI Cards31
+Recent Activity31
+RFQ Inbox32
+Sidebar Navigation32
+Top Navigation Bar33
+Dashboard Actions33
+Accessible Modules33
+Workflow Information Displayed34
+Notes34
+TSQA Dashboard35
+KPI CardskasAll visible KPI cards display count-based metrics. Clickability is not verified from the visible interface.35
+Recent Activity35
+Active RSE Records35
+Sidebar Navigation36
+Top Navigation Bar36
+Dashboard Actions36
+Accessible Modules37
+Workflow Information Displayed38
+Notes38
+Database Management & Data Table Operations39
+Empty Database39
+DataTable Options40
+Functional Instructions41
+Users List41
+User Roles and Access42
+Users Last Login45
+Employee Lists47
+General Section48
+Profile Section53
+Set Salary Section54
+Leave Section59
+Core HR Section60
+Project & Task Section60
+Payslips Section61
+Import Employees62
+General Settings64
+Mail Setting65
+Language Settings66
+Variable Type67
+Variable Method78
+IP Settings81
+Location82
+Company83
+Department84
+Designation85
+Announcements86
+Company Policy87
+Promotion88
+Award89
+Travel90
+Transfer91
+Resignations92
+Complaints93
+Warnings94
+Terminations95
+Add/Update Attendances96
+Import Attendances97
+Office Shift98
+Manage Holiday99
+Manage Leaves101
+New Payment102
+Payment History104
+Goal Type105
+Goal Tracking106
+Indicator107
+Appraisal108
+HR Calendar109
+Daily Attendances110
+Date Wise Attendances111
+Monthly Attendances112
+Training Report113
+Project Report114
+Task Report115
+Employees Report116
+Account Report117
+Expense Report118
+Deposit Report119
+Transaction Report120
+Pension Report121
+Job Post122
+Job Candidates123
+Job Interview124
+CMS126
+Training List127
+Training Type128
+Trainers129
+Events130
+Meetings131
+Projects132
+Tasks137
+Client141
+Invoice142
+Tax Type144
+Support Tickets146
+Accounts List147
+Account Balances149
+Payee150
+Payer151
+Deposit152
+Expense153
+Transaction154
+Transfer155
+Category156
+Assets157
+File Manager158
+Official Documents159
+File Configuration160
+Client Projects161
+Client Tasks162
+Client Invoice163
+Client Invoice Payment164
+Troubleshooting & FAQs166
+Common Issues and Solutions166
+Frequently Asked Questions166
+Appendices167
+Appendix A – Data Backup Guidelines167
+Appendix B – Notification Triggers167
+Appendix C – File Upload Specifications168
+Appendix F – Role Permission Examples168
+Glossary168
+
+Revision History
+
+Ver.
+Date
+Part of the Document
+Document Changes
+Author
+1.0
+08/04/25
+User Manual Documentation
+Initial outline of user manual documentation
+Patricia Nicole P. Mendoza
+1.1
+08/05/25
+Introduction, Getting Started, Navigation Overview, Functional Instructions (By User Role)
+Initial entry of content
+Patricia Nicole P. Mendoza
+1.1
+08/06/25
+Navigation Overview, Functional Instructions (By User Role), Appendices, Glossary
+Initial entry of content
+Patricia Nicole P. Mendoza
+1.2
+08/06/25
+Getting Started, Navigation Overview
+Insert supporting UI images
+Patricia Nicole P. Mendoza
+1.3
+08/11/25
+User Manual Documentation
+Finalize document content
+Patricia Nicole P. Mendoza
+1.3
+08/12/25
+Database Management & Data Table Operations, Functional Instructions
+Refine supporting UI images
+Patricia Nicole P. Mendoza
+
+
+
+
+
+
+Introduction
+Purpose
+
+This user manual is a comprehensive reference for individuals and organizations using the Fortune Procurement System. Its primary goal is to ensure users at all levels—administrators, employees, warehouse staff, procurement officers, approvers, suppliers, and TSQA reviewers—can effectively navigate, operate, and optimize the system's implemented functionalities.
+Purchase Request (PR1) creation and lifecycle management
+Warehouse stock validation
+Multi-step approval workflows (PR1, PR2, PO)
+Canvassing and Request for Quotation (RFQ)
+Purchase Order (PO) generation and supplier acknowledgment
+Delivery tracking and Goods Receipt Note (GRN)
+Supplier accreditation and product catalog management
+Raw Material Scientific Evaluation (RSE) and TSQA review
+Internal messaging, notifications, and audit logging
+The document outlines step-by-step procedures, role-based access capabilities, system workflows, and navigation guidance based solely on verified application code and database schema. It does not describe features that are not implemented in the current system.
+System Scope
+The Fortune Procurement System is a centralized digital workspace for managing organizational procurement processes. It is modular and role-specific. The following modules are implemented and verified in the codebase:
+Module / Feature
+Description
+PR1 — Purchase Request
+Employees create purchase requisitions with line items, purpose, required date, and priority. PR1s progress through warehouse validation and approval before canvassing.
+Warehouse Validation
+Warehouse staff validate stock-on-hand per line item, record availability decisions (sufficient/insufficient), and route items for internal fulfillment or procurement.
+Approval Workflows
+Configurable multi-step approval chains for PR1 (2 steps), PR2 Phase 1 (4 steps), PR2 Phase 2 (3 steps), and PO (4 steps). Each step requires a specific role and position.
+Canvassing / RFQ
+Procurement issues RFQs to invited suppliers. Suppliers submit item-level quotes including alternatives. Procurement selects winning quotes per item.
+Substitute Review
+Employees review and accept or reject alternative items quoted by suppliers during canvassing.
+PR2 — Purchase Request v2
+Procurement-generated purchase request derived from approved PR1 and completed RFQ. Requires dual-phase approval before PO generation.
+Purchase Orders
+Formal orders issued to selected suppliers. Include line items, pricing, delivery address, payment terms. Require multi-step approval ending with supplier acknowledgment.
+Delivery Tracking
+Tracks shipment status from pending through delivered. Supports delivery receipt document upload.
+Goods Receipt (GRN)
+Warehouse records received quantities per PO line item. GRN status: open or closed.
+Supplier Accreditation
+Suppliers submit accreditation applications with supporting documents. Procurement reviews and approves or rejects.
+Product Catalog
+Suppliers maintain product records linked to accreditation. Products pass procurement review and TSQA verification for raw materials.
+RSE / TSQA Review
+Raw Material Scientific Evaluation records are created for qualifying products. TSQA staff conduct scientific reviews with pass/fail results.
+User & Access Management
+Administrators manage users, roles, positions, departments, workflow steps, and per-position module visibility.
+Notifications
+In-app notification bell with read/unread tracking for workflow events.
+Messaging
+One-to-one internal messaging with optional file attachments.
+BugTrack
+Internal bug reporting with severity levels and email notifications to configured address.
+Audit Logging
+Immutable system action trail viewable by administrators.
+Reporting / Dashboards
+Role-specific dashboards with KPI counts and work queues. No standalone exportable report module exists.
+
+
+Getting Started
+How to Access
+The Fortune Procurement System is accessed through a secure web-based login portal. Users must be provided with a valid email account before accessing any procurement functions.
+To log in:
+Open your web browser.
+Navigate to the Fortune Procurement System URL provided by your administrator.
+Enter your registered email address in the Email Address field.
+Enter your account password in the Password field.
+(Optional) Enable Remember this device for 30 days if using a trusted company device.
+Click Sign In.
+
+Note: Access to system modules is determined by the user's assigned role and position. Users will only see procurement functions that have been authorized for their account.
+Security Reminder: Do not share login credentials with other users. Always log out when using a shared or public computer.
+
+
+
+User Roles & Access Levels
+The Fortune Procurement System uses role-based access control (RBAC) to ensure that users only have access to the functions and information required for their responsibilities. Access permissions are assigned by administrators and may be further restricted based on workflow position, department, or approval authority.
+User Role
+Access Privileges
+Administrator
+Full system access. Manage users, roles, departments, workflow configurations, approval matrices, supplier records, notifications, audit logs, and system settings.
+Employee/Requestor
+Create and submit Purchase Requests (PR1), monitor request status, review supplier alternative items, receive notifications, and view procurement history related to submitted requests.
+Warehouse Personnel
+Review submitted PR1 requests, validate stock availability, mark items as sufficient or insufficient, record inventory validation results, and route requests for further processing.
+Approver
+Review and approve or reject procurement documents based on assigned approval workflows. Access may include PR1 approvals, PR2 Phase 1 approvals, PR2 Phase 2 approvals, and Purchase Order approvals.
+Procurement Staff
+Manage RFQs, invite suppliers, review quotations, compare bids, create PR2 records, generate Purchase Orders, track deliveries, manage supplier communications, and monitor procurement activities.
+Supplier
+Maintain company profile, submit accreditation applications, manage product catalogs, respond to RFQs, submit quotations, acknowledge Purchase Orders, and track procurement transactions.
+TSQA Reviewer
+Review Raw Material Scientific Evaluation (RSE) submissions, evaluate supplier products, approve or reject scientific assessments, and provide quality assurance recommendations.
+
+Access Control Principles
+The system applies the following access control rules:
+Users can only access modules assigned to their role.
+Approval actions are only available when assigned within an active workflow step.
+Procurement records are visible only to authorized participants within the procurement process.
+Supplier users can only access their own organization’s records and submissions.
+Administrative users have access to audit logs and system configuration functions.
+All user actions are recorded in the system audit trail for accountability and compliance.
+Workflow-Based Permissions
+Certain permissions are dynamically granted based on workflow assignments.
+Workflow Stage
+Authorized Roles
+PR1 Creation
+Employee / Requestor
+Warehouse Validation
+Warehouse Personnel
+PR1 Approval
+Assigned Approvers
+RFQ Management
+Procurement
+Supplier Quotation Submission
+Supplier
+Alternative Item Review
+Employee / Requestor
+PR2 Creation
+Procurement
+PR2 Approval Phase 1
+Assigned Approvers
+PR2 Approval Phase 2
+Assigned Approvers
+Purchase Order Creation
+Procurement
+Purchase Order Approval
+Assigned Approvers
+Supplier Acknowledgement
+Supplier
+Goods Receipt Note (GRN) Processing
+Warehouse Personnel
+RSE / TSQA Review
+TSQA Reviewer
+
+Administrative Note: Roles, workflow assignments, module visibility, approval hierarchies, and position-based permissions can be configured by system administrators through the User Management and Workflow Configuration modules.
+User Interface Overview
+The Fortune Procurement System provides a centralized procurement workspace designed to manage the complete procurement lifecycle, from Purchase Request (PR1) creation through supplier quotation management, Purchase Order processing, supplier acknowledgment, delivery tracking, and Goods Receipt Note (GRN) completion. The interface dynamically adapts based on the user's assigned role and permissions.
+https://fortune-procurement.vercel.app/login
+Core Interface Components
+
+Component
+Description
+Top Navigation Bar
+Displays notifications, messages, user profile, and quick actions.
+Sidebar Menu
+Provides access to modules based on user permissions and assigned role.
+Dashboard Area
+Displays role-specific metrics, pending actions, and workflow summaries.
+Data Tables
+Used for managing procurement records, requests, suppliers, and approvals.
+Search & Filters
+Allows users to quickly locate procurement documents and records.
+Notification Center
+Displays workflow updates, approvals, and system alerts.
+Action Buttons
+Create, approve, reject, edit, view, and manage records.
+
+Navigation Overview
+Upon successful login, users are redirected to their designated dashboard. Dashboard widgets, menus, notifications, and available actions vary according to assigned role permissions and workflow responsibilities.
+Dashboard Layout
+Administrator Dashboard
+Employee / Requestor Dashboard
+Warehouse Dashboard
+Procurement Dashboard
+Approver Dashboard
+Supplier Dashboard
+TSQA Dashboard
+
+Administrator Dashboard
+The Administrator Dashboard is the primary landing page for users assigned the System Administrator role. It provides a centralized view of user management statistics, organizational structure records, audit activity, and administrative modules.
+Dashboard Title: Dashboard
+Dashboard Description: Monitor users, master data, and system activity from one place.
+KPI Cards
+The dashboard displays the following summary cards:
+Card Name
+Displayed Information
+Click Action
+Total Users
+Total number of user accounts in the system
+Opens User Management
+Roles
+Total number of configured system roles
+Opens Roles
+Positions
+Total number of configured positions
+Opens Positions
+Departments
+Total number of configured departments
+Opens Departments
+Audit Logs
+Total number of audit records
+Opens Audit Logs
+Recent Activity
+The Recent Activity panel displays the most recent administrative actions performed within the system.
+Visible fields include:
+Field
+Description
+Timestamp
+Time the activity occurred
+Activity
+Recorded system action
+Document Type
+Related document classification
+Reference Number
+Related record identifier
+The panel displays the five most recent records and includes a View All option for accessing the complete audit history.
+Examples of recorded activities include:
+USER_REACTIVATED
+USER_DEACTIVATED
+Sidebar Navigation
+The Administrator Dashboard provides direct access to the following modules:
+Dashboard
+User Management
+Roles
+Positions
+Departments
+Workflows
+Module Visibility
+Audit Logs
+No expandable child menus are currently present within the Administrator sidebar.
+Top Navigation Bar
+The top navigation area contains:
+Component
+Function
+Dashboard Breadcrumb
+Indicates current page location
+Executive Office Indicator
+Displays active organizational context
+System Administrator Indicator
+Displays active user role
+Notifications
+Opens notification center
+Messages
+Opens internal messaging
+Bug Track
+Opens Bug Tracking module
+User Profile
+Opens user profile page
+Dashboard Actions
+The following actions are available directly from the dashboard:
+Action
+Function
+Collapse Sidebar
+Hides or expands the sidebar navigation panel
+Notifications
+Opens unread system notifications
+Sign Out
+Ends the current user session
+Accessible Modules
+Administrators can access the following modules directly from dashboard links and KPI cards:
+Module
+Purpose
+User Management
+Manage user accounts and user information
+Roles
+Manage role definitions
+Positions
+Manage organizational positions
+Departments
+Manage department records
+Audit Logs
+Review system activity and audit history
+Notes
+All KPI cards are clickable.
+Recent Activity records are linked to the audit trail.
+Audit Logs can be accessed from both the KPI card and the Recent Activity section.
+Module availability is determined by the System Administrator role.
+The dashboard currently focuses on user administration, organizational structure management, and audit monitoring.
+
+Employee / Requestor Dashboard
+The Employee / Requestor Dashboard is the primary landing page for users assigned the Employee role. It provides a centralized view of purchase requests, approval status, delivery tracking, and substitute item reviews.
+Dashboard Title: Dashboard
+
+Dashboard Description: Track and manage your purchase requests from here.
+KPI Cards
+The dashboard displays the following summary cards:
+Card Name
+Displayed Information
+Total Requests
+Total number of PR1 requests submitted by the employee
+Pending Approval
+Total number of requests awaiting approval
+Approved
+Total number of approved requests
+Rejected
+Total number of rejected requests
+Recent Activity
+The dashboard contains a Recent Requests panel displaying the employee's most recently submitted purchase requests.
+Visible fields include:
+Field
+Description
+PR1 No.
+Purchase Request reference number
+Purpose
+Purpose or justification of the request
+Submitted
+Date the request was submitted
+Priority
+Request priority level
+Status
+Current workflow status
+Action
+View request details
+The panel displays the five most recent records.
+Examples of displayed statuses include:
+Pending Warehouse Validation
+Canvassing Complete
+Approved
+Rejected
+Users may open individual request records through the View action.
+Sidebar Navigation
+The Employee Dashboard provides direct access to the following modules:
+Dashboard
+My Requests
+Delivery Status
+Substitute Review
+
+Top Navigation Bar
+The top navigation area contains:
+Component
+Function
+Dashboard Breadcrumb
+Indicates current page location
+Operations Breadcrumb
+Displays organizational context
+Staff Breadcrumb
+Displays active user group
+Notifications
+Opens notification center
+Messages
+Opens internal messaging
+Bug Track
+Opens Bug Tracking module
+User Profile
+Opens employee profile page
+Dashboard Actions
+The following actions are available directly from the dashboard:
+Action
+Function
+Collapse Sidebar
+Hides or expands the sidebar navigation panel
+New PR1
+Creates a new Purchase Request (PR1)
+Notifications
+Opens unread system notifications
+Sign Out
+Ends the current user session
+Accessible Modules
+Employees can access the following modules directly from dashboard links and navigation menus:
+Module
+Purpose
+New PR1
+Create a new purchase request
+My Requests
+View and manage submitted PR1 requests
+Delivery Status
+Track delivery progress of approved purchases
+Substitute Review
+Review supplier-proposed substitute items
+PR1 Details
+View complete request information and workflow status
+Notes
+KPI cards are informational only and are not clickable.
+Employees can only view requests that they created.
+The Recent Requests section displays the latest submitted PR1 records.
+Delivery Status provides visibility into purchase order fulfillment and delivery progress.
+Substitute Review allows employees to accept or reject supplier-proposed alternative items during the canvassing process.
+Module visibility is controlled by assigned role permissions and workflow assignments.
+Warehouse Dashboard
+The Warehouse Dashboard is the primary landing page for users assigned the Warehouse Personnel role. It provides a centralized view of purchase requests awaiting warehouse validation, goods receipt processing activities, and warehouse-related workflow queues.
+
+
+Dashboard Title: Dashboard
+
+Dashboard Description: Warehouse — Validate purchase requests and process goods receipts.
+KPI Cards
+The dashboard displays the following summary cards:
+Card Name
+Displayed Information
+Pending Validation
+Total number of purchase requests awaiting warehouse validation
+Validated Today
+Total number of requests validated during the current day
+Open GRN
+Total number of open Goods Receipt Notes
+GRN Completed
+Total number of completed Goods Receipt Notes
+Recent Activity
+The dashboard contains two work queue sections.
+Pending Validation Queue
+Displays purchase requests awaiting warehouse review and stock validation.
+Visible information includes:
+Field
+Description
+Reference Number
+Purchase Request reference number
+Requestor
+Employee who submitted the request
+Department
+Requesting department
+Status
+Current validation status
+The section includes a View All option that opens the Warehouse Queue.
+Open Goods Receipts
+Displays Goods Receipt Notes (GRNs) that are currently open and pending completion.
+The section includes a View All option that opens the Goods Receipt module.
+Sidebar Navigation
+The Warehouse Dashboard provides direct access to the following modules:
+Dashboard
+Warehouse Queue
+Goods Receipt
+Delivery Tracking
+Warehouse History
+No expandable child menus are currently present within the Warehouse sidebar.
+Top Navigation Bar
+The top navigation area contains:
+Component
+Function
+Dashboard Breadcrumb
+Indicates current page location
+Warehouse Breadcrumb
+Displays organizational context
+Warehouse Staff Breadcrumb
+Displays active user role
+Notifications
+Opens notification center
+Messages
+Opens internal messaging
+Bug Track
+Opens Bug Tracking module
+User Profile
+Opens user profile page
+Dashboard Actions
+The following actions are available directly from the dashboard:
+Action
+Function
+Collapse Sidebar
+Hides or expands the sidebar navigation panel
+View All (Pending Validation Queue)
+Opens the Warehouse Queue
+View All (Open Goods Receipts)
+Opens the Goods Receipt module
+Notifications
+Opens unread system notifications
+Sign Out
+Ends the current user session
+Accessible Modules
+Warehouse personnel can access the following modules directly from dashboard links and navigation menus:
+Module
+Purpose
+Warehouse Queue
+Review purchase requests awaiting warehouse validation
+Warehouse Validation
+Open and process individual validation records
+Goods Receipt
+Create, update, and manage Goods Receipt Notes (GRNs)
+Delivery Tracking
+Monitor delivery progress
+Warehouse History
+Review historical warehouse transactions and validations
+Workflow Information Displayed
+The dashboard displays the following warehouse workflow indicators:
+Pending Validation
+Validated Today
+Open GRN
+GRN Completed
+Pending Status
+Notes
+KPI cards are informational only and are not clickable.
+Warehouse validation requests are displayed in the Pending Validation Queue.
+Individual validation records can be opened directly from the queue.
+Goods Receipt processing is accessed through the Goods Receipt module.
+Dashboard visibility is controlled by Warehouse Personnel role permissions.
+The dashboard focuses on stock validation activities and Goods Receipt processing.
+
+Procurement Dashboard
+The Procurement Dashboard is the primary landing page for users assigned the Procurement Staff role. It provides a centralized view of supplier accreditation activities, product review queues, Request for Quotation (RFQ) management, canvassing activities, Purchase Orders, and procurement workflow monitoring.
+Dashboard Title: Dashboard
+
+Dashboard Description: Procurement; Procurement Staff · Procurement
+KPI Cards
+The dashboard displays the following summary cards:
+Card Name
+Displayed Information
+Accreditation Queue
+Total number of supplier accreditation applications awaiting procurement review
+Pending TSQA
+Total number of products awaiting TSQA evaluation
+Awaiting RFQ
+Total number of approved requests awaiting RFQ creation
+Open RFQs
+Total number of active Request for Quotation records
+High Priority
+Total number of high-priority procurement requests
+Purchase Orders
+Total number of Purchase Orders currently tracked in the system
+Recent Activity
+The dashboard contains two procurement work queue sections.
+Canvassing Queue
+Displays procurement requests awaiting RFQ processing and supplier canvassing activities.
+The section includes a View All option that opens the RFQ module.
+Open RFQs
+Displays active Request for Quotation (RFQ) records currently under procurement management.
+The section includes a View All option that opens the RFQ module.
+Sidebar Navigation
+The Procurement Dashboard provides direct access to the following modules:
+Dashboard
+PR2 Requests
+Canvassing / RFQ
+Purchase Orders
+Delivery Tracking
+Goods Receipt
+Supplier Accreditation
+Product Review
+Approval Queue
+Approval History
+Top Navigation Bar
+The top navigation area contains:
+Component
+Function
+Dashboard Breadcrumb
+Indicates current page location
+Procurement Breadcrumb
+Displays organizational context
+Procurement Staff Breadcrumb
+Displays active user role
+Notifications
+Opens notification center
+Messages
+Opens internal messaging
+Bug Track
+Opens Bug Tracking module
+User Profile
+Opens user profile page
+Dashboard Actions
+The following actions are available directly from the dashboard:
+Action
+Function
+Collapse Sidebar
+Hides or expands the sidebar navigation panel
+View All (Canvassing Queue)
+Opens the RFQ module
+View All (Open RFQs)
+Opens the RFQ module
+Notifications
+Opens unread system notifications
+Sign Out
+Ends the current user session
+Accessible Modules
+Procurement Staff can access the following modules directly from dashboard links and navigation menus:
+Module
+Purpose
+Supplier Accreditation
+Review and process supplier accreditation applications
+Product Review
+Review supplier-submitted products and route products for TSQA evaluation when required
+Canvassing Queue
+Manage RFQs and collect supplier quotations
+Purchase Orders
+Manage Purchase Orders and monitor supplier fulfillment
+Delivery Tracking
+Monitor delivery progress and shipment status
+Goods Receipt
+Access Goods Receipt processing records
+PR2 Requests
+View and manage PR2-related activities
+Approval Queue
+Review procurement approvals awaiting action
+Approval History
+Review completed procurement approval actions
+Workflow Information Displayed
+The dashboard displays the following procurement workflow indicators:
+Accreditation Queue
+Pending TSQA
+Awaiting RFQ
+Open RFQs
+High Priority
+Purchase Orders
+The dashboard may also display informational queue messages such as:
+"No PR1s awaiting RFQ."
+"No open RFQs at this time."
+Notes
+All KPI cards are clickable and open their corresponding procurement modules.
+RFQ-related KPI cards direct users to the RFQ management module.
+Supplier Accreditation and Product Review activities are accessible directly from KPI cards.
+The dashboard provides visibility into supplier onboarding, product evaluation, RFQ management, and Purchase Order activities.
+Dashboard visibility is controlled by Procurement Staff role permissions.
+The dashboard serves as the primary operational workspace for procurement personnel.
+Approver Dashboard
+The Approver Dashboard is the primary landing page for users assigned to approval workflows. It provides a centralized view of procurement documents awaiting action, approval activity, and approval history.
+Dashboard Title: Dashboard
+
+Dashboard Description: Executive Office · Director Approval Dashboard
+KPI Cards
+The dashboard displays the following summary cards:
+Card Name
+Displayed Information
+Awaiting My Action
+Total number of documents awaiting approval action
+Approved This Week
+Total number of documents approved during the current week
+Rejected This Week
+Total number of documents rejected during the current week
+Total Processed
+Total number of documents processed by the approver
+Recent Activity
+The dashboard contains a Pending Approvals work queue.
+Pending Approvals
+Displays procurement documents currently awaiting approval by the logged-in approver.
+Visible information may include:
+Field
+Description
+Reference 
+Number
+Procurement document reference number
+Document Type
+Type of procurement document
+Submitted By
+User who submitted the document
+Status
+Current approval status
+When no records are available, the dashboard displays:
+No pending approvals.
+Documents routed to you for approval will appear here.
+Sidebar Navigation
+The Approver Dashboard provides direct access to the following modules:
+Dashboard
+PR1 Requests
+PR2 Requests
+Purchase Orders
+Approval History
+No expandable child menus are currently present within the Approver sidebar.
+Top Navigation Bar
+The top navigation area contains:
+Component
+Function
+Dashboard Breadcrumb
+Indicates current page location
+Executive Office Breadcrumb
+Displays organizational context
+Director Breadcrumb
+Displays active approval position
+Notifications
+Opens notification center
+Messages
+Opens internal messaging
+Bug Track
+Opens Bug Tracking module
+User Profile
+Opens user profile page
+Dashboard Actions
+The following actions are available directly from the dashboard:
+Action
+Function
+Collapse Sidebar
+Hides or expands the sidebar navigation panel
+Notifications
+Opens unread system notifications
+Sign Out
+Ends the current user session
+Accessible Modules
+Approvers can access the following modules directly from dashboard links and navigation menus:
+Module
+Purpose
+PR1 Requests
+Review and process PR1 approval requests
+PR2 Requests
+Review and process PR2 approval requests
+Purchase Orders
+Review and process Purchase Order approvals
+Approval History
+Review completed approval actions and decisions
+Approval Queue
+View documents currently assigned for approval
+Workflow Information Displayed
+The dashboard displays the following approval workflow indicators:
+Awaiting My Action
+Approved This Week
+Rejected This Week
+Total Processed
+Pending Approvals
+The dashboard may also display informational messages such as:
+"No pending approvals."
+"Documents routed to you for approval will appear here."
+Notes
+KPI cards are informational only and are not clickable.
+Approval requests assigned to the current approver appear in the Pending Approvals section.
+Approvers can only act on workflow steps assigned to their role and position.
+Approval History provides visibility into completed approval actions.
+Dashboard visibility is controlled by workflow assignments and role permissions.
+The dashboard serves as the primary workspace for approval activities.
+Supplier Dashboard
+The Supplier Dashboard is the primary landing page for users assigned the Supplier role. It provides a centralized view of supplier accreditation status, product catalog information, active quotation requests, purchase order activities, and supplier-related procurement workflows.
+Dashboard Title: Dashboard
+
+Dashboard Description: Supplier Portal — Respond to active RFQs and keep your accreditation and catalog up to date.
+KPI Cards
+The dashboard displays the following summary cards:
+Card Name
+Displayed Information
+Accreditation Status
+Current accreditation review status of the supplier organization
+Total Products
+Total number of products registered in the supplier catalog
+Verified
+Total number of products successfully verified and approved
+Pending Review
+Total number of products awaiting procurement or TSQA review
+Open RFQs
+Total number of active Request for Quotation (RFQ) records awaiting supplier action
+Pending Response
+Total number of quotation requests that have not yet received a supplier response
+Recent Activity
+The dashboard contains an RFQ work queue.
+RFQ Inbox
+Displays Requests for Quotation (RFQs) currently assigned to the supplier and awaiting quotation submission.
+Visible information may include:
+Field
+Description
+RFQ Number
+Request for Quotation reference number
+Request Date
+Date the RFQ was issued
+Due Date
+Deadline for quotation submission
+Status
+Current RFQ status
+Action
+Open and respond to quotation request
+The section includes a View All option that opens the Quotations module.
+When no RFQs are available, the dashboard displays:
+No RFQs assigned yet.
+Check back later.
+Sidebar Navigation
+The Supplier Dashboard provides direct access to the following modules:
+Dashboard
+Quotations
+Purchase Orders
+Deliveries
+Product Catalog
+Accreditation
+No expandable child menus are currently present within the Supplier sidebar.
+Top Navigation Bar
+The top navigation area contains:
+Component
+Function
+Dashboard Breadcrumb
+Indicates the current page location
+General Services Breadcrumb
+Displays organizational context
+Supplier Representative Breadcrumb
+Displays the active supplier user role
+Notifications
+Opens notification center
+Messages
+Opens internal messaging
+Bug Track
+Opens Bug Tracking module
+User Profile
+Opens supplier profile page
+Dashboard Actions
+The following actions are available directly from the dashboard:
+Action
+Function
+Collapse Sidebar
+Hides or expands the sidebar navigation panel
+Notifications
+Opens unread system notifications
+View All (RFQ Inbox)
+Opens the Quotations module
+Sign Out
+Ends the current user session
+Accessible Modules
+Suppliers can access the following modules directly from dashboard links and navigation menus:
+Module
+Purpose
+Quotations
+Review RFQs and submit supplier quotations
+Purchase Orders
+Review issued Purchase Orders and acknowledge receipt
+Deliveries
+Update and monitor delivery status of Purchase Orders
+Product Catalog
+Create, update, and manage supplier product records
+Accreditation
+Submit and track supplier accreditation applications
+Workflow Information Displayed
+The dashboard displays the following supplier workflow indicators:
+Accreditation Status
+Total Products
+Verified Products
+Pending Product Reviews
+Open RFQs
+Pending Responses
+The dashboard may also display informational messages such as:
+"No RFQs assigned yet."
+"Check back later."
+Notes
+All KPI cards are clickable and open their corresponding modules.
+Accreditation Status opens the Accreditation module.
+Product-related KPI cards open the Product Catalog module.
+RFQ-related KPI cards open the Quotations module.
+Suppliers can only view records belonging to their own organization.
+Product approval and accreditation approval are separate processes.
+Product verification may require Procurement and TSQA review before products become available for procurement activities.
+Dashboard visibility is controlled by Supplier role permissions.
+The dashboard serves as the primary workspace for supplier quotation management, accreditation monitoring, and product catalog maintenance.
+TSQA Dashboard
+The TSQA Dashboard is the primary landing page for users assigned the TSQA Reviewer role. It provides a centralized view of Raw Material Scientific Evaluation (RSE) records, product review assignments, and scientific evaluation activities.
+Dashboard Title: Dashboard
+
+Dashboard Description: Technical and Scientific Quality Assurance — product and sample evaluation queue.
+KPI Cards
+The dashboard displays the following summary cards:
+Card Name
+Displayed Information
+Open / Created
+Total number of open or newly created RSE records
+Assigned
+Total number of RSE records assigned to the TSQA Reviewer
+Under Review
+Total number of RSE records currently under scientific evaluation
+Passed
+Total number of RSE records that successfully passed evaluation
+Failed
+Total number of RSE records that failed evaluation
+All visible KPI cards display count-based metrics. Clickability is not verified from the visible interface.
+Recent Activity
+Active RSE Records
+This section displays RSE records currently assigned to the logged-in TSQA Reviewer.
+Field
+Description
+Active RSE Records
+Section title for the assigned RSE record list
+View All
+Opens the RSE Queue module
+Empty State Message
+"No active RSE records assigned to you."
+Supporting Message
+"Procurement will assign RSE records when product evaluation is required."
+Visible Columns: Not present
+Status Indicators: Not present
+Actions Available: View All
+View All Functionality: Opens the RSE Queue module.
+Sidebar Navigation
+The TSQA Dashboard provides direct access to the following modules:
+Dashboard
+RSE Queue
+No expandable child menus are currently present within the TSQA sidebar.
+Top Navigation Bar
+Component
+Function
+Dashboard Breadcrumb
+Indicates the current page location
+Operations Breadcrumb
+Displays organizational context
+TSQA Reviewer Breadcrumb
+Displays the active TSQA role
+Notifications
+Opens notification center
+Messages
+Opens internal messaging
+Bug Track
+Opens Bug Tracking module
+User Profile
+Opens the user profile page
+Dashboard Actions
+The following actions are available directly from the dashboard:
+Action
+Function
+Collapse Sidebar
+Hides or expands the sidebar navigation panel
+View RSE Queue
+Opens the RSE Queue module
+View All
+Opens the RSE Queue module from the Active RSE Records section
+Notifications
+Opens unread system notifications
+Messages
+Opens internal messaging
+Bug Track
+Opens the Bug Tracking module
+User Profile
+Opens the user profile page
+Sign Out
+Ends the current user session
+Accessible Modules
+TSQA Reviewers can access the following modules directly from dashboard links and navigation menus:
+Module
+Purpose
+Dashboard
+Displays TSQA metrics and assigned RSE activity
+RSE Queue
+Review and process Raw Material Scientific Evaluation records
+Messages
+Access internal messaging
+Bug Track
+Report and monitor application issues
+User Profile
+Manage profile information and account settings
+Workflow Information Displayed
+The dashboard displays the following TSQA workflow indicators:
+Open / Created
+Assigned
+Under Review
+Passed
+Failed
+The Active RSE Records section may display the following informational messages:
+"No active RSE records assigned to you."
+"Procurement will assign RSE records when product evaluation is required."
+Notes
+The TSQA Dashboard focuses exclusively on Raw Material Scientific Evaluation (RSE) activities.
+The RSE Queue is accessible from both the sidebar navigation and dashboard action links.
+KPI cards provide visibility into the current scientific review workload.
+No active RSE records are displayed when no assignments exist.
+No table columns are visible when the Active RSE Records queue is empty.
+Product review activities originate from Procurement and are routed to TSQA when scientific evaluation is required.
+TSQA Reviewers are responsible for conducting scientific assessments and recording pass/fail evaluation results.
+Dashboard visibility is controlled by TSQA Reviewer role permissions.
+The dashboard serves as the primary workspace for scientific product evaluation and quality assurance review activities.
+
+
+
+
+
+
+
+
+
+
+
+
+Functional Instructions
+Role: Employee / Requestor
+The Employee / Requestor role represents general company staff members who initiate purchase requests (PR1), evaluate proposed substitute items from suppliers, and monitor delivery progress. The primary account used is the employee role account (employee@fortune.com).
+1.1 Dashboard
+Module Purpose
+Provides a central overview of requisition statuses, alert notifications, and quick shortcuts.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Welcome Header
+Welcome back, employee!
+Displays logged-in user name
+KPI Card
+Total Requests
+Total count of requests submitted
+KPI Card
+Pending Approval
+Count of requests currently in approval workflow
+KPI Card
+Approved
+Count of successfully approved requests
+KPI Card
+Rejected
+Count of rejected requests
+Table
+Recent Requests Table
+Columns: PR1 No., Purpose, Submitted, Priority, Status, View link
+Button
+New PR1
+Navigates to creation form
+Banner
+You have substitute items awaiting decision
+Displays if pending substitutes exist
+Sidebar Menu
+Dashboard, My Requests, Delivery Status, Substitute Review
+Core module links
+Header Icons
+Message Center (badge count), Bug Track, Profile Dropdown, Sign out
+Utility actions
+
+Step-by-Step Workflows
+1. Select Dashboard from the sidebar. Review total pending request counters. If the substitute items warning banner is visible, click on it to navigate to the Substitute Review workspace.
+
+Caption: Employee Dashboard - The landing workspace for the employee. It displays four key performance indicator (KPI) metric cards for Total Requests, Pending Approval, Approved, and Rejected, alongside the Recent Requests table which lists the 5 most recent requisitions with columns for PR1 No., Purpose, Date Submitted, Priority, and Status.
+Status Glossary
+Status Badge
+Description
+Pending Approval
+Yellow status badge indicating that the request is currently routing through approvals.
+Approved
+Green status badge indicating that the request is fully approved.
+Rejected
+Red status badge indicating that the request has been rejected and cannot be edited.
+
+Expected Outcome
+Successful loading of metrics, tables, and warnings on dashboard landing.
+1.2 My Requests (/pr1)
+Module Purpose
+Lists all purchase requisitions created by the requisitioner, supporting searching and filtering.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Search Bar
+PR1 number or purpose...
+Input field for text queries
+Filter Dropdown
+STATUS
+Filters table rows by requisition status
+Date Pickers
+DATE CREATED FROM / DATE CREATED TO
+Filter rows by creation date range
+Button
+Apply Filters
+Submits search and filter parameters
+Button
+Clear
+Resets search and filter inputs
+Button
+New PR1
+Navigates to creation form
+
+Step-by-Step Workflows
+1. Type a query in the search input or select status filters, then click the Apply Filters button. The table updates dynamically. Click Clear to reset.
+
+Caption: Purchase Requisitions (PR1) List View - Shows the historical list of all requests submitted by the employee. It includes search inputs for text-based queries on PR1 numbers and purposes, a dropdown to filter by document status, and date pickers to filter by creation ranges.
+Status Glossary
+Status Badge
+Description
+Draft
+Grey badge showing the request is saved locally but not yet submitted.
+Pending Warehouse Validation
+Amber badge showing the request is awaiting warehouse stock verification.
+PR2 — Pending Approval
+Orange badge indicating Phase 1/Phase 2 approvals are active.
+Canvassing Complete
+Blue badge indicating supplier bidding has closed and winners are awarded.
+Completed (GRN Closed)
+Green badge showing items are received at the warehouse and the request is closed.
+
+Expected Outcome
+Requisition table correctly updates rows based on filter queries.
+1.3 Creating a New PR1 (/pr1/new)
+Module Purpose
+Enables creating and submitting new purchase requisitions.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Read-only Info
+REQUISITIONER / DEPARTMENT / DATE
+Employee / Operations / Today's Date
+Input Suffix
+PR1-2026- [e.g. 001]
+Custom suffix text input for PR1 sequence
+Dropdown Select
+PURPOSE *
+Select request business category
+Date Picker
+DATE REQUIRED *
+Target delivery date required
+Table
+Items Requested Table
+Columns: Item Code, Description, Unit, SOH, Req. Qty, Raw Mat. Checkbox
+Button
+Add Item
+Appends a new line item row to the table
+Button
+Submit PR1
+Validates and submits the request
+Button
+Save Draft
+Saves request as draft without submitting
+
+Step-by-Step Workflows
+Workflow 1: Empty Form Validation1. Leave all inputs empty and click Submit PR1. Browser highlights required fields and displays validation bubbles: 'Purpose is required' and 'At least one item is required'.
+
+Caption: New PR1 Form (Validation State) - The interface displayed when a user attempts to submit an empty form. The browser triggers validation error highlights under the Purpose dropdown and displays a notice stating that at least one item must be added to the items requested table.
+Workflow 2: Submitting a PR11. Enter custom sequence suffix, select a Purpose, choose required date, click Add Item, enter description, unit, and quantity. Check 'Raw Mat.' if applicable. Click Submit PR1.
+
+Caption: New PR1 Form (Populated State) - Illustrates the completed request form. It shows the requisitioner and department metadata fields, custom sequence input (e.g. 001), selected purpose (Operations), required date, and a populated table of requested items with item code, description, unit, and requested quantity.
+Expected Outcome
+Form submission creates a new PR1 record, setting status to 'Pending Warehouse Validation'.
+1.4 Viewing PR1 Details (/pr1/{pr1Id})
+Module Purpose
+Displays detailed information, line items, and approval signatory logs for a specific PR1.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Header Block
+PR1 No. & Status Badges
+Displays document number, priority, and current status
+Details Panel
+REQUEST HEADER
+Requisitioner, department, purpose, dates, and references
+Table
+ITEMS REQUESTED
+Columns: #, Item Code, Description, Type, Unit, SOH, Req. Qty, Warehouse Route
+Timeline
+SIGNATORIES Tracker
+Chronological sign-off steps and active actor indicators
+Button
+Print
+Opens standard browser print view of the requisition
+
+Step-by-Step Workflows
+1. Click on a PR1 No. or View link in any list page. Inspect details. Scroll down to the Signatories timeline to see who has reviewed/approved the request.
+
+Caption: Requisition Details Page - Displays the details of a specific PR1. The upper portion shows the requisitioner information and item routing decisions, while the bottom section displays the Signatories timeline tracker highlighting approved steps and pending signatories in the workflow.
+Expected Outcome
+Detailed request parameters and signature history loaded successfully.
+1.5 Substitute Review (/substitutes)
+Module Purpose
+Lists all requisitions with proposed alternative supplier products.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+KPI Counter
+Pending Decision / Accepted / Rejected
+Departmental substitute decision counters
+Search Input
+SEARCH
+Filter items by PR1 number, purpose, or supplier
+Filter Dropdown
+STATUS
+Filter cards by substitute status (All, Decided, Pending)
+Cards Grid
+Substitute Cards
+Groups items by PR1. Shows description and number of options offered
+
+Step-by-Step Workflows
+1. Click Substitute Review in the sidebar. Locate card with pending substitutes. Click the card to open side-by-side details.
+
+Caption: Substitute Review Dashboard - A queue listing all purchase requests that contain alternative supplier products. Requisitioners can see cards indicating the number of options offered by suppliers and click on them to navigate to the comparison details page.
+Expected Outcome
+Substitute review queue and metrics populated.
+1.6 Substitute Item Details Comparison (/substitutes/{pr1Id})
+Module Purpose
+Enables comparing requested items side-by-side with proposed alternatives and submitting decisions.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Left Panel
+YOU REQUESTED
+Displays original requested item name, description, and quantity
+Right Panel
+SUPPLIER IS OFFERING
+Displays alternative product description, lead time, and remarks
+Text Field
+Price Hidden Label
+Masks the cost details from general employee view
+Textarea
+Notes
+Input field to enter justification for decision
+Button
+Accept Substitute
+Approves the proposed supplier item
+Button
+Reject Substitute
+Declines the proposed item, returning to source request
+Button
+Change decision to...
+Resets decision state to allow re-selection
+
+Step-by-Step Workflows
+1. Review comparison cards. Prices display as 'Price hidden'. Enter remarks in the notes box, then click Accept Substitute or Reject Substitute. The status updates immediately. To reverse selection, click the Change decision button.
+
+Caption: Substitute Item Comparison - A side-by-side split screen workspace. The left panel shows the original item requested by the employee. The right panel displays the alternative product offered by the supplier (including unit price, lead time, and remarks) with the price hidden from the general employee view to prevent bias.
+Status Glossary
+Status Badge
+Description
+Pending
+Yellow badge showing that no decision has been taken on the alternative.
+Accepted
+Green badge showing the substitute item is approved for procurement.
+Rejected
+Red badge showing the substitute item is rejected and the system must source the original.
+
+Expected Outcome
+Decisions are saved, updating downstream canvassing routes.
+1.7 Delivery Status (/delivery)
+Module Purpose
+Tracks shipping milestones and transit logs for approved purchase orders.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Tabs
+All, Pending, Scheduled, In Transit, Delayed, Delivered
+Filters delivery cards by active status
+Search Input
+SEARCH
+Filter by PO number, purpose, supplier, or warehouse
+Cards Grid
+Delivery List Cards
+Displays PO number, status badge, supplier, and estimated arrival
+
+Step-by-Step Workflows
+1. Navigate to Delivery Status. Search by PO number. Click the card chevron to open detail timelines.
+
+Caption: Delivery Status Tracker - Lists active deliveries and shipping milestones for approved purchase orders. Requisitioners can click tabs (All, Pending, Scheduled, In Transit, Delayed, Delivered) to filter the list and search for specific PO numbers or suppliers.
+Expected Outcome
+Delivery list populates according to status tabs.
+1.8 Delivery Details (/delivery/{deliveryId})
+Module Purpose
+Displays destination parameters and transit history timelines for deliveries.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Information Block
+DELIVERY INFO
+Supplier, Requisitioner, Deliver To, Address
+Dates Panel
+KEY DATES
+Actual Delivery Date, Estimated Arrival Date
+Timeline
+STATUS HISTORY
+Chronological log showing status transitions, actors, and remarks
+Label
+Price hidden
+Masks pricing columns from general employee view
+
+Step-by-Step Workflows
+1. Open delivery card. Review transit milestones. This screen is read-only for employees; no buttons or actions are present.
+
+Caption: Delivery Details - Displays the read-only shipment details for requisitioners. It maps out supplier information, destination addresses, actual delivery dates, and a chronological history timeline log tracking every status transit step and coordinator note.
+Expected Outcome
+Detailed shipment metrics are displayed in a secure, read-only view.
+1.9 Messages
+Module Purpose
+Enables chat communication with procurement staff and other team members.
+
+Caption: Message Center - The internal chat interface showing a left sidebar for active 1-to-1 conversations (with user search input) and a main chat screen where users can converse, view online indicators, and exchange attachments with procurement staff.
+1.10 Profile Settings
+
+Caption: User Profile Settings - The account management interface showing editable name inputs and read-only role metadata (Employee, Operations department). The right side includes fields to update current and new passwords with visibility toggle icons.
+1.11 Bug Reporting Tool
+
+Caption: Bug Reporting Tool (Validation State) - The bug ticket submission form highlighting empty field validation indicators when a user clicks submit without filling in the issue summary, URL location, severity, description, or expected behavior.
+
+Caption: Bug Reporting Tool (Populated State) - Shows the form filled with bug details, including a detailed error log from the browser console, ready for transmission to the system administrators.
+Role: Warehouse
+The Warehouse role handles PR1 stock-on-hand (SOH) validation and processes incoming supplier deliveries by completing Goods Receipt Notes (GRN). The primary account is warehouse@fortune.com (Warehouse Staff position).
+2.1 Dashboard
+Module Purpose
+Provides warehouse personnel with an overview of incoming items that need SOH validation and open goods receipt logs.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+KPI Card
+PENDING VALIDATION
+Count of PR1 requests needing SOH checks
+KPI Card
+VALIDATED TODAY
+Requisitions checked during the current shift
+KPI Card
+OPEN GRN
+Active goods receipts awaiting resolution
+KPI Card
+GRN COMPLETED
+Total completed receipts
+Panel List
+Pending Validation Queue Preview List
+Quick view of active PR1s needing check
+Panel List
+Open Goods Receipts Preview List
+Quick view of outstanding GRNs
+Link
+View all
+Redirects to full queues
+
+Step-by-Step Workflows
+1. Open the dashboard. Review counts of pending SOH check tasks. Click View all inside the Pending Validation Queue panel to start validation.
+
+Caption: Warehouse Dashboard - Landing page showing KPI count cards for SOH Pending Validation, Validated Today, Open GRNs, and Completed GRNs. It also features quick work queue panels to preview pending validation PR1 requests and open goods receipts.
+2.2 Warehouse Queue (/warehouse)
+Component Type
+Element Label / Value
+Description / Action
+Search Box
+SEARCH
+Filter items by PR1 number, requestor, department, or purpose
+Dropdown Filter
+PRIORITY
+Filter table rows by priority
+Button
+Apply / Clear All
+Controls to execute or reset query filters
+Table
+Queue Table
+Columns: PR1 NO., REQUESTOR, DEPARTMENT, PURPOSE, PRIORITY, DATE REQUIRED, SUBMITTED, VALIDATION
+Link
+Validate
+Row action button directing to the validation page
+
+
+Caption: Warehouse Queue - Lists all PR1 requests awaiting stock validation. Staff can search and filter by PR1 number, requisitioner, or department, and click the 'Validate' action link to inspect physical inventory levels.
+2.3 SOH Verification Details
+Component Type
+Element Label / Value
+Description / Action
+Header Panel
+PR1 Details Block
+Displays requestor, department, and date
+Number Input
+VERIFIED SOH
+Editable field to enter physical count
+Text Input
+NOTES
+Optional notes for the line item
+Label
+OUTCOME
+Calculates Sufficient or Insufficient stock dynamically
+Button
+Save Progress
+Saves counts in draft state
+Button
+Submit Validation
+Submits stock check and advances workflow
+
+
+Caption: SOH Verification details - The workspace for warehouse validation. It displays requested quantities and allows staff to enter verified Stock-on-Hand (SOH) counts. The system dynamically calculates and shows the routing outcome (Sufficient/Insufficient) for each line item.
+2.4 Goods Receipt (/grn)
+Component Type
+Element Label / Value
+Description / Action
+Tabs
+All GRNs, Open, Closed
+Filters GRN list by transaction state
+Search Box
+SEARCH
+Filter by GRN, PO, supplier, department, or warehouse
+Table
+GRN Table
+Columns: GRN Number, PO Reference, Status, Supplier, Department, Received By, Date
+Button
+Print GRN
+Opens printable version of the receipt
+Label
+Price hidden
+Masks the cost details from warehouse view
+
+
+Caption: Goods Receipt List - A tabbed queue (All, Open, Closed) showing all Goods Receipt Notes. Warehouse staff can search for specific POs, suppliers, or GRN numbers, and view metadata columns such as Received By and Closed Date.
+
+Caption: GRN Detail View - Displays a finalized receipt. It includes supplier details, Delivery Receipt (DR) number, and a table showing the ordered, received, and rejected quantities for each item, along with the closed status banner.
+2.5 Delivery Tracking (/delivery)
+
+Caption: Warehouse Delivery List - A read-only list showing active and historic shipments. It allows warehouse personnel to filter and monitor delivery dates and supplier dispatch statuses.
+
+Caption: Delivery Details (Warehouse) - Displays shipping detail parameters and the status history logs, giving warehouse operators full visibility into supplier dispatch activities and estimated arrival dates.
+2.6 Warehouse History (/warehouse/history)
+
+Caption: Warehouse History Log - A table recording historic validations processed by the warehouse. It details the PR1 number, requisitioner, department, validator, decision date, and overall validation outcome.
+2.7 Utilities
+
+Caption: Warehouse Messages - The internal chat window showing the empty state when no active chat conversation is selected in the sidebar.
+
+Caption: Warehouse Profile - Account details displaying the logged-in warehouse operator's full name, read-only role (warehouse), and position (Warehouse Staff).
+
+Caption: Warehouse Bug Report (Empty State) - Displays validation alerts when the operator attempts to submit a bug ticket with missing information.
+
+Caption: Warehouse Bug Report (Populated State) - A completed bug report filled with warehouse interface issues, ready for submission to developers.
+Role: Procurement
+The Procurement role acts as the core administrator for purchasing. Responsibilities include creating RFQs, canvassing supplier quotations, awarding winners, generating and routing PR2 memos, issuing Purchase Orders, approving supplier accreditations, and verifying catalog products. The primary account is the procurement officer account (procurement@fortune.com, Procurement Staff position).
+3.1 Dashboard
+
+Caption: Procurement Dashboard - The operational landing page displaying stat cards for the Accreditation Queue, Pending TSQA, Awaiting RFQ, Open RFQs, High Priority, and Purchase Orders, with quick links to canvassing and RFQ lists.
+3.2 PR2 Requests (/pr2)
+
+Caption: PR2 Approvals Queue - Lists PR2 memos awaiting sign-off, detailing the phase, priority, purpose, and requesting department.
+3.3 Canvassing / RFQ (/rfq)
+
+Caption: Canvassing Queue - Lists PR1s that have passed warehouse validation and are ready for Request for Quotation (RFQ) processing. It displays RFQ numbers, priority badges, and the status of current quotation batches.
+
+Caption: RFQ Bid Comparison - The canvassing workspace. It compares quotations submitted by suppliers side-by-side per line item. Procurement officers can view item details, review supplier alternatives, and trigger the 'Award' action for winning quotes.
+3.4 Purchase Orders (/po)
+
+Caption: Purchase Orders List - A grid displaying issued POs, their status badges (Draft, For Approval, Sent to Supplier, Delivered), grand totals, suppliers, requisitioners, and date requirements.
+
+Caption: Generate Purchase Order - The PO creation form. It is pre-filled with the selected supplier details, billing terms, and line items from the approved PR2. Procurement officers can enter custom PO numbers, delivery terms, and remarks.
+3.5 Delivery Tracking (/delivery)
+
+Caption: Procurement Delivery List - Lists all dispatches. It displays PO numbers, estimated deliveries, transit status badges, and total amounts, filtered by status tabs.
+
+Caption: Delivery Details (Procurement) - Displays destination parameters and the complete transit status log (e.g. Scheduled -> In Transit -> Delivered) detailing the actor, action, and timestamp for each milestone.
+3.6 Goods Receipt (/grn)
+
+Caption: Goods Receipt Log (Procurement) - Lists all GRN records showing transaction states (Open, Closed), PO references, suppliers, and received dates.
+
+Caption: GRN Detail View (Procurement) - Displays the finalized goods receipt showing actual received versus rejected quantities and total received commercial values.
+3.7 Supplier Accreditation (/accreditation)
+
+Caption: Supplier Accreditation Queue - A dashboard showing supplier accreditation applications. It lists supplier company names, emails, and submission dates, allowing procurement officers to click and review legal files.
+3.8 Product Review (/accreditation/products)
+
+Caption: Product Review List - Lists product catalog items submitted by suppliers. It displays verification status badges (Pending, Under TSQA, Verified, Rejected) and options to review detail pages.
+
+Caption: Product Review Detail - Displays product specifications. Procurement officers can verify products directly (making them eligible for RFQs), reject them, or click 'Create RSE' to route raw materials to the TSQA team.
+3.9 Approval Queue & History
+
+Caption: Approval Queue (Procurement) - Shows documents currently awaiting review. It highlights pending PR2 and PO documents, displaying their current signatory workflow steps.
+
+Caption: Approval History (Procurement) - Displays a detailed log of all past approvals, detailing the document type, user action, signing timestamp, and custom remarks.
+3.10 Utilities
+
+Caption: Procurement Messages - Chat panel showing active conversations with team members and supplier representatives.
+
+Caption: Procurement Profile - Account details showing the logged-in officer's metadata (Procurement Staff).
+
+Caption: Procurement Bug Report (Validation) - Interface validation warnings displayed when required bug fields are left blank.
+
+Caption: Procurement Bug Report (Populated) - Shows the populated bug report form containing detailed error text, ready to submit.
+Role: Approver
+The Approver role represents departmental and organizational decision-makers who hold approval sign-off authority. This includes Supervisor, Department Head, Director, and Finance Director. Accounts sign off on PR1s, PR2s, and POs.
+4.1 Dashboard
+
+Caption: Approver Dashboard - Landing page for the approver. It lists summary cards (Awaiting My Action, Approved This Week, Rejected This Week) and a queue of pending approval documents.
+4.2 PR1 Requests (/approvals/pr1)
+
+Caption: PR1 Approvals Queue - Lists all PR1 requests routing through approvals, with options to filter by priority, department, and submission date.
+
+Caption: PR1 Approval Detail - Shows the requestor details, purpose, required date, and the items grid featuring verified warehouse SOH and requested quantities.
+
+Caption: PR1 Approval Timeline - A chronological progress stepper showing who has signed off on the PR1 (e.g. Supervisor, Department Head) and who is the active pending signatory.
+
+Caption: PR1 Approval Actions - The decision panel. Approvers can click Approve or Reject (which opens a mandatory remarks input field) or Request Revision.
+4.3 PR2 Requests (/approvals/pr2)
+
+Caption: PR2 Approvals Queue - Lists PR2 memos awaiting sign-off, detailing the phase, priority, purpose, and requesting department.
+
+Caption: PR2 Approval Detail - Displays the PR2 header information and its active related records chain (linking PR1, RFQ, and PR2).
+
+Caption: PR2 Items Grid - Displays awarded items, selected suppliers, unit costs, and total prices, with a toggle to view competing supplier canvass quotes.
+
+Caption: PR2 Approval Actions - The decision controls allowing Directors or Managers to sign off on the active Phase 1 or Phase 2 approval step.
+4.4 Purchase Orders (/approvals/po)
+
+Caption: PO Approvals Queue - Lists Purchase Orders currently routing through approval steps (e.g. Finance Director review).
+
+Caption: PO Approval Detail - Displays the purchase order parameters, including payment terms, delivery address, item list, and grand total.
+
+Caption: PO Approval Actions - The decision panel. The Finance Director can click Approve (which finalizes the PO and routes it to the supplier) or Reject.
+4.5 Approval Queue (/approvals)
+
+Caption: Unified Approvals Queue - A single dashboard displaying all pending approvals across PR1, PR2, and PO tabs, sorting items by urgency and date.
+4.6 Approval History (/approvals/history)
+
+Caption: Approver History Log - Lists all past actions taken by the approver. It includes search filters and date ranges, showing the specific action badge (e.g. Approved, Rejected) and remarks.
+
+Caption: Completed Request Detail - A read-only card showing a completed PR1, displaying the final signatory approvals and item fulfillment logs.
+4.7 Utilities
+
+Caption: Approver Messages - Chat window displaying a conversation between the approver and a procurement team member.
+
+Caption: Approver Profile - Profile page showing display name fields, password inputs, and active user credentials.
+
+Caption: Approver Bug List - A table listing reported bug tickets with columns for summary, URL, severity, status, and reporter.
+
+Caption: Bug Ticket Detail - Shows detailed bug information, expected vs actual behavior, and options for administrators to update status.
+Role: Supplier
+The Supplier Representative manages their accreditation details, submits catalog products, reviews incoming RFQs, inputs pricing bids, acknowledges POs, and schedules shipments. The primary account used is supplier@fortune.com (Supplier Role).
+5.1 Dashboard (/dashboard)
+Module Purpose
+Provides a central interface for the supplier to track accreditation status, open RFQs, active POs, and pending delivery shipments.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+KPI Card
+Open RFQs
+Count of active bids open for quoting
+KPI Card
+Active POs
+Count of POs awaiting acknowledgment or delivery
+KPI Card
+Pending Deliveries
+Count of shipments in transit or scheduled
+Status Card
+Accreditation Status
+Displays the current supplier validation status (e.g. Accredited, Pending, Under Review)
+Panel List
+Recent Notifications
+List of recent system alerts and updates
+Sidebar Menu
+Dashboard, Accreditation, Product Catalog, Quotations, Purchase Orders, Deliveries
+Core supplier modules
+Header Icons
+Message Center, Bug Track, Profile Dropdown
+Access chat, file bugs, and configure account settings
+
+Step-by-Step Workflows
+1. Navigate to the Dashboard. Review the active KPI indicators. If any alerts are visible under notifications, click on them to navigate to the respective module.
+
+Caption: Supplier Dashboard - Landing page for supplier portal. It shows KPI cards for Open RFQs, Active POs, and Pending Deliveries, alongside the organization's current Accreditation Status.
+Expected Outcome
+Metrics and status badges load dynamically matching supplier database records.
+5.2 Accreditation Details (/supplier/accreditation)
+Module Purpose
+Allows suppliers to review company profiles and check the status of required compliance certificates.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Header Panel
+Accreditation Details
+Displays Legal Name, Status, Evaluation rating, and Date Accredited
+Table
+Certification Files
+List of compliance documents (DTI Certificate, Mayor's Permit, Tax Clearance, SEC Registration)
+Status Badge
+Verified / Pending
+Individual status indicators for each document slot
+
+Step-by-Step Workflows
+1. Select Accreditation from the sidebar. Inspect your registration profile parameters. Scroll down to review the status of submitted compliance files.
+
+Caption: Supplier Accreditation Profile - Displays contact details, date accredited, legal name, and evaluation ratings.
+
+Caption: Accreditation Documents Table - Lists required compliance documents (DTI Certificate, Mayor's Permit, Tax Clearance, SEC Registration) and their verification states.
+Status Glossary
+Status Badge
+Description
+Accredited
+Green status indicating the supplier is fully approved and can bid on RFQs.
+Pending Review
+Yellow status indicating submitted compliance documents are undergoing check.
+Verified
+Green file badge showing a document was audited and approved by procurement.
+
+Expected Outcome
+Supplier contact fields and file table load correctly.
+5.3 Product Catalog (/supplier/products)
+Module Purpose
+Enables managing product offerings, adding new items, and checking TSQA verification status.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Button
+Add Product
+Launches the catalog product creation screen
+Table
+Product Catalog Table
+Columns: Image, SKU, Category, Product Name, Unit Price, Stock, Status, Action
+Form Fields
+Product Code, Name, Category, Description, Unit Price, Stock, Image upload slot
+Fields inside the Add Product screen
+Button
+Submit Product
+Saves new product details to database
+
+Step-by-Step Workflows
+Workflow 1: Viewing Product Catalog1. Select Product Catalog from the sidebar. Review active SKUs, unit pricing, stock on hand, and TSQA validation status.
+
+Caption: Supplier Product Catalog - Displays registered products, categories, SKU codes, unit prices, stock levels, and TSQA verification badges.
+Workflow 2: Adding a Catalog Product1. Click the Add Product button. Fill in Code, Name, select a Category, enter Unit Price, and Stock. Click the image upload slot to attach product photos. Click Submit Product.
+
+Caption: Add Catalog Product - Form to add new products to the catalog, showing product code, name, category, unit price, stock, and photo upload slot.
+Workflow 3: Viewing Product details1. Click the View link on a catalog product row to open the detailed product view, including its approval logs.
+
+Caption: Supplier Product Details - Displays product specifications and historical verification decisions (Pending TSQA / Verified).
+Status Glossary
+Status Badge
+Description
+Verified
+Green badge indicating the product is approved and can be selected for RFQ bids.
+Pending TSQA
+Yellow badge showing that the item sample is awaiting inspection by quality assurance.
+
+Expected Outcome
+Successful catalog management, insertion, and details review.
+5.4 RFQ Quotations (/supplier/quotations)
+Module Purpose
+Lists invitations to bid on corporate requisitions and provides a workspace to submit pricing proposals.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Table
+Quotations Queue Table
+Columns: RFQ Number, Closing Date, Status, Action
+Link
+View Quote / Edit Quote
+Directs to the RFQ bidding workspace
+Select Field
+Select Product
+Drop-down selector to link bid line to catalog product
+Number Input
+Unit Price
+Pricing per unit of measure
+Number Input
+Lead Time (Days)
+Guaranteed shipping lead time in days
+Text Input
+Remarks
+Optional remarks for proposed alternatives
+Button
+Submit Quotation
+Finalizes the bid and routes to corporate procurement comparison matrix
+
+Step-by-Step Workflows
+Workflow 1: Viewing RFQ Queue1. Select Quotations from the sidebar. Inspect active RFQ numbers and closing deadlines.
+
+Caption: Quotations Queue - Lists active Request for Quotation (RFQ) invitations showing closing dates, reference numbers, and active bidding statuses.
+
+Caption: Quotations Queue (Scrolled) - Displays further quotation details and historical closed bids.
+Workflow 2: Submitting a Bid1. Click View Quote on an open RFQ. Review requested items and specifications. Link each requested item to one of your catalog products, input Unit Price and Lead Time, enter optional remarks, and click Submit Quotation.
+
+Caption: RFQ Specifications Header - Shows the RFQ ID, closing date, and company billing/shipping details for the quotation form.
+
+Caption: RFQ Bid Entry Form - Shows requested items. Suppliers link each line to a product from their catalog and input unit prices, lead times, and remarks.
+
+Caption: Quotation Submission Actions - The submission panel. Clicking 'Submit Quotation' registers the supplier's pricing bids in the database.
+Status Glossary
+Status Badge
+Description
+Active
+Green status showing that the RFQ is currently open and accepting pricing quotes.
+Submitted
+Blue status showing that the supplier has successfully submitted a quotation.
+Closed
+Grey status showing that bidding has ended and no further bids can be accepted.
+
+Expected Outcome
+Bid submission updates the RFQ state, making quotes visible to procurement agents.
+5.5 Purchase Order Acknowledgment (/supplier/po)
+Module Purpose
+Provides visibility over issued POs and enables committing to delivery dates.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Table
+Purchase Orders Table
+Columns: PO Number, Date, Total Amount, Status, Action
+Link
+View PO
+Opens detail and acknowledgment panel
+Date Picker
+Commitment Date *
+Required date selector to commit to delivery
+Textarea
+Remarks
+Optional acknowledgment details
+Button
+Acknowledge PO
+Submits signature commitment and issues PO
+
+Step-by-Step Workflows
+Workflow 1: Reviewing POs1. Click Purchase Orders in the sidebar. Locate POs marked 'Pending Acknowledgment'.
+
+Caption: Supplier Purchase Orders - Lists POs issued to the supplier, showing PO numbers, total amounts, and statuses (Pending Acknowledgment / Acknowledged).
+
+Caption: Supplier PO List (Scrolled) - Displays historical delivered POs and transaction totals.
+Workflow 2: Acknowledging a PO1. Click View PO on a pending order. Verify pricing, payment terms, and items requested. Select a Commitment Date, write optional remarks, and click Acknowledge PO.
+
+Caption: PO Detail View (Supplier) - Displays details of an issued PO, showing the items table, billing address, and commercial terms.
+
+Caption: PO Acknowledgment Actions - The commitment panel. Suppliers select a committed delivery date, add remarks, and click 'Acknowledge PO'.
+Status Glossary
+Status Badge
+Description
+Pending Acknowledgment
+Orange badge indicating the PO was sent to the supplier but has not been acknowledged.
+Acknowledged
+Green badge indicating the supplier accepted the PO and committed to a delivery date.
+Delivered
+Grey badge indicating warehouse receipt of items and closed PO.
+
+Expected Outcome
+PO acknowledgment generates an active shipping record in the deliveries module.
+5.6 Delivery Management (/supplier/delivery)
+Module Purpose
+Allows suppliers to schedule dispatches, attach digital receipts, and write transit logs.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Table
+Deliveries Table
+Columns: Delivery Number, PO Reference, Estimated Delivery, Status, Action
+Link
+View / Update
+Opens the shipping tracker detail page
+Select Field
+Status Dropdown
+Update status (Scheduled, In Transit, Delayed, Delivered)
+Date Picker
+Actual Delivery Date
+Date picker for scheduling
+Upload Slot
+Delivery Receipt / Invoice
+Attachments slots for digital receipts
+Button
+Confirm Update
+Submits status update and adds log entry
+
+Step-by-Step Workflows
+Workflow 1: Reviewing Shipments1. Select Deliveries from the sidebar. Inspect statuses of current dispatches.
+
+Caption: Supplier Deliveries - Lists dispatches showing estimated delivery dates, related PO references, and status badges (Scheduled, In Transit, Delivered).
+Workflow 2: Dispatching a Shipment1. Click View on a scheduled shipment. Under Update Status, select In Transit. Select delivery date. Upload digital PDF copies of the Delivery Receipt (DR) and Invoice. Click Confirm Update.
+
+Caption: Delivery Detail (Supplier) - Displays transit details. Suppliers update status to 'In Transit' or 'Delivered' and upload Delivery Receipt (DR) / Invoice documents.
+
+Caption: Delivery Dispatch Status Actions - Dropdown selectors to change shipment states and a chronological transit history log.
+Status Glossary
+Status Badge
+Description
+Scheduled
+Yellow status indicating the shipment date is set but items have not left the facility.
+In Transit
+Blue status indicating the shipment is currently en route to the warehouse.
+Delivered
+Green status indicating items were successfully delivered to the warehouse.
+
+Expected Outcome
+Updating status logs updates the delivery timeline immediately for warehouse operators.
+5.7 Message Center
+Module Purpose
+Enables direct communication with procurement staff and buyers.
+
+Caption: Supplier Messages - Communication interface showing a direct conversation with a procurement staff member.
+5.8 User Profile
+Module Purpose
+Enables the supplier representative to manage display credentials and update security passwords.
+
+Caption: Supplier Profile - Displays display name credentials and password security settings.
+5.9 Bug Reporting Tool
+Module Purpose
+Enables reporting portal interface bugs to application administrators.
+
+Caption: Supplier Bug Report - Form to report technical issues, showing severity, summary, and location inputs.
+
+Caption: Supplier Bug Report (Scrolled) - Displays the submission buttons and error log inputs.
+Role: TSQA
+The TSQA (Technical Services & Quality Assurance) Staff performs Receiving & Storage Evaluations (RSE) on supplier sample products, records test findings, and determines if catalog submissions meet standards.
+6.1 RSE Management
+Module Purpose
+Enables TSQA staff to view active evaluations and self-assign tasks.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Tabs
+Created, Assigned, Under Review, Passed, Failed
+Filters evaluation queue by active RSE status
+Table
+RSE Queue Table
+Columns: RSE Number (RSE-YYYYMM-XXXX), Supplier, Product, Accreditation Doc, Action
+Button
+Self-Assign
+Assigns active RSE to current TSQA logged-in user
+
+Step-by-Step Workflows
+1. Navigate to RSE Queue, click Created tab to see unassigned tasks. Click Self-Assign. Status changes to 'Assigned', transferring the record to your personal worklist.
+
+Caption: TSQA RSE Queue - Landing page for TSQA reviewers. It lists active RSE records, categorized by tabs (Created, Assigned, Under Review, Passed, Failed). Reviewers click 'Self-Assign' to assume responsibility.
+6.2 Sample Inspection
+Module Purpose
+Allows recording laboratory findings and uploading verification reports.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Button
+Start Review
+Changes status to 'Under Review'
+Textarea
+Test Findings
+Enter lab measurements, test details, and results
+Textarea
+Inspection Remarks
+Enter general inspection remarks
+Upload Slot
+Inspection Report File
+Upload formal test report (PDF/JPG)
+Button
+Save Progress
+Saves draft of current test values
+
+Step-by-Step Workflows
+1. Open assigned RSE. Click Start Review. Enter metrics in Test Findings and remarks in Inspection Remarks. Upload test report PDF. Click Save Progress.
+
+Caption: TSQA Sample Inspection - The laboratory data entry page. Reviewers click 'Start Review', record test findings and remarks, and upload the formal test report file.
+6.3 Verdict & Product Approval
+Module Purpose
+Enables submitting final evaluation decisions on product accreditation.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Button
+Submit Passed Verdict
+Approves product; updates status to Passed and product to Verified
+Button
+Submit Failed Verdict
+Rejects product; requires failure reason remarks
+
+Step-by-Step Workflows
+1. Open RSE under review. To approve, click Submit Passed Verdict. To reject, click Submit Failed Verdict, enter reasons in the remarks popup, and click Confirm.
+
+Caption: TSQA RSE Verdict - The verdict panel. Reviewers select 'Submit Passed Verdict' (verifying the product) or 'Submit Failed Verdict' (requiring a failure reason).
+Role: Super Admin
+The Super Admin has complete control over system configurations, user directory setups, master data structures, dynamic approval workflows, and module visibilities. The administrative accounts are managed through position-based permissions and all critical administrator operations are tracked in detail by the audit logs. The primary account used is admin@fortune.com.
+7.1 Dashboard (/admin or /dashboard)
+Module Purpose
+Monitors system user totals and records recent administrative activity.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+KPI Card
+Total Users
+Total count of active and inactive user accounts
+KPI Card
+Roles
+Count of roles defined in the system
+KPI Card
+Positions
+Count of organizational positions
+KPI Card
+Departments
+Count of company departments
+KPI Card
+Audit Logs
+Total number of captured activity logs
+Table
+Recent Activity Table
+List of the 5 most recent audit log records
+Link
+View All
+Redirects to the full Audit Logs search dashboard
+
+Step-by-Step Workflows
+1. Access the administrator workspace. The system displays dashboard metric cards showing total system volume. Scroll down to check the list of recent actions. Click on the View All link to load the complete historical audit log grid.
+
+Caption: Admin Dashboard - Operational dashboard displaying KPI counters for total users, roles, positions, departments, and audit logs. The bottom half contains a real-time list of recent activity logs showing timestamps, actions, and references.
+7.2 User Management (/admin/users)
+Module Purpose
+Enables provisioning new user accounts, modifying user roles, positions, and departments, resetting account passwords, and deactivating or reactivating access.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Button
+Create User
+Opens user account creation form modal
+Search Input
+Search
+Filters user records by name, email, or employee ID
+Dropdown Select
+Role
+Filters user records by role
+Dropdown Select
+Department
+Filters user records by department
+Table
+User Directory Table
+Columns: Name/Email, Role, Department, Position, Status badge, Actions
+Action Link
+Edit
+Opens user assignment edit modal
+Action Link
+Deactivate
+Opens account deactivation dialog (displays warning status)
+Action Link
+Reactivate
+Opens account reactivation dialog
+Action Link
+Reset Password
+Opens password change modal
+Form Fields
+Full Name, Email, Role, Department, Position, Password
+Create user form inputs
+
+Step-by-Step Workflows
+Workflow 1: Creating a User Account1. Click Create User. Input the user's Full Name, Email, select their Role, Department, and Position from the dropdown lists. Type a strong Password and click Save.Workflow 2: Modifying User Assignments1. Search for the target user. Click the Edit link next to their name. In the Edit User Assignment modal, select the new Role, Department, or Position, and click Save.Workflow 3: Resetting a User Password1. Click the Reset Password action link for the user. Enter a new password in the input field, and click Confirm to overwrite their credentials.Workflow 4: Deactivating/Reactivating an Account1. To disable a user, click the Deactivate link. Review the deactivation warning dialog and click Confirm. To restore access, click Reactivate and confirm in the reactivate dialog.
+
+Caption: Admin User Management - User management list view. Features include text searching, role and department filtering, a directory list displaying active/inactive statuses, and actions to edit, deactivate, reactivate, or reset passwords.
+7.3 Roles Management (/admin/roles)
+Module Purpose
+Provides a read-only overview of system roles and shows user counts assigned to each role.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Table
+Roles Table
+Columns: Role Name, Users count badge, Created Date
+
+Step-by-Step Workflows
+1. Click Roles in the navigation sidebar. Inspect the roles list. Check the Users count badge to see how many accounts are assigned to each role (e.g., admin, employee, warehouse, procurement, approver, supplier, tsqa).
+
+Caption: Roles Management - Displays system roles, showing the specific role names, the count of active users currently associated with each role, and the date each role was created.
+7.4 Positions Management (/admin/positions)
+Module Purpose
+Manages job positions, maps them to system roles, and controls their active state while warning of workflow dependencies.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Button
+Add Position
+Launches the position creation dialog
+Table
+Positions Table
+Columns: Position Title, Role, Status badge, Created Date, Actions
+Action Link
+Edit
+Launches the edit position dialog
+Action Link
+Deactivate
+Opens safety check deactivation dialog
+Action Link
+Reactivate
+Opens reactivation dialog
+Form Fields
+Title, Role ID
+Add/Edit position form inputs
+Warning Banner
+Workflow Usage Notice
+Displays alerts if the position is currently referenced in active approval workflows
+
+Step-by-Step Workflows
+Workflow 1: Creating a Position1. Click Add Position. Enter the Title and select the corresponding Role ID. Review warnings if applicable, and click Save.Workflow 2: Editing a Position1. Locate the position, click Edit. Modify the Title or change the assigned Role. Click Save. If the position is used in active approval workflows, a warning banner will appear.Workflow 3: Deactivating a Position1. Click Deactivate. The system checks active user counts and workflow step configurations. If the position is actively used in approval steps, a warning alert will block deactivation until the steps are updated. Click Confirm to finalize deactivation.
+
+Caption: Positions Management - Lists job positions and their associated system roles, showing status badges (Active/Inactive) and options to edit, deactivate, or reactivate positions.
+7.5 Departments Management (/admin/departments)
+Module Purpose
+Configures organizational departments and their short codes, protecting departments that have active users assigned.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Button
+Add Department
+Opens the department creation dialog
+Table
+Departments Table
+Columns: Department Name, Code badge, Status badge, Users count badge, Created Date, Actions
+Action Link
+Edit
+Opens edit department dialog
+Action Link
+Deactivate
+Opens safety check deactivation dialog
+Action Link
+Reactivate
+Opens reactivation dialog
+Form Fields
+Name, Code
+Add/Edit department inputs
+
+Step-by-Step Workflows
+Workflow 1: Creating a Department1. Click Add Department. Enter the Name (e.g. operations) and a short Code (e.g. OPS). Click Save.Workflow 2: Editing a Department1. Click Edit on the department row. Update the Name or Code fields, and click Save.Workflow 3: Deactivating a Department1. Click Deactivate. Review the safety dialog which displays the count of active users currently in the department. Click Confirm to disable the department.
+
+Caption: Departments Management - Directory of departments showing department codes, status badges, the number of users assigned to each department, and action buttons.
+7.6 Workflow Configuration (/admin/workflows)
+Module Purpose
+Defines and configures dynamic, sequence-based approval pipelines for different document types, validating rules and protecting active steps.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Table
+Workflows Table
+List of workflows: Code, Name, Steps count, Active Instances, Status badge
+Panel Panel
+Workflow Step Editor
+Displays active instances count, Add Step button, stepper visualization, and step list table
+Button
+Add Step
+Launches the step creation dialog
+Action Button
+Edit
+Launches the step edit dialog
+Action Button
+Delete
+Opens delete step dialog (with active instance check)
+Form Fields
+Step Order, Step Label, Role, Position, Min Value, Max Value
+Form fields inside the Add/Edit Step modal
+
+Step-by-Step Workflows
+Workflow 1: Navigating and Selecting a Workflow1. Select a workflow from the list (e.g., PR1_APPROVAL). The Workflow Step Editor panel loads, showing the dynamic stepper diagram.Workflow 2: Adding an Approval Step1. Click Add Step. Select the Step Order number (determines approval sequence). Write a Step Label. Choose the required Role and Position. If the step is threshold-based, enter the Min Value and Max Value range. Click Save. The system validates that step orders are contiguous and do not skip sequences.Workflow 3: Deleting an Approval Step1. Click Delete on the target step. The system checks if there are any active document instances currently pending on this workflow. If active documents exist, the system blocks the deletion. If safe, click Confirm Delete.
+
+Caption: Workflows Configuration - Approval workflow editor. Clicking on a workflow loads its dynamic signatory steps. Stepper configurations include step order sequence, role and position requirements, and threshold values.
+7.7 Module Visibility (/admin/module-visibility)
+Module Purpose
+Controls which sidebar links are visible to users. Admins can toggle default visibilities for roles or customize menu visibility per position, including borrowing modules from other roles.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Dropdown Select
+Role
+Select the target role for configuration
+Dropdown Select
+Position Scope
+Select role default or a specific position
+Table
+Role Modules Table
+Columns: Visible (Switch toggle), Label, href, module_key
+Table
+Added Modules from Other Roles
+Columns: Label, Source Role, module_key, Remove action (Only visible in position scope)
+Button
+Add Module
+Opens add borrowed module modal
+Button
+Save Changes
+Saves visibility rules to the database
+Form Fields
+Source Role, Select Modules
+Add modules modal inputs
+
+Step-by-Step Workflows
+Workflow 1: Toggling Default Role Visibility1. Select a Role. Keep Position Scope as 'Role default'. Toggle the Switch icons in the table to show/hide specific links. Click Save Changes.Workflow 2: Borrowing Modules for a Position1. Select a Role. Select a specific Position from the scope dropdown. Under 'Added Modules from Other Roles', click Add Module. Select the Source Role, check the boxes for the modules you wish to add, and click Add. Review the list of added modules and click Save Changes.
+
+Caption: Admin Module Visibility - Visibility controls. Admins select a role and position scope, toggle switches to show/hide standard modules, and borrow pages from other roles using checkable selectors.
+7.8 Audit Logs (/admin/audit)
+Module Purpose
+Provides a searchable and filterable database of system operations, showing actor details, IP addresses, and payload before/after state changes.
+Module UI Map
+Component Type
+Element Label / Value
+Description / Action
+Input search
+Search
+Filters logs by action, actor email/name, or document reference
+Dropdown Select
+Document Type
+Filters logs by document type
+Dropdown Select
+Action
+Filters logs by exact action name
+Date Pickers
+Date Range
+Filters logs by start and end timestamps
+Table
+Audit Logs Table
+Columns: Action, Actor, Document Type, Document Reference, IP Address, Timestamp
+Drawer Panel
+Audit Log Detail
+Displays complete log details, including actor User Agent and database payload JSON tree
+
+Step-by-Step Workflows
+1. Access the Audit Logs workspace. Type a query in search or apply filters to update the logs table. Click on a log row to open the Audit Log Detail drawer. Expand the formatted JSON tree to review the exact payload fields changed before and after the action.
+
+Caption: Admin Audit Logs - System audit list view. Displays action histories, IP addresses, and timestamps with searching and filtering. Row clicks open details to view exact payload state transitions.

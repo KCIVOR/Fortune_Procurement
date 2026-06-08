@@ -431,6 +431,142 @@ export async function markProductRejected(
   } catch { /* non-blocking */ }
 }
 
+// ─── Procurement: revoke verification on a verified product ────────────────────
+// verified → inactive. verified_at is retained for audit; Can Offer becomes No.
+
+export async function revokeProductVerification(
+  productId: string,
+  profile:   UserProfile,
+  reason:    string
+): Promise<void> {
+  if (!reason.trim()) {
+    throw new Error('A reason is required to revoke verification.');
+  }
+
+  const { data: product, error: fetchErr } = await db
+    .from('supplier_products')
+    .select('supplier_id, status, product_name')
+    .eq('id', productId)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!product) throw new Error('Product not found.');
+  if ((product as any).status !== 'verified') {
+    throw new Error('Only verified products can have verification revoked.');
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from('supplier_products')
+    .update({
+      status:       'inactive',
+      reviewed_by:  profile.id,
+      reviewed_at:  now,
+      review_notes: reason.trim(),
+      updated_at:   now,
+    })
+    .eq('id', productId)
+    .eq('status', 'verified');
+  if (error) throw error;
+
+  try {
+    const { error: auditErr } = await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'SUPPLIER_PRODUCT_VERIFICATION_REVOKED',
+      document_type: 'SUPPLIER_PRODUCT',
+      document_id:   productId,
+      payload:       {
+        reviewer:     profile.full_name,
+        reason:       reason.trim(),
+        product_name: (product as any).product_name,
+      },
+    });
+    if (auditErr) console.warn(auditErr);
+  } catch {
+    /* best-effort audit */
+  }
+
+  try {
+    await createNotification({
+      user_id:       (product as any).supplier_id as string,
+      title:         'Product Verification Revoked',
+      body:          `Verification for "${(product as any).product_name}" has been revoked. Reason: ${reason.trim()}`,
+      type:          'rejected',
+      document_type: 'SUPPLIER_PRODUCT',
+      document_id:   productId,
+      action_url:    null,
+    });
+  } catch { /* non-blocking */ }
+}
+
+// ─── Procurement: reopen a verified or inactive product for review ─────────────
+// verified | inactive → under_review. Clears verified_at; product re-enters the queue.
+
+export async function reopenProductForReview(
+  productId: string,
+  profile:   UserProfile,
+  notes?:    string
+): Promise<void> {
+  const { data: product, error: fetchErr } = await db
+    .from('supplier_products')
+    .select('supplier_id, status, product_name')
+    .eq('id', productId)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!product) throw new Error('Product not found.');
+
+  const st = (product as any).status as string;
+  if (st !== 'verified' && st !== 'inactive') {
+    throw new Error('Only verified or inactive products can be reopened for review.');
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from('supplier_products')
+    .update({
+      status:       'under_review',
+      verified_at:  null,
+      reviewed_by:  profile.id,
+      reviewed_at:  now,
+      review_notes: notes?.trim() || null,
+      updated_at:   now,
+    })
+    .eq('id', productId)
+    .in('status', ['verified', 'inactive']);
+  if (error) throw error;
+
+  try {
+    const { error: auditErr } = await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'SUPPLIER_PRODUCT_REOPENED',
+      document_type: 'SUPPLIER_PRODUCT',
+      document_id:   productId,
+      payload:       {
+        reviewer:     profile.full_name,
+        prior_status: st,
+        notes:        notes?.trim() || null,
+        product_name: (product as any).product_name,
+      },
+    });
+    if (auditErr) console.warn(auditErr);
+  } catch {
+    /* best-effort audit */
+  }
+
+  try {
+    await createNotification({
+      user_id:       (product as any).supplier_id as string,
+      title:         'Product Reopened for Review',
+      body:          notes?.trim()
+                       ? `"${(product as any).product_name}" is under procurement review again. Notes: ${notes.trim()}`
+                       : `"${(product as any).product_name}" has been reopened for procurement review.`,
+      type:          'action_required',
+      document_type: 'SUPPLIER_PRODUCT',
+      document_id:   productId,
+      action_url:    null,
+    });
+  } catch { /* non-blocking */ }
+}
+
 // ─── Supplier: list own verified products ────────────────────────────────────
 // Verified products will later be eligible for RFQ offering (Phase 4+).
 

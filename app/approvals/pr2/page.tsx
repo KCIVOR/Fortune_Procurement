@@ -10,6 +10,7 @@ import PaginationControls from '@/components/shared/PaginationControls';
 import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { StatCard } from '@/components/shared/StatCard';
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { canActOnPR2Step } from '@/lib/pr2-approvals';
@@ -292,7 +293,7 @@ export default function PR2ApprovalsPage() {
         description="Procurement purchase requests assigned to your approval step."
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className={`${KPI_GRID_CLASS} mb-6`}>
         <StatCard
           label="Pending"
           value={stats.pending}

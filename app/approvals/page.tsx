@@ -28,6 +28,8 @@ import PriorityChip from '@/components/shared/PriorityChip';
 import StepChip from '@/components/shared/StepChip';
 import ApprovalQueueTableShell from '@/components/shared/ApprovalQueueTableShell';
 import { ApprovalQueueHeaderRow, ApprovalQueueHeadCell } from '@/components/shared/ApprovalQueueTableHeader';
+import { StatCard } from '@/components/shared/StatCard';
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 
 export default function ApprovalsPage() {
   const { profile } = useAuth();
@@ -109,10 +111,25 @@ export default function ApprovalsPage() {
       ) : (
         <div className="space-y-4">
           {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard label="Total Pending"       value={totalQueue}      color="slate" icon={ClipboardList} />
-            <StatCard label="Awaiting My Action"  value={totalActionable} color="amber" icon={Clock} />
-            <StatCard label="Pending Other Steps" value={totalReadonly}   color="slate" icon={Lock} />
+          <div className={`${KPI_GRID_CLASS} mb-6`}>
+            <StatCard
+              label="Total Pending"
+              value={totalQueue}
+              accent="blue"
+              icon={<ClipboardList className="w-5 h-5" />}
+            />
+            <StatCard
+              label="Awaiting My Action"
+              value={totalActionable}
+              accent="amber"
+              icon={<Clock className="w-5 h-5" />}
+            />
+            <StatCard
+              label="Pending Other Steps"
+              value={totalReadonly}
+              accent="blue"
+              icon={<Lock className="w-5 h-5" />}
+            />
           </div>
 
           {/* Actionable */}
@@ -482,20 +499,3 @@ function Section({
   );
 }
 
-function StatCard({
-  label, value, color, icon: Icon,
-}: {
-  label: string; value: number; color: 'amber' | 'slate'; icon: React.ElementType;
-}) {
-  const styles = { amber: 'bg-pq-neutral-50 border-pq-neutral-200 text-pq-neutral-900', slate: 'bg-white border-pq-neutral-200 text-pq-neutral-900' };
-  const iconStyles = { amber: 'text-pq-neutral-500', slate: 'text-pq-neutral-400' };
-  return (
-    <div className={`rounded-md border px-5 py-4 flex items-center gap-4 ${styles[color]}`}>
-      <Icon className={`w-5 h-5 shrink-0 ${iconStyles[color]}`} />
-      <div>
-        <p className="text-2xl font-bold">{value}</p>
-        <p className="text-xs font-medium opacity-80">{label}</p>
-      </div>
-    </div>
-  );
-}

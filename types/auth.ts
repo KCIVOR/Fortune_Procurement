@@ -26,4 +26,7 @@ export interface UserProfile {
   position_id: string;
   department: string;
   department_id: string;
+  active: boolean;
+  /** Supplier default payment terms — used to prefill PO generation. */
+  payment_terms?: string | null;
 }

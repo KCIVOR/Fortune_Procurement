@@ -37,6 +37,17 @@ export default function InviteCompletePage() {
         setLinkError(errorMessage ?? 'Unable to verify invitation link.');
         return;
       }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const profile = await fetchUserProfile(session.user.id);
+        if (profile?.active === false) {
+          await supabase.auth.signOut();
+          setLinkError('This account has been deactivated. Contact your administrator.');
+          return;
+        }
+      }
+
       setSessionReady(true);
     })();
     return () => {
@@ -72,6 +83,11 @@ export default function InviteCompletePage() {
       const userId = session?.user?.id;
       if (userId) {
         const profile = await fetchUserProfile(userId);
+        if (profile?.active === false) {
+          await supabase.auth.signOut();
+          setFormError('This account has been deactivated. Contact your administrator.');
+          return;
+        }
         router.push(profile?.role === 'tsqa' ? '/tsqa' : '/dashboard');
         return;
       }

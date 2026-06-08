@@ -19,13 +19,9 @@ import {
   CircleAlert,
 } from 'lucide-react';
 
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
+
 interface Props { profile: UserProfile; }
-
-const ACCRED_CATALOG_GRID_CLASS =
-  'grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))]';
-
-const RFQ_KPI_GRID_CLASS =
-  'grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] mb-4';
 
 export default function SupplierDashboard({ profile }: Props) {
   const { isModuleVisible, rulesLoading } = useModuleVisibility(profile);
@@ -77,9 +73,9 @@ export default function SupplierDashboard({ profile }: Props) {
           {showAccredCatalogBand && (
             <div className="mb-4 mt-1">
               <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-2">Accreditation &amp; catalog</h2>
-              <div className={ACCRED_CATALOG_GRID_CLASS}>
+              <div className={KPI_GRID_CLASS}>
                 {showPortalAccred && (
-                  <Link href="/supplier/accreditation" className="block transition hover:-translate-y-0.5 min-w-0">
+                  <Link href="/supplier/accreditation" className="block w-full min-w-0 transition hover:-translate-y-0.5">
                     <StatCard
                       label="Accreditation status"
                       value={accLabel}
@@ -90,7 +86,7 @@ export default function SupplierDashboard({ profile }: Props) {
                 )}
                 {showSupplierProducts && (
                   <>
-                    <Link href="/supplier/products" className="block transition hover:-translate-y-0.5 min-w-0">
+                    <Link href="/supplier/products" className="block w-full min-w-0 transition hover:-translate-y-0.5">
                       <StatCard
                         label="Total products"
                         value={cStats.totalProducts}
@@ -98,7 +94,7 @@ export default function SupplierDashboard({ profile }: Props) {
                         accent="blue"
                       />
                     </Link>
-                    <Link href="/supplier/products" className="block transition hover:-translate-y-0.5 min-w-0">
+                    <Link href="/supplier/products" className="block w-full min-w-0 transition hover:-translate-y-0.5">
                       <StatCard
                         label="Verified"
                         value={cStats.verifiedProducts}
@@ -106,7 +102,7 @@ export default function SupplierDashboard({ profile }: Props) {
                         accent="green"
                       />
                     </Link>
-                    <Link href="/supplier/products" className="block transition hover:-translate-y-0.5 min-w-0">
+                    <Link href="/supplier/products" className="block w-full min-w-0 transition hover:-translate-y-0.5">
                       <StatCard
                         label="Pending review"
                         value={cStats.inReviewProducts + cStats.pendingTsqaProducts}
@@ -123,7 +119,7 @@ export default function SupplierDashboard({ profile }: Props) {
           {/* RFQ KPI cards */}
           {showQuotations && (
             <>
-              <div className={RFQ_KPI_GRID_CLASS}>
+              <div className={`${KPI_GRID_CLASS} mb-4`}>
                 {cards.map(card => {
                   const Icon = card.icon;
                   const lowerLabel = card.label.toLowerCase();
@@ -134,7 +130,7 @@ export default function SupplierDashboard({ profile }: Props) {
                       : 'blue';
 
                   return (
-                    <Link key={card.label} href={card.href} className="block transition hover:-translate-y-0.5 min-w-0">
+                    <Link key={card.label} href={card.href} className="block w-full min-w-0 transition hover:-translate-y-0.5">
                       <StatCard
                         label={card.label}
                         value={card.value}

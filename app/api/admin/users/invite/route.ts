@@ -73,11 +73,29 @@ export async function POST(req: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const { data: existingProfile } = await admin
+      .from('profiles')
+      .select('id, active')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (existingProfile && existingProfile.active === false) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'User exists but is deactivated. Reactivate them from User Management instead.',
+        },
+        { status: 400 }
+      );
+    }
+
     const baseUrl = getServerAppUrl();
     const redirectTo = `${baseUrl}/invite/complete`;
 
     const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-      email.trim().toLowerCase(),
+      normalizedEmail,
       {
         data: { full_name: full_name.trim() },
         redirectTo,
@@ -110,7 +128,7 @@ export async function POST(req: NextRequest) {
       {
         id: invitedId,
         full_name: full_name.trim(),
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         role_id,
         department_id,
         position_id,
@@ -130,7 +148,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       user_id: invitedId,
-      user_email: email.trim().toLowerCase(),
+      user_email: normalizedEmail,
     });
   } catch (err) {
     console.error('[admin/users/invite] Unexpected error:', err);

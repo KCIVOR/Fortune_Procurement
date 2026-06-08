@@ -36,6 +36,30 @@ const PR1_RAW_CHIP: Record<PR1Status, StatusVariant> = {
   cancelled:            'cancelled',
 };
 
+/** PR1 row statuses reached after final PR1 approval (procurement path). */
+export const POST_PR1_APPROVAL_STATUSES = new Set<PR1Status>([
+  'approved',
+  'for_canvassing',
+  'canvassing_complete',
+]);
+
+/** Lifecycle chips for downstream stages after PR1 approval (PO, delivery, GRN). */
+const POST_APPROVAL_LIFECYCLE_CHIPS = new Set<StatusVariant>([
+  'approved',
+  'sent',
+  'received',
+  'completed',
+]);
+
+/** Whether an employee PR1 has passed final PR1 approval (KPI / summary counts). */
+export function isEmployeeApprovedPR1(
+  request: Pick<PR1Request, 'status' | 'lifecycle_display_chip'>,
+): boolean {
+  if (POST_PR1_APPROVAL_STATUSES.has(request.status)) return true;
+  const chip = request.lifecycle_display_chip;
+  return chip != null && POST_APPROVAL_LIFECYCLE_CHIPS.has(chip);
+}
+
 type POSummary = {
   poId: string;
   poStatus: string;
@@ -412,6 +436,9 @@ export async function fetchPR1ById(id: string): Promise<PR1WithItems | null> {
   };
 }
 
+export const PR1_NUMBER_DUPLICATE_ERROR =
+  'This PR1 number is already in use. Please choose a different number.';
+
 export async function checkPR1NumberExists(
   pr1Number: string,
   excludeId?: string
@@ -427,6 +454,31 @@ export async function checkPR1NumberExists(
 
   const { data } = await query;
   return (data?.length ?? 0) > 0;
+}
+
+/** Next 4-digit suffix for PR1-{year}-#### (e.g. 0001). Guide only — not reserved. */
+export async function fetchSuggestedPR1Sequence(year?: number): Promise<string> {
+  const y = year ?? new Date().getFullYear();
+  const prefix = `PR1-${y}-`;
+
+  const { data, error } = await db
+    .from('pr1_requests')
+    .select('pr1_number')
+    .ilike('pr1_number', `${prefix}%`);
+
+  if (error) throw error;
+
+  let max = 0;
+  const re = new RegExp(`^PR1-${y}-(\\d+)`, 'i');
+  for (const row of data ?? []) {
+    const num = String((row as { pr1_number?: string }).pr1_number ?? '');
+    const match = num.match(re);
+    if (!match) continue;
+    const parsed = parseInt(match[1], 10);
+    if (!Number.isNaN(parsed) && parsed > max) max = parsed;
+  }
+
+  return String(max + 1).padStart(4, '0');
 }
 
 export async function fetchDownstreamStage(pr1Id: string): Promise<DownstreamStage> {
@@ -532,6 +584,11 @@ export async function submitPR1(
   profile: UserProfile,
   existingId?: string
 ): Promise<string> {
+  const trimmedNumber = values.pr1_number.trim();
+  if (await checkPR1NumberExists(trimmedNumber, existingId)) {
+    throw new Error(PR1_NUMBER_DUPLICATE_ERROR);
+  }
+
   const now = new Date().toISOString();
   const authUserId = await requireAuthUserId();
 

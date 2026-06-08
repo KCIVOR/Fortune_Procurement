@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -8,11 +8,13 @@ import {
   saveDraftPR1,
   submitPR1,
   checkPR1NumberExists,
+  PR1_NUMBER_DUPLICATE_ERROR,
+  fetchSuggestedPR1Sequence,
   deleteDraftPR1,
 } from '@/lib/pr1';
 import type { PR1WithItems, PR1FormValues, PR1ItemDraft } from '@/types/pr1';
 import { EMPTY_ITEM, PURPOSE_OPTIONS, UNIT_OPTIONS } from '@/types/pr1';
-import { Plus, Trash2, TriangleAlert as AlertTriangle, Save, Send, ChevronUp, ChevronDown, FlaskConical } from 'lucide-react';
+import { Plus, Trash2, TriangleAlert as AlertTriangle, Save, Send, ChevronUp, ChevronDown, FlaskConical, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,7 +93,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
   const router = useRouter();
 
   const [values, setValues] = useState<PR1FormValues>(() => buildInitialValues(existing));
-  const [duplicateWarning, setDuplicateWarning] = useState(false);
+  const [suggestedSequence, setSuggestedSequence] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -222,8 +224,37 @@ export default function PR1Form({ existing }: PR1FormProps) {
     const num = values.pr1_number.trim();
     if (!num) return;
     const exists = await checkPR1NumberExists(num, existing?.id);
-    setDuplicateWarning(exists);
+    setErrors(e => ({
+      ...e,
+      pr1_number: exists ? PR1_NUMBER_DUPLICATE_ERROR : undefined,
+    }));
   }, [values.pr1_number, existing?.id]);
+
+  useEffect(() => {
+    if (isEdit) return;
+
+    const yearMatch = pr1Prefix.match(/^PR1-(\d{4})-/i);
+    const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+    let cancelled = false;
+
+    fetchSuggestedPR1Sequence(year)
+      .then((suffix) => {
+        if (cancelled) return;
+        setSuggestedSequence(suffix);
+        setValues((v) => {
+          const currentSuffix = v.pr1_number.slice(pr1Prefix.length).trim();
+          if (currentSuffix) return v;
+          return { ...v, pr1_number: `${pr1Prefix}${suffix}` };
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestedSequence(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEdit, pr1Prefix]);
 
   // ── Build values with resolved units before save/submit ───────────────────
 
@@ -299,6 +330,13 @@ export default function PR1Form({ existing }: PR1FormProps) {
   const handleSubmit = async () => {
     if (!profile) return;
     if (!validate()) return;
+
+    const num = values.pr1_number.trim();
+    if (await checkPR1NumberExists(num, existing?.id)) {
+      setErrors(e => ({ ...e, pr1_number: PR1_NUMBER_DUPLICATE_ERROR }));
+      return;
+    }
+
     setSubmitting(true);
     setGlobalError('');
     try {
@@ -346,7 +384,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
           <div className="text-xs text-pq-neutral-400">Form No. PR1-v1</div>
         </div>
 
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
           {/* Requisitioner (read-only) */}
           <div>
             <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
@@ -383,22 +421,23 @@ export default function PR1Form({ existing }: PR1FormProps) {
                 type="text"
                 value={getPR1SequenceDisplayValue(values.pr1_number)}
                 onChange={e => {
-                  const cleaned = normalizePR1SequenceInput(e.target.value);
+                  const cleaned = normalizePR1SequenceInput(e.target.value).replace(/\D/g, '');
                   setHeader('pr1_number', `${pr1Prefix}${cleaned}`);
                 }}
                 onBlur={handlePR1NumberBlur}
-                placeholder="e.g. 001"
+                placeholder={suggestedSequence ?? '0001'}
                 className="flex-1 border-0 rounded-none rounded-r-md font-mono focus-visible:ring-0 focus-visible:border-0 bg-transparent h-10"
               />
             </div>
+            {!isEdit && (
+              <p className="mt-1 text-xs text-pq-neutral-400">
+                {suggestedSequence
+                  ? `Suggested: ${pr1Prefix}${suggestedSequence} — you may edit this number.`
+                  : 'Enter a 4-digit sequence (e.g. 0001) or use the suggested value when it loads.'}
+              </p>
+            )}
             {errors.pr1_number && (
               <p className="mt-1 text-xs text-pq-danger-600">{errors.pr1_number}</p>
-            )}
-            {duplicateWarning && !errors.pr1_number && (
-              <div className="mt-1.5 flex items-start gap-1.5 text-pq-neutral-500 text-xs bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-2.5 py-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                <span>This PR1 number already exists. You may still submit, but please verify.</span>
-              </div>
             )}
           </div>
 
@@ -413,7 +452,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
           </div>
 
           {/* Purpose */}
-          <div className="md:col-span-2">
+          <div>
             <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
               Purpose <span className="text-pq-danger-600">*</span>
             </label>
@@ -450,19 +489,38 @@ export default function PR1Form({ existing }: PR1FormProps) {
 
           {/* Date Required */}
           <div>
-            <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+            <label
+              htmlFor="date_required"
+              className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5"
+            >
               Date Required <span className="text-pq-danger-600">*</span>
             </label>
-            <Input
-              type="date"
-              value={values.date_required}
-              onChange={e => setHeader('date_required', e.target.value)}
+            <div
               className={cn(
-                'text-sm',
-                errors.date_required ? 'border-pq-danger-300 bg-pq-danger-50' : 'border-pq-neutral-300'
+                'relative rounded-md border bg-pq-white transition focus-within:ring-2 focus-within:ring-pq-primary-500/25 focus-within:border-pq-primary-500',
+                errors.date_required ? 'border-pq-danger-300 bg-pq-danger-50' : 'border-pq-neutral-300',
               )}
-            />
-            {errors.date_required && <p className="mt-1 text-xs text-pq-danger-600">{errors.date_required}</p>}
+            >
+              <Input
+                id="date_required"
+                type="date"
+                value={values.date_required}
+                onChange={e => setHeader('date_required', e.target.value)}
+                className={cn(
+                  'h-10 border-0 bg-transparent pr-10 text-sm focus-visible:ring-0 focus-visible:border-0',
+                  '[&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0',
+                  '[&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full',
+                  '[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0',
+                )}
+              />
+              <CalendarDays
+                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pq-neutral-400"
+                aria-hidden
+              />
+            </div>
+            {errors.date_required && (
+              <p className="mt-1 text-xs text-pq-danger-600">{errors.date_required}</p>
+            )}
           </div>
         </div>
       </div>

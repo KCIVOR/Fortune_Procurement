@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import EditUserAssignmentForm from '@/components/admin/EditUserAssignmentForm';
+import SupplierPaymentTermsForm from '@/components/admin/SupplierPaymentTermsForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -178,6 +179,22 @@ export default function EditUserPage() {
             onCancel={handleCancel}
           />
         </div>
+
+        {user.role_name === 'supplier' && (
+          <div className="bg-white rounded-lg border border-pq-neutral-200 p-6">
+            <h3 className="text-sm font-semibold text-pq-neutral-900 mb-1">Supplier Payment Terms</h3>
+            <p className="text-xs text-pq-neutral-500 mb-4">
+              Default terms prefilled when procurement generates a PO for this supplier.
+            </p>
+            <SupplierPaymentTermsForm
+              userId={user.id}
+              initialPaymentTerms={user.payment_terms}
+              onSuccess={(paymentTerms) =>
+                setUser((prev) => (prev ? { ...prev, payment_terms: paymentTerms } : prev))
+              }
+            />
+          </div>
+        )}
       </div>
     </AppShell>
   );

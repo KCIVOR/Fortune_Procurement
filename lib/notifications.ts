@@ -148,7 +148,8 @@ export async function notifyApproversForStep({
     .from('profiles')
     .select('id')
     .eq('role_id', roleRes.data.id)
-    .eq('position_id', posRes.data.id);
+    .eq('position_id', posRes.data.id)
+    .eq('active', true);
   if (profErr || !approvers || approvers.length === 0) return;
 
   const approverIds: string[] = approvers.map((a: any) => a.id as string);
@@ -202,7 +203,8 @@ export async function notifyByRole(
   const { data: recipients, error: profErr } = await db
     .from('profiles')
     .select('id')
-    .eq('role_id', role.id);
+    .eq('role_id', role.id)
+    .eq('active', true);
   if (profErr || !recipients?.length) return;
 
   let targetIds = (recipients as { id: string }[]).map((p) => p.id);

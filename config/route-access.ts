@@ -86,6 +86,7 @@ export const ROUTE_ACCESS_RULES: readonly RouteAccessRule[] = [
     prefix: '/accreditation',
     decision: { kind: 'roles', roles: ['procurement', 'tsqa', 'admin'] },
   },
+  { prefix: '/suppliers', decision: { kind: 'roles', roles: ['procurement', 'admin'] } },
   { prefix: '/tsqa', decision: { kind: 'roles', roles: ['tsqa', 'admin'] } },
   { prefix: '/substitutes', decision: { kind: 'roles', roles: ['employee'] } },
   {

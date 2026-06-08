@@ -34,7 +34,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 
 // ─── Filter tab definitions ───────────────────────────────────────────────────
 
-type FilterKey = 'pending' | 'tsqa' | 'verified' | 'rejected' | 'all';
+type FilterKey = 'pending' | 'tsqa' | 'verified' | 'inactive' | 'rejected' | 'all';
 
 const PENDING_STATUSES = ['submitted', 'under_review'];
 const PAGE_SIZE = 20;
@@ -47,6 +47,8 @@ function getFilteredRows(rows: ProductQueueRow[], filter: FilterKey): ProductQue
       return rows.filter(r => r.status === 'pending_tsqa');
     case 'verified':
       return rows.filter(r => r.status === 'verified');
+    case 'inactive':
+      return rows.filter(r => r.status === 'inactive');
     case 'rejected':
       return rows.filter(r => r.status === 'rejected');
     case 'all':
@@ -82,6 +84,7 @@ export default function ProductReviewQueuePage() {
     pending:  allRows.filter(r => PENDING_STATUSES.includes(r.status)).length,
     tsqa:     allRows.filter(r => r.status === 'pending_tsqa').length,
     verified: allRows.filter(r => r.status === 'verified').length,
+    inactive: allRows.filter(r => r.status === 'inactive').length,
     rejected: allRows.filter(r => r.status === 'rejected').length,
     all:      allRows.length,
   }), [allRows]);
@@ -112,6 +115,7 @@ export default function ProductReviewQueuePage() {
     { value: 'pending',  label: `Pending (${counts.pending})` },
     { value: 'tsqa',     label: `Under TSQA (${counts.tsqa})` },
     { value: 'verified', label: `Verified (${counts.verified})` },
+    { value: 'inactive', label: `Inactive (${counts.inactive})` },
     { value: 'rejected', label: `Rejected (${counts.rejected})` },
     { value: 'all',      label: `All (${counts.all})` },
   ];

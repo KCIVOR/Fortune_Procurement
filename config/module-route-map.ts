@@ -20,6 +20,7 @@ export const MODULE_ROUTE_PREFIX: Partial<Record<ModuleKey, string>> = {
   purchase_requests: '/pr2',
   canvassing_rfq: '/rfq',
   purchase_orders: '/po',
+  supplier_accounts: '/suppliers',
   supplier_accreditation: '/accreditation',
   product_review: '/accreditation',
   supplier_portal_accreditation: '/supplier',

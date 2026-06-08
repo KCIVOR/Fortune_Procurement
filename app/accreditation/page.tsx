@@ -13,8 +13,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { getAllAccreditationsForProcurement } from '@/lib/accreditation';
 import type { AccreditationQueueRow } from '@/lib/accreditation';
+import CreateSupplierModal from '@/components/procurement/CreateSupplierModal';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
-import { BadgeCheck, ArrowRight, AlertCircle } from 'lucide-react';
+import { BadgeCheck, ArrowRight, AlertCircle, Plus } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -56,6 +59,7 @@ function getFilteredRows(rows: AccreditationQueueRow[], filter: FilterKey): Accr
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AccreditationQueuePage() {
+  const { profile } = useAuth();
   const [allRows, setAllRows] = useState<AccreditationQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
@@ -63,6 +67,10 @@ export default function AccreditationQueuePage() {
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+
+  const canInviteSupplier =
+    profile?.role === 'procurement' || profile?.role === 'admin';
 
   useEffect(() => {
     setLoading(true);
@@ -124,10 +132,23 @@ export default function AccreditationQueuePage() {
 
   return (
     <AppShell title="Supplier Accreditation">
-      <PageHeader
-        title="Supplier Accreditation"
-        description="Review and process supplier accreditation applications submitted for Procurement approval."
-      />
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <PageHeader
+          title="Supplier Accreditation"
+          description="Review and process supplier accreditation applications submitted for Procurement approval."
+        />
+        {canInviteSupplier && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsInviteModalOpen(true)}
+            className="shrink-0 text-xs font-medium"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Invite Supplier
+          </Button>
+        )}
+      </div>
 
       {/* FilterBar with tabs and search */}
       {!loading && !error && (
@@ -200,6 +221,13 @@ export default function AccreditationQueuePage() {
             onPageChange={setCurrentPage}
           />
         </div>
+      )}
+
+      {canInviteSupplier && (
+        <CreateSupplierModal
+          isOpen={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+        />
       )}
     </AppShell>
   );

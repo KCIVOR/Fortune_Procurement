@@ -15,6 +15,8 @@ import {
 import type { PR1QueueRow } from '@/types/warehouse';
 import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
+import { StatCard } from '@/components/shared/StatCard';
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import { PackageSearch, ClipboardCheck, Clock, CircleCheck as CheckCircle2, Circle as XCircle, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
@@ -128,24 +130,27 @@ export default function WarehouseQueuePage() {
       ) : (
         <div className="space-y-3">
           {/* Stats row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
+          <div className={`${KPI_GRID_CLASS} mb-2`}>
             <StatCard
               label="Pending Review"
               value={statCounts.pendingReview}
-              color="amber"
-              icon={Clock}
+              icon={<Clock className="w-5 h-5" />}
+              accent="amber"
+              isLoading={loading}
             />
             <StatCard
               label="Marked Sufficient"
               value={statCounts.sufficient}
-              color="emerald"
-              icon={CheckCircle2}
+              icon={<CheckCircle2 className="w-5 h-5" />}
+              accent="green"
+              isLoading={loading}
             />
             <StatCard
               label="Insufficient — Pending Approval"
               value={statCounts.insufficient}
-              color="blue"
-              icon={ArrowRight}
+              icon={<ArrowRight className="w-5 h-5" />}
+              accent="blue"
+              isLoading={loading}
             />
           </div>
 
@@ -219,39 +224,6 @@ export default function WarehouseQueuePage() {
         </div>
       )}
     </AppShell>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  color,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  color: 'amber' | 'emerald' | 'blue';
-  icon: React.ElementType;
-}) {
-  const colors = {
-    amber:   'bg-pq-warning-100 border-pq-warning-100 text-pq-warning-600',
-    emerald: 'bg-pq-success-100 border-pq-success-100 text-pq-success-600',
-    blue:    'bg-pq-primary-50 border-pq-primary-200 text-pq-primary-700',
-  };
-  const iconColors = {
-    amber:   'text-amber-500',
-    emerald: 'text-emerald-500',
-    blue:    'text-pq-primary-600',
-  };
-
-  return (
-    <div className={`rounded-md border px-5 py-4 flex items-center gap-4 ${colors[color]}`}>
-      <Icon className={`w-5 h-5 shrink-0 ${iconColors[color]}`} />
-      <div>
-        <p className="text-2xl font-bold">{value}</p>
-        <p className="text-xs font-medium opacity-80">{label}</p>
-      </div>
-    </div>
   );
 }
 

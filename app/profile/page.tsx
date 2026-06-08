@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import { useAuth } from '@/context/AuthContext';
-import { updateOwnFullName } from '@/lib/profile';
+import { updateOwnFullName, updateOwnPaymentTerms } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { User, Mail, Shield, Briefcase, Building2, Eye, EyeOff, CircleCheck as CheckCircle2, CircleAlert as AlertCircle } from 'lucide-react';
+import PaymentTermsSelect from '@/components/shared/PaymentTermsSelect';
+import { User, Mail, Shield, Briefcase, Building2, Eye, EyeOff, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, CreditCard } from 'lucide-react';
 
 const ROLE_LABELS: Record<string, string> = {
   employee:    'Employee',
@@ -29,6 +30,11 @@ export default function ProfilePage() {
   const [nameSuccess, setNameSuccess] = useState(false);
   const [nameError, setNameError] = useState('');
 
+  const [paymentTerms, setPaymentTerms] = useState('');
+  const [termsSaving, setTermsSaving] = useState(false);
+  const [termsSuccess, setTermsSuccess] = useState(false);
+  const [termsError, setTermsError] = useState('');
+
   // Password section
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -41,8 +47,36 @@ export default function ProfilePage() {
   const [pwError, setPwError] = useState('');
 
   useEffect(() => {
-    if (profile) setFullName(profile.full_name);
+    if (profile) {
+      setFullName(profile.full_name);
+      setPaymentTerms(profile.payment_terms ?? '');
+    }
   }, [profile]);
+
+  async function handleSavePaymentTerms(e: React.FormEvent) {
+    e.preventDefault();
+    if (!profile || profile.role !== 'supplier') return;
+
+    setTermsSaving(true);
+    setTermsError('');
+    setTermsSuccess(false);
+
+    try {
+      const trimmed = paymentTerms.trim();
+      if (!trimmed) {
+        setTermsError('Payment terms are required for suppliers.');
+        return;
+      }
+      await updateOwnPaymentTerms(profile.id, trimmed, profile.role);
+      await refreshProfile();
+      setTermsSuccess(true);
+      setTimeout(() => setTermsSuccess(false), 3000);
+    } catch (err) {
+      setTermsError(err instanceof Error ? err.message : 'Failed to update payment terms.');
+    } finally {
+      setTermsSaving(false);
+    }
+  }
 
   async function handleSaveName(e: React.FormEvent) {
     e.preventDefault();
@@ -110,6 +144,9 @@ export default function ProfilePage() {
   }
 
   const nameChanged = profile && fullName.trim() !== profile.full_name;
+  const termsChanged =
+    profile?.role === 'supplier' &&
+    paymentTerms.trim() !== (profile.payment_terms ?? '').trim();
   const pwValid = currentPassword.length > 0 && newPassword.length >= 8 && newPassword === confirmPassword;
 
   return (
@@ -230,6 +267,62 @@ export default function ProfilePage() {
             </div>
           </form>
         </div>
+
+        {profile?.role === 'supplier' && (
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-pq-neutral-200 bg-pq-neutral-50">
+              <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                Commercial Terms
+              </h2>
+            </div>
+
+            <form onSubmit={handleSavePaymentTerms} className="p-6 space-y-5">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="supplier_payment_terms"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide"
+                >
+                  <CreditCard className="w-3.5 h-3.5 text-pq-neutral-400" />
+                  Default Payment Terms
+                </Label>
+                <p className="text-xs text-pq-neutral-500">
+                  Procurement will see this when generating purchase orders for your company.
+                </p>
+                <PaymentTermsSelect
+                  id="supplier_payment_terms"
+                  value={paymentTerms}
+                  onChange={setPaymentTerms}
+                  disabled={termsSaving}
+                />
+              </div>
+
+              {termsError && (
+                <div className="flex items-start gap-2 text-xs text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded px-3 py-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{termsError}</span>
+                </div>
+              )}
+
+              {termsSuccess && (
+                <div className="flex items-center gap-2 text-xs text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded px-3 py-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>Payment terms updated successfully.</span>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-1">
+                <Button
+                  type="submit"
+                  disabled={!termsChanged || termsSaving || !paymentTerms.trim()}
+                  size="sm"
+                  className="text-xs bg-pq-primary-600 hover:bg-pq-neutral-900 w-full sm:w-auto"
+                >
+                  {termsSaving ? 'Saving...' : 'Save Payment Terms'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* Section 2: Change Password */}
         <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">

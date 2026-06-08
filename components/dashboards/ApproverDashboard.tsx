@@ -13,6 +13,7 @@ import { DashboardQueueSkeleton } from '@/components/shared/structural-skeletons
 import { fetchApprovalQueue, fetchApproverStats, canActOnStep } from '@/lib/approvals';
 import { fetchPR2ApprovalQueue, canActOnPR2Step } from '@/lib/pr2-approvals';
 import { fetchPOApprovalQueue, canActOnPOStep } from '@/lib/po-approvals';
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import PriorityChip from '@/components/shared/PriorityChip';
 import {
   SquareCheck as CheckSquare,
@@ -122,7 +123,7 @@ export default function ApproverDashboard({ profile }: Props) {
         <ApproverDashboardVisibilitySkeleton />
       ) : showApprovalQueue ? (
       <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 mt-1">
+      <div className={`${KPI_GRID_CLASS} mb-4 mt-1`}>
         {statCards.map((stat) => {
           const Icon = stat.icon;
           const lowerLabel = stat.label.toLowerCase();

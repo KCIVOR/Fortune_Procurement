@@ -16,7 +16,8 @@ import StatusChip from '@/components/shared/StatusChip';
 import LoadingState from '@/components/shared/LoadingState';
 import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import { fetchPendingSubstituteCount } from '@/lib/canvassing';
-import { fetchMyPR1s } from '@/lib/pr1';
+import { fetchMyPR1s, isEmployeeApprovedPR1 } from '@/lib/pr1';
+import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import PriorityChip from '@/components/shared/PriorityChip';
 import {
   FileText,
@@ -55,7 +56,7 @@ export default function EmployeeDashboard({ profile }: Props) {
 
   const totalRequests = requests.length;
   const pendingApproval = requests.filter(r => r.status === 'pending_approval').length;
-  const approved = requests.filter(r => r.status === 'approved').length;
+  const approved = requests.filter(isEmployeeApprovedPR1).length;
   const rejected = requests.filter(r => r.status === 'rejected').length;
 
   const stats = [
@@ -83,7 +84,7 @@ export default function EmployeeDashboard({ profile }: Props) {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 mt-1">
+      <div className={`${KPI_GRID_CLASS} mb-4 mt-1`}>
         {stats.map((stat) => {
           const Icon = stat.icon;
           const lowerLabel = stat.label.toLowerCase();

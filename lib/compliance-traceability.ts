@@ -38,6 +38,9 @@ function statusHintProduct(status: string): string {
   if (status === 'verified') {
     return 'Verified — can be offered in RFQ. When linked on a quote line, Procurement can award after requestor rules are met.';
   }
+  if (status === 'inactive') {
+    return 'Inactive — verification was revoked. Cannot be offered in RFQ until re-verified.';
+  }
   if (status === 'rejected') {
     return 'Rejected — cannot be awarded on RFQ until addressed and re-verified.';
   }

@@ -17,6 +17,30 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+const DEACTIVATED_LOGIN_MESSAGE =
+  'This account has been deactivated. Contact your administrator.';
+const GENERIC_LOGIN_MESSAGE = 'Invalid email or password. Please try again.';
+
+function isBannedAuthError(error: { message?: string; code?: string }): boolean {
+  const code = (error.code ?? '').toLowerCase();
+  const message = (error.message ?? '').toLowerCase();
+  return code === 'user_banned' || message.includes('banned');
+}
+
+async function isDeactivatedAccount(email: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/account-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { deactivated?: boolean };
+    return json.deactivated === true;
+  } catch {
+    return false;
+  }
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -36,7 +60,9 @@ function LoginForm() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setError('Invalid email or password. Please try again.');
+      const deactivated =
+        isBannedAuthError(error) || (await isDeactivatedAccount(email));
+      setError(deactivated ? DEACTIVATED_LOGIN_MESSAGE : GENERIC_LOGIN_MESSAGE);
       setLoading(false);
       return;
     }
@@ -53,6 +79,12 @@ function LoginForm() {
     const userId = data.user?.id;
     if (userId) {
       const profile = await fetchUserProfile(userId);
+      if (profile && profile.active === false) {
+        await supabase.auth.signOut();
+        setError(DEACTIVATED_LOGIN_MESSAGE);
+        setLoading(false);
+        return;
+      }
       router.push(profile?.role === 'tsqa' ? '/tsqa' : '/dashboard');
     } else {
       router.push('/dashboard');

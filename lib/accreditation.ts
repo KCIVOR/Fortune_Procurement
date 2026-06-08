@@ -484,3 +484,129 @@ export async function rejectAccreditation(
     });
   } catch { /* non-blocking */ }
 }
+
+// ─── Procurement: revoke an approved accreditation ─────────────────────────────
+// approved → rejected. Prior approval timestamps are retained for audit.
+
+export async function revokeAccreditation(
+  accreditationId: string,
+  profile:         UserProfile,
+  reason:          string
+): Promise<void> {
+  if (!reason.trim()) {
+    throw new Error('A reason is required to revoke accreditation.');
+  }
+
+  const { data: acc, error: fetchErr } = await db
+    .from('supplier_accreditations')
+    .select('supplier_id, status')
+    .eq('id', accreditationId)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!acc) throw new Error('Accreditation not found.');
+  if ((acc as any).status !== 'approved') {
+    throw new Error('Only approved accreditations can be revoked.');
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from('supplier_accreditations')
+    .update({
+      status:       'rejected',
+      rejected_at:  now,
+      reviewed_by:  profile.id,
+      reviewed_at:  now,
+      review_notes: reason.trim(),
+      updated_at:   now,
+    })
+    .eq('id', accreditationId)
+    .eq('status', 'approved');
+  if (error) throw error;
+
+  try {
+    const { error: auditErr } = await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'ACCREDITATION_REVOKED',
+      document_type: 'ACCREDITATION',
+      document_id:   accreditationId,
+      payload:       { reviewer: profile.full_name, reason: reason.trim() },
+    });
+    if (auditErr) console.warn(auditErr);
+  } catch {
+    /* best-effort audit */
+  }
+
+  try {
+    await createNotification({
+      user_id:       (acc as any).supplier_id as string,
+      title:         'Supplier Accreditation Revoked',
+      body:          `Your accreditation has been revoked. Reason: ${reason.trim()}`,
+      type:          'rejected',
+      document_type: 'ACCREDITATION',
+      document_id:   accreditationId,
+      action_url:    null,
+    });
+  } catch { /* non-blocking */ }
+}
+
+// ─── Procurement: reopen an approved accreditation for review ────────────────
+// approved → under_review. Clears approved_at; prior approval history stays in audit_logs.
+
+export async function reopenAccreditationForReview(
+  accreditationId: string,
+  profile:         UserProfile,
+  notes?:          string
+): Promise<void> {
+  const { data: acc, error: fetchErr } = await db
+    .from('supplier_accreditations')
+    .select('supplier_id, status')
+    .eq('id', accreditationId)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!acc) throw new Error('Accreditation not found.');
+  if ((acc as any).status !== 'approved') {
+    throw new Error('Only approved accreditations can be reopened for review.');
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from('supplier_accreditations')
+    .update({
+      status:       'under_review',
+      approved_at:  null,
+      reviewed_by:  profile.id,
+      reviewed_at:  now,
+      review_notes: notes?.trim() || null,
+      updated_at:   now,
+    })
+    .eq('id', accreditationId)
+    .eq('status', 'approved');
+  if (error) throw error;
+
+  try {
+    const { error: auditErr } = await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'ACCREDITATION_REOPENED',
+      document_type: 'ACCREDITATION',
+      document_id:   accreditationId,
+      payload:       { reviewer: profile.full_name, notes: notes?.trim() || null },
+    });
+    if (auditErr) console.warn(auditErr);
+  } catch {
+    /* best-effort audit */
+  }
+
+  try {
+    await createNotification({
+      user_id:       (acc as any).supplier_id as string,
+      title:         'Accreditation Reopened for Review',
+      body:          notes?.trim()
+                       ? `Your accreditation is under review again. Notes: ${notes.trim()}`
+                       : 'Your supplier accreditation has been reopened for procurement review.',
+      type:          'action_required',
+      document_type: 'ACCREDITATION',
+      document_id:   accreditationId,
+      action_url:    null,
+    });
+  } catch { /* non-blocking */ }
+}

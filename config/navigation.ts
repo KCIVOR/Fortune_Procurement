@@ -17,6 +17,7 @@ export type ModuleKey =
   | 'purchase_requests'
   | 'canvassing_rfq'
   | 'purchase_orders'
+  | 'supplier_accounts'
   | 'supplier_accreditation'
   | 'product_review'
   | 'supplier_portal_accreditation'
@@ -114,6 +115,12 @@ export const ALL_NAV: Record<string, NavItem> = {
     href: '/grn',
     icon: 'PackageCheck',
     module_key: 'goods_receipt',
+  },
+  supplierAccounts: {
+    label: 'Supplier Accounts',
+    href: '/suppliers',
+    icon: 'Users',
+    module_key: 'supplier_accounts',
   },
   supplierAccredQueue: {
     label: 'Supplier Accreditation',
@@ -291,15 +298,17 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     ALL_NAV.deliveryTracking,
     ALL_NAV.grn,
     // Supplier management
+    ALL_NAV.supplierAccounts,
     ALL_NAV.supplierAccredQueue,
     ALL_NAV.productReviewQueue,
     // Approvals (secondary task for procurement, moved to bottom)
     ALL_NAV.approvalQueue,
     ALL_NAV.approvalHistory,
   ],
-  // Approver: Dashboard → Approvals by document type (PR1 → PR2 → PO) → History
+  // Approver: Dashboard → Combined queue → Approvals by document type (PR1 → PR2 → PO) → History
   approver: [
     ALL_NAV.dashboard,
+    ALL_NAV.approvalQueue,
     ALL_NAV.approverPR1,
     ALL_NAV.approverPR2,
     ALL_NAV.approverPO,

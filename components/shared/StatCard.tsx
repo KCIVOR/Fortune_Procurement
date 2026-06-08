@@ -28,8 +28,8 @@ export function StatCard({
 }: StatCardProps) {
   if (isLoading) {
     return (
-      <div className={cn(
-        'relative bg-pq-white border border-pq-neutral-200 rounded-xl p-5 shadow-sm overflow-hidden',
+    <div className={cn(
+      'relative w-full bg-pq-white border border-pq-neutral-200 rounded-xl p-5 shadow-sm overflow-hidden',
         'min-h-[120px] h-full flex flex-col',
         className
       )}>
@@ -54,7 +54,7 @@ export function StatCard({
 
   return (
     <div className={cn(
-      'relative bg-pq-white border border-pq-neutral-200 rounded-xl p-5 shadow-sm overflow-hidden transition hover:shadow-md hover:border-pq-neutral-300',
+      'relative w-full bg-pq-white border border-pq-neutral-200 rounded-xl p-5 shadow-sm overflow-hidden transition hover:shadow-md hover:border-pq-neutral-300',
       'min-h-[120px] h-full flex flex-col',
       className
     )}>
