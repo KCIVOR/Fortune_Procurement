@@ -139,6 +139,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const trimmedName = String(full_name).trim();
+    const { error: auditErr } = await admin.from('audit_logs').insert({
+      actor_id: auth.userId,
+      action: 'SUPPLIER_ACCOUNT_INVITED',
+      document_type: 'PROFILE',
+      document_id: invitedId,
+      payload: {
+        target_user_id: invitedId,
+        target_user_email: normalizedEmail,
+        target_user_name: trimmedName,
+        payment_terms: payment_terms ?? null,
+      },
+    });
+    if (auditErr) {
+      console.error('[procurement/suppliers/invite] Audit log failed:', auditErr);
+    }
+
     return NextResponse.json({
       success: true,
       user_id: invitedId,

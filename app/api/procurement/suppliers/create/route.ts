@@ -123,6 +123,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const trimmedName = String(full_name).trim();
+    const { error: auditErr } = await admin.from('audit_logs').insert({
+      actor_id: auth.userId,
+      action: 'SUPPLIER_ACCOUNT_CREATED',
+      document_type: 'PROFILE',
+      document_id: userId,
+      payload: {
+        target_user_id: userId,
+        target_user_email: normalizedEmail,
+        target_user_name: trimmedName,
+        payment_terms: payment_terms ?? null,
+        manual_password: Boolean(password),
+      },
+    });
+    if (auditErr) {
+      console.error('[procurement/suppliers/create] Audit log failed:', auditErr);
+    }
+
     return NextResponse.json({
       success: true,
       user_id: userId,
