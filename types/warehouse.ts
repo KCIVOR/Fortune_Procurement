@@ -1,4 +1,11 @@
-export type WarehouseDecision = 'sufficient' | 'insufficient';
+export type WarehouseDecision =
+  | 'sufficient'
+  | 'insufficient'
+  | 'rejected'
+  | 'revision_requested';
+
+/** Terminal warehouse actions that do not require SOH verification. */
+export type WarehouseTerminalAction = 'rejected' | 'revision_requested';
 export type ItemAvailability = 'available' | 'unavailable';
 /** Set on submit from verified SOH vs requested qty. Partial stock uses `partial`, not `availability`. */
 export type WarehouseItemRoute = 'internal' | 'procurement' | 'partial';

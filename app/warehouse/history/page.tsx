@@ -23,12 +23,23 @@ import { format } from 'date-fns';
 const DECISION_BADGE: Record<string, string> = {
   sufficient: 'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
   insufficient: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
+  rejected: 'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
+  revision_requested: 'bg-orange-100 text-orange-700 border-orange-200',
+};
+
+const DECISION_LABEL: Record<string, string> = {
+  sufficient: 'Sufficient',
+  insufficient: 'Insufficient',
+  rejected: 'Rejected',
+  revision_requested: 'Revision requested',
 };
 
 const DECISION_OPTIONS: { value: WarehouseHistoryDecisionFilter; label: string }[] = [
   { value: 'all', label: 'All decisions' },
   { value: 'sufficient', label: 'Sufficient' },
   { value: 'insufficient', label: 'Insufficient' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'revision_requested', label: 'Revision requested' },
 ];
 
 const PR1_STATUS_OPTIONS: { value: PR1Status | 'all'; label: string }[] = [
@@ -260,7 +271,7 @@ export default function WarehouseHistoryPage() {
                             'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200'
                           }`}
                         >
-                          {r.decision}
+                          {DECISION_LABEL[r.decision] ?? r.decision}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">

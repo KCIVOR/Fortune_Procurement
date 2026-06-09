@@ -6,6 +6,7 @@ import type {
   WarehouseValidationItem,
   ValidationFormValues,
   WarehouseDecision,
+  WarehouseTerminalAction,
   PR1QueueRow,
   WarehouseItemRoute,
   ItemAvailability,
@@ -318,6 +319,107 @@ export async function saveValidationProgress(
       .eq('validation_id', validationId);
 
     if (iErr) throw iErr;
+  }
+}
+
+// ─── Reject or request revision (no SOH required) ──────────────────────────
+
+export async function submitWarehouseTerminalAction(
+  validationId: string,
+  pr1Id: string,
+  action: WarehouseTerminalAction,
+  remarks: string,
+  profile: UserProfile,
+): Promise<void> {
+  const trimmed = remarks.trim();
+  if (!trimmed) {
+    throw new Error('Remarks are required when rejecting or requesting revision.');
+  }
+
+  const now = new Date().toISOString();
+  const decision: WarehouseDecision = action;
+  const nextPR1Status = action === 'rejected' ? 'rejected' : 'revision_requested';
+
+  const { error: vErr } = await db
+    .from('warehouse_validations')
+    .update({
+      decision,
+      notes:                       trimmed,
+      validator_id:                profile.id,
+      validator_name_snapshot:     profile.full_name,
+      validator_position_snapshot: profile.position,
+      validated_at:                now,
+      updated_at:                  now,
+    })
+    .eq('id', validationId)
+    .is('decision', null);
+
+  if (vErr) throw vErr;
+
+  const { data: updatedRows, error: pr1Err } = await db
+    .from('pr1_requests')
+    .update({
+      status:     nextPR1Status,
+      updated_at: now,
+    })
+    .eq('id', pr1Id)
+    .eq('status', 'pending_warehouse')
+    .select('id');
+
+  if (pr1Err) throw pr1Err;
+  if (!updatedRows || updatedRows.length === 0) {
+    throw new Error('PR1 status could not be updated. It may have already been processed.');
+  }
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        action === 'rejected'
+                     ? 'WAREHOUSE_REJECTED'
+                     : 'WAREHOUSE_REVISION_REQUESTED',
+    document_type: 'PR1',
+    document_id:   pr1Id,
+    payload: {
+      validation_id: validationId,
+      decision,
+      remarks:       trimmed,
+      validated_by:  profile.full_name,
+      position:      profile.position,
+      next_status:   nextPR1Status,
+    },
+  });
+
+  try {
+    const { data: pr1Row } = await db
+      .from('pr1_requests')
+      .select('pr1_number, requisitioner_id')
+      .eq('id', pr1Id)
+      .maybeSingle();
+
+    if (pr1Row?.requisitioner_id) {
+      if (action === 'rejected') {
+        await createNotification({
+          user_id:       pr1Row.requisitioner_id,
+          title:         'PR1 Rejected by Warehouse',
+          body:          `PR1 ${pr1Row.pr1_number} was rejected during warehouse validation.`,
+          type:          'rejected',
+          document_type: 'pr1',
+          document_id:   pr1Id,
+          action_url:    `/pr1/${pr1Id}`,
+        });
+      } else {
+        await createNotification({
+          user_id:       pr1Row.requisitioner_id,
+          title:         'PR1 Revision Requested',
+          body:          `Warehouse requested revisions on PR1 ${pr1Row.pr1_number}.`,
+          type:          'action_required',
+          document_type: 'pr1',
+          document_id:   pr1Id,
+          action_url:    `/pr1/${pr1Id}/edit`,
+        });
+      }
+    }
+  } catch {
+    // Notifications are best-effort
   }
 }
 

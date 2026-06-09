@@ -111,6 +111,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
   );
 
   const isEdit = Boolean(existing);
+  const isRevisionRequested = existing?.status === 'revision_requested';
 
   const pr1Prefix = useMemo(() => {
     if (existing?.pr1_number) {
@@ -717,7 +718,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
           >
             Cancel
           </Button>
-          {isEdit && (
+          {isEdit && !isRevisionRequested && (
             <Button
               type="button"
               variant="outline"
@@ -742,7 +743,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
             ) : (
               <Save className="w-4 h-4" />
             )}
-            Save Draft
+            {isRevisionRequested ? 'Save Changes' : 'Save Draft'}
           </Button>
           <Button
             type="button"
@@ -756,7 +757,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
             ) : (
               <Send className="w-4 h-4" />
             )}
-            Submit PR1
+            {isRevisionRequested ? 'Resubmit PR1' : 'Submit PR1'}
           </Button>
         </div>
       </div>

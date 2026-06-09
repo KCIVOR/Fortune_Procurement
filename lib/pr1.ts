@@ -559,7 +559,7 @@ export async function saveDraftPR1(
       .from('pr1_requests')
       .update(header)
       .eq('id', existingId)
-      .eq('status', 'draft');
+      .in('status', ['draft', 'revision_requested']);
     if (error) throw error;
     pr1Id = existingId;
   } else {
@@ -620,6 +620,25 @@ export async function submitPR1(
   // Sync items — single call, no race
   await syncItems(pr1Id, values.items);
 
+  const { data: currentRow, error: statusErr } = await db
+    .from('pr1_requests')
+    .select('status')
+    .eq('id', pr1Id)
+    .maybeSingle();
+
+  if (statusErr) throw statusErr;
+  const currentStatus = currentRow?.status as PR1Status | undefined;
+  if (!currentStatus || !['draft', 'revision_requested'].includes(currentStatus)) {
+    throw new Error('PR1 could not be submitted. It may have already been submitted or does not exist.');
+  }
+
+  if (currentStatus === 'revision_requested') {
+    const { error: resetErr } = await db.rpc('reset_warehouse_validation_on_pr1_resubmit', {
+      p_pr1_id: pr1Id,
+    });
+    if (resetErr) throw resetErr;
+  }
+
   // Transition header to submitted state
   const { data: updatedRows, error: headerErr } = await db
     .from('pr1_requests')
@@ -636,7 +655,7 @@ export async function submitPR1(
       updated_at:                   now,
     })
     .eq('id', pr1Id)
-    .eq('status', 'draft')
+    .eq('status', currentStatus)
     .select('id');
 
   if (headerErr) throw headerErr;

@@ -25,7 +25,10 @@ export default function PR1EditPage() {
     fetchPR1ById(id)
       .then((data) => {
         if (!data) { setError('PR1 not found.'); return; }
-        if (data.status !== 'draft') { setError('Only draft PR1s can be edited.'); return; }
+        if (data.status !== 'draft' && data.status !== 'revision_requested') {
+          setError('Only draft or revision-requested PR1s can be edited.');
+          return;
+        }
         setPR1(data);
       })
       .catch(() => setError('Failed to load PR1.'))
@@ -73,7 +76,11 @@ export default function PR1EditPage() {
       </div>
       <PageHeader
         title={`Edit PR1 — ${pr1.pr1_number}`}
-        description="Update your draft and save or submit when ready."
+        description={
+          pr1.status === 'revision_requested'
+            ? 'Warehouse requested revisions. Update the request and resubmit when ready.'
+            : 'Update your draft and save or submit when ready.'
+        }
       />
       <PR1Form existing={pr1} />
     </AppShell>

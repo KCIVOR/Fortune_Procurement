@@ -116,7 +116,10 @@ export default function PR1DetailPage() {
     };
   }, [id, pr1?.id, pr1?.requisitioner_id, profile]);
 
-  const canEdit = pr1 && profile && pr1.requisitioner_id === profile.id && pr1.status === 'draft';
+  const isOwner = pr1 && profile && pr1.requisitioner_id === profile.id;
+  const canEdit =
+    isOwner && (pr1.status === 'draft' || pr1.status === 'revision_requested');
+  const canDeleteDraft = isOwner && pr1.status === 'draft';
   const canUpdatePriority = pr1 && profile && canUpdatePR1Priority(profile);
 
   const handlePriorityChange = async (newPriority: 'normal' | 'medium' | 'high') => {
@@ -235,21 +238,23 @@ export default function PR1DetailPage() {
             />
             {canEdit && (
               <>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-white border border-pq-danger-200 hover:bg-pq-danger-50 text-pq-danger-600 text-sm font-semibold rounded-md transition disabled:opacity-50"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {deleting ? 'Deleting...' : 'Delete Draft'}
-                </button>
+                {canDeleteDraft && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-white border border-pq-danger-200 hover:bg-pq-danger-50 text-pq-danger-600 text-sm font-semibold rounded-md transition disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {deleting ? 'Deleting...' : 'Delete Draft'}
+                  </button>
+                )}
                 <Link
                   href={`/pr1/${pr1.id}/edit`}
                   className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
                 >
                   <Pencil className="w-4 h-4" />
-                  Edit Draft
+                  {pr1.status === 'revision_requested' ? 'Revise & Resubmit' : 'Edit Draft'}
                 </Link>
               </>
             )}
@@ -258,6 +263,18 @@ export default function PR1DetailPage() {
       />
 
       <div className="space-y-5">
+        {pr1.status === 'revision_requested' && (
+          <div className="bg-orange-50 border border-orange-200 rounded-md px-6 py-4 flex items-start gap-3">
+            <RotateCcw className="w-5 h-5 text-orange-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-orange-800">Revision Requested</p>
+              <p className="text-xs text-orange-700 mt-0.5">
+                Warehouse or an approver requested changes. Edit the request and resubmit when ready.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Header card */}
         <DetailCard overflow>
           <DetailCardHeader

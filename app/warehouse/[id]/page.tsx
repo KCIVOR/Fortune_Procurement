@@ -12,8 +12,10 @@ import {
   openValidation,
   saveValidationProgress,
   submitValidationDecision,
+  submitWarehouseTerminalAction,
   computeWarehouseItemRouting,
 } from '@/lib/warehouse';
+import type { WarehouseTerminalAction } from '@/types/warehouse';
 import type { PR1WithItems } from '@/types/pr1';
 import type {
   WarehouseValidationWithItems,
@@ -32,6 +34,7 @@ import {
   FileText,
   CalendarDays,
   Clock,
+  RotateCcw,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
@@ -53,6 +56,8 @@ export default function WarehouseValidationPage() {
   const [error, setError] = useState('');
   const [globalError, setGlobalError] = useState('');
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const [pendingTerminalAction, setPendingTerminalAction] = useState<WarehouseTerminalAction | null>(null);
+  const [terminalRemarks, setTerminalRemarks] = useState('');
 
   const isReadOnly = Boolean(validation?.decision);
 
@@ -126,6 +131,31 @@ export default function WarehouseValidationPage() {
     } catch (err: unknown) {
       setGlobalError(
         err instanceof Error ? err.message : 'Failed to submit validation.'
+      );
+      setSubmitting(false);
+    }
+  };
+
+  const handleTerminalAction = async () => {
+    if (!validation || !pr1 || !profile || !pendingTerminalAction) return;
+    if (!terminalRemarks.trim()) {
+      setGlobalError('Remarks are required when rejecting or requesting revision.');
+      return;
+    }
+    setSubmitting(true);
+    setGlobalError('');
+    try {
+      await submitWarehouseTerminalAction(
+        validation.id,
+        pr1.id,
+        pendingTerminalAction,
+        terminalRemarks,
+        profile,
+      );
+      router.push('/warehouse');
+    } catch (err: unknown) {
+      setGlobalError(
+        err instanceof Error ? err.message : 'Failed to submit action.'
       );
       setSubmitting(false);
     }
@@ -366,34 +396,91 @@ export default function WarehouseValidationPage() {
 
         {/* Read-only: completed validation summary */}
         {isReadOnly && (
-          <div className={`rounded-md border overflow-hidden ${
-            validation.decision === 'sufficient'
-              ? 'bg-pq-success-50 border-pq-success-200'
-              : 'bg-pq-primary-50 border-pq-primary-200'
-          }`}>
-            <div className="px-6 py-4">
-              <div className="flex items-start gap-4">
-                {validation.decision === 'sufficient' ? (
-                  <CheckCircle2 className="w-6 h-6 text-pq-success-900 mt-0.5 shrink-0" />
-                ) : (
-                  <XCircle className="w-6 h-6 text-pq-primary-600 mt-0.5 shrink-0" />
-                )}
-                <div>
-                  <p className={`text-sm font-semibold ${
-                    validation.decision === 'sufficient' ? 'text-pq-success-900' : 'text-pq-primary-600'
-                  }`}>
-                    Validation complete —{' '}
-                    {validation.decision === 'sufficient'
-                      ? 'All lines fulfilled from stock. Request closed internally.'
-                      : 'One or more lines need procurement or partial fulfillment. PR1 routed to approval workflow.'}
+          <ValidationCompleteBanner validation={validation} />
+        )}
+
+        {/* Return to requestor — reject / revision without SOH */}
+        {!isReadOnly && (
+          <div className="bg-pq-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-pq-neutral-200">
+              <h2 className="text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">
+                Return to Requestor
+              </h2>
+              <p className="text-xs text-pq-neutral-400 mt-0.5">
+                Reject the request or send it back for revision. Remarks are required.
+              </p>
+            </div>
+            <div className="px-6 py-4 space-y-3">
+              <textarea
+                rows={2}
+                value={terminalRemarks}
+                onChange={e => setTerminalRemarks(e.target.value)}
+                placeholder="Reason for rejection or required changes..."
+                className="w-full px-3 py-2.5 border border-pq-neutral-200 bg-pq-neutral-50 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-pq-primary-600 focus:border-transparent transition resize-none"
+              />
+
+              {pendingTerminalAction ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-sm text-pq-neutral-700">
+                    Confirm{' '}
+                    <strong
+                      className={
+                        pendingTerminalAction === 'rejected'
+                          ? 'text-pq-danger-600'
+                          : 'text-orange-700'
+                      }
+                    >
+                      {pendingTerminalAction === 'rejected' ? 'Reject PR1' : 'Request Revision'}
+                    </strong>
+                    ? This cannot be undone.
                   </p>
-                  <p className="text-xs text-pq-neutral-700 mt-1">
-                    Validated by <strong>{validation.validator_name_snapshot}</strong>
-                    {validation.validator_position_snapshot ? ` (${validation.validator_position_snapshot})` : ''}
-                    {validation.validated_at ? ` · ${format(new Date(validation.validated_at), 'MMMM d, yyyy h:mm a')}` : ''}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={handleTerminalAction}
+                    disabled={submitting}
+                    className={`px-4 py-2 text-sm font-semibold text-white rounded-md transition disabled:opacity-50 ${
+                      pendingTerminalAction === 'rejected'
+                        ? 'bg-pq-danger-600 hover:bg-pq-danger-600'
+                        : 'bg-orange-500 hover:bg-orange-600'
+                    }`}
+                  >
+                    {submitting ? 'Submitting...' : 'Confirm'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingTerminalAction(null)}
+                    disabled={submitting}
+                    className="px-4 py-2 text-sm text-pq-neutral-700 hover:text-pq-neutral-900 transition"
+                  >
+                    Cancel
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <TerminalActionButton
+                    icon={RotateCcw}
+                    label="Request Revision"
+                    variant="revise"
+                    onClick={() => {
+                      setGlobalError('');
+                      setConfirmSubmit(false);
+                      setPendingTerminalAction('revision_requested');
+                    }}
+                    disabled={submitting}
+                  />
+                  <TerminalActionButton
+                    icon={XCircle}
+                    label="Reject"
+                    variant="reject"
+                    onClick={() => {
+                      setGlobalError('');
+                      setConfirmSubmit(false);
+                      setPendingTerminalAction('rejected');
+                    }}
+                    disabled={submitting}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -401,6 +488,14 @@ export default function WarehouseValidationPage() {
         {/* Decision panel — visible only in edit mode */}
         {!isReadOnly && (
           <div className="bg-pq-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-pq-neutral-200">
+              <h2 className="text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">
+                Stock Validation
+              </h2>
+              <p className="text-xs text-pq-neutral-400 mt-0.5">
+                Enter verified SOH for every line, then submit the stock validation outcome.
+              </p>
+            </div>
             <div className="px-6 py-4">
               {!allItemsHaveSoh ? (
                 <div className="flex items-center gap-3 text-pq-warning-900 bg-pq-warning-50 border border-pq-warning-200 rounded-lg px-4 py-3">
@@ -552,11 +647,138 @@ function DecisionBadge({ decision }: { decision: WarehouseDecision }) {
       </span>
     );
   }
+  if (decision === 'insufficient') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pq-primary-600 bg-pq-primary-50 border border-pq-primary-200 rounded-full px-3 py-1">
+        <XCircle className="w-3.5 h-3.5" />
+        Validated — Insufficient (approval)
+      </span>
+    );
+  }
+  if (decision === 'rejected') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pq-danger-600 bg-pq-danger-50 border border-pq-danger-200 rounded-full px-3 py-1">
+        <XCircle className="w-3.5 h-3.5" />
+        Rejected
+      </span>
+    );
+  }
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-pq-primary-600 bg-pq-primary-50 border border-pq-primary-200 rounded-full px-3 py-1">
-      <XCircle className="w-3.5 h-3.5" />
-      Validated — Insufficient (approval)
+    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-3 py-1">
+      <RotateCcw className="w-3.5 h-3.5" />
+      Revision Requested
     </span>
+  );
+}
+
+function ValidationCompleteBanner({
+  validation,
+}: {
+  validation: WarehouseValidationWithItems;
+}) {
+  const decision = validation.decision!;
+  const meta = (
+    <p className="text-xs text-pq-neutral-700 mt-1">
+      {decision === 'rejected' || decision === 'revision_requested' ? 'Action' : 'Validated'} by{' '}
+      <strong>{validation.validator_name_snapshot}</strong>
+      {validation.validator_position_snapshot ? ` (${validation.validator_position_snapshot})` : ''}
+      {validation.validated_at ? ` · ${format(new Date(validation.validated_at), 'MMMM d, yyyy h:mm a')}` : ''}
+      {validation.notes ? (
+        <>
+          <br />
+          <span className="italic">Remarks: {validation.notes}</span>
+        </>
+      ) : null}
+    </p>
+  );
+
+  if (decision === 'sufficient') {
+    return (
+      <div className="rounded-md border overflow-hidden bg-pq-success-50 border-pq-success-200">
+        <div className="px-6 py-4 flex items-start gap-4">
+          <CheckCircle2 className="w-6 h-6 text-pq-success-900 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-pq-success-900">
+              Validation complete — all lines fulfilled from stock. Request closed internally.
+            </p>
+            {meta}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (decision === 'insufficient') {
+    return (
+      <div className="rounded-md border overflow-hidden bg-pq-primary-50 border-pq-primary-200">
+        <div className="px-6 py-4 flex items-start gap-4">
+          <XCircle className="w-6 h-6 text-pq-primary-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-pq-primary-600">
+              Validation complete — one or more lines need procurement. PR1 routed to approval workflow.
+            </p>
+            {meta}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (decision === 'rejected') {
+    return (
+      <div className="rounded-md border overflow-hidden bg-pq-danger-50 border-pq-danger-200">
+        <div className="px-6 py-4 flex items-start gap-4">
+          <XCircle className="w-6 h-6 text-pq-danger-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-pq-danger-600">
+              PR1 rejected by warehouse. The request is closed.
+            </p>
+            {meta}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-md border overflow-hidden bg-orange-50 border-orange-200">
+      <div className="px-6 py-4 flex items-start gap-4">
+        <RotateCcw className="w-6 h-6 text-orange-600 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-orange-800">
+            Revision requested. The requisitioner must edit and resubmit.
+          </p>
+          {meta}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TerminalActionButton({
+  icon: Icon,
+  label,
+  variant,
+  onClick,
+  disabled,
+}: {
+  icon: React.ElementType;
+  label: string;
+  variant: 'revise' | 'reject';
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  const styles = {
+    revise: 'bg-white hover:bg-orange-50 text-orange-600 border-orange-300 hover:border-orange-400',
+    reject: 'bg-white hover:bg-pq-danger-50 text-pq-danger-600 border-red-300 hover:border-red-400',
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-md border transition disabled:opacity-50 ${styles[variant]}`}
+    >
+      <Icon className="w-4 h-4" />
+      {label}
+    </button>
   );
 }
 
