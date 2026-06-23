@@ -30,6 +30,7 @@ import DetailInfoField from '@/components/shared/DetailInfoField';
 import DetailWideInfoRow from '@/components/shared/DetailWideInfoRow';
 import DetailTableCard from '@/components/shared/DetailTableCard';
 import { canViewCommercialPricing, formatCommercialAmount, PRICE_HIDDEN_LABEL } from '@/lib/price-visibility';
+import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 import {
   User, Building2, FileText, CalendarDays, Clock,
   CircleCheck as CheckCircle2, Circle as XCircle, RotateCcw,
@@ -76,7 +77,7 @@ export default function POApprovalDetailPage() {
     detail.instance_status === 'active' &&
     isInternalStep &&
     currentStepDef &&
-    canActOnPOStep(profile, currentStepDef.role_required, currentStepDef.position_required)
+    canActOnPOStep(profile, currentStepDef.role_required, currentStepDef.position_required, detail.department_id)
   );
 
   const handleConfirmAction = useCallback(async () => {
@@ -272,6 +273,7 @@ export default function POApprovalDetailPage() {
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-8">#</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-20">Code</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase">Description</th>
+                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Attachments</th>
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-16">Unit</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-20">Qty</th>
                   {canViewPrices ? (
@@ -303,6 +305,11 @@ export default function POApprovalDetailPage() {
                         </p>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      {(item.quote_attachments?.length ?? 0) > 0
+                        ? <QuoteAttachmentPills attachments={item.quote_attachments!} />
+                        : <span className="text-xs text-pq-neutral-300">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                     <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_to_purchase}</td>
                     {canViewPrices ? (
@@ -311,7 +318,7 @@ export default function POApprovalDetailPage() {
                         <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">{formatCommercialAmount(item.unit_price * item.quantity_to_purchase, true)}</td>
                       </>
                     ) : (
-                      <td colSpan={2} className="px-4 py-3 text-center text-xs text-pq-neutral-400">{PRICE_HIDDEN_LABEL}</td>
+                      <td className="px-4 py-3 text-center text-xs text-pq-neutral-400">{PRICE_HIDDEN_LABEL}</td>
                     )}
                   </tr>
                 ))}
@@ -319,7 +326,7 @@ export default function POApprovalDetailPage() {
               {canViewPrices && (
                 <tfoot>
                   <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                    <td colSpan={6} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
+                    <td colSpan={7} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
                     <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
                       {formatCommercialAmount(grandTotal ?? 0, true)}
                     </td>

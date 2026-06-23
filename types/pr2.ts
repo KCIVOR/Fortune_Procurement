@@ -1,18 +1,21 @@
+import type { PR1Attachment } from './pr1';
+import type { RfqQuoteAttachment } from './canvassing';
+
 export type PR2Status =
   | 'draft'
-  | 'pending_phase1_approval'
-  | 'phase1_approved'
-  | 'pending_phase2_approval'
-  | 'phase2_approved'
+  | 'pending_approval'
+  | 'approved'
+  | 'revision_requested'
+  | 'rejected'
   | 'cancelled';
 
 export const PR2_STATUS_LABELS: Record<PR2Status, string> = {
-  draft:                    'Draft',
-  pending_phase1_approval:  'Pending Phase 1',
-  phase1_approved:          'Phase 1 Approved',
-  pending_phase2_approval:  'Pending Phase 2',
-  phase2_approved:          'Approved',
-  cancelled:                'Cancelled',
+  draft:              'Draft',
+  pending_approval:   'Pending Approval',
+  approved:           'Approved',
+  revision_requested: 'Needs Revision',
+  rejected:           'Rejected',
+  cancelled:          'Cancelled',
 };
 
 export interface PR2Request {
@@ -68,7 +71,13 @@ export interface PR2Item {
    * NULL when not required (verified product OR non-raw-mats line).
    */
   quote_justification:     string | null;
+  /** FK back to the winning rfq_item_quotes row. Null for manually-created PR2s. */
+  rfq_item_quote_id?:      string | null;
   created_at:              string;
+  /** PR1 item attachments (requisitioner). Loaded at read time via pr1_item_id. */
+  attachments?:            PR1Attachment[];
+  /** Supplier quote attachments. Loaded at read time via rfq_item_quote_id. */
+  quote_attachments?:      RfqQuoteAttachment[];
 }
 
 export interface PR2WithItems extends PR2Request {

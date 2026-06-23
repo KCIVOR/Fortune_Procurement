@@ -42,16 +42,18 @@ export type ApprovalInstanceStatusUI = {
 
 const DOCUMENT_STATUS_UI: Partial<Record<DocumentType, Record<string, DocumentStatusUI>>> = {
   PR1: {
-    draft:              { label: 'Draft', className: 'bg-[#F7F9FC] text-[#40527A]' },
-    pending_warehouse:  { label: 'Pending Warehouse', className: 'bg-amber-50 text-amber-700' },
-    pending_approval:   { label: 'Pending Approval', className: 'bg-amber-50 text-amber-700' },
-    resolved_internal:  { label: 'Resolved Internally', className: 'bg-teal-50 text-teal-700' },
-    revision_requested: { label: 'Revision Requested', className: 'bg-orange-50 text-orange-700' },
-    for_canvassing:     { label: 'For Canvassing', className: 'bg-sky-50 text-sky-700' },
-    canvassing_complete:{ label: 'Canvassing Complete', className: 'bg-sky-50 text-sky-700' },
-    approved:           { label: 'Approved', className: 'bg-emerald-50 text-emerald-700' },
-    rejected:           { label: 'Rejected', className: 'bg-red-50 text-red-600' },
-    cancelled:          { label: 'Cancelled', className: 'bg-[#F7F9FC] text-[#BFC7D5]' },
+    draft:                  { label: 'Draft', className: 'bg-[#F7F9FC] text-[#40527A]' },
+    pending_approval:       { label: 'Pending Approval', className: 'bg-amber-50 text-amber-700' },
+    approved_for_warehouse: { label: 'Approved — Awaiting Warehouse', className: 'bg-blue-50 text-blue-700' },
+    pending_warehouse:      { label: 'Pending Warehouse', className: 'bg-amber-50 text-amber-700' },
+    resolved_internal:      { label: 'Resolved Internally', className: 'bg-teal-50 text-teal-700' },
+    revision_requested:     { label: 'Needs Revision', className: 'bg-orange-50 text-orange-700' },
+    for_canvassing:         { label: 'For Canvassing', className: 'bg-sky-50 text-sky-700' },
+    canvassing_complete:    { label: 'Canvassing Complete', className: 'bg-sky-50 text-sky-700' },
+    approved:               { label: 'Approved', className: 'bg-emerald-50 text-emerald-700' },
+    completed:              { label: 'Completed', className: 'bg-emerald-50 text-emerald-700' },
+    rejected:               { label: 'Rejected', className: 'bg-red-50 text-red-600' },
+    cancelled:              { label: 'Cancelled', className: 'bg-[#F7F9FC] text-[#BFC7D5]' },
   },
 
   RFQ: {
@@ -60,14 +62,12 @@ const DOCUMENT_STATUS_UI: Partial<Record<DocumentType, Record<string, DocumentSt
   },
 
   PR2: {
-    // TODO(conflict): PR2 detail page uses blue for phase1_approved; chain uses sky.
-    pending_phase1_approval: { label: 'Pending Phase 1', className: 'bg-amber-50 text-amber-700' },
-    phase1_approved:         { label: 'Phase 1 Approved', className: 'bg-sky-50 text-sky-700' },
-    pending_phase2_approval: { label: 'Pending Phase 2', className: 'bg-orange-50 text-orange-700' },
-    phase2_approved:         { label: 'Approved', className: 'bg-emerald-50 text-emerald-700' },
-    // Note: PR2 detail page styles cancelled as red; chain mapping does not include it explicitly.
-    cancelled:               { label: 'Cancelled', className: 'bg-red-50 text-red-600' },
-    draft:                   { label: 'Draft', className: 'bg-[#F7F9FC] text-[#40527A]' },
+    draft:              { label: 'Draft', className: 'bg-[#F7F9FC] text-[#40527A]' },
+    pending_approval:   { label: 'Pending Approval', className: 'bg-amber-50 text-amber-700' },
+    approved:           { label: 'Approved', className: 'bg-emerald-50 text-emerald-700' },
+    revision_requested: { label: 'Needs Revision', className: 'bg-orange-50 text-orange-700' },
+    rejected:           { label: 'Rejected', className: 'bg-red-50 text-red-600' },
+    cancelled:          { label: 'Cancelled', className: 'bg-red-50 text-red-600' },
   },
 
   PO: {
@@ -141,6 +141,6 @@ export function getApprovalInstanceStatusUI(status: string | null | undefined): 
  * - StatusChip.tsx uses different palette + always-dot behavior for generic variants.
  *   - TODO: if later we centralize StatusChip variants too, keep its dot semantics.
  * - PR2StatusBadge and POStatusBadge detail pages use bordered pills and sometimes
- *   different hues than RelatedRecords (e.g., PR2 phase1_approved, PO sent).
+ *   different hues than RelatedRecords (e.g., PO sent).
  */
 

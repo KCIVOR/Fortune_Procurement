@@ -55,9 +55,9 @@ export default function ApproverDashboard({ profile }: Props) {
       fetchPOApprovalQueue(),
       fetchApproverStats(profile.id),
     ]).then(([pr1, pr2, po, s]) => {
-      const myPR1 = pr1.filter(row => canActOnStep(profile, row.step_position_required));
-      const myPR2 = pr2.filter(row => canActOnPR2Step(profile, row.step_role_required, row.step_position_required));
-      const myPO = po.filter(row => canActOnPOStep(profile, row.step_role_required, row.step_position_required));
+      const myPR1 = pr1.filter(row => canActOnStep(profile, row.step_position_required, row.department_id));
+      const myPR2 = pr2.filter(row => canActOnPR2Step(profile, row.step_role_required, row.step_position_required, row.department_id));
+      const myPO = po.filter(row => canActOnPOStep(profile, row.step_role_required, row.step_position_required, row.department_id));
       
       const trueAwaiting = myPR1.length + myPR2.length + myPO.length;
 

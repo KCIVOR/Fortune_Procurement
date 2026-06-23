@@ -63,13 +63,13 @@ export default function ApprovalsPage() {
   const PAGE_SIZE = 20;
 
   const canActPR1 = (row: PR1ApprovalQueueRow) =>
-    profile ? canActOnStep(profile, row.step_position_required) : false;
+    profile ? canActOnStep(profile, row.step_position_required, row.department_id) : false;
 
   const canActPR2 = (row: PR2ApprovalQueueRow) =>
-    profile ? canActOnPR2Step(profile, row.step_role_required, row.step_position_required) : false;
+    profile ? canActOnPR2Step(profile, row.step_role_required, row.step_position_required, row.department_id) : false;
 
   const canActPO = (row: POApprovalQueueRow) =>
-    profile ? canActOnPOStep(profile, row.step_role_required, row.step_position_required) : false;
+    profile ? canActOnPOStep(profile, row.step_role_required, row.step_position_required, row.department_id) : false;
 
   const totalQueue      = pr1Queue.length + pr2Queue.length + poQueue.length;
   const actionablePR1   = pr1Queue.filter(canActPR1);
@@ -348,8 +348,7 @@ function PR2QueueTable({
   canAct: (row: PR2ApprovalQueueRow) => boolean;
 }) {
   const PHASE_LABELS: Record<string, string> = {
-    PR2_PHASE1: 'Phase 1',
-    PR2_PHASE2: 'Phase 2',
+    PR2_PHASE1: 'Approval',
   };
 
   return (

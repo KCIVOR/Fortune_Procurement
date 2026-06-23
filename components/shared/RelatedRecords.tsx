@@ -12,6 +12,11 @@ import DocumentStatusChip from '@/components/shared/DocumentStatusChip';
 
 // Only approver-level roles can view the Related Records section
 function canViewRelatedRecords(role: AppRole): boolean {
+  return role === 'approver' || role === 'procurement' || role === 'admin' || role === 'warehouse';
+}
+
+// Roles that can click through to related documents
+function canNavigateRelatedRecords(role: AppRole): boolean {
   return role === 'approver' || role === 'procurement' || role === 'admin';
 }
 
@@ -94,6 +99,7 @@ export default function RelatedRecords({ baseType, baseId, role, currentDocType,
               doc={doc}
               isCurrent={doc.type === currentDocType}
               compact={compact}
+              canNavigate={canNavigateRelatedRecords(role)}
             />
           ))}
         </div>
@@ -106,10 +112,12 @@ function ChainRow({
   doc,
   isCurrent,
   compact = false,
+  canNavigate = true,
 }: {
   doc: ChainDoc;
   isCurrent: boolean;
   compact?: boolean;
+  canNavigate?: boolean;
 }) {
   if (doc.type === 'PO' && doc.linked_pos && doc.linked_pos.length > 1) {
     return (
@@ -117,6 +125,7 @@ function ChainRow({
         doc={doc}
         isCurrent={isCurrent}
         compact={compact}
+        canNavigate={canNavigate}
       />
     );
   }
@@ -159,8 +168,8 @@ function ChainRow({
         ) : null}
       </div>
 
-      {/* Arrow indicator for linked rows */}
-      {doc.exists && doc.route && !isCurrent && (
+      {/* Arrow indicator for linked rows — only when navigation is allowed */}
+      {doc.exists && doc.route && !isCurrent && canNavigate && (
         <ChevronRight className="w-3 h-3 text-pq-neutral-400 shrink-0" />
       )}
       {isCurrent && (
@@ -169,7 +178,7 @@ function ChainRow({
     </>
   );
 
-  if (doc.exists && doc.route && !isCurrent) {
+  if (doc.exists && doc.route && !isCurrent && canNavigate) {
     return (
       <Link href={doc.route} className={rowBase}>
         {inner}
@@ -184,10 +193,12 @@ function POChainMultiRow({
   doc,
   isCurrent,
   compact = false,
+  canNavigate = true,
 }: {
   doc: ChainDoc;
   isCurrent: boolean;
   compact?: boolean;
+  canNavigate?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const Icon = TYPE_ICONS.PO;
@@ -231,12 +242,10 @@ function POChainMultiRow({
 
       {expanded && (
         <div className="divide-y divide-pq-neutral-200 bg-pq-neutral-50 border-t border-pq-neutral-200">
-          {links.map(p => (
-              <Link
-                key={p.id}
-                href={p.route}
-                className={`flex items-center gap-3 w-full ${compact ? 'px-3 py-2' : 'px-5 pl-10 py-2.5'} hover:bg-pq-primary-50/60 transition`}
-              >
+          {links.map(p => {
+            const rowClass = `flex items-center gap-3 w-full ${compact ? 'px-3 py-2' : 'px-5 pl-10 py-2.5'} ${canNavigate ? 'hover:bg-pq-primary-50/60 transition' : ''}`;
+            const rowInner = (
+              <>
                 <div className="flex-1 min-w-0">
                   <span className="font-mono font-medium text-xs text-pq-neutral-900 block">{p.document_number}</span>
                   {p.supplier_name_snapshot ? (
@@ -250,9 +259,15 @@ function POChainMultiRow({
                     <span className="text-[10px] text-pq-neutral-400">—</span>
                   )}
                 </div>
-                <ChevronRight className="w-3 h-3 text-pq-neutral-400 shrink-0" />
-              </Link>
-          ))}
+                {canNavigate && <ChevronRight className="w-3 h-3 text-pq-neutral-400 shrink-0" />}
+              </>
+            );
+            return canNavigate ? (
+              <Link key={p.id} href={p.route} className={rowClass}>{rowInner}</Link>
+            ) : (
+              <div key={p.id} className={rowClass}>{rowInner}</div>
+            );
+          })}
         </div>
       )}
     </div>

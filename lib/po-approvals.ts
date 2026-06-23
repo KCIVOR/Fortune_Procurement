@@ -9,20 +9,34 @@ import type {
 } from '@/types/po';
 import { createDeliveryForPO } from '@/lib/delivery';
 import { createNotification, notifyApproversForStep } from '@/lib/notifications';
+import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
+import type { RfqQuoteAttachment } from '@/types/canvassing';
 
 const db = supabase as any;
 
 // ─── Authority check ──────────────────────────────────────────────────────────
 
+const DIRECTOR_POSITIONS = ['Director', 'Finance Director'] as const;
+
 export function canActOnPOStep(
   profile: UserProfile,
   stepRoleRequired: string,
-  stepPositionRequired: string
+  stepPositionRequired: string,
+  documentDepartmentId?: string | null
 ): boolean {
-  const isCorrectRole = profile.role === stepRoleRequired || 
-    ((profile.role === 'approver' || profile.role === 'procurement') && 
+  const isCorrectRole = profile.role === stepRoleRequired ||
+    ((profile.role === 'approver' || profile.role === 'procurement') &&
      (stepRoleRequired === 'approver' || stepRoleRequired === 'procurement'));
-  return isCorrectRole && profile.position === stepPositionRequired;
+  const isCorrectPosition = profile.position === stepPositionRequired ||
+    (stepPositionRequired === 'Procurement Staff' && profile.position === 'Procurement Manager');
+  if (!isCorrectRole || !isCorrectPosition) return false;
+  if (
+    stepRoleRequired === 'approver' &&
+    documentDepartmentId &&
+    !(DIRECTOR_POSITIONS as readonly string[]).includes(profile.position) &&
+    profile.department_id !== documentDepartmentId
+  ) return false;
+  return true;
 }
 
 // ─── Submit PO for approval (Buyer initiates) ─────────────────────────────────
@@ -123,7 +137,7 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
 
   const [poRes, stepsRes] = await Promise.all([
     db.from('po_requests')
-      .select('id, po_number, pr2_id, supplier_name_snapshot, department_name_snapshot, purpose, date_required, status')
+      .select('id, po_number, pr2_id, supplier_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
       .in('id', poIds),
     db.from('approval_steps')
       .select('workflow_id, step_order, role_required, position_required, action_label, is_final')
@@ -174,6 +188,7 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
       po_number:                po.po_number,
       supplier_name_snapshot:   po.supplier_name_snapshot,
       department_name_snapshot: po.department_name_snapshot,
+      department_id:            po.department_id ?? null,
       purpose:                  po.purpose,
       date_required:            po.date_required,
       po_status:                po.status,
@@ -205,10 +220,8 @@ export async function fetchPOApprovalDetail(
 
   const [poRes, itemsRes, stepsRes, actionsRes, receiptRes] = await Promise.all([
     db.from('po_requests').select('*').eq('id', inst.document_id).maybeSingle(),
-    // Phase 9 (Raw Mats): same join as fetchPOById so approvers see the
-    // raw-mats badge on each PO line they review.
     db.from('po_items')
-      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification )')
+      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification, rfq_item_quote_id )')
       .eq('po_id', inst.document_id)
       .order('item_order', { ascending: true }),
     db.from('approval_steps')
@@ -250,6 +263,15 @@ export async function fetchPOApprovalDetail(
     }
   }
 
+  const rawItems: any[] = itemsRes.data ?? [];
+  const quoteIds = rawItems
+    .map((r: any) => r.pr2_items?.rfq_item_quote_id)
+    .filter((id: string | null | undefined): id is string => !!id);
+  const quoteAttachmentsByQuote: Record<string, RfqQuoteAttachment[]> =
+    quoteIds.length > 0
+      ? await fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({}))
+      : {};
+
   return {
     po_id:                       po.id,
     po_number:                   po.po_number,
@@ -259,6 +281,7 @@ export async function fetchPOApprovalDetail(
     supplier_name_snapshot:      po.supplier_name_snapshot,
     requisitioner_name_snapshot: po.requisitioner_name_snapshot,
     department_name_snapshot:    po.department_name_snapshot,
+    department_id:               po.department_id ?? null,
     purpose:                     po.purpose,
     date_required:               po.date_required,
     po_date:                     po.po_date,
@@ -269,24 +292,28 @@ export async function fetchPOApprovalDetail(
     remarks:                     po.remarks,
     po_status:                   po.status,
     pr1_priority:                pr1Priority,
-    items: (itemsRes.data ?? []).map((i: any) => ({
-      id:                   i.id,
-      po_id:                i.po_id,
-      pr2_item_id:          i.pr2_item_id,
-      item_order:           i.item_order,
-      item_code:            i.item_code,
-      description:          i.description,
-      unit_of_measure:      i.unit_of_measure,
-      quantity_to_purchase: Number(i.quantity_to_purchase),
-      unit_price:           Number(i.unit_price),
-      total_price:          Number(i.total_price),
-      supplier_name_snapshot: i.supplier_name_snapshot,
-      remarks:              i.remarks,
-      // Phase 9 (Raw Mats): forward the snapshot via the join above.
-      is_raw_material:      i.pr2_items?.is_raw_material === true,
-      quote_justification:  i.pr2_items?.quote_justification ?? null,
-      created_at:           i.created_at,
-    })),
+    items: rawItems.map((i: any) => {
+      const rfqItemQuoteId: string | null = i.pr2_items?.rfq_item_quote_id ?? null;
+      return {
+        id:                   i.id,
+        po_id:                i.po_id,
+        pr2_item_id:          i.pr2_item_id,
+        item_order:           i.item_order,
+        item_code:            i.item_code,
+        description:          i.description,
+        unit_of_measure:      i.unit_of_measure,
+        quantity_to_purchase: Number(i.quantity_to_purchase),
+        unit_price:           Number(i.unit_price),
+        total_price:          Number(i.total_price),
+        supplier_name_snapshot: i.supplier_name_snapshot,
+        remarks:              i.remarks,
+        is_raw_material:      i.pr2_items?.is_raw_material === true,
+        quote_justification:  i.pr2_items?.quote_justification ?? null,
+        rfq_item_quote_id:    rfqItemQuoteId,
+        quote_attachments:    rfqItemQuoteId ? (quoteAttachmentsByQuote[rfqItemQuoteId] ?? []) : [],
+        created_at:           i.created_at,
+      };
+    }),
     instance_id:     inst.id,
     current_step:    inst.current_step,
     instance_status: inst.status,

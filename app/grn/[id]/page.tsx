@@ -21,6 +21,7 @@ import DetailTableCard from '@/components/shared/DetailTableCard';
 import DetailInfoField from '@/components/shared/DetailInfoField';
 import { FormFieldLabel } from '@/components/shared/FormFieldLabel';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
+import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 
 export default function GRNDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -96,9 +97,9 @@ export default function GRNDetailPage() {
             quantity_rejected: i.quantity_rejected,
             unit_price:        i.unit_price,
             remarks:           i.remarks,
-            // Phase 9 (Raw Mats): forward the snapshot through the form draft.
-            is_raw_material:   i.is_raw_material === true,
+            is_raw_material:     i.is_raw_material === true,
             quote_justification: i.quote_justification ?? null,
+            quote_attachments:   i.quote_attachments,
           } as GRNItemDraft)),
         });
       })
@@ -251,6 +252,19 @@ export default function GRNDetailPage() {
         </div>
       )}
 
+      {/* TSQA Notice for Raw Materials */}
+      {isClosed && grn.items.some(i => i.is_raw_material) && (
+        <div className="flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-6">
+          <AlertTriangle className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-pq-warning-900">TSQA Notice</p>
+            <p className="text-xs text-pq-warning-700 mt-0.5">
+              This receipt contains Raw Material items subject to separate Technical and Quality Assurance (TSQA) procedures.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left sidebar */}
         <div className="space-y-4">
@@ -372,6 +386,7 @@ export default function GRNDetailPage() {
                   <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50">
                     <th className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-8">#</th>
                     <th className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase">Description</th>
+                    <th className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Attachments</th>
                     <th className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-14">Unit</th>
                     <th className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-20">Ordered</th>
                     <th className={`text-right px-3 py-2.5 text-xs font-semibold uppercase w-24 ${isReadOnly ? 'text-pq-neutral-500' : 'text-pq-primary-600'}`}>
@@ -413,6 +428,11 @@ export default function GRNDetailPage() {
                               </span>
                             </p>
                           )}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {(item.quote_attachments?.length ?? 0) > 0
+                            ? <QuoteAttachmentPills attachments={item.quote_attachments!} />
+                            : <span className="text-xs text-pq-neutral-300">—</span>}
                         </td>
                         <td className="px-3 py-3 text-center text-xs text-pq-neutral-500">{item.unit_of_measure}</td>
                         <td className="px-3 py-3 text-right text-xs text-pq-neutral-500 font-mono">{item.quantity_ordered}</td>
@@ -459,7 +479,7 @@ export default function GRNDetailPage() {
                             </td>
                           </>
                         ) : (
-                          <td colSpan={2} className="px-3 py-3 text-center text-xs text-pq-neutral-400">
+                          <td className="px-3 py-3 text-center text-xs text-pq-neutral-400">
                             {formatCommercialAmount(0, false)}
                           </td>
                         )}
@@ -481,7 +501,7 @@ export default function GRNDetailPage() {
                 {canViewPrices && (
                   <tfoot>
                     <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                      <td colSpan={isReadOnly ? 7 : 8} className="px-3 py-3 text-right text-xs font-semibold text-pq-neutral-900">
+                      <td colSpan={isReadOnly ? 8 : 9} className="px-3 py-3 text-right text-xs font-semibold text-pq-neutral-900">
                         Total Received Value
                       </td>
                       <td className="px-3 py-3 text-right text-sm font-bold text-pq-neutral-900 font-mono">

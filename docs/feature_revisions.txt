@@ -1,0 +1,401 @@
+Procurement Workflow Revision Report
+Project
+Procurement Management System (PR1 → GRN Workflow)
+Date
+June 2026
+
+I. Current Workflow (Before Change)
+The existing procurement workflow follows a warehouse-first validation approach, where requests are evaluated for stock availability before management approval is obtained.
+Workflow:
+Employee
+→ PR1 Creation
+→ Warehouse Validation
+→ PR1 Approval Routing
+→ Canvassing / RFQ
+→ PR2
+→ PR2 Approval Phase 1
+→ PR2 Approval Phase 2
+→ PO Generation
+→ PO Approval Routing
+→ Supplier PO Acknowledgment
+→ Delivery Tracking
+→ GRN
+→ Completed
+Under this process, warehouse personnel determine whether procurement activities are required before the request enters the approval process. PR2 approvals are split into two separate approval phases, and substitute item handling is not explicitly controlled through requestor approval.
+
+II. Revised Workflow (After Change)
+The revised procurement workflow introduces an approval-first approach, ensuring that management approval is obtained before warehouse verification and procurement activities begin.
+Workflow:
+Employee
+→ PR1 Creation
+→ PR1 Approval Routing
+→ Warehouse Verification
+→ Canvassing / RFQ
+→ Supplier Quotation Submission
+→ Requestor Approval of Substitute Items (If Applicable)
+→ Supplier Evaluation and Awarding
+→ PR2 Generation
+→ PR2 Approval Routing
+→ PO Generation
+→ PO Approval Routing
+→ Supplier PO Acknowledgment
+→ Delivery Tracking
+→ GRN Generation
+→ TSQA Notice (Raw Materials Only)
+→ Completed
+This revised structure strengthens management oversight, simplifies approval routing, formalizes substitute-item approval controls, and improves procurement governance while maintaining operational efficiency.
+For raw material items, the system will display an informational TSQA notice after GRN processing. No TSQA workflow, approval routing, queue, or status will be implemented.
+
+III. Detailed Workflow Changes
+Change 1: PR1 Approval Moved Before Warehouse Verification
+Previous Process
+Submitted PR1 requests were routed directly to Warehouse Validation. Warehouse personnel reviewed stock availability and determined whether procurement activities were required before the request entered the approval process.
+Workflow:
+Employee
+→ Warehouse Validation
+→ PR1 Approval
+Revised Process
+All PR1 requests must now pass the designated approval hierarchy before warehouse review begins.
+Workflow:
+Employee
+→ PR1 Approval
+→ Warehouse Verification
+Business Impact
+This change establishes management approval as the first control point in the procurement process. Warehouse personnel will only review requests that have already been approved by the appropriate signatories, reducing unnecessary validation work and ensuring alignment with organizational approval requirements.
+Development Impact
+Update PR1 submission logic:
+Current:
+draft → pending_warehouse
+Revised:
+draft → pending_approval
+Warehouse verification screens and actions must remain inaccessible until final PR1 approval is completed.
+
+Change 2: PR1 Approval Becomes Mandatory
+Previous Process
+PR1 approval was only triggered when Warehouse Validation identified insufficient stock requiring procurement.
+Revised Process
+Every submitted PR1 must pass through approval routing regardless of stock availability.
+Approval Routing:
+Supervisor
+→ Department Head
+Business Impact
+This standardizes governance across all procurement requests and provides management visibility into every request before warehouse or procurement resources are utilized.
+Development Impact
+Remove conditional approval creation.
+Automatically create:
+PR1_APPROVAL
+whenever a PR1 is submitted.
+
+Change 3: Warehouse Verification Repositioned Within the Workflow
+Previous Process
+Warehouse Validation served as the first operational review stage after PR1 submission.
+Revised Process
+Warehouse Verification now occurs only after completion of PR1 approval.
+Workflow:
+PR1 Approval Complete
+→ Warehouse Verification
+Business Impact
+Warehouse personnel focus exclusively on approved requests, improving efficiency and reducing unnecessary operational effort.
+Development Impact
+Update workflow routing and permissions to ensure Warehouse Verification is only available after final approval.
+
+Change 4: Formal Supplier Quotation Submission Stage Added
+Previous Process
+Supplier quotation activities were considered part of the RFQ process but were not explicitly represented as a separate workflow stage.
+Revised Process
+Supplier Quotation Submission becomes a distinct stage following RFQ issuance.
+Workflow:
+RFQ Issued
+→ Supplier Quotation Submission
+Business Impact
+This provides clearer visibility into supplier participation and quotation management activities.
+Development Impact
+Add a dedicated quotation submission stage and tracking mechanism within the RFQ process.
+
+Change 5: Requestor Approval Required for Substitute Items
+Previous Process
+Procurement could evaluate supplier quotations and alternative items without a formal requestor approval gate.
+Revised Process
+When suppliers propose substitute or alternative items, the original requestor must review and approve the substitute item before Procurement may select it as the winning quotation.
+Workflow:
+Supplier Submits Substitute Item
+→ Requestor Review
+→ Approve or Reject
+→ Procurement Awarding
+Business Impact
+This ensures that substitute products or services remain aligned with the requestor's operational requirements and prevents unauthorized substitutions.
+Development Impact
+Implement:
+Requestor notification process
+Substitute item approval tracking
+Award restrictions for unapproved substitute items
+
+Change 6: Supplier Evaluation and Awarding Formalized
+Previous Process
+Supplier evaluation and awarding occurred as part of Procurement's internal RFQ activities.
+Revised Process
+Supplier Evaluation and Awarding becomes an explicit workflow stage following quotation collection and substitute item approval.
+Business Impact
+This provides better procurement traceability and clearer supplier selection governance.
+Development Impact
+Introduce supplier awarding records and workflow visibility for supplier evaluation activities.
+
+Change 7: PR2 Phase 2 Approval Removed
+Previous Process
+PR2 approval consisted of two approval phases.
+Phase 1:
+Procurement Staff
+→ Procurement Manager
+→ Director
+Phase 2:
+Buyer
+→ Procurement Manager
+→ Director
+Revised Process
+PR2 approval is simplified into a single approval workflow.
+Procurement Staff
+→ Procurement Manager
+→ Director
+Business Impact
+This reduces approval cycle time and removes duplicate approval activities while preserving management oversight.
+Development Impact
+Remove:
+PR2_PHASE2 workflow
+pending_phase2_approval
+phase2_approved
+After Director approval, the workflow proceeds directly to PO Generation.
+
+Change 8: PO Approval Routing Updated
+Previous Process
+Purchase Orders followed:
+Buyer
+→ Procurement Manager
+→ Finance Director
+Revised Process
+Purchase Orders now follow:
+Procurement Staff
+→ Procurement Manager
+→ Finance Director
+Business Impact
+This aligns Purchase Order approvals with the revised procurement organizational structure.
+Development Impact
+Update PO_APPROVAL configuration and role assignments accordingly.
+
+Change 9: Raw Material TSQA Notice After GRN
+Previous Process
+After GRN closure, procurement requests were immediately completed.
+Workflow:
+Delivery
+→ GRN Closed
+→ Completed
+Revised Process
+For raw material requests, the system displays an informational TSQA notice before completion.
+Workflow:
+Delivery
+→ GRN Closed
+→ Display TSQA Notice
+→ Completed
+Business Impact
+This improves awareness that raw material items are subject to separate TSQA procedures outside of the Procurement System.
+Development Impact
+No TSQA workflow, approval routing, queue, status, or business logic will be implemented.
+The system will display an informational notice only.
+
+IV. New End-to-End Workflow
+The revised procurement workflow follows a structured approval-first approach, ensuring that management approval is obtained before warehouse verification and procurement activities begin. The following sequence describes the complete lifecycle of a procurement request from creation through completion.
+Step 1: PR1 Creation and Submission
+The process begins when an Employee creates and submits a Purchase Requisition Form (PR1). The request contains the required procurement details, including requested goods or services, quantity requirements, business justification, department information, and supporting attachments where applicable.
+Upon submission, the PR1 automatically enters the approval workflow.
+
+Step 2: PR1 Approval Routing
+The PR1 is routed through the designated approval hierarchy before any warehouse activity takes place.
+Approval Sequence:
+Supervisor
+→ Department Head
+Only fully approved PR1 requests may proceed to Warehouse Verification.
+
+Step 3: Warehouse Verification
+Warehouse personnel review stock availability and determine procurement-required quantities.
+If procurement activity is required, the request proceeds to RFQ.
+For service requests, warehouse stock verification may be bypassed where inventory validation is not applicable.
+
+Step 4: Canvassing and RFQ
+Procurement creates an RFQ and invites qualified suppliers to participate.
+
+Step 5: Supplier Quotation Submission
+Suppliers submit quotations, product proposals, service proposals, specifications, and supporting documents.
+Submissions may include substitute or alternative items.
+
+Step 6: Requestor Review of Substitute Items
+If a supplier submits an alternative or substitute item, the original requestor is notified and must approve or reject the proposed substitute before Procurement may award it.
+Only approved substitute items may proceed to supplier awarding.
+
+Step 7: Supplier Evaluation and Awarding
+Procurement evaluates supplier quotations based on pricing, compliance, lead time, supplier accreditation status, and approved substitute items.
+A winning supplier is selected.
+
+Step 8: PR2 Generation
+Procurement generates PR2 using the approved supplier and quotation details.
+
+Step 9: PR2 Approval Routing
+Approval Sequence:
+Procurement Staff
+→ Procurement Manager
+→ Director
+Upon Director approval, the process proceeds to PO Generation.
+
+Step 10: PO Generation
+Procurement generates the Purchase Order based on the approved PR2.
+
+Step 11: PO Approval Routing
+Approval Sequence:
+Procurement Staff
+→ Procurement Manager
+→ Finance Director
+Upon final approval, the PO becomes available for supplier acknowledgment.
+
+Step 12: Supplier PO Acknowledgment
+The supplier acknowledges receipt and acceptance of the Purchase Order.
+
+Step 13: Delivery Tracking
+Procurement and Warehouse personnel monitor scheduled, in-transit, delayed, and completed deliveries until physical receipt occurs.
+
+Step 14: GRN Generation and Processing
+Warehouse personnel generate the Goods Receipt Note (GRN) and record received quantities, delivery references, receipt dates, and remarks.
+
+Step 15: TSQA Notice for Raw Material Items
+For raw material requests, the system displays an informational TSQA notice after GRN processing.
+No TSQA workflow, approval routing, queue, status, or system-controlled validation process will be implemented.
+
+Step 16: Procurement Completion
+After GRN processing is completed, the procurement request is considered complete.
+Completion applies to:
+Goods
+Services
+Raw Materials
+The procurement lifecycle concludes at this stage.
+
+V. Status Impact Assessment
+PR1
+Recommended Statuses:
+draft
+pending_approval
+approved_for_warehouse
+pending_warehouse
+for_canvassing
+canvassing_complete
+resolved_internal
+revision_requested
+rejected
+completed
+
+PR2
+Recommended Statuses:
+draft
+pending_approval
+approved
+revision_requested
+rejected
+Removed:
+pending_phase2_approval
+phase2_approved
+
+PO
+Recommended Statuses:
+draft
+for_approval
+approved
+sent
+
+GRN
+Recommended Statuses:
+open
+closed
+Completion Logic:
+Delivery
+→ GRN Closed
+→ Completed
+Applicable to Goods, Services, and Raw Material Requests.
+
+VI. Feature Revision List
+Module
+Existing Behavior
+Revised Behavior
+Impact Level
+PR1 Attachments
+PR1 supports standard request details only
+Add image attachment upload capability to PR1 requests
+Medium
+PR1 Item Classification
+No distinction between services and goods
+Add request type classification: Goods or Services
+High
+Supplier Account Management
+Supplier accounts created manually one-by-one
+Allow Procurement users to bulk import supplier accounts
+High
+Supplier Product Catalog
+Catalog supports product items only
+Add "Service" as a supported product type in supplier catalogs
+Medium
+Supplier Product / Service Accreditation
+No accreditation validity tracking
+Implement accreditation validation, expiration, and renewal process for registered products and services
+High
+Department Segregation
+Requests are viewed in a common queue
+Separate requests by department for visibility, filtering, reporting, and workflow management
+High
+Procurement Permissions
+Procurement Manager has limited permissions compared to Procurement Staff
+Grant Procurement Manager the same operational permissions as Procurement Staff
+High
+Substitute Item Approval
+Procurement can evaluate supplier quotations only
+Requestor approval required before substitute items can be selected as winning quotations
+High
+TSQA Notice
+No TSQA visibility after GRN
+Display informational TSQA notice after GRN processing for raw materials
+Low
+
+
+VII. Database and Workflow Components Affected
+Approval Workflows
+PR1_APPROVAL
+PR2_PHASE1
+PO_APPROVAL
+Business Logic
+PR1 Submission Logic
+Warehouse Verification Logic
+Supplier Quotation Submission Logic
+Substitute Item Approval Logic
+Supplier Awarding Logic
+PR2 Approval Logic
+PO Approval Assignment Logic
+User Interface
+PR1 Image Attachments
+Goods / Services Classification
+Substitute Item Approval Screen
+TSQA Notice Display
+Department-Based Filtering
+Supplier Management
+Supplier Account Import
+Supplier Product Catalog Service Type
+Accreditation Lifecycle Management
+Accreditation Renewal Tracking
+Notifications
+PR1 Approval Notifications
+Warehouse Assignment Notifications
+Substitute Item Approval Notifications
+Supplier Award Notifications
+Completion Notifications
+Dashboard & Reporting
+Procurement Dashboard
+Approval Queues
+Warehouse Queue
+Supplier Accreditation Dashboard
+Department-Based Reporting
+Procurement Completion Reports
+
+

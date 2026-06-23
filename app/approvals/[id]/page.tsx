@@ -53,6 +53,7 @@ import DetailInfoField from '@/components/shared/DetailInfoField';
 import DetailWideInfoRow from '@/components/shared/DetailWideInfoRow';
 import DetailTableCard from '@/components/shared/DetailTableCard';
 import WorkflowTimeline from '@/components/approvals/WorkflowTimeline';
+import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 
 export default function ApprovalDetailPage() {
   const { id: instanceId } = useParams<{ id: string }>();
@@ -90,7 +91,7 @@ export default function ApprovalDetailPage() {
     detail &&
     detail.instance_status === 'active' &&
     currentStepDef &&
-    canActOnStep(profile, currentStepDef.position_required)
+    canActOnStep(profile, currentStepDef.position_required, detail.department_id)
   );
 
   const canUpdatePriority = detail && profile && canUpdatePR1Priority(profile);
@@ -275,6 +276,7 @@ export default function ApprovalDetailPage() {
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-16">Unit</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">SOH</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Qty Req.</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-32">Attachments</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-pq-neutral-200">
@@ -297,6 +299,13 @@ export default function ApprovalDetailPage() {
                           : '—'}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_requested.toLocaleString()}</td>
+                      <td className="px-4 py-3">
+                        {(item.attachments?.length ?? 0) > 0 ? (
+                          <PR1AttachmentsGallery attachments={item.attachments!} />
+                        ) : (
+                          <span className="text-xs text-pq-neutral-300">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -380,6 +389,12 @@ export default function ApprovalDetailPage() {
                   actions={detail.actions}
                   currentStep={detail.current_step}
                   instanceStatus={detail.instance_status}
+                  warehouseDecision={detail.warehouse_decision}
+                  warehouseValidatorName={detail.warehouse_validator_name}
+                  warehouseValidatorPosition={detail.warehouse_validator_position}
+                  warehouseValidatedAt={detail.warehouse_validated_at}
+                  warehouseNotes={detail.warehouse_notes}
+                  pr1Status={detail.pr1_status}
                 />
               </div>
             </div>

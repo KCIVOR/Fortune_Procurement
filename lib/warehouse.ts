@@ -11,7 +11,7 @@ import type {
   WarehouseItemRoute,
   ItemAvailability,
 } from '@/types/warehouse';
-import { createNotification, notifyApproversForStep } from '@/lib/notifications';
+import { createNotification, notifyByRole } from '@/lib/notifications';
 
 const db = supabase as any;
 
@@ -89,7 +89,7 @@ export async function fetchWarehouseQueue(): Promise<PR1QueueRow[]> {
   const { data, error } = await db
     .from('pr1_requests')
     .select(WAREHOUSE_QUEUE_SELECT)
-    .eq('status', 'pending_warehouse')
+    .eq('status', 'approved_for_warehouse')
     .order('submitted_at', { ascending: true });
 
   if (error) throw error;
@@ -107,7 +107,7 @@ export async function fetchWarehouseQueuePaged(options: {
   const { limit, offset, search, priority } = options;
 
   const applyFilters = (q: any) => {
-    q = q.eq('status', 'pending_warehouse');
+    q = q.eq('status', 'approved_for_warehouse');
 
     if (priority && priority !== 'all') {
       q = q.eq('priority', priority);
@@ -154,7 +154,7 @@ export async function fetchWarehouseQueueStatCounts(): Promise<{
   const { data, error } = await db
     .from('pr1_requests')
     .select('warehouse_validations(decision)')
-    .eq('status', 'pending_warehouse');
+    .eq('status', 'approved_for_warehouse');
 
   if (error) throw error;
 
@@ -363,7 +363,7 @@ export async function submitWarehouseTerminalAction(
       updated_at: now,
     })
     .eq('id', pr1Id)
-    .eq('status', 'pending_warehouse')
+    .eq('status', 'approved_for_warehouse')
     .select('id');
 
   if (pr1Err) throw pr1Err;
@@ -498,11 +498,11 @@ export async function submitValidationDecision(
   }
 
   // Map decision to PR1 status
-  // sufficient  → resolved_internal (closed, no approval needed)
-  // insufficient → pending_approval (routes to approval workflow)
+  // sufficient   → resolved_internal (closed, stock on hand covers request)
+  // insufficient → for_canvassing (routes to procurement for canvassing)
   const nextPR1Status = decision === 'sufficient'
     ? 'resolved_internal'
-    : 'pending_approval';
+    : 'for_canvassing';
 
   // Finalise validation header with decision and submitter snapshot
   const { error: vErr } = await db
@@ -527,7 +527,7 @@ export async function submitValidationDecision(
       updated_at: now,
     })
     .eq('id', pr1Id)
-    .eq('status', 'pending_warehouse')
+    .eq('status', 'approved_for_warehouse')
     .select('id');
 
   if (pr1Err) throw pr1Err;
@@ -535,57 +535,29 @@ export async function submitValidationDecision(
     throw new Error('PR1 status could not be updated. It may have already been processed.');
   }
 
-  // For insufficient decisions: look up the PR1_APPROVAL workflow and create
-  // an approval instance at step 1 (Supervisor). This is the ONLY place an
-  // approval instance is ever created for PR1 — never before warehouse validation.
+  // For insufficient decisions: notify procurement to begin canvassing
   if (decision === 'insufficient') {
-    const { data: workflow, error: wfErr } = await db
-      .from('approval_workflows')
-      .select('id')
-      .eq('code', 'PR1_APPROVAL')
-      .eq('active', true)
-      .maybeSingle();
+    try {
+      const { data: pr1Row } = await db
+        .from('pr1_requests')
+        .select('pr1_number')
+        .eq('id', pr1Id)
+        .maybeSingle();
 
-    if (wfErr) throw wfErr;
-    if (!workflow) throw new Error('PR1_APPROVAL workflow not found. Cannot route for approval.');
-
-    const { data: newInst, error: instanceErr } = await db
-      .from('approval_instances')
-      .insert({
-        workflow_id:   workflow.id,
-        document_type: 'PR1',
-        document_id:   pr1Id,
-        current_step:  1,
-        status:        'active',
-        started_by:    profile.id,
-        started_at:    now,
-      })
-      .select('id')
-      .single();
-
-    if (instanceErr) throw instanceErr;
-
-    // Notify step-1 approvers (best-effort — must not fail the validation)
-    if (newInst?.id) {
-      try {
-        const { data: pr1Row } = await db
-          .from('pr1_requests')
-          .select('pr1_number')
-          .eq('id', pr1Id)
-          .maybeSingle();
-
-        if (pr1Row?.pr1_number) {
-          await notifyApproversForStep({
-            workflowId:     workflow.id,
-            stepOrder:      1,
-            documentId:     pr1Id,
-            documentNumber: pr1Row.pr1_number,
-            instanceId:     newInst.id,
-          });
-        }
-      } catch {
-        // Notifications are best-effort; do not fail the validation
-      }
+      await notifyByRole(
+        'procurement',
+        {
+          title:         'PR1 Ready for Canvassing',
+          body:          `PR1 ${pr1Row?.pr1_number ?? pr1Id} has been validated — items require procurement.`,
+          type:          'action_required',
+          document_type: 'pr1',
+          document_id:   pr1Id,
+          action_url:    `/pr1/${pr1Id}`,
+        },
+        { dedupeUnreadForDocument: true }
+      );
+    } catch {
+      // Notifications are best-effort; do not fail the validation
     }
   }
 

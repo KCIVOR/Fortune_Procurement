@@ -27,6 +27,7 @@ export interface PORequest {
   payment_terms: string;
   packing: string;
   remarks: string | null;
+  department_id: string | null;
   status: POStatus;
   generated_by: string | null;
   generated_at: string;
@@ -60,6 +61,10 @@ export interface POItem {
    * (raw-mats line awarded against unverified or manual quote).
    */
   quote_justification?: string | null;
+  /** FK to the winning rfq_item_quotes row, forwarded from pr2_items via join. */
+  rfq_item_quote_id?: string | null;
+  /** Supplier quote attachments loaded at read time via rfq_item_quote_id. */
+  quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
   created_at: string;
 }
 
@@ -138,6 +143,7 @@ export interface POApprovalQueueRow {
   po_number:                  string;
   supplier_name_snapshot:     string;
   department_name_snapshot:   string;
+  department_id:              string | null;
   purpose:                    string;
   date_required:              string;
   po_status:                  string;
@@ -182,6 +188,7 @@ export interface POApprovalDetail {
   supplier_name_snapshot:      string;
   requisitioner_name_snapshot: string;
   department_name_snapshot:    string;
+  department_id:               string | null;
   purpose:                     string;
   date_required:               string;
   po_date:                     string;

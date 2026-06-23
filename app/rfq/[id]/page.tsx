@@ -17,11 +17,14 @@ import {
   saveItemSelection,
   clearItemSelection,
 } from '@/lib/canvassing';
+import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
 import type { RfqDetailView, QuoteMatrixRow, CanvassSupplierCandidate } from '@/types/canvassing';
 import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail, Info } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
+import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 import JustificationModal, { type JustificationContext } from '@/components/canvassing/JustificationModal';
 import { format } from 'date-fns';
 import DetailBackButton from '@/components/shared/DetailBackButton';
@@ -599,18 +602,25 @@ export default function RfqDetailPage() {
             <div className="divide-y divide-pq-neutral-200">
               {items.map(item => (
                 <div key={item.id} className="px-5 py-3">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xs text-pq-neutral-400 w-4 shrink-0">{item.item_order}.</span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-pq-neutral-900">{item.description}</p>
-                        <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-baseline gap-2 min-w-0 flex-1">
+                      <span className="text-xs text-pq-neutral-400 w-4 shrink-0">{item.item_order}.</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-pq-neutral-900">{item.description}</p>
+                          <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                        </div>
+                        <p className="text-xs text-pq-neutral-400 mt-0.5">
+                          {item.item_code && <span className="font-mono">{item.item_code} · </span>}
+                          {item.quantity_requested} {item.unit_of_measure}
+                        </p>
                       </div>
-                      <p className="text-xs text-pq-neutral-400 mt-0.5">
-                        {item.item_code && <span className="font-mono">{item.item_code} · </span>}
-                        {item.quantity_requested} {item.unit_of_measure}
-                      </p>
                     </div>
+                    {item.attachments && item.attachments.length > 0 && (
+                      <div className="shrink-0">
+                        <PR1AttachmentsGallery attachments={item.attachments} />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -811,13 +821,22 @@ function MatrixRow({
   return (
     <tr className="hover:bg-pq-neutral-50 transition">
       <td className="px-3 py-2.5 align-top">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-medium text-pq-neutral-900 text-xs leading-snug">{row.item.description}</p>
-          <RawMaterialBadge isRawMaterial={row.item.is_raw_material} size="sm" />
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-medium text-pq-neutral-900 text-xs leading-snug">{row.item.description}</p>
+              <RawMaterialBadge isRawMaterial={row.item.is_raw_material} size="sm" />
+            </div>
+            <p className="text-xs text-pq-neutral-400 mt-0.5">
+              {row.item.quantity_requested} {row.item.unit_of_measure}
+            </p>
+          </div>
+          {row.item.attachments && row.item.attachments.length > 0 && (
+            <div className="shrink-0 mt-0.5">
+              <PR1AttachmentsGallery attachments={row.item.attachments} />
+            </div>
+          )}
         </div>
-        <p className="text-xs text-pq-neutral-400 mt-0.5">
-          {row.item.quantity_requested} {row.item.unit_of_measure}
-        </p>
       </td>
       {suppliers.map(supplier => {
         const quote      = row.quotes.find(q => q.rfq_supplier_id === supplier.id);
@@ -975,6 +994,10 @@ function MatrixRow({
                 </div>
                 {quote.remarks && (
                   <p className="text-xs text-pq-neutral-400 italic leading-snug">&ldquo;{quote.remarks}&rdquo;</p>
+                )}
+
+                {quote.attachments && quote.attachments.length > 0 && (
+                  <QuoteAttachmentPills attachments={quote.attachments} />
                 )}
 
                 {/* Phase 7 (Raw Mats): Can Award indicator

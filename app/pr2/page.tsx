@@ -9,22 +9,24 @@ import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
 import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
-import { fetchPR2s } from '@/lib/pr2';
+import { fetchPR2s, fetchDepartmentOptions } from '@/lib/pr2';
+import { useAuth } from '@/context/AuthContext';
 import type { PR2Request } from '@/types/pr2';
 import { PR2_STATUS_LABELS, type PR2Status } from '@/types/pr2';
 import { format } from 'date-fns';
 import { ClipboardList, ArrowRight, Building2, CalendarDays } from 'lucide-react';
 
 const STATUS_STYLES: Record<string, string> = {
-  draft:                   'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
-  pending_phase1_approval: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
-  phase1_approved:         'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200',
-  pending_phase2_approval: 'bg-orange-50 text-orange-700 border-orange-200',
-  phase2_approved:         'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
-  cancelled:               'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
+  draft:              'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
+  pending_approval:   'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
+  approved:           'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
+  revision_requested: 'bg-orange-50 text-orange-700 border-orange-200',
+  rejected:           'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
+  cancelled:          'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
 };
 
 export default function PR2ListPage() {
+  const { profile } = useAuth();
   const [pr2s, setPR2s] = useState<PR2Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,8 +34,19 @@ export default function PR2ListPage() {
   const [rowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedDept, setSelectedDept] = useState('all');
+  const [deptOptions, setDeptOptions] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+
+  const canFilterByDept = profile?.role === 'admin' || profile?.role === 'procurement';
+
+  useEffect(() => {
+    if (!canFilterByDept) return;
+    fetchDepartmentOptions()
+      .then(setDeptOptions)
+      .catch(() => {});
+  }, [canFilterByDept]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setLoading(true);
@@ -44,6 +57,7 @@ export default function PR2ListPage() {
       offset,
       status: selectedStatus,
       search: appliedSearch.trim() || undefined,
+      departmentId: canFilterByDept && selectedDept !== 'all' ? selectedDept : undefined,
     })
       .then((result) => {
         setPR2s(result.pr2s);
@@ -51,7 +65,7 @@ export default function PR2ListPage() {
       })
       .catch(() => setError('Failed to load purchase requests.'))
       .finally(() => setLoading(false));
-  }, [currentPage, rowsPerPage, selectedStatus, appliedSearch]);
+  }, [currentPage, rowsPerPage, selectedStatus, appliedSearch, selectedDept, canFilterByDept]);
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
@@ -83,6 +97,21 @@ export default function PR2ListPage() {
         })),
       ],
     },
+    ...(canFilterByDept ? [{
+      type: 'select' as const,
+      id: 'pr2-dept',
+      label: 'Department',
+      placeholder: 'All departments',
+      value: selectedDept,
+      onChange: (value: string | [string, string]) => {
+        setSelectedDept(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all', label: 'All departments' },
+        ...deptOptions.map(d => ({ value: d.id, label: d.name })),
+      ],
+    }] : []),
   ];
 
   const handleApply = () => {
@@ -94,6 +123,7 @@ export default function PR2ListPage() {
     setSearch('');
     setAppliedSearch('');
     setSelectedStatus('all');
+    setSelectedDept('all');
     setCurrentPage(1);
   };
 

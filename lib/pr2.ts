@@ -2,19 +2,33 @@ import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import type { PR2Request, PR2WithItems, PR2ItemDraft } from '@/types/pr2';
 import { createNotification } from '@/lib/notifications';
-import { fetchWarehouseProcurementByPr1Item } from '@/lib/canvassing';
+import { fetchWarehouseProcurementByPr1Item, fetchRfqQuoteAttachmentsByRfq } from '@/lib/canvassing';
+import { fetchPR1Attachments } from './pr1';
+import type { PR1Attachment } from '@/types/pr1';
+import type { RfqQuoteAttachment } from '@/types/canvassing';
 
 const db = supabase as any;
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
+
+export async function fetchDepartmentOptions(): Promise<{ id: string; name: string }[]> {
+  const { data, error } = await db
+    .from('departments')
+    .select('id, name')
+    .eq('active', true)
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as { id: string; name: string }[];
+}
 
 export async function fetchPR2s(options: {
   limit:  number;
   offset: number;
   status?: string;
   search?: string;
+  departmentId?: string;
 }): Promise<{ pr2s: PR2Request[]; total_count: number }> {
-  const { limit, offset, status, search } = options;
+  const { limit, offset, status, search, departmentId } = options;
 
   const buildBaseQuery = () => {
     let q = db.from('pr2_requests').select('*');
@@ -26,6 +40,10 @@ export async function fetchPR2s(options: {
     if (search && search.trim()) {
       const t = `%${search.trim()}%`;
       q = q.or(`pr2_number.ilike.${t},purpose.ilike.${t}`);
+    }
+
+    if (departmentId) {
+      q = q.eq('department_id', departmentId);
     }
 
     return q;
@@ -65,7 +83,26 @@ export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
 
   if (itemsErr) throw itemsErr;
 
-  return { ...pr2, items: items ?? [] } as PR2WithItems;
+  const [pr1Attachments, quoteAttachmentsByQuote] = await Promise.all([
+    fetchPR1Attachments(pr2.pr1_id).catch(() => [] as PR1Attachment[]),
+    pr2.rfq_id
+      ? fetchRfqQuoteAttachmentsByRfq(pr2.rfq_id).catch(() => ({} as Record<string, RfqQuoteAttachment[]>))
+      : Promise.resolve({} as Record<string, RfqQuoteAttachment[]>),
+  ]);
+
+  const attachmentsByItem: Record<string, PR1Attachment[]> = {};
+  for (const att of pr1Attachments) {
+    if (!attachmentsByItem[att.pr1_item_id]) attachmentsByItem[att.pr1_item_id] = [];
+    attachmentsByItem[att.pr1_item_id].push(att);
+  }
+
+  const itemsWithAttachments = (items ?? []).map((item: any) => ({
+    ...item,
+    attachments:       item.pr1_item_id ? (attachmentsByItem[item.pr1_item_id] ?? []) : [],
+    quote_attachments: item.rfq_item_quote_id ? (quoteAttachmentsByQuote[item.rfq_item_quote_id] ?? []) : [],
+  }));
+
+  return { ...pr2, items: itemsWithAttachments } as PR2WithItems;
 }
 
 export async function fetchPR2ByRfqId(rfqId: string): Promise<PR2Request | null> {
@@ -271,6 +308,7 @@ export async function generatePR2FromRfq(
         quote_justification:     sel.requires_justification === true
           ? (sel.quote_justification ?? null)
           : null,
+        rfq_item_quote_id:       quote?.id ?? null,
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
@@ -322,7 +360,7 @@ export async function savePR2Items(
 
   // Upsert each item (update inventory fields only — pricing comes from canvassing)
   for (const item of items) {
-    const qtyToPurchase = Math.max(0, item.quantity_requested - item.qty_on_hand - item.qty_incoming);
+    const qtyToPurchase = Math.max(0, Number(item.quantity_to_purchase) || 0);
     await db
       .from('pr2_items')
       .update({

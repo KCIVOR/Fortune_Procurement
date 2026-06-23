@@ -6,6 +6,8 @@ import type {
   PR1ApprovalSignatories,
   ApprovalAction,
 } from '@/types/approvals';
+import { fetchPR1Attachments } from '@/lib/pr1';
+import type { PR1Attachment } from '@/types/pr1';
 import { createNotification, notifyApproversForStep, notifyByRole } from '@/lib/notifications';
 
 const db = supabase as any;
@@ -31,7 +33,7 @@ export async function fetchApprovalQueue(): Promise<PR1ApprovalQueueRow[]> {
 
   const [pr1Res, workflowRes, stepsRes] = await Promise.all([
     db.from('pr1_requests')
-      .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, date_required, submitted_at')
+      .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, priority, date_required, submitted_at')
       .in('id', pr1Ids),
     db.from('approval_workflows')
       .select('id, code')
@@ -61,6 +63,7 @@ export async function fetchApprovalQueue(): Promise<PR1ApprovalQueueRow[]> {
       pr1_number:                  pr1.pr1_number,
       requisitioner_name_snapshot: pr1.requisitioner_name_snapshot,
       department_name_snapshot:    pr1.department_name_snapshot,
+      department_id:               pr1.department_id ?? null,
       purpose:                     pr1.purpose,
       priority:                    pr1.priority,
       date_required:               pr1.date_required,
@@ -105,7 +108,7 @@ export async function fetchApprovalDetail(
       .eq('instance_id', instanceId)
       .order('acted_at', { ascending: true }),
     db.from('warehouse_validations')
-      .select('id, decision, validator_name_snapshot, validated_at, notes')
+      .select('id, decision, validator_name_snapshot, validator_position_snapshot, validated_at, notes')
       .eq('pr1_id', inst.document_id)
       .maybeSingle(),
   ]);
@@ -133,11 +136,19 @@ export async function fetchApprovalDetail(
     });
   }
 
+  const attachmentsAll = await fetchPR1Attachments(pr1.id as string).catch(() => []);
+  const attachmentsByItem: Record<string, PR1Attachment[]> = {};
+  for (const att of attachmentsAll) {
+    if (!attachmentsByItem[att.pr1_item_id]) attachmentsByItem[att.pr1_item_id] = [];
+    attachmentsByItem[att.pr1_item_id].push(att);
+  }
+
   return {
     pr1_id:                      pr1.id,
     pr1_number:                  pr1.pr1_number,
     requisitioner_name_snapshot: pr1.requisitioner_name_snapshot,
     department_name_snapshot:    pr1.department_name_snapshot,
+    department_id:               pr1.department_id ?? null,
     purpose:                     pr1.purpose,
     date_required:               pr1.date_required,
     submitted_at:                pr1.submitted_at,
@@ -156,6 +167,7 @@ export async function fetchApprovalDetail(
         validated_soh:      validatedSohMap[i.id] ?? null,
         // Phase 4 (Raw Mats): forwarded so approver UI can render the badge.
         is_raw_material:    i.is_raw_material === true,
+        attachments:        attachmentsByItem[i.id] ?? [],
       })),
     instance_id:     inst.id,
     workflow_id:     inst.workflow_id,
@@ -165,10 +177,12 @@ export async function fetchApprovalDetail(
     started_at:      inst.started_at,
     workflow_steps:  steps,
     actions,
-    warehouse_decision:       wv?.decision ?? null,
-    warehouse_validator_name: wv?.validator_name_snapshot ?? null,
-    warehouse_validated_at:   wv?.validated_at ?? null,
-    warehouse_notes:          wv?.notes ?? null,
+    warehouse_decision:           wv?.decision ?? null,
+    warehouse_validator_name:     wv?.validator_name_snapshot ?? null,
+    warehouse_validator_position: wv?.validator_position_snapshot ?? null,
+    warehouse_validated_at:       wv?.validated_at ?? null,
+    warehouse_notes:              wv?.notes ?? null,
+    attachments: attachmentsAll,
   };
 }
 
@@ -209,23 +223,43 @@ export async function fetchPR1ApprovalSignatories(
 // PR1 workflow steps are all approver-role; the overload for role is kept for
 // callers that only have position (legacy PR1 queue page).
 
+const DIRECTOR_POSITIONS = ['Director', 'Finance Director'] as const;
+
+function isDepartmentBlocked(
+  profile: UserProfile,
+  documentDepartmentId?: string | null
+): boolean {
+  if (!documentDepartmentId) return false;
+  if ((DIRECTOR_POSITIONS as readonly string[]).includes(profile.position)) return false;
+  return profile.department_id !== documentDepartmentId;
+}
+
 export function canActOnStep(
   profile: UserProfile,
-  stepPositionRequired: string
+  stepPositionRequired: string,
+  documentDepartmentId?: string | null
 ): boolean {
-  return profile.role === 'approver' && profile.position === stepPositionRequired;
+  if (profile.role !== 'approver') return false;
+  if (profile.position !== stepPositionRequired) return false;
+  if (isDepartmentBlocked(profile, documentDepartmentId)) return false;
+  return true;
 }
 
 // Extended version used by PR2 and other multi-role workflows.
 export function canActOnStepWithRole(
   profile: UserProfile,
   stepRoleRequired: string,
-  stepPositionRequired: string
+  stepPositionRequired: string,
+  documentDepartmentId?: string | null
 ): boolean {
-  const isCorrectRole = profile.role === stepRoleRequired || 
-    ((profile.role === 'approver' || profile.role === 'procurement') && 
+  const isCorrectRole = profile.role === stepRoleRequired ||
+    ((profile.role === 'approver' || profile.role === 'procurement') &&
      (stepRoleRequired === 'approver' || stepRoleRequired === 'procurement'));
-  return isCorrectRole && profile.position === stepPositionRequired;
+  const isCorrectPosition = profile.position === stepPositionRequired ||
+    (stepPositionRequired === 'Procurement Staff' && profile.position === 'Procurement Manager');
+  if (!isCorrectRole || !isCorrectPosition) return false;
+  if (stepRoleRequired === 'approver' && isDepartmentBlocked(profile, documentDepartmentId)) return false;
+  return true;
 }
 
 // ─── Submit approval action ───────────────────────────────────────────────────
@@ -264,7 +298,7 @@ export async function submitApprovalAction(
 
   if (action === 'approved') {
     if (isFinalStep) {
-      // 2a. Final step approved → instance approved, PR1 → for_canvassing
+      // 2a. Final step approved → instance approved, PR1 → approved_for_warehouse
       const { error: instErr } = await db
         .from('approval_instances')
         .update({ status: 'approved', completed_at: now })
@@ -273,7 +307,7 @@ export async function submitApprovalAction(
 
       const { error: pr1Err } = await db
         .from('pr1_requests')
-        .update({ status: 'for_canvassing', updated_at: now })
+        .update({ status: 'approved_for_warehouse', updated_at: now })
         .eq('id', pr1Id)
         .eq('status', 'pending_approval');
       if (pr1Err) throw pr1Err;
@@ -363,14 +397,14 @@ export async function submitApprovalAction(
           });
 
           await notifyByRole(
-            'procurement',
+            'warehouse',
             {
-              title:         'PR1 Ready for Canvassing',
-              body:          `PR1 ${pr1Row.pr1_number} is approved and ready for canvassing.`,
+              title:         'PR1 Approved — Awaiting Warehouse Validation',
+              body:          `PR1 ${pr1Row.pr1_number} has been approved and is ready for warehouse validation.`,
               type:          'action_required',
               document_type: 'pr1',
               document_id:   pr1Id,
-              action_url:    '/rfq',
+              action_url:    `/warehouse/${pr1Id}`,
             },
             { dedupeUnreadForDocument: true }
           );

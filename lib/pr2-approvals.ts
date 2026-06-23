@@ -7,6 +7,8 @@ import type {
   ApprovalInstanceStatus,
 } from '@/types/approvals';
 import { createNotification, notifyApproversForStep } from '@/lib/notifications';
+import { fetchRfqQuoteAttachmentsByRfq } from '@/lib/canvassing';
+import type { RfqQuoteAttachment } from '@/types/canvassing';
 
 const db = supabase as any;
 
@@ -14,19 +16,31 @@ const db = supabase as any;
 // PR2 steps span both 'approver' and 'procurement' roles.
 // Title (position) must match exactly.
 
+const DIRECTOR_POSITIONS = ['Director', 'Finance Director'] as const;
+
 export function canActOnPR2Step(
   profile: UserProfile,
   stepRoleRequired: string,
-  stepPositionRequired: string
+  stepPositionRequired: string,
+  documentDepartmentId?: string | null
 ): boolean {
-  const isCorrectRole = profile.role === stepRoleRequired || 
-    ((profile.role === 'approver' || profile.role === 'procurement') && 
+  const isCorrectRole = profile.role === stepRoleRequired ||
+    ((profile.role === 'approver' || profile.role === 'procurement') &&
      (stepRoleRequired === 'approver' || stepRoleRequired === 'procurement'));
-  return isCorrectRole && profile.position === stepPositionRequired;
+  const isCorrectPosition = profile.position === stepPositionRequired ||
+    (stepPositionRequired === 'Procurement Staff' && profile.position === 'Procurement Manager');
+  if (!isCorrectRole || !isCorrectPosition) return false;
+  if (
+    stepRoleRequired === 'approver' &&
+    documentDepartmentId &&
+    !(DIRECTOR_POSITIONS as readonly string[]).includes(profile.position) &&
+    profile.department_id !== documentDepartmentId
+  ) return false;
+  return true;
 }
 
-// ─── Submit PR2 for Phase 1 approval ─────────────────────────────────────────
-// Creates the Phase 1 approval_instance and transitions PR2 to pending_phase1_approval.
+// ─── Submit PR2 for approval ──────────────────────────────────────────────────
+// Creates the approval_instance and transitions PR2 to pending_approval.
 
 export async function submitPR2ForApproval(
   pr2Id: string,
@@ -82,7 +96,7 @@ export async function submitPR2ForApproval(
   // Transition PR2 status
   const { error: updErr } = await db
     .from('pr2_requests')
-    .update({ status: 'pending_phase1_approval', updated_at: now })
+    .update({ status: 'pending_approval', updated_at: now })
     .eq('id', pr2Id)
     .eq('status', 'draft');
   if (updErr) throw updErr;
@@ -133,7 +147,7 @@ export async function fetchPR2ApprovalQueue(): Promise<PR2ApprovalQueueRow[]> {
 
   const [pr2Res, workflowRes, stepsRes] = await Promise.all([
     db.from('pr2_requests')
-      .select('id, pr2_number, pr1_id, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, status')
+      .select('id, pr2_number, pr1_id, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
       .in('id', pr2Ids),
     db.from('approval_workflows')
       .select('id, code')
@@ -176,6 +190,7 @@ export async function fetchPR2ApprovalQueue(): Promise<PR2ApprovalQueueRow[]> {
       pr2_number:                  pr2.pr2_number,
       requisitioner_name_snapshot: pr2.requisitioner_name_snapshot,
       department_name_snapshot:    pr2.department_name_snapshot,
+      department_id:               pr2.department_id ?? null,
       purpose:                     pr2.purpose,
       date_required:               pr2.date_required,
       pr2_status:                  pr2.status,
@@ -212,7 +227,7 @@ export async function fetchPR2ApprovalDetail(
 
   const [pr2Res, wfRes, stepsRes, actionsRes] = await Promise.all([
     db.from('pr2_requests')
-      .select('id, pr2_number, pr1_number_snapshot, pr1_id, rfq_number_snapshot, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, status, generated_at, remarks')
+      .select('id, pr2_number, pr1_number_snapshot, pr1_id, rfq_id, rfq_number_snapshot, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status, generated_at, remarks')
       .eq('id', inst.document_id)
       .maybeSingle(),
     db.from('approval_workflows').select('id, code').eq('id', inst.workflow_id).maybeSingle(),
@@ -303,27 +318,29 @@ export async function fetchPR2ApprovalDetail(
     ? allSteps.filter((s: any) => s.workflow_id === activeInst.workflow_id)
     : [];
 
-  // Fetch PR2 items
-  // Phase 9 (Raw Mats): include `is_raw_material` and `quote_justification`
-  // snapshot columns so the PR2 approval detail surfaces the badge and
-  // the procurement justification next to each line.
-  const { data: itemRows } = await db
-    .from('pr2_items')
-    .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, qty_on_hand, qty_incoming, quantity_to_purchase, supplier_name_snapshot, unit_price, total_price, pr1_item_id, is_raw_material, quote_justification')
-    .eq('pr2_id', pr2.id)
-    .order('item_order', { ascending: true });
+  // Fetch PR2 items (include rfq_item_quote_id for quote attachment lookup)
+  const [itemRowsRes, pr1Res] = await Promise.all([
+    db.from('pr2_items')
+      .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, qty_on_hand, qty_incoming, quantity_to_purchase, supplier_name_snapshot, unit_price, total_price, pr1_item_id, is_raw_material, quote_justification, rfq_item_quote_id')
+      .eq('pr2_id', pr2.id)
+      .order('item_order', { ascending: true }),
+    pr2.pr1_id
+      ? db.from('pr1_requests').select('priority').eq('id', pr2.pr1_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const itemRows = itemRowsRes.data ?? [];
+
+  // Batch-fetch quote attachments by RFQ id (pr2.rfq_id is on the pr2_requests row)
+  const rfqId: string | null = (pr2 as any).rfq_id ?? null;
+  const quoteAttachmentsByQuote: Record<string, RfqQuoteAttachment[]> = rfqId
+    ? await fetchRfqQuoteAttachmentsByRfq(rfqId).catch(() => ({}))
+    : {};
 
   // Fetch PR1 priority from related PR1 record
   let pr1Priority: 'normal' | 'medium' | 'high' | undefined;
-  if (pr2.pr1_id) {
-    const { data: pr1Data } = await db
-      .from('pr1_requests')
-      .select('priority')
-      .eq('id', pr2.pr1_id)
-      .maybeSingle();
-    if (pr1Data?.priority) {
-      pr1Priority = pr1Data.priority as 'normal' | 'medium' | 'high';
-    }
+  if (pr1Res.data?.priority) {
+    pr1Priority = pr1Res.data.priority as 'normal' | 'medium' | 'high';
   }
 
   return {
@@ -333,13 +350,14 @@ export async function fetchPR2ApprovalDetail(
     rfq_number_snapshot:         pr2.rfq_number_snapshot,
     requisitioner_name_snapshot: pr2.requisitioner_name_snapshot,
     department_name_snapshot:    pr2.department_name_snapshot,
+    department_id:               pr2.department_id ?? null,
     purpose:                     pr2.purpose,
     date_required:               pr2.date_required,
     pr2_status:                  pr2.status,
     generated_at:                pr2.generated_at,
     remarks:                     pr2.remarks,
     pr1_priority:                pr1Priority,
-    items:                       (itemRows ?? []).map((i: any) => ({
+    items:                       (itemRows as any[]).map((i: any) => ({
       id:                   i.id,
       item_order:           i.item_order,
       item_code:            i.item_code,
@@ -353,10 +371,9 @@ export async function fetchPR2ApprovalDetail(
       unit_price:           Number(i.unit_price),
       total_price:          Number(i.total_price),
       pr1_item_id:          i.pr1_item_id,
-      // Phase 9 (Raw Mats): forward the snapshot fields through to the
-      // approval detail surface.
       is_raw_material:      i.is_raw_material === true,
       quote_justification:  i.quote_justification ?? null,
+      quote_attachments:    i.rfq_item_quote_id ? (quoteAttachmentsByQuote[i.rfq_item_quote_id] ?? []) : [],
     })),
     phase1_instance_id:     phase1Inst?.id ?? inst.id,
     phase1_workflow_id:     phase1Inst?.workflow_id ?? inst.workflow_id,
@@ -433,45 +450,11 @@ export async function submitPR2ApprovalAction(
         .update({ status: 'approved', completed_at: now })
         .eq('id', instanceId);
 
-      if (workflowCode === 'PR2_PHASE1') {
-        // Phase 1 fully approved → update PR2 status, start Phase 2
-        await db
-          .from('pr2_requests')
-          .update({ status: 'phase1_approved', updated_at: now })
-          .eq('id', pr2Id);
-
-        const phase2 = await startPhase2(pr2Id, profile, now);
-
-        // Notify phase2 step 1 approvers (best-effort)
-        try {
-          const { data: pr2Row } = await db
-            .from('pr2_requests')
-            .select('pr2_number')
-            .eq('id', pr2Id)
-            .maybeSingle();
-          if (pr2Row?.pr2_number) {
-            await notifyApproversForStep({
-              workflowId:     phase2.workflowId,
-              stepOrder:      1,
-              documentId:     pr2Id,
-              documentNumber: pr2Row.pr2_number,
-              instanceId:     phase2.instanceId,
-              title:          'PR2 Approval Required',
-              body:           'PR2 requires your approval.',
-              documentType:   'pr2',
-              actionUrl:      `/approvals/pr2/${phase2.instanceId}`,
-            });
-          }
-        } catch {
-          // Notifications are best-effort
-        }
-      } else {
-        // Phase 2 fully approved → PR2 is done
-        await db
-          .from('pr2_requests')
-          .update({ status: 'phase2_approved', updated_at: now })
-          .eq('id', pr2Id);
-      }
+      // Single-phase: Director approval completes PR2
+      await db
+        .from('pr2_requests')
+        .update({ status: 'approved', updated_at: now })
+        .eq('id', pr2Id);
     } else {
       // Normal advancement to next step.
       // Note: PR2_PHASE1 Department Head auto-approval was removed when
@@ -481,7 +464,7 @@ export async function submitPR2ApprovalAction(
         .from('approval_instances')
         .update({ current_step: stepOrder + 1 })
         .eq('id', instanceId);
-      // PR2 status unchanged (still pending_phaseX_approval)
+      // PR2 status unchanged (still pending_approval)
     }
   } else if (action === 'rejected') {
     await db
@@ -511,9 +494,7 @@ export async function submitPR2ApprovalAction(
   const auditAction =
     action === 'approved'
       ? isFinalStep
-        ? workflowCode === 'PR2_PHASE1'
-          ? 'PR2_PHASE1_APPROVED'
-          : 'PR2_PHASE2_APPROVED'
+        ? 'PR2_APPROVED'
         : 'PR2_APPROVAL_STEP_APPROVED'
       : action === 'rejected'
       ? 'PR2_APPROVAL_REJECTED'
@@ -539,26 +520,23 @@ export async function submitPR2ApprovalAction(
   try {
     if (action === 'approved') {
       if (isFinalStep) {
-        if (workflowCode !== 'PR2_PHASE1') {
-          // Phase 2 final approved → notify requisitioner
-          const { data: pr2Row } = await db
-            .from('pr2_requests')
-            .select('pr2_number, requisitioner_id')
-            .eq('id', pr2Id)
-            .maybeSingle();
-          if (pr2Row?.requisitioner_id) {
-            await createNotification({
-              user_id:       pr2Row.requisitioner_id,
-              title:         'PR2 Approved',
-              body:          'Your request has been fully approved.',
-              type:          'approved',
-              document_type: 'pr2',
-              document_id:   pr2Id,
-              action_url:    `/pr2/${pr2Id}`,
-            });
-          }
+        // Final approved → notify requisitioner
+        const { data: pr2Row } = await db
+          .from('pr2_requests')
+          .select('pr2_number, requisitioner_id')
+          .eq('id', pr2Id)
+          .maybeSingle();
+        if (pr2Row?.requisitioner_id) {
+          await createNotification({
+            user_id:       pr2Row.requisitioner_id,
+            title:         'PR2 Approved',
+            body:          'Your request has been fully approved.',
+            type:          'approved',
+            document_type: 'pr2',
+            document_id:   pr2Id,
+            action_url:    `/pr2/${pr2Id}`,
+          });
         }
-        // Phase 1 final approved: phase2 step 1 approvers already notified in startPhase2 block above
       } else {
         // Normal step advance (auto dept-head already returned early)
         const [instData, pr2Data] = await Promise.all([
@@ -604,40 +582,3 @@ export async function submitPR2ApprovalAction(
   }
 }
 
-// ─── Internal: start Phase 2 immediately after Phase 1 completes ─────────────
-
-async function startPhase2(
-  pr2Id: string,
-  profile: UserProfile,
-  now: string
-): Promise<{ instanceId: string; workflowId: string }> {
-  const { data: wf, error: wfErr } = await db
-    .from('approval_workflows')
-    .select('id')
-    .eq('code', 'PR2_PHASE2')
-    .maybeSingle();
-  if (wfErr) throw wfErr;
-  if (!wf) throw new Error('PR2_PHASE2 workflow not configured.');
-
-  const { data: newInst, error: instErr } = await db
-    .from('approval_instances')
-    .insert({
-      workflow_id:   wf.id,
-      document_type: 'PR2',
-      document_id:   pr2Id,
-      current_step:  1,
-      status:        'active',
-      started_by:    profile.id,
-      started_at:    now,
-    })
-    .select('id')
-    .single();
-  if (instErr) throw instErr;
-
-  await db
-    .from('pr2_requests')
-    .update({ status: 'pending_phase2_approval', updated_at: now })
-    .eq('id', pr2Id);
-
-  return { instanceId: newInst.id, workflowId: wf.id };
-}

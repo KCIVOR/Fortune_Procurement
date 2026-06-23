@@ -11,14 +11,17 @@ import {
   PR1_NUMBER_DUPLICATE_ERROR,
   fetchSuggestedPR1Sequence,
   deleteDraftPR1,
+  uploadPR1Attachment,
+  deletePR1Attachment,
 } from '@/lib/pr1';
-import type { PR1WithItems, PR1FormValues, PR1ItemDraft } from '@/types/pr1';
+import type { PR1WithItems, PR1FormValues, PR1ItemDraft, PR1Attachment } from '@/types/pr1';
 import { EMPTY_ITEM, PURPOSE_OPTIONS, UNIT_OPTIONS } from '@/types/pr1';
 import { Plus, Trash2, TriangleAlert as AlertTriangle, Save, Send, ChevronUp, ChevronDown, FlaskConical, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PR1ItemAttachmentButton } from '@/components/pr1/PR1AttachmentsSection';
 
 interface PR1FormProps {
   existing?: PR1WithItems;
@@ -62,7 +65,7 @@ function buildInitialValues(existing?: PR1WithItems): PR1FormValues {
             // Phase 3 (Raw Mats): preserve flag when re-loading a draft for edit.
             is_raw_material:    i.is_raw_material === true,
           }))
-        : [EMPTY_ITEM()],
+        : [{ ...EMPTY_ITEM(), id: `temp-${Math.random().toString(36).substring(2, 9)}` }],
     };
   }
   const currentYear = new Date().getFullYear();
@@ -71,7 +74,7 @@ function buildInitialValues(existing?: PR1WithItems): PR1FormValues {
     pr1_number:    pr1Prefix,
     purpose:       '',
     date_required: format(new Date(), 'yyyy-MM-dd'),
-    items:         [EMPTY_ITEM()],
+    items:         [{ ...EMPTY_ITEM(), id: `temp-${Math.random().toString(36).substring(2, 9)}` }],
   };
 }
 
@@ -99,6 +102,19 @@ export default function PR1Form({ existing }: PR1FormProps) {
   const [deleting, setDeleting] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [globalError, setGlobalError] = useState('');
+
+  // Attachment state variables
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File[]>>({});
+  const [existingAttachments, setExistingAttachments] = useState<Record<string, PR1Attachment[]>>(() => {
+    const initial: Record<string, PR1Attachment[]> = {};
+    existing?.items.forEach((item) => {
+      if (item.attachments) {
+        initial[item.id] = item.attachments;
+      }
+    });
+    return initial;
+  });
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<Record<string, boolean>>({});
 
   // Purpose dropdown state
   const initialPurpose = resolvePurposeSelection(existing?.purpose ?? '');
@@ -188,7 +204,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
       ...v,
       items: [
         ...v.items,
-        { ...EMPTY_ITEM(), item_order: v.items.length + 1 },
+        { ...EMPTY_ITEM(), id: `temp-${Math.random().toString(36).substring(2, 9)}`, item_order: v.items.length + 1 },
       ],
     }));
     setItemUnitStates(prev => [...prev, { sel: '', custom: '' }]);
@@ -317,8 +333,38 @@ export default function PR1Form({ existing }: PR1FormProps) {
     setSaving(true);
     setGlobalError('');
     try {
-      const id = await saveDraftPR1(buildResolvedValues(), profile, existing?.id);
-      router.push(`/pr1/${id}`);
+      const { id: pr1Id, items: savedItems } = await saveDraftPR1(buildResolvedValues(), profile, existing?.id);
+      
+      // 1. Process deletions
+      const deletePromises = Object.keys(attachmentsToDelete).map(async (attId) => {
+        let foundAtt: PR1Attachment | undefined;
+        for (const itemId in existingAttachments) {
+          foundAtt = existingAttachments[itemId].find(a => a.id === attId);
+          if (foundAtt) break;
+        }
+        if (foundAtt) {
+          await deletePR1Attachment(foundAtt);
+        }
+      });
+      await Promise.all(deletePromises);
+
+      // 2. Process uploads
+      const uploadPromises: Promise<any>[] = [];
+      values.items.forEach((item, idx) => {
+        const matchingSavedItem = savedItems.find(si => si.item_order === idx + 1);
+        if (!matchingSavedItem) return;
+
+        const dbItemId = matchingSavedItem.id;
+        const files = pendingFiles[item.id ?? ''];
+        if (files && files.length > 0) {
+          files.forEach((file) => {
+            uploadPromises.push(uploadPR1Attachment(pr1Id, dbItemId, file));
+          });
+        }
+      });
+      await Promise.all(uploadPromises);
+
+      router.push(`/pr1/${pr1Id}`);
     } catch (err: any) {
       setGlobalError(err.message ?? 'Failed to save draft.');
     } finally {
@@ -341,8 +387,42 @@ export default function PR1Form({ existing }: PR1FormProps) {
     setSubmitting(true);
     setGlobalError('');
     try {
-      const id = await submitPR1(buildResolvedValues(), profile, existing?.id);
-      router.push(`/pr1/${id}`);
+      // 1. Save as draft first
+      const { id: pr1Id, items: savedItems } = await saveDraftPR1(buildResolvedValues(), profile, existing?.id);
+
+      // 2. Process deletions
+      const deletePromises = Object.keys(attachmentsToDelete).map(async (attId) => {
+        let foundAtt: PR1Attachment | undefined;
+        for (const itemId in existingAttachments) {
+          foundAtt = existingAttachments[itemId].find(a => a.id === attId);
+          if (foundAtt) break;
+        }
+        if (foundAtt) {
+          await deletePR1Attachment(foundAtt);
+        }
+      });
+      await Promise.all(deletePromises);
+
+      // 3. Process uploads
+      const uploadPromises: Promise<any>[] = [];
+      values.items.forEach((item, idx) => {
+        const matchingSavedItem = savedItems.find(si => si.item_order === idx + 1);
+        if (!matchingSavedItem) return;
+
+        const dbItemId = matchingSavedItem.id;
+        const files = pendingFiles[item.id ?? ''];
+        if (files && files.length > 0) {
+          files.forEach((file) => {
+            uploadPromises.push(uploadPR1Attachment(pr1Id, dbItemId, file));
+          });
+        }
+      });
+      await Promise.all(uploadPromises);
+
+      // 4. Transition status to pending approval and kick off workflow
+      await submitPR1(pr1Id, profile);
+
+      router.push(`/pr1/${pr1Id}`);
     } catch (err: any) {
       setGlobalError(err.message ?? 'Failed to submit PR1.');
       setSubmitting(false);
@@ -556,7 +636,8 @@ export default function PR1Form({ existing }: PR1FormProps) {
                 >
                   Raw Mat.
                 </TableHead>
-                <TableHead className="w-16 px-3 py-2.5" />
+                <TableHead className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-20" title="Attach images to this item">Attach</TableHead>
+                <TableHead className="w-12 px-3 py-2.5" />
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-pq-neutral-200 bg-pq-white">
@@ -675,6 +756,31 @@ export default function PR1Form({ existing }: PR1FormProps) {
                           <FlaskConical className="w-3.5 h-3.5" />
                         </span>
                       </label>
+                    </TableCell>
+                    <TableCell className="px-2 py-2 text-center align-middle">
+                      <PR1ItemAttachmentButton
+                        existingAttachments={existingAttachments[item.id ?? ''] ?? []}
+                        pendingFiles={pendingFiles[item.id ?? ''] ?? []}
+                        onAddFiles={(files) =>
+                          setPendingFiles(prev => ({
+                            ...prev,
+                            [item.id ?? '']: [...(prev[item.id ?? ''] ?? []), ...files],
+                          }))
+                        }
+                        onRemovePendingFile={(pIdx) =>
+                          setPendingFiles(prev => ({
+                            ...prev,
+                            [item.id ?? '']: (prev[item.id ?? ''] ?? []).filter((_, i) => i !== pIdx),
+                          }))
+                        }
+                        onRemoveExistingAttachment={(att) => {
+                          setAttachmentsToDelete(prev => ({ ...prev, [att.id]: true }));
+                          setExistingAttachments(prev => ({
+                            ...prev,
+                            [item.id ?? '']: (prev[item.id ?? ''] ?? []).filter(a => a.id !== att.id),
+                          }));
+                        }}
+                      />
                     </TableCell>
                     <TableCell className="px-2 py-2 text-center align-middle">
                       {values.items.length > 1 && (

@@ -8,6 +8,7 @@ import type {
   PR1Item,
   PR1ItemDraft,
   PR1FormValues,
+  PR1Attachment,
   DownstreamStage,
   PR1Status,
   PR1LifecycleSummary,
@@ -15,30 +16,33 @@ import type {
 } from '@/types/pr1';
 import type { WarehouseItemRoute } from '@/types/warehouse';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
-import { notifyByRole } from '@/lib/notifications';
+import { notifyByRole, notifyApproversForStep } from '@/lib/notifications';
 
 const db = supabase as any;
 
 const PO_ISSUED_STATUSES = new Set(['approved', 'sent']);
 const DELIVERY_IN_PROGRESS_STATUSES = new Set(['pending', 'scheduled', 'in_transit', 'delayed']);
-const PR2_PHASE2_APPROVED = 'phase2_approved';
+const PR2_PHASE2_APPROVED = 'approved';
 
 const PR1_RAW_CHIP: Record<PR1Status, StatusVariant> = {
-  draft:                'draft',
-  pending_warehouse:    'pending',
-  pending_approval:     'in_review',
-  resolved_internal:    'validated',
-  revision_requested:   'in_review',
-  for_canvassing:       'approved',
-  canvassing_complete:  'approved',
-  approved:             'approved',
-  rejected:             'rejected',
-  cancelled:            'cancelled',
+  draft:                  'draft',
+  pending_warehouse:      'pending',
+  pending_approval:       'in_review',
+  approved_for_warehouse: 'in_review',
+  resolved_internal:      'validated',
+  revision_requested:     'in_review',
+  for_canvassing:         'approved',
+  canvassing_complete:    'approved',
+  approved:               'approved',
+  rejected:               'rejected',
+  completed:              'completed',
+  cancelled:              'cancelled',
 };
 
 /** PR1 row statuses reached after final PR1 approval (procurement path). */
 export const POST_PR1_APPROVAL_STATUSES = new Set<PR1Status>([
   'approved',
+  'approved_for_warehouse',
   'for_canvassing',
   'canvassing_complete',
 ]);
@@ -398,7 +402,15 @@ export async function fetchPR1ById(id: string): Promise<PR1WithItems | null> {
     });
   }
 
-  // Merge warehouse validation fields into items
+  // Fetch all attachments for this PR1 and distribute them per item
+  const allAttachments = await fetchPR1Attachments(row.id as string).catch(() => []);
+  const attachmentsByItem: Record<string, PR1Attachment[]> = {};
+  for (const att of allAttachments) {
+    if (!attachmentsByItem[att.pr1_item_id]) attachmentsByItem[att.pr1_item_id] = [];
+    attachmentsByItem[att.pr1_item_id].push(att);
+  }
+
+  // Merge warehouse validation fields AND attachments into items
   const itemsWithValidation = items.map((item: PR1Item) => ({
     ...item,
     validated_soh:                    validatedSohMap[item.id]?.validated_soh ?? null,
@@ -408,6 +420,7 @@ export async function fetchPR1ById(id: string): Promise<PR1WithItems | null> {
       validatedSohMap[item.id]?.warehouse_internal_fulfilled_qty ?? null,
     warehouse_procurement_qty:
       validatedSohMap[item.id]?.warehouse_procurement_qty ?? null,
+    attachments: attachmentsByItem[item.id] ?? [],
   }));
 
   const wvRow = warehouseValidation as {
@@ -433,8 +446,10 @@ export async function fetchPR1ById(id: string): Promise<PR1WithItems | null> {
     ...row,
     items: itemsWithValidation,
     warehouse_validation,
+    attachments: allAttachments,
   };
 }
+
 
 export const PR1_NUMBER_DUPLICATE_ERROR =
   'This PR1 number is already in use. Please choose a different number.';
@@ -538,9 +553,10 @@ export async function saveDraftPR1(
   values: PR1FormValues,
   profile: UserProfile,
   existingId?: string
-): Promise<string> {
+): Promise<{ id: string; items: Array<{ id: string; item_order: number }> }> {
   const authUserId = await requireAuthUserId();
-  const header = {
+  const now = new Date().toISOString();
+  const headerFields = {
     pr1_number:                  values.pr1_number.trim(),
     requisitioner_id:            authUserId,
     requisitioner_name_snapshot: profile.full_name,
@@ -548,16 +564,16 @@ export async function saveDraftPR1(
     department_name_snapshot:    profile.department,
     purpose:                     values.purpose.trim(),
     date_required:               values.date_required,
-    status:                      'draft' as const,
-    updated_at:                  new Date().toISOString(),
+    updated_at:                  now,
   };
 
   let pr1Id: string;
 
   if (existingId) {
+    await clearWarehouseValidationBeforeItemSync(existingId);
     const { error } = await db
       .from('pr1_requests')
-      .update(header)
+      .update(headerFields)
       .eq('id', existingId)
       .in('status', ['draft', 'revision_requested']);
     if (error) throw error;
@@ -565,64 +581,30 @@ export async function saveDraftPR1(
   } else {
     const { data, error } = await db
       .from('pr1_requests')
-      .insert(header)
+      .insert({ ...headerFields, status: 'draft' as const })
       .select('id')
       .single();
     if (error) throw error;
     pr1Id = data.id;
   }
 
-  await syncItems(pr1Id, values.items);
-  return pr1Id;
+  const syncedItems = await syncItems(pr1Id, values.items);
+  return { id: pr1Id, items: syncedItems };
 }
 
 // submitPR1 accepts an optional existingId.
 // If no existingId, it creates the PR1 header first, then syncs items, then transitions status.
 // This avoids the double-syncItems race that happens when saveDraftPR1 + submitPR1 are chained.
 export async function submitPR1(
-  values: PR1FormValues,
-  profile: UserProfile,
-  existingId?: string
-): Promise<string> {
-  const trimmedNumber = values.pr1_number.trim();
-  if (await checkPR1NumberExists(trimmedNumber, existingId)) {
-    throw new Error(PR1_NUMBER_DUPLICATE_ERROR);
-  }
-
+  pr1Id: string,
+  profile: UserProfile
+): Promise<void> {
   const now = new Date().toISOString();
   const authUserId = await requireAuthUserId();
 
-  let pr1Id: string;
-
-  if (existingId) {
-    pr1Id = existingId;
-  } else {
-    // Create the header record in draft state first
-    const { data, error: insertErr } = await db
-      .from('pr1_requests')
-      .insert({
-        pr1_number:                  values.pr1_number.trim(),
-        requisitioner_id:            authUserId,
-        requisitioner_name_snapshot: profile.full_name,
-        department_id:               profile.department_id,
-        department_name_snapshot:    profile.department,
-        purpose:                     values.purpose.trim(),
-        date_required:               values.date_required,
-        status:                      'draft',
-        updated_at:                  now,
-      })
-      .select('id')
-      .single();
-    if (insertErr) throw insertErr;
-    pr1Id = data.id;
-  }
-
-  // Sync items — single call, no race
-  await syncItems(pr1Id, values.items);
-
   const { data: currentRow, error: statusErr } = await db
     .from('pr1_requests')
-    .select('status')
+    .select('status, pr1_number')
     .eq('id', pr1Id)
     .maybeSingle();
 
@@ -632,21 +614,11 @@ export async function submitPR1(
     throw new Error('PR1 could not be submitted. It may have already been submitted or does not exist.');
   }
 
-  if (currentStatus === 'revision_requested') {
-    const { error: resetErr } = await db.rpc('reset_warehouse_validation_on_pr1_resubmit', {
-      p_pr1_id: pr1Id,
-    });
-    if (resetErr) throw resetErr;
-  }
-
   // Transition header to submitted state
   const { data: updatedRows, error: headerErr } = await db
     .from('pr1_requests')
     .update({
-      pr1_number:                   values.pr1_number.trim(),
-      purpose:                      values.purpose.trim(),
-      date_required:                values.date_required,
-      status:                       'pending_warehouse',
+      status:                       'pending_approval',
       submitted_at:                 now,
       prepared_by_id:               authUserId,
       prepared_by_name_snapshot:    profile.full_name,
@@ -670,30 +642,49 @@ export async function submitPR1(
     document_type: 'PR1',
     document_id:   pr1Id,
     payload: {
-      pr1_number: values.pr1_number.trim(),
+      pr1_number:  currentRow.pr1_number,
       prepared_by: profile.full_name,
       position:    profile.position,
     },
   });
 
+  const { data: wf, error: wfErr } = await db
+    .from('approval_workflows')
+    .select('id')
+    .eq('code', 'PR1_APPROVAL')
+    .eq('active', true)
+    .maybeSingle();
+  if (wfErr) throw wfErr;
+  if (!wf) throw new Error('PR1_APPROVAL workflow not configured.');
+
+  const { data: newInst, error: instErr } = await db
+    .from('approval_instances')
+    .insert({
+      workflow_id:   wf.id,
+      document_type: 'PR1',
+      document_id:   pr1Id,
+      current_step:  1,
+      status:        'active',
+      started_by:    authUserId,
+      started_at:    now,
+    })
+    .select('id')
+    .single();
+  if (instErr) throw instErr;
+
   try {
-    await notifyByRole(
-      'warehouse',
-      {
-        title:         'PR1 Awaiting Validation',
-        body:          `PR1 ${values.pr1_number.trim()} requires warehouse validation.`,
-        type:          'action_required',
-        document_type: 'pr1',
-        document_id:   pr1Id,
-        action_url:    `/warehouse/${pr1Id}`,
-      },
-      { dedupeUnreadForDocument: true }
-    );
+    if (newInst?.id) {
+      await notifyApproversForStep({
+        workflowId:     wf.id,
+        stepOrder:      1,
+        documentId:     pr1Id,
+        documentNumber: currentRow.pr1_number,
+        instanceId:     newInst.id,
+      });
+    }
   } catch {
     // Notifications are best-effort; do not fail submit
   }
-
-  return pr1Id;
 }
 
 // canUpdatePR1Priority checks if a user is authorized to update PR1 priority.
@@ -808,32 +799,209 @@ export async function deleteDraftPR1(pr1Id: string, profile: UserProfile): Promi
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-async function syncItems(pr1Id: string, items: PR1ItemDraft[]): Promise<void> {
-  // Delete all existing items and re-insert (simplest safe approach for draft edits)
-  const { error: delErr } = await db
-    .from('pr1_items')
-    .delete()
-    .eq('pr1_id', pr1Id);
-  if (delErr) throw delErr;
+/** Remove warehouse validation rows before pr1_items are deleted (resubmit/edit). */
+async function clearWarehouseValidationBeforeItemSync(pr1Id: string): Promise<void> {
+  const { data: row, error } = await db
+    .from('pr1_requests')
+    .select('status')
+    .eq('id', pr1Id)
+    .maybeSingle();
 
-  const rows = items
-    .filter(i => i.description.trim() !== '')
-    .map((item, idx) => ({
-      pr1_id:             pr1Id,
-      item_order:         idx + 1,
-      item_code:          item.item_code.trim(),
-      description:        item.description.trim(),
-      unit_of_measure:    item.unit_of_measure.trim(),
-      stock_on_hand:      Number(item.stock_on_hand) || 0,
-      quantity_requested: Number(item.quantity_requested) || 1,
-      // Phase 3 (Raw Mats): persist the requestor's classification.
-      // Falls back to false (DB default) when the form omits the field —
-      // matches the migration default and keeps legacy callers safe.
-      is_raw_material:    item.is_raw_material === true,
+  if (error) throw error;
+  if (!row?.status || !['draft', 'revision_requested'].includes(row.status)) return;
+
+  const { data: validations, error: vErr } = await db
+    .from('warehouse_validations')
+    .select('id')
+    .eq('pr1_id', pr1Id)
+    .limit(1);
+
+  if (vErr) throw vErr;
+  if (!validations?.length) return;
+
+  const { error: resetErr } = await db.rpc('reset_warehouse_validation_on_pr1_resubmit', {
+    p_pr1_id: pr1Id,
+  });
+  if (resetErr) throw resetErr;
+}
+
+async function syncItems(pr1Id: string, items: PR1ItemDraft[]): Promise<Array<{ id: string; item_order: number }>> {
+  // 1. Get existing items from the DB to see what is currently saved
+  const { data: existingDbItems, error: fetchErr } = await db
+    .from('pr1_items')
+    .select('id, item_order')
+    .eq('pr1_id', pr1Id);
+  if (fetchErr) throw fetchErr;
+
+  const dbItems = existingDbItems ?? [];
+  const dbItemIds: string[] = dbItems.map((i: any) => i.id as string);
+
+  // Filter out empty rows
+  const validIncomingItems = items.filter(i => i.description.trim() !== '');
+
+  // 2. Identify items to delete: database items whose IDs are not in incoming items
+  const incomingIds = new Set(validIncomingItems.map(i => i.id).filter(Boolean));
+  const idsToDelete = dbItemIds.filter((id: string) => !incomingIds.has(id));
+
+  if (idsToDelete.length > 0) {
+    const { error: delErr } = await db
+      .from('pr1_items')
+      .delete()
+      .in('id', idsToDelete);
+    if (delErr) throw delErr;
+  }
+
+  // 2.5. Temporarily shift the item_order of remaining database items to a high offset (+10000)
+  // to avoid unique constraint (pr1_id, item_order) violations when we perform the final upsert.
+  const remainingDbItems = dbItems.filter((item: any) => !idsToDelete.includes(item.id));
+  let shifted = false;
+  if (remainingDbItems.length > 0) {
+    const shiftRows = remainingDbItems.map((item: any) => ({
+      id: item.id,
+      pr1_id: pr1Id,
+      item_order: (Number(item.item_order) || 0) + 10000,
     }));
 
-  if (rows.length === 0) return;
+    const { error: shiftUpsertErr } = await db
+      .from('pr1_items')
+      .upsert(shiftRows);
+    if (shiftUpsertErr) throw shiftUpsertErr;
+    shifted = true;
+  }
 
-  const { error: insErr } = await db.from('pr1_items').insert(rows);
-  if (insErr) throw insErr;
+  try {
+    // 3. Prepare rows for upsert
+    const rowsToUpsert = validIncomingItems.map((item, idx) => {
+      const row: any = {
+        pr1_id:             pr1Id,
+        item_order:         idx + 1,
+        item_code:          item.item_code.trim(),
+        description:        item.description.trim(),
+        unit_of_measure:    item.unit_of_measure.trim(),
+        stock_on_hand:      Number(item.stock_on_hand) || 0,
+        quantity_requested: Number(item.quantity_requested) || 1,
+        is_raw_material:    item.is_raw_material === true,
+      };
+      if (item.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id)) {
+        row.id = item.id;
+      }
+      return row;
+    });
+
+    if (rowsToUpsert.length === 0) return [];
+
+    // 4. Perform upsert (inserts new, updates existing)
+    const { data: upsertedData, error: upsertErr } = await db
+      .from('pr1_items')
+      .upsert(rowsToUpsert)
+      .select('id, item_order');
+    if (upsertErr) throw upsertErr;
+
+    return (upsertedData ?? []) as Array<{ id: string; item_order: number }>;
+  } catch (error) {
+    // Rollback shifted orders if the upsert fails
+    if (shifted && remainingDbItems.length > 0) {
+      const rollbackRows = remainingDbItems.map((item: any) => ({
+        id: item.id,
+        pr1_id: pr1Id,
+        item_order: Number(item.item_order) || 0,
+      }));
+      await db.from('pr1_items').upsert(rollbackRows).catch(() => {});
+    }
+    throw error;
+  }
 }
+
+// ─── Attachment helpers ────────────────────────────────────────────────────
+
+const ATTACHMENT_SIGNED_URL_TTL = 3600; // 1 hour
+
+/**
+ * Upload a file to the pr1-attachments bucket and record it in pr1_attachments.
+ * Caller must ensure the PR1 is in draft/revision_requested state.
+ */
+export async function uploadPR1Attachment(
+  pr1Id: string,
+  pr1ItemId: string,
+  file: File,
+): Promise<PR1Attachment> {
+  const authUserId = await requireAuthUserId();
+  const ts = Date.now();
+  const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = `pr1/${pr1Id}/${pr1ItemId}/${ts}_${safeFilename}`;
+
+  const { error: uploadErr } = await supabase.storage
+    .from('pr1-attachments')
+    .upload(storagePath, file, { upsert: false });
+
+  if (uploadErr) throw uploadErr;
+
+  const { data, error: insertErr } = await db
+    .from('pr1_attachments')
+    .insert({
+      pr1_id:       pr1Id,
+      pr1_item_id:  pr1ItemId,
+      uploaded_by:  authUserId,
+      storage_path: storagePath,
+      file_name:    file.name,
+      file_size:    file.size,
+      mime_type:    file.type || null,
+    })
+    .select('*')
+    .single();
+
+  if (insertErr) {
+    await supabase.storage.from('pr1-attachments').remove([storagePath]);
+    throw insertErr;
+  }
+
+  return data as PR1Attachment;
+}
+
+/**
+ * Delete an attachment record and its storage object.
+ */
+export async function deletePR1Attachment(attachment: PR1Attachment): Promise<void> {
+  const { error: dbErr } = await db
+    .from('pr1_attachments')
+    .delete()
+    .eq('id', attachment.id);
+
+  if (dbErr) throw dbErr;
+
+  // Best-effort storage removal (don't fail if already gone)
+  await supabase.storage.from('pr1-attachments').remove([attachment.storage_path]);
+}
+
+/**
+ * Fetch attachments for a PR1 and resolve signed URLs for display.
+ */
+export async function fetchPR1Attachments(pr1Id: string): Promise<PR1Attachment[]> {
+  const { data, error } = await db
+    .from('pr1_attachments')
+    .select('*')
+    .eq('pr1_id', pr1Id)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  const rows = (data ?? []) as PR1Attachment[];
+
+  if (rows.length === 0) return [];
+
+  // Resolve signed URLs in parallel (best-effort; skip on error)
+  const withUrls = await Promise.all(
+    rows.map(async (row) => {
+      try {
+        const { data: urlData } = await supabase.storage
+          .from('pr1-attachments')
+          .createSignedUrl(row.storage_path, ATTACHMENT_SIGNED_URL_TTL);
+        return { ...row, signed_url: urlData?.signedUrl ?? undefined };
+      } catch {
+        return row;
+      }
+    }),
+  );
+
+  return withUrls;
+}
+

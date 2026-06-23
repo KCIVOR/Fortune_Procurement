@@ -5,6 +5,7 @@ export { default as MessageBubble } from './MessageBubble';
 export { default as MessageInput } from './MessageInput';
 export { default as MessageIcon } from './MessageIcon';
 export { default as UserSearch } from './UserSearch';
+export { default as NewConversationModal } from './NewConversationModal';
 export { default as TypingIndicator } from './TypingIndicator';
 export { 
   default as AttachmentPreview,

@@ -306,7 +306,13 @@ export default function PR1PrintPage() {
                   {item?.item_code || ''}
                 </td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 6px', fontSize: 9 }}>
-                  {item?.description || ''}
+                  <div>{item?.description || ''}</div>
+                  {item?.attachments && item.attachments.length > 0 && (
+                    <div style={{ fontSize: 7, color: '#555', marginTop: 2 }}>
+                      <span style={{ fontWeight: 'bold' }}>Attachments: </span>
+                      {item.attachments.map((att: any) => att.file_name).join(', ')}
+                    </div>
+                  )}
                 </td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 6px', fontSize: 8, textAlign: 'center', fontWeight: 'bold', color: item?.is_raw_material ? '#1e40af' : '#999' }}>
                   {item ? (item.is_raw_material ? 'RAW' : '—') : ''}

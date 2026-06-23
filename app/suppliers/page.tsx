@@ -10,10 +10,11 @@ import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import SupplierAccountsTable from '@/components/procurement/SupplierAccountsTable';
 import CreateSupplierModal from '@/components/procurement/CreateSupplierModal';
+import BulkImportSupplierModal from '@/components/procurement/BulkImportSupplierModal';
 import { Button } from '@/components/ui/button';
 import { listSupplierAccountsWithCount } from '@/lib/procurement-suppliers';
 import type { SupplierAccount } from '@/lib/procurement-suppliers';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 
 function canManageSuppliers(role: string | undefined): boolean {
   return role === 'procurement' || role === 'admin';
@@ -34,6 +35,7 @@ export default function SupplierAccountsPage() {
   const [rowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -163,13 +165,23 @@ export default function SupplierAccountsPage() {
             title="Supplier Accounts"
             description="Manage supplier login accounts for RFQ, accreditation, and purchase order workflows."
           />
-          <Button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-medium shrink-0"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Supplier
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkImportOpen(true)}
+              className="text-xs font-medium"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Bulk Import
+            </Button>
+            <Button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-medium"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Supplier
+            </Button>
+          </div>
         </div>
 
         <FilterBar
@@ -243,6 +255,15 @@ export default function SupplierAccountsPage() {
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
           onSupplierCreated={() => {
+            setCurrentPage(1);
+            loadData();
+          }}
+        />
+
+        <BulkImportSupplierModal
+          isOpen={isBulkImportOpen}
+          onClose={() => setIsBulkImportOpen(false)}
+          onImportComplete={() => {
             setCurrentPage(1);
             loadData();
           }}

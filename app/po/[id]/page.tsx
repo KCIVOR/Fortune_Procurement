@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPOById, calcPOGrandTotal } from '@/lib/po';
+import { fetchPOById, calcPOGrandTotal, updatePODraft } from '@/lib/po';
 import {
   submitPOForApproval,
   fetchPOApprovalDetailByPOId,
@@ -22,6 +22,7 @@ import {
   Package, Truck, CreditCard, MapPin,
   DollarSign, ClipboardList, Send, CircleCheck as CheckCircle2,
   Circle as XCircle, RotateCcw, Lock, TriangleAlert as AlertTriangle,
+  Pencil, Save, X as XIcon,
 } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
@@ -32,6 +33,7 @@ import DetailPrintButton from '@/components/shared/DetailPrintButton';
 import DetailTableCard from '@/components/shared/DetailTableCard';
 import DetailInfoField from '@/components/shared/DetailInfoField';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
+import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:        'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
@@ -53,6 +55,10 @@ export default function PODetailPage() {
   const [error, setError]                     = useState('');
   const [submitting, setSubmitting]           = useState(false);
   const [submitError, setSubmitError]         = useState('');
+  const [editing, setEditing]                 = useState(false);
+  const [editForm, setEditForm]               = useState({ po_date: '', delivery_address: '', warehouse: '', payment_terms: '', packing: '', remarks: '' });
+  const [saving, setSaving]                   = useState(false);
+  const [saveError, setSaveError]             = useState('');
 
   const load = () => {
     if (!id) return;
@@ -84,6 +90,37 @@ export default function PODetailPage() {
       setSubmitting(false);
     }
   };
+
+  const handleEditToggle = () => {
+    if (!po) return;
+    setEditForm({
+      po_date:          po.po_date,
+      delivery_address: po.delivery_address,
+      warehouse:        po.warehouse,
+      payment_terms:    po.payment_terms,
+      packing:          po.packing,
+      remarks:          po.remarks ?? '',
+    });
+    setSaveError('');
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!po) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      await updatePODraft(po.id, editForm);
+      setEditing(false);
+      load();
+    } catch (err: any) {
+      setSaveError(err.message ?? 'Failed to save changes.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const canEdit = po?.status === 'draft' && profile?.role === 'procurement';
 
   if (loading) return (
     <AppShell title="Purchase Order">
@@ -127,7 +164,36 @@ export default function PODetailPage() {
         }
         right={
           <div className="flex items-center gap-2 shrink-0">
-            {po.status === 'draft' && profile?.role === 'procurement' && (
+            {canEdit && !editing && (
+              <button
+                onClick={handleEditToggle}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-pq-neutral-200 text-pq-neutral-900 text-sm font-semibold rounded-md hover:bg-pq-neutral-50 transition"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit PO
+              </button>
+            )}
+            {canEdit && editing && (
+              <>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-pq-neutral-200 text-pq-neutral-700 text-sm font-semibold rounded-md hover:bg-pq-neutral-50 transition disabled:opacity-50"
+                >
+                  <XIcon className="w-4 h-4" />
+                  Cancel
+                </button>
+              </>
+            )}
+            {canEdit && !editing && (
               <button
                 onClick={handleSubmitForApproval}
                 disabled={submitting}
@@ -237,39 +303,98 @@ export default function PODetailPage() {
           </div>
 
           {/* Delivery & Terms */}
-          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4">
+          <div className={`bg-white rounded-md border p-5 space-y-4 ${editing ? 'border-pq-primary-300 ring-1 ring-pq-primary-200' : 'border-pq-neutral-200'}`}>
             <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">Delivery & Terms</h2>
-            <DetailInfoField
-              layout="inline"
-              icon={<Truck className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />}
-              label="Warehouse"
-              value={po.warehouse || '—'}
-            />
-            <DetailInfoField
-              layout="inline"
-              icon={<MapPin className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />}
-              label="Delivery Address"
-              value={po.delivery_address || '—'}
-            />
-            <DetailInfoField
-              layout="inline"
-              icon={<CreditCard className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />}
-              label="Payment Terms"
-              value={po.payment_terms || '—'}
-            />
-            <DetailInfoField
-              layout="inline"
-              icon={<ClipboardList className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />}
-              label="Packing"
-              value={po.packing || '—'}
-            />
-            {po.remarks && (
-              <DetailInfoField
-                layout="inline"
-                icon={<FileText className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />}
-                label="Remarks"
-                value={po.remarks}
-              />
+
+            {/* PO Date */}
+            <div className="flex items-start gap-3">
+              <CalendarDays className="w-3.5 h-3.5 text-pq-neutral-400 mt-2.5 shrink-0" />
+              <div className="flex-1 grid grid-cols-[120px_1fr] items-center gap-2">
+                <span className="text-xs font-semibold text-pq-neutral-500">PO Date</span>
+                {editing ? (
+                  <input type="date" value={editForm.po_date} onChange={e => setEditForm(f => ({ ...f, po_date: e.target.value }))}
+                    className="text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-pq-primary-400 w-full max-w-xs" />
+                ) : (
+                  <span className="text-sm text-pq-neutral-900">{format(new Date(po.po_date), 'MMMM d, yyyy')}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Warehouse */}
+            <div className="flex items-start gap-3">
+              <Truck className="w-3.5 h-3.5 text-pq-neutral-400 mt-2.5 shrink-0" />
+              <div className="flex-1 grid grid-cols-[120px_1fr] items-center gap-2">
+                <span className="text-xs font-semibold text-pq-neutral-500">Warehouse</span>
+                {editing ? (
+                  <input type="text" value={editForm.warehouse} onChange={e => setEditForm(f => ({ ...f, warehouse: e.target.value }))}
+                    className="text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-pq-primary-400 w-full" />
+                ) : (
+                  <span className="text-sm text-pq-neutral-900">{po.warehouse || '—'}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Delivery Address */}
+            <div className="flex items-start gap-3">
+              <MapPin className="w-3.5 h-3.5 text-pq-neutral-400 mt-2.5 shrink-0" />
+              <div className="flex-1 grid grid-cols-[120px_1fr] items-start gap-2">
+                <span className="text-xs font-semibold text-pq-neutral-500 mt-1.5">Delivery Address</span>
+                {editing ? (
+                  <textarea value={editForm.delivery_address} onChange={e => setEditForm(f => ({ ...f, delivery_address: e.target.value }))}
+                    rows={2} className="text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-pq-primary-400 w-full resize-none" />
+                ) : (
+                  <span className="text-sm text-pq-neutral-900">{po.delivery_address || '—'}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Payment Terms */}
+            <div className="flex items-start gap-3">
+              <CreditCard className="w-3.5 h-3.5 text-pq-neutral-400 mt-2.5 shrink-0" />
+              <div className="flex-1 grid grid-cols-[120px_1fr] items-center gap-2">
+                <span className="text-xs font-semibold text-pq-neutral-500">Payment Terms</span>
+                {editing ? (
+                  <input type="text" value={editForm.payment_terms} onChange={e => setEditForm(f => ({ ...f, payment_terms: e.target.value }))}
+                    className="text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-pq-primary-400 w-full" />
+                ) : (
+                  <span className="text-sm text-pq-neutral-900">{po.payment_terms || '—'}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Packing */}
+            <div className="flex items-start gap-3">
+              <ClipboardList className="w-3.5 h-3.5 text-pq-neutral-400 mt-2.5 shrink-0" />
+              <div className="flex-1 grid grid-cols-[120px_1fr] items-center gap-2">
+                <span className="text-xs font-semibold text-pq-neutral-500">Packing</span>
+                {editing ? (
+                  <input type="text" value={editForm.packing} onChange={e => setEditForm(f => ({ ...f, packing: e.target.value }))}
+                    className="text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-pq-primary-400 w-full" />
+                ) : (
+                  <span className="text-sm text-pq-neutral-900">{po.packing || '—'}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Remarks */}
+            <div className="flex items-start gap-3">
+              <FileText className="w-3.5 h-3.5 text-pq-neutral-400 mt-2.5 shrink-0" />
+              <div className="flex-1 grid grid-cols-[120px_1fr] items-start gap-2">
+                <span className="text-xs font-semibold text-pq-neutral-500 mt-1.5">Remarks</span>
+                {editing ? (
+                  <textarea value={editForm.remarks} onChange={e => setEditForm(f => ({ ...f, remarks: e.target.value }))}
+                    rows={2} placeholder="Optional" className="text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-pq-primary-400 w-full resize-none" />
+                ) : (
+                  <span className="text-sm text-pq-neutral-900">{po.remarks || '—'}</span>
+                )}
+              </div>
+            </div>
+
+            {saveError && (
+              <div className="flex items-start gap-2 bg-pq-danger-100 border border-pq-danger-100 text-pq-danger-600 text-sm rounded-md px-4 py-3">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{saveError}</span>
+              </div>
             )}
           </div>
 
@@ -308,6 +433,7 @@ export default function PODetailPage() {
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-8">#</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-20">Code</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase">Description</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Attachments</th>
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-14">Unit</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-16">Qty</th>
                     {canViewPrices ? (
@@ -339,6 +465,11 @@ export default function PODetailPage() {
                           </p>
                         )}
                       </td>
+                      <td className="px-4 py-3 text-center">
+                        {(item.quote_attachments?.length ?? 0) > 0
+                          ? <QuoteAttachmentPills attachments={item.quote_attachments!} />
+                          : <span className="text-xs text-pq-neutral-300">—</span>}
+                      </td>
                       <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_to_purchase}</td>
                       {canViewPrices ? (
@@ -351,7 +482,7 @@ export default function PODetailPage() {
                           </td>
                         </>
                       ) : (
-                        <td colSpan={2} className="px-4 py-3 text-center text-xs text-pq-neutral-400">
+                        <td className="px-4 py-3 text-center text-xs text-pq-neutral-400">
                           {formatCommercialAmount(0, false)}
                         </td>
                       )}
@@ -361,7 +492,7 @@ export default function PODetailPage() {
                 {canViewPrices && (
                   <tfoot>
                     <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                      <td colSpan={6} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
+                      <td colSpan={7} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
                       <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
                         {formatCommercialAmount(grandTotal ?? 0, true)}
                       </td>
@@ -379,6 +510,25 @@ export default function PODetailPage() {
               <span>{submitError}</span>
             </div>
           )}
+
+          {/* Revision banner — shown when PO was returned for revision */}
+          {po.status === 'draft' && approvalDetail?.instance_status === 'cancelled' && (() => {
+            const revisionAction = approvalDetail.actions.find(a => a.action === 'revision_requested');
+            return revisionAction ? (
+              <div className="bg-pq-warning-50 border border-pq-warning-200 rounded-md px-5 py-4 space-y-1">
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 text-pq-warning-600 shrink-0" />
+                  <p className="text-sm font-semibold text-pq-warning-700">Revision Requested</p>
+                </div>
+                <p className="text-xs text-pq-neutral-500">
+                  {revisionAction.actor_name_snapshot} · {format(new Date(revisionAction.acted_at), 'MMM d, yyyy h:mm a')}
+                </p>
+                {revisionAction.remarks && (
+                  <p className="text-sm text-pq-neutral-800 mt-1 pl-6">"{revisionAction.remarks}"</p>
+                )}
+              </div>
+            ) : null;
+          })()}
 
           {/* Status note for draft without active approval */}
           {po.status === 'draft' && !approvalDetail && profile?.position === 'Buyer' && (
@@ -466,8 +616,11 @@ function ApprovalTimeline({ approvalDetail }: { approvalDetail: POApprovalDetail
                 <div className="pb-4 flex-1 min-w-0">
                   <p className="text-xs font-semibold text-pq-neutral-900">Step {step.step_order}: {step.position_required}</p>
                   {isComplete ? (
-                    <div className="mt-0.5">
+                    <div className="mt-0.5 space-y-0.5">
                       <span className="text-xs text-pq-neutral-500">{action!.actor_name_snapshot} · {format(new Date(action!.acted_at), 'MMM d, h:mm a')}</span>
+                      {action!.remarks && (
+                        <p className="text-xs text-pq-neutral-600 italic">"{action!.remarks}"</p>
+                      )}
                     </div>
                   ) : isCurrent ? (
                     <p className="text-xs text-pq-warning-600 mt-0.5">Awaiting action</p>

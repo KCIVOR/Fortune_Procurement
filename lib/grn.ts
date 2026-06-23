@@ -8,6 +8,8 @@ import type {
   GRNFormValues,
 } from '@/types/grn';
 import { createNotification } from '@/lib/notifications';
+import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
+import type { RfqQuoteAttachment } from '@/types/canvassing';
 
 const db = supabase as any;
 
@@ -40,11 +42,9 @@ function normalizeGRN(row: any): GRNReceipt {
   };
 }
 
-function normalizeItem(row: any): GRNItem {
-  // Phase 9 (Raw Mats): the optional embedded join `po_items.pr2_items`
-  // (added in fetchGRNById) carries the snapshot two hops upstream.
-  // PostgREST returns either an object or `null` at each hop.
+function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuoteAttachment[]> = {}): GRNItem {
   const pr2Item = row.po_items?.pr2_items ?? null;
+  const rfqItemQuoteId: string | null = pr2Item?.rfq_item_quote_id ?? null;
   return {
     id:                row.id,
     grn_id:            row.grn_id,
@@ -60,6 +60,7 @@ function normalizeItem(row: any): GRNItem {
     remarks:           row.remarks,
     is_raw_material:   pr2Item?.is_raw_material === true,
     quote_justification: pr2Item?.quote_justification ?? null,
+    quote_attachments: rfqItemQuoteId ? (quoteAttachmentsByQuote[rfqItemQuoteId] ?? []) : [],
     created_at:        row.created_at,
     updated_at:        row.updated_at,
   };
@@ -138,20 +139,24 @@ export async function fetchGRNTabCounts(): Promise<Record<GRNListTab, number>> {
 export async function fetchGRNById(id: string): Promise<GRNWithItems | null> {
   const [grnRes, itemsRes] = await Promise.all([
     db.from('grn_receipts').select('*').eq('id', id).maybeSingle(),
-    // Phase 9 (Raw Mats): two-hop join from grn_items → po_items → pr2_items
-    // so the raw-mats badge surfaces on GRN line rows. PostgREST nests the
-    // intermediate parent under `po_items` and the grandparent under
-    // `pr2_items`. Both are nullable for legacy rows that pre-date the
-    // pr2_item_id linkage.
     db.from('grn_items')
-      .select('*, po_items:po_item_id ( pr2_items:pr2_item_id ( is_raw_material, quote_justification ) )')
+      .select('*, po_items:po_item_id ( pr2_items:pr2_item_id ( is_raw_material, quote_justification, rfq_item_quote_id ) )')
       .eq('grn_id', id)
       .order('item_order', { ascending: true }),
   ]);
   if (grnRes.error) throw grnRes.error;
   if (!grnRes.data) return null;
 
-  let items: GRNItem[] = (itemsRes.data ?? []).map(normalizeItem);
+  const rawItems: any[] = itemsRes.data ?? [];
+  const quoteIds = rawItems
+    .map((r: any) => r.po_items?.pr2_items?.rfq_item_quote_id)
+    .filter((id: string | null | undefined): id is string => !!id);
+  const quoteAttachmentsByQuote: Record<string, RfqQuoteAttachment[]> =
+    quoteIds.length > 0
+      ? await fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({}))
+      : {};
+
+  let items: GRNItem[] = rawItems.map(r => normalizeItem(r, quoteAttachmentsByQuote));
 
   // Fallback: if no grn_items exist yet, synthesize from po_items via the delivery chain
   if (items.length === 0) {

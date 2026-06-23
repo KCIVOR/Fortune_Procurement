@@ -1,3 +1,19 @@
+import type { PR1Attachment } from './pr1';
+
+export interface RfqQuoteAttachment {
+  id:                string;
+  rfq_id:            string;
+  rfq_supplier_id:   string;
+  rfq_item_quote_id: string;
+  pr1_item_id:       string;
+  uploaded_by:       string;
+  storage_path:      string;
+  file_name:         string;
+  file_size:         number | null;
+  mime_type:         string | null;
+  created_at:        string;
+}
+
 export type RfqBatchStatus     = 'draft' | 'open' | 'closed' | 'cancelled';
 export type RfqSupplierStatus  = 'invited' | 'submitted' | 'declined';
 export type SubstituteDecision = 'accepted' | 'rejected';
@@ -33,6 +49,8 @@ export interface SubstituteReviewItem {
   decision:              SubstituteDecision | null;
   decided_at:            string | null;
   decision_notes:        string | null;
+  /** Supplier-uploaded attachments for this substitute quote line. */
+  attachments:           RfqQuoteAttachment[];
 }
 
 export interface SubstituteReviewBundle {
@@ -91,6 +109,8 @@ export interface RfqItemQuote {
   /** Explicit line response; omitted/null treated as quoted for legacy rows. */
   response_status?:     RfqQuoteResponseStatus;
   no_quote_reason?:    string | null;
+  /** Supplier-uploaded attachments for this quote line. Loaded at read time. */
+  attachments?:         RfqQuoteAttachment[];
 }
 
 export interface SupplierItemSelection {
@@ -166,6 +186,7 @@ export interface RfqDetailView {
      * legacy callers that don't select the column still compile.
      */
     is_raw_material?:   boolean;
+    attachments?:       PR1Attachment[];
   }[];
   suppliers:  RfqSupplier[];
   quotes:     RfqItemQuote[];
@@ -193,6 +214,7 @@ export interface QuoteMatrixRow {
      * widens the canvassing query.
      */
     is_raw_material?:   boolean;
+    attachments?:       PR1Attachment[];
   };
   quotes: {
     rfq_supplier_id:       string;
@@ -222,6 +244,8 @@ export interface QuoteMatrixRow {
     /** Supplier explicit no-quote vs quoted line (default quoted). */
     response_status:        RfqQuoteResponseStatus;
     no_quote_reason:        string | null;
+    /** Supplier-uploaded attachments for this quote cell. */
+    attachments:            RfqQuoteAttachment[];
   }[];
   selected_rfq_supplier_id: string | null;
 }

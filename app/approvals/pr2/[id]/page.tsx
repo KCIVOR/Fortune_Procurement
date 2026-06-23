@@ -40,6 +40,7 @@ import {
   Package, TriangleAlert as AlertTriangle, CheckCheck, Lock,
   ClipboardList, DollarSign,
 } from 'lucide-react';
+import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 
 export default function PR2ApprovalDetailPage() {
   const { id: instanceId } = useParams<{ id: string }>();
@@ -126,7 +127,7 @@ export default function PR2ApprovalDetailPage() {
     detail.active_instance_id === instanceId &&
     detail.active_instance_status === 'active' &&
     activeStepDef &&
-    canActOnPR2Step(profile, activeStepDef.role_required, activeStepDef.position_required)
+    canActOnPR2Step(profile, activeStepDef.role_required, activeStepDef.position_required, detail.department_id)
   );
 
   const handleConfirmAction = useCallback(async () => {
@@ -296,6 +297,7 @@ export default function PR2ApprovalDetailPage() {
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-8">#</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-20">Code</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase">Description</th>
+                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Attachments</th>
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-14">Unit</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-16">Req.</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-14">SOH</th>
@@ -344,6 +346,11 @@ export default function PR2ApprovalDetailPage() {
                             </p>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-center">
+                          {(item.quote_attachments?.length ?? 0) > 0
+                            ? <QuoteAttachmentPills attachments={item.quote_attachments!} />
+                            : <span className="text-xs text-pq-neutral-300">—</span>}
+                        </td>
                         <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs text-pq-neutral-500">{item.quantity_requested}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs text-pq-neutral-500">{item.qty_on_hand}</td>
@@ -356,12 +363,12 @@ export default function PR2ApprovalDetailPage() {
                             <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">{formatCommercialAmount(item.unit_price * item.quantity_to_purchase, true)}</td>
                           </>
                         ) : (
-                          <td colSpan={2} className="px-4 py-3 text-center text-xs text-pq-neutral-400">{PRICE_HIDDEN_LABEL}</td>
+                          <td className="px-4 py-3 text-center text-xs text-pq-neutral-400">{PRICE_HIDDEN_LABEL}</td>
                         )}
                       </tr>
                       {canViewCanvass && quotes.length > 0 && (
                         <tr className="bg-pq-neutral-50 border-t border-pq-neutral-200">
-                          <td colSpan={11} className="px-4 py-3">
+                          <td colSpan={canViewPrice ? 12 : 11} className="px-4 py-3">
                             <details className="cursor-pointer">
                               <summary className="text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900">
                                 Other Supplier Quotes ({quotes.length})
@@ -388,7 +395,7 @@ export default function PR2ApprovalDetailPage() {
               <tfoot>
                 {canViewPrice ? (
                   <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                    <td colSpan={10} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
+                    <td colSpan={11} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
                     <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
                       {formatCommercialAmount(grandTotal ?? 0, true)}
                     </td>
@@ -403,28 +410,15 @@ export default function PR2ApprovalDetailPage() {
           </div>
         </div>
 
-        {/* Phase 1 timeline */}
+        {/* Approval timeline */}
         <PhaseTimeline
-          phaseLabel="Phase 1 Approval"
-          phaseSubLabel="PR2 Phase 1 — Procurement & Department Chain"
+          phaseLabel="Approval"
+          phaseSubLabel="PR2 Approval Chain"
           steps={detail.phase1_steps}
           actions={detail.phase1_actions}
           currentStep={detail.phase1_current_step}
           instanceStatus={detail.phase1_instance_status}
         />
-
-        {/* Phase 2 timeline */}
-        {(detail.phase2_instance_id || detail.phase2_steps.length > 0) && (
-          <PhaseTimeline
-            phaseLabel="Phase 2 Approval"
-            phaseSubLabel="PR2 Phase 2 — Buyer Chain"
-            steps={detail.phase2_steps}
-            actions={detail.phase2_actions}
-            currentStep={detail.phase2_current_step ?? 1}
-            instanceStatus={detail.phase2_instance_status ?? 'active'}
-            notStarted={!detail.phase2_instance_id}
-          />
-        )}
 
         {/* Action panel */}
         {!isClosed && canAct && (
@@ -435,7 +429,7 @@ export default function PR2ApprovalDetailPage() {
               </h2>
               <p className="text-xs text-pq-warning-600 mt-0.5">
                 Acting as: <strong>{profile?.full_name}</strong> · {profile?.position}
-                {' '}·{' '}{detail.active_workflow_code === 'PR2_PHASE1' ? 'Phase 1' : 'Phase 2'}
+                {' '}·{' '}Approval
               </p>
             </div>
             <div className="p-6 space-y-4">
@@ -470,9 +464,7 @@ export default function PR2ApprovalDetailPage() {
                     }>
                       {pendingAction === 'approved'
                         ? activeStepDef?.is_final
-                          ? detail.active_workflow_code === 'PR2_PHASE1'
-                            ? 'Phase 1 Final Approval — Phase 2 will start automatically'
-                            : 'Phase 2 Final Approval — PR2 Fully Approved'
+                          ? 'Final Approval — PR2 Fully Approved'
                           : 'Approved — Advance to Next Step'
                         : pendingAction === 'rejected'
                         ? 'Rejected — PR2 returned to Procurement'
@@ -527,12 +519,12 @@ export default function PR2ApprovalDetailPage() {
         )}
 
         {/* Closed state */}
-        {isFullyClosed && detail.pr2_status === 'phase2_approved' && (
+        {isFullyClosed && detail.pr2_status === 'approved' && (
           <div className="bg-pq-success-100 border border-pq-success-100 rounded-md px-6 py-4 flex items-start gap-3">
             <CheckCheck className="w-5 h-5 text-pq-success-600 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-pq-success-600">Fully Approved — Ready for Purchase Order</p>
-              <p className="text-xs text-pq-success-600 mt-0.5">Both Phase 1 and Phase 2 approvals are complete.</p>
+              <p className="text-sm font-semibold text-pq-success-600">Approved — Ready for Purchase Order</p>
+              <p className="text-xs text-pq-success-600 mt-0.5">All approvals are complete.</p>
             </div>
           </div>
         )}
@@ -599,7 +591,7 @@ function PhaseTimeline({
       </div>
       <div className="p-6">
         {notStarted ? (
-          <p className="text-sm text-pq-neutral-400 italic">Phase 2 begins automatically after Phase 1 is fully approved.</p>
+          <p className="text-sm text-pq-neutral-400 italic">Approval timeline will appear once submitted.</p>
         ) : (
           <WorkflowTimeline
             steps={steps}

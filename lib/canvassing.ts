@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { authFetch } from '@/lib/authenticated-fetch';
 import type { UserProfile } from '@/types/auth';
+import { fetchPR1Attachments } from './pr1';
+import type { PR1Attachment } from '@/types/pr1';
 import { createNotification, notifyByRole } from '@/lib/notifications';
 import type {
   RfqBatch,
@@ -17,6 +19,7 @@ import type {
   CatalogProductSummary,
   CanvassSupplierCandidate,
   RfqQuoteResponseStatus,
+  RfqQuoteAttachment,
 } from '@/types/canvassing';
 
 const db = supabase as any;
@@ -36,6 +39,7 @@ type Pr1ItemRfqRow = {
   quantity_requested: number;
   /** Phase 4 (Raw Mats): forwarded from pr1_items so RFQ surfaces can render the badge. */
   is_raw_material?: boolean;
+  attachments?: PR1Attachment[];
 };
 
 export async function fetchWarehouseProcurementByPr1Item(
@@ -79,6 +83,7 @@ function buildRfqLineItems(
       unit_of_measure:    i.unit_of_measure,
       quantity_requested: pr1Qty(i),
       is_raw_material:    i.is_raw_material === true,
+      attachments:        i.attachments,
     }));
   }
 
@@ -100,6 +105,7 @@ function buildRfqLineItems(
         quantity_requested:      procQty,
         pr1_quantity_requested: pr1Qty(i),
         is_raw_material:        i.is_raw_material === true,
+        attachments:            i.attachments,
       });
     }
   }
@@ -116,6 +122,7 @@ function buildRfqLineItems(
         quantity_requested:      q,
         pr1_quantity_requested: q,
         is_raw_material:        i.is_raw_material === true,
+        attachments:            i.attachments,
       });
     }
   }
@@ -246,8 +253,9 @@ export async function fetchCanvassingQueuePaged(options: {
   limit: number;
   offset: number;
   search?: string;
+  departmentId?: string;
 }): Promise<{ rows: CanvassingQueueRow[]; total_count: number }> {
-  const { limit, offset, search } = options;
+  const { limit, offset, search, departmentId } = options;
   const term = search?.trim();
 
   let pr1IdsMatchingRfqNumber: string[] = [];
@@ -277,6 +285,9 @@ export async function fetchCanvassingQueuePaged(options: {
         orParts.push(`id.in.(${pr1IdsMatchingRfqNumber.join(',')})`);
       }
       q = q.or(orParts.join(','));
+    }
+    if (departmentId) {
+      q = q.eq('department_id', departmentId);
     }
     return q;
   };
@@ -341,7 +352,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
   if (rfqErr) throw rfqErr;
   if (!rfq) return null;
 
-  const [pr1Res, itemsRes, suppliersRes] = await Promise.all([
+  const [pr1Res, itemsRes, suppliersRes, attachments] = await Promise.all([
     db.from('pr1_requests')
       .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required')
       .eq('id', rfq.pr1_id)
@@ -353,13 +364,24 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
     db.from('rfq_suppliers')
       .select('*')
       .eq('rfq_id', rfqId),
+    fetchPR1Attachments(rfq.pr1_id).catch(() => []),
   ]);
 
   if (pr1Res.error) throw pr1Res.error;
   if (!pr1Res.data) return null;
   if (itemsRes.error) throw itemsRes.error;
 
-  const pr1Items = (itemsRes.data ?? []) as Pr1ItemRfqRow[];
+  const rawItems = (itemsRes.data ?? []) as any[];
+  const attachmentsByItem: Record<string, PR1Attachment[]> = {};
+  for (const att of attachments) {
+    if (!attachmentsByItem[att.pr1_item_id]) attachmentsByItem[att.pr1_item_id] = [];
+    attachmentsByItem[att.pr1_item_id].push(att);
+  }
+  const pr1Items = rawItems.map((item) => ({
+    ...item,
+    attachments: attachmentsByItem[item.id] ?? [],
+  })) as Pr1ItemRfqRow[];
+
   const warehouse = await fetchWarehouseProcurementByPr1Item(rfq.pr1_id);
   const legacyIds = await collectLegacyPr1ItemIdsForRfq(rfqId);
   const items = buildRfqLineItems(pr1Items, warehouse, legacyIds);
@@ -484,6 +506,13 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
     }));
   }
 
+  // Enrich quotes with supplier-uploaded attachments
+  const quoteAttachmentsByQuote = await fetchRfqQuoteAttachmentsByRfq(rfqId).catch(() => ({} as Record<string, RfqQuoteAttachment[]>));
+  quotes = (quotes as any[]).map((q: any) => ({
+    ...q,
+    attachments: quoteAttachmentsByQuote[q.id] ?? [],
+  }));
+
   // Phase 7: build a product lookup map for quotes that carry a supplier_product_id
   const productLookup: Record<string, CatalogProductSummary> = {};
   const linkedProductIds = Array.from(
@@ -577,6 +606,7 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
         verification_status:     verificationStatus,
         response_status:         responseStatus,
         no_quote_reason:         noQuoteReason,
+        attachments:             quote?.attachments ?? [],
       };
     });
 
@@ -1161,13 +1191,14 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
   const itemIds = Array.from(new Set(quoteArr.map(q => q.pr1_item_id)));
   const quoteIds = quoteArr.map(q => q.id);
 
-  const [itemsRes, decisionsRes] = await Promise.all([
+  const [itemsRes, decisionsRes, attachmentsByQuote] = await Promise.all([
     db.from('pr1_items')
       .select('id, item_order, item_code, description, unit_of_measure, quantity_requested')
       .in('id', itemIds),
     db.from('substitute_decisions')
       .select('*')
       .in('rfq_item_quote_id', quoteIds),
+    fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({} as Record<string, RfqQuoteAttachment[]>)),
   ]);
 
   const itemMap: Record<string, any> = Object.fromEntries(((itemsRes.data ?? []) as any[]).map((i: any) => [i.id, i]));
@@ -1211,6 +1242,7 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
         decision:             decision?.decision ?? null,
         decided_at:           decision?.decided_at ?? null,
         decision_notes:       decision?.notes ?? null,
+        attachments:          attachmentsByQuote[q.id] ?? [],
       };
     })
     .filter((s): s is SubstituteReviewItem => s !== null)
@@ -1470,6 +1502,7 @@ export interface SupplierQuoteDetail {
     pr1_quantity_requested?: number;
     /** Phase 4 (Raw Mats): forwarded from pr1_items.is_raw_material. */
     is_raw_material?:   boolean;
+    attachments?:       PR1Attachment[];
   }[];
   quotes: RfqItemQuote[];
 }
@@ -1503,7 +1536,7 @@ export async function fetchSupplierQuoteDetail(
 
   const rfq = rfqRes.data;
 
-  const [pr1Res, pr1ItemsRes, legacyIds] = await Promise.all([
+  const [pr1Res, pr1ItemsRes, legacyIds, attachments] = await Promise.all([
     db.from('pr1_requests')
       .select('pr1_number, department_name_snapshot, purpose')
       .eq('id', rfq.pr1_id)
@@ -1513,23 +1546,41 @@ export async function fetchSupplierQuoteDetail(
       .eq('pr1_id', rfq.pr1_id)
       .order('item_order', { ascending: true }),
     collectLegacyPr1ItemIdsForRfq(rfq.id),
+    fetchPR1Attachments(rfq.pr1_id).catch(() => []),
   ]);
 
   if (!pr1Res.data) return null;
 
+  const attachmentsByItem: Record<string, PR1Attachment[]> = {};
+  for (const att of attachments) {
+    if (!attachmentsByItem[att.pr1_item_id]) attachmentsByItem[att.pr1_item_id] = [];
+    attachmentsByItem[att.pr1_item_id].push(att);
+  }
+  const pr1Items = ((pr1ItemsRes.data ?? []) as any[]).map(item => ({
+    ...item,
+    attachments: attachmentsByItem[item.id] ?? [],
+  })) as Pr1ItemRfqRow[];
+
   const warehouse = await fetchWarehouseProcurementByPr1Item(rfq.pr1_id);
-  const items = buildRfqLineItems(
-    (pr1ItemsRes.data ?? []) as Pr1ItemRfqRow[],
-    warehouse,
-    legacyIds,
-  );
+  const items = buildRfqLineItems(pr1Items, warehouse, legacyIds);
+
+  // Enrich quotes with supplier-uploaded attachments so the supplier sees
+  // previously uploaded files on page reload.
+  const rawQuotes = (quotesRes.data ?? []) as any[];
+  const quoteAttachmentsByQuote = rawQuotes.length > 0
+    ? await fetchRfqQuoteAttachmentsByRfq(rfq.id).catch(() => ({} as Record<string, RfqQuoteAttachment[]>))
+    : {};
+  const quotes = rawQuotes.map(q => ({
+    ...q,
+    attachments: quoteAttachmentsByQuote[q.id] ?? [],
+  }));
 
   return {
     rfqSupplier: rs,
     rfq,
     pr1:         pr1Res.data,
     items,
-    quotes:      quotesRes.data ?? [],
+    quotes,
   };
 }
 
@@ -1747,4 +1798,132 @@ export async function fetchSupplierStats(supplierId: string): Promise<{
     submitted: arr.filter(a => a.status === 'submitted').length,
     pending:   arr.filter(a => a.status === 'invited' && openRfqIds.has(a.rfq_id)).length,
   };
+}
+
+// ─── RFQ Quote Attachments ────────────────────────────────────────────────────
+
+/** Fetch all attachments for a single rfq_item_quote row. */
+export async function fetchRfqQuoteAttachments(
+  rfqItemQuoteId: string
+): Promise<RfqQuoteAttachment[]> {
+  const { data, error } = await db
+    .from('rfq_quote_attachments')
+    .select('*')
+    .eq('rfq_item_quote_id', rfqItemQuoteId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as RfqQuoteAttachment[];
+}
+
+/** Fetch all attachments for every quote in an RFQ, grouped by rfq_item_quote_id. */
+export async function fetchRfqQuoteAttachmentsByRfq(
+  rfqId: string
+): Promise<Record<string, RfqQuoteAttachment[]>> {
+  const { data, error } = await db
+    .from('rfq_quote_attachments')
+    .select('*')
+    .eq('rfq_id', rfqId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+
+  const grouped: Record<string, RfqQuoteAttachment[]> = {};
+  for (const att of (data ?? []) as RfqQuoteAttachment[]) {
+    if (!grouped[att.rfq_item_quote_id]) grouped[att.rfq_item_quote_id] = [];
+    grouped[att.rfq_item_quote_id].push(att);
+  }
+  return grouped;
+}
+
+/** Fetch attachments for a specific set of rfq_item_quote IDs, grouped by quote ID. */
+export async function fetchRfqQuoteAttachmentsByQuoteIds(
+  quoteIds: string[]
+): Promise<Record<string, RfqQuoteAttachment[]>> {
+  if (quoteIds.length === 0) return {};
+  const { data, error } = await db
+    .from('rfq_quote_attachments')
+    .select('*')
+    .in('rfq_item_quote_id', quoteIds)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+
+  const grouped: Record<string, RfqQuoteAttachment[]> = {};
+  for (const att of (data ?? []) as RfqQuoteAttachment[]) {
+    if (!grouped[att.rfq_item_quote_id]) grouped[att.rfq_item_quote_id] = [];
+    grouped[att.rfq_item_quote_id].push(att);
+  }
+  return grouped;
+}
+
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf',
+]);
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+export async function uploadRfqQuoteAttachment(params: {
+  rfqId:           string;
+  rfqSupplierId:   string;
+  rfqItemQuoteId:  string;
+  pr1ItemId:       string;
+  file:            File;
+}): Promise<RfqQuoteAttachment> {
+  const { rfqId, rfqSupplierId, rfqItemQuoteId, pr1ItemId, file } = params;
+
+  if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    throw new Error(`File type "${file.type}" is not allowed. Use JPEG, PNG, WebP, GIF, or PDF.`);
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`File exceeds the 10 MB limit.`);
+  }
+
+  const ts = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = `rfq/${rfqId}/${rfqSupplierId}/${pr1ItemId}/${ts}_${safeName}`;
+
+  const { error: uploadErr } = await supabase.storage
+    .from('rfq-attachments')
+    .upload(storagePath, file, { contentType: file.type, upsert: false });
+  if (uploadErr) throw uploadErr;
+
+  const { data, error: insertErr } = await db
+    .from('rfq_quote_attachments')
+    .insert({
+      rfq_id:            rfqId,
+      rfq_supplier_id:   rfqSupplierId,
+      rfq_item_quote_id: rfqItemQuoteId,
+      pr1_item_id:       pr1ItemId,
+      uploaded_by:       (await supabase.auth.getUser()).data.user?.id,
+      storage_path:      storagePath,
+      file_name:         file.name,
+      file_size:         file.size,
+      mime_type:         file.type,
+    })
+    .select('*')
+    .single();
+  if (insertErr) {
+    // Best-effort cleanup of orphaned storage object
+    await supabase.storage.from('rfq-attachments').remove([storagePath]).catch(() => {});
+    throw insertErr;
+  }
+  return data as RfqQuoteAttachment;
+}
+
+export async function deleteRfqQuoteAttachment(
+  attachmentId: string,
+  storagePath:  string
+): Promise<void> {
+  await supabase.storage.from('rfq-attachments').remove([storagePath]);
+  const { error } = await db
+    .from('rfq_quote_attachments')
+    .delete()
+    .eq('id', attachmentId);
+  if (error) throw error;
+}
+
+/** Get a short-lived public URL for a stored RFQ quote attachment. */
+export async function getRfqQuoteAttachmentUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('rfq-attachments')
+    .createSignedUrl(storagePath, 60 * 60); // 1 hour
+  if (error) throw error;
+  return data.signedUrl;
 }

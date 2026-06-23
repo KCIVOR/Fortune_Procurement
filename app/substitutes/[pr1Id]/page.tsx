@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
+import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 
 export default function SubstituteReviewPage() {
   const { pr1Id } = useParams<{ pr1Id: string }>();
@@ -228,6 +229,11 @@ function SubstituteCard({
           </div>
           {substitute.remarks && (
             <p className="text-xs text-pq-neutral-500 italic mt-3">"{substitute.remarks}"</p>
+          )}
+          {substitute.attachments && substitute.attachments.length > 0 && (
+            <div className="mt-3">
+              <QuoteAttachmentPills attachments={substitute.attachments} />
+            </div>
           )}
         </div>
       </div>

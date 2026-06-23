@@ -13,6 +13,7 @@ import { submitPR2ForApproval, canActOnPR2Step, fetchPR2ApprovalDetail } from '@
 import { fetchPOsByPR2Id } from '@/lib/po';
 import { supabase } from '@/lib/supabase';
 import type { PR2WithItems, PR2Item } from '@/types/pr2';
+import type { PR1Attachment } from '@/types/pr1';
 import type { PORequest } from '@/types/po';
 import type { PR2ApprovalDetail, ApprovalActionRecord, WorkflowStep } from '@/types/approvals';
 import { PR2_STATUS_LABELS } from '@/types/pr2';
@@ -26,15 +27,17 @@ import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
 import DetailPrintButton from '@/components/shared/DetailPrintButton';
 import DetailTableCard from '@/components/shared/DetailTableCard';
+import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
+import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 
 const STATUS_STYLES: Record<string, string> = {
-  draft:                   'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
-  pending_phase1_approval: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
-  phase1_approved:         'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200',
-  pending_phase2_approval: 'bg-orange-50 text-orange-700 border-orange-200',
-  phase2_approved:         'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
-  cancelled:               'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
+  draft:              'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
+  pending_approval:   'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
+  approved:           'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
+  revision_requested: 'bg-orange-50 text-orange-700 border-orange-200',
+  rejected:           'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
+  cancelled:          'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
 };
 
 interface EditableItem {
@@ -58,7 +61,9 @@ interface EditableItem {
   selected_rfq_supplier_id: string | null;
   // Phase 9 (Raw Mats): forwarded from the PR2Item snapshot for badge / panel rendering.
   is_raw_material?: boolean;
+  attachments?: PR1Attachment[];
   quote_justification?: string | null;
+  quote_attachments?: import('@/types/canvassing').RfqQuoteAttachment[];
 }
 
 function toEditableItem(item: PR2Item): EditableItem {
@@ -82,7 +87,9 @@ function toEditableItem(item: PR2Item): EditableItem {
     pr1_item_id:      item.pr1_item_id,
     selected_rfq_supplier_id: item.selected_rfq_supplier_id,
     is_raw_material:  item.is_raw_material === true,
+    attachments:      item.attachments,
     quote_justification: item.quote_justification ?? null,
+    quote_attachments: item.quote_attachments,
   };
 }
 
@@ -216,12 +223,14 @@ export default function PR2DetailPage() {
     }
   };
 
-  const handleQtyChange = (idx: number, field: 'qty_on_hand' | 'qty_incoming', val: string) => {
+  const handleQtyChange = (idx: number, field: 'qty_on_hand' | 'qty_incoming' | 'quantity_to_purchase', val: string) => {
     setEditItems(prev => {
       const next = [...prev];
       const item = { ...next[idx] };
       item[field] = Number(val) || 0;
-      item.quantity_to_purchase = Math.max(0, item.quantity_requested - item.qty_on_hand - item.qty_incoming);
+      if (field !== 'quantity_to_purchase') {
+        item.quantity_to_purchase = Math.max(0, item.quantity_requested - item.qty_on_hand - item.qty_incoming);
+      }
       item.total_price = item.unit_price * item.quantity_to_purchase;
       next[idx] = item;
       return next;
@@ -333,7 +342,7 @@ export default function PR2DetailPage() {
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-pq-neutral-200 text-pq-neutral-900 text-sm font-semibold rounded-md hover:bg-pq-neutral-50 transition"
               >
                 <Pencil className="w-4 h-4" />
-                Edit Inventory
+                Edit PR2
               </button>
             )}
             {canEdit && !editing && (
@@ -405,7 +414,7 @@ export default function PR2DetailPage() {
       )}
 
       {/* PO banners — fully approved PR2 (may be multiple suppliers) */}
-      {pr2.status === 'phase2_approved' && existingPOs.length > 0 && (
+      {pr2.status === 'approved' && existingPOs.length > 0 && (
         <div className="space-y-3 mb-4">
           {existingPOs.map(po => (
             <div
@@ -432,7 +441,7 @@ export default function PR2DetailPage() {
           ))}
         </div>
       )}
-      {pr2.status === 'phase2_approved' && hasPendingPOGroups && profile?.position === 'Buyer' && (
+      {pr2.status === 'approved' && hasPendingPOGroups && profile?.position === 'Buyer' && (
         <div className="flex items-center justify-between gap-4 bg-pq-primary-50 border border-pq-primary-200 rounded-md px-5 py-4 mb-4">
           <div className="flex items-center gap-3">
             <ShoppingCart className="w-5 h-5 text-pq-primary-600 shrink-0" />
@@ -545,6 +554,7 @@ export default function PR2DetailPage() {
                     ) : (
                       <th className="px-4 py-3 text-center text-xs font-semibold text-pq-neutral-500 w-28">Pricing</th>
                     )}
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-pq-neutral-500 w-24">Attachments</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-pq-neutral-200">
@@ -628,9 +638,20 @@ export default function PR2DetailPage() {
                       </td>
 
                       <td className="px-4 py-3 text-right">
-                        <span className={`text-sm font-semibold ${item.quantity_to_purchase === 0 ? 'text-pq-neutral-400' : 'text-pq-neutral-900'}`}>
-                          {item.quantity_to_purchase}
-                        </span>
+                        {editing ? (
+                          <input
+                            type="number"
+                            min="0"
+                            max={undefined}
+                            value={editItems[idx].quantity_to_purchase}
+                            onChange={e => handleQtyChange(idx, 'quantity_to_purchase', e.target.value)}
+                            className="w-16 text-right text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        ) : (
+                          <span className={`text-sm font-semibold ${item.quantity_to_purchase === 0 ? 'text-pq-neutral-400' : 'text-pq-neutral-900'}`}>
+                            {item.quantity_to_purchase}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-xs font-medium text-pq-neutral-900">{item.supplier_name_snapshot}</p>
@@ -651,18 +672,32 @@ export default function PR2DetailPage() {
                           {formatCommercialAmount(0, false)}
                         </td>
                       )}
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1.5 items-start">
+                          {(item.attachments?.length ?? 0) > 0 && (
+                            <PR1AttachmentsGallery attachments={item.attachments!} />
+                          )}
+                          {(item.quote_attachments?.length ?? 0) > 0 && (
+                            <QuoteAttachmentPills attachments={item.quote_attachments!} />
+                          )}
+                          {(item.attachments?.length ?? 0) === 0 && (item.quote_attachments?.length ?? 0) === 0 && (
+                            <span className="text-xs text-pq-neutral-300">—</span>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 {canViewPrices && (
                   <tfoot>
                     <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                      <td colSpan={9} className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">
+                      <td colSpan={10} className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">
                         Grand Total
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
                         {formatCommercialAmount(grandTotal ?? 0, true)}
                       </td>
+                      <td className="px-4 py-3"></td>
                     </tr>
                   </tfoot>
                 )}
@@ -677,44 +712,26 @@ export default function PR2DetailPage() {
               <div>
                 <p className="text-sm font-semibold text-pq-success-600">PR2 is ready for approval routing</p>
                 <p className="text-xs text-pq-success-600 mt-0.5">
-                  Review the inventory figures above, then click &ldquo;Submit for Approval&rdquo; to start Phase 1.
+                  Review the inventory figures above, then click &ldquo;Submit for Approval&rdquo;.
                 </p>
               </div>
             </div>
           )}
-          {pr2.status === 'pending_phase1_approval' && (
+          {pr2.status === 'pending_approval' && (
             <div className="mt-4 flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4">
               <Send className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-pq-warning-600">Awaiting Phase 1 Approval</p>
-                <p className="text-xs text-pq-warning-600 mt-0.5">This PR2 is routing through Phase 1 signatories.</p>
+                <p className="text-sm font-semibold text-pq-warning-600">Awaiting Approval</p>
+                <p className="text-xs text-pq-warning-600 mt-0.5">This PR2 is routing through approval signatories.</p>
               </div>
             </div>
           )}
-          {pr2.status === 'phase1_approved' && (
-            <div className="mt-4 flex items-start gap-3 bg-pq-primary-50 border border-pq-primary-200 rounded-md px-5 py-4">
-              <CheckCircle2 className="w-4 h-4 text-pq-primary-600 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-pq-primary-600">Phase 1 Approved — Awaiting Phase 2</p>
-                <p className="text-xs text-pq-primary-700 mt-0.5">Phase 2 routing has been automatically started.</p>
-              </div>
-            </div>
-          )}
-          {pr2.status === 'pending_phase2_approval' && (
-            <div className="mt-4 flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-md px-5 py-4">
-              <Send className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-orange-800">Awaiting Phase 2 Approval</p>
-                <p className="text-xs text-orange-700 mt-0.5">This PR2 is routing through Phase 2 signatories.</p>
-              </div>
-            </div>
-          )}
-          {pr2.status === 'phase2_approved' && (
+          {pr2.status === 'approved' && (
             <div className="mt-4 flex items-start gap-3 bg-pq-success-100 border border-pq-success-100 rounded-md px-5 py-4">
               <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-pq-success-600">Fully Approved</p>
-                <p className="text-xs text-pq-success-600 mt-0.5">Both approval phases complete. Ready for Purchase Order.</p>
+                <p className="text-sm font-semibold text-pq-success-600">Approved</p>
+                <p className="text-xs text-pq-success-600 mt-0.5">All approvals complete. Ready for Purchase Order.</p>
               </div>
             </div>
           )}
@@ -725,28 +742,14 @@ export default function PR2DetailPage() {
           <div className="lg:sticky lg:top-20">
             {approvalDetail ? (
               <div className="space-y-4">
-                {/* Phase 1 timeline */}
                 <PhaseTimeline
-                  phaseLabel="Phase 1 Approval"
-                  phaseSubLabel="PR2 Phase 1 — Procurement & Department Chain"
+                  phaseLabel="Approval"
+                  phaseSubLabel="PR2 Approval Chain"
                   steps={approvalDetail.phase1_steps}
                   actions={approvalDetail.phase1_actions}
                   currentStep={approvalDetail.phase1_current_step}
                   instanceStatus={approvalDetail.phase1_instance_status}
                 />
-
-                {/* Phase 2 timeline */}
-                {(approvalDetail.phase2_instance_id || approvalDetail.phase2_steps.length > 0) && (
-                  <PhaseTimeline
-                    phaseLabel="Phase 2 Approval"
-                    phaseSubLabel="PR2 Phase 2 — Buyer Chain"
-                    steps={approvalDetail.phase2_steps}
-                    actions={approvalDetail.phase2_actions}
-                    currentStep={approvalDetail.phase2_current_step ?? 1}
-                    instanceStatus={approvalDetail.phase2_instance_status ?? 'active'}
-                    notStarted={!approvalDetail.phase2_instance_id}
-                  />
-                )}
               </div>
             ) : (
               <div className="bg-white rounded-md border border-pq-neutral-200 p-5">
@@ -829,7 +832,7 @@ function PhaseTimeline({
       </div>
       <div className="p-6">
         {notStarted ? (
-          <p className="text-sm text-pq-neutral-400 italic">Phase 2 begins automatically after Phase 1 is fully approved.</p>
+          <p className="text-sm text-pq-neutral-400 italic">Approval timeline will appear once submitted.</p>
         ) : (
           <WorkflowTimeline
             steps={steps}

@@ -83,6 +83,125 @@ export async function fetchMyConversations(
   return (data ?? []) as ConversationWithProfiles[];
 }
 
+export async function fetchConversationById(id: string): Promise<ConversationWithProfiles | null> {
+  const { data, error } = await db
+    .from('conversations')
+    .select(`
+      *,
+      user_a_profile:profiles!conversations_user_a_id_fkey(
+        id, full_name, email,
+        role:roles(name),
+        position:positions(title),
+        department:departments(name)
+      ),
+      user_b_profile:profiles!conversations_user_b_id_fkey(
+        id, full_name, email,
+        role:roles(name),
+        position:positions(title),
+        department:departments(name)
+      )
+    `)
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data as ConversationWithProfiles | null;
+}
+
+// ─── User directory (server-side paginated) ──────────────────────────────────
+
+export interface DirectoryUser {
+  id: string;
+  full_name: string;
+  email: string;
+  role: { name: string } | null;
+  position: { title: string } | null;
+  department: { name: string } | null;
+}
+
+export interface DirectoryQuery {
+  /** Free-text search against name + email */
+  search?: string;
+  /** Exact position title to filter by */
+  position?: string;
+  /** Exact department name to filter by */
+  department?: string;
+  limit: number;
+  offset: number;
+}
+
+export interface DirectoryPage {
+  users: DirectoryUser[];
+  /** Total rows matching the filters (ignores limit/offset) */
+  total: number;
+}
+
+/**
+ * Fetches a single page of the user directory, filtered server-side.
+ *
+ * Pagination is enforced with `.range()` and an exact `count`, so only one
+ * page of rows is transferred per request (no client-side truncation cap).
+ * Role / department filters use `!inner` joins so the filter is applied in the
+ * database; without a filter the join stays a left join so users missing a
+ * role or department are still returned.
+ */
+export async function fetchDirectoryUsers(
+  currentUserId: string,
+  { search, position, department, limit, offset }: DirectoryQuery,
+): Promise<DirectoryPage> {
+  // Switch to inner joins only when filtering on that relation, otherwise a
+  // user with a null position/department would be silently dropped.
+  const posEmbed = position
+    ? 'position:positions!inner(title)'
+    : 'position:positions(title)';
+  const deptEmbed = department
+    ? 'department:departments!inner(name)'
+    : 'department:departments(name)';
+
+  const selectStr = `id, full_name, email, role:roles(name), ${posEmbed}, ${deptEmbed}`;
+
+  let query = db
+    .from('profiles')
+    .select(selectStr, { count: 'exact' })
+    .neq('id', currentUserId)
+    .order('full_name', { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  if (position) query = query.eq('positions.title', position);
+  if (department) query = query.eq('departments.name', department);
+
+  const term = search?.trim();
+  if (term) {
+    // Escape PostgREST reserved characters in the ilike pattern
+    const safe = term.replace(/[%,()]/g, ' ');
+    query = query.or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+  return { users: (data ?? []) as DirectoryUser[], total: count ?? 0 };
+}
+
+/**
+ * Fetches the distinct role + department names available for the filter
+ * dropdowns. Pulled from the source tables so the lists are complete even when
+ * the current page of users doesn't include every role/department.
+ */
+export async function fetchDirectoryFilterOptions(): Promise<{
+  positions: string[];
+  departments: string[];
+}> {
+  const [posRes, deptsRes] = await Promise.all([
+    db.from('positions').select('title').order('title', { ascending: true }),
+    db.from('departments').select('name').order('name', { ascending: true }),
+  ]);
+  if (posRes.error) throw posRes.error;
+  if (deptsRes.error) throw deptsRes.error;
+  return {
+    positions: (posRes.data ?? []).map((p: any) => p.title).filter(Boolean),
+    departments: (deptsRes.data ?? []).map((d: any) => d.name).filter(Boolean),
+  };
+}
+
 // ─── Message helpers ──────────────────────────────────────────────────────────
 
 /**

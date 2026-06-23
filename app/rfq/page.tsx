@@ -10,6 +10,7 @@ import PaginationControls from '@/components/shared/PaginationControls';
 import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { fetchCanvassingQueuePaged, createRfq } from '@/lib/canvassing';
+import { fetchDepartmentOptions } from '@/lib/pr2';
 import { useAuth } from '@/context/AuthContext';
 import type { CanvassingQueueRow } from '@/types/canvassing';
 import { SendHorizontal as SendHorizonal, ArrowRight, Clock, Plus, CalendarDays, Building2, CircleDot, CheckCheck } from 'lucide-react';
@@ -42,6 +43,10 @@ export default function RFQQueuePage() {
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch]               = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [selectedDept, setSelectedDept]   = useState('all');
+  const [deptOptions, setDeptOptions]     = useState<{ id: string; name: string }[]>([]);
+
+  const canFilterByDept = profile?.role === 'admin' || profile?.role === 'procurement';
 
   const [creating, setCreating]       = useState(false);
   const [selectedPr1, setSelectedPr1] = useState<CanvassingQueueRow | null>(null);
@@ -50,6 +55,13 @@ export default function RFQQueuePage() {
   const [submitting, setSubmitting]   = useState(false);
   const [createError, setCreateError] = useState('');
 
+  useEffect(() => {
+    if (!canFilterByDept) return;
+    fetchDepartmentOptions()
+      .then(setDeptOptions)
+      .catch(() => {});
+  }, [canFilterByDept]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const load = () => {
     const offset = (currentPage - 1) * rowsPerPage;
     setLoading(true);
@@ -57,6 +69,7 @@ export default function RFQQueuePage() {
       limit:  rowsPerPage,
       offset,
       search: appliedSearch.trim() || undefined,
+      departmentId: canFilterByDept && selectedDept !== 'all' ? selectedDept : undefined,
     })
       .then(result => {
         setRows(result.rows);
@@ -66,7 +79,7 @@ export default function RFQQueuePage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [currentPage, appliedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [currentPage, appliedSearch, selectedDept, canFilterByDept]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const noRfq    = rows.filter(r => !r.rfq_id);
   const hasRfq   = rows.filter(r => !!r.rfq_id);
@@ -106,6 +119,21 @@ export default function RFQQueuePage() {
       value: search,
       onChange: (value) => setSearch(value as string),
     },
+    ...(canFilterByDept ? [{
+      type: 'select' as const,
+      id: 'rfq-dept',
+      label: 'Department',
+      placeholder: 'All departments',
+      value: selectedDept,
+      onChange: (value: string | [string, string]) => {
+        setSelectedDept(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all', label: 'All departments' },
+        ...deptOptions.map(d => ({ value: d.id, label: d.name })),
+      ],
+    }] : []),
   ];
 
   const handleApply = () => {
@@ -116,6 +144,7 @@ export default function RFQQueuePage() {
   const handleClear = () => {
     setSearch('');
     setAppliedSearch('');
+    setSelectedDept('all');
     setCurrentPage(1);
   };
 

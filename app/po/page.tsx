@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import EmptyState from '@/components/shared/EmptyState';
@@ -10,7 +10,8 @@ import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { StatCard } from '@/components/shared/StatCard';
 import { useAuth } from '@/context/AuthContext';
-import { listPOsWithCount, fetchPOStatusCounts } from '@/lib/po';
+import { listPOsWithCount, fetchPOStatusCounts, fetchRevisionDraftPOIds } from '@/lib/po';
+import { fetchDepartmentOptions } from '@/lib/pr2';
 import type { POStatusCounts } from '@/lib/po';
 import type { PORequest } from '@/types/po';
 import { PO_STATUS_LABELS } from '@/types/po';
@@ -18,6 +19,7 @@ import { format } from 'date-fns';
 import {
   ShoppingCart, Plus, Building2, User, CalendarDays,
   FileText, Package, ChevronRight, Clock, CircleCheck as CheckCircle2,
+  RotateCcw,
 } from 'lucide-react';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -44,6 +46,8 @@ export default function POListPage() {
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedDept, setSelectedDept] = useState('all');
+  const [deptOptions, setDeptOptions] = useState<{ id: string; name: string }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 25;
   const [totalCount, setTotalCount] = useState(0);
@@ -53,22 +57,35 @@ export default function POListPage() {
     for_approval: 0,
     approved: 0,
   });
+  const [revisionIds, setRevisionIds] = useState<string[]>([]);
+  const revisionIdSet = useMemo(() => new Set(revisionIds), [revisionIds]);
 
-  // Load global stat counts once on mount — independent of filters/pagination.
+  const canFilterByDept = profile?.role === 'admin' || profile?.role === 'procurement';
+
+  // Load global stat counts and revision IDs once on mount — independent of filters/pagination.
   useEffect(() => {
-    fetchPOStatusCounts()
-      .then(setStatusCounts)
-      .catch(() => {});
+    fetchPOStatusCounts().then(setStatusCounts).catch(() => {});
+    fetchRevisionDraftPOIds().then(setRevisionIds).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!canFilterByDept) return;
+    fetchDepartmentOptions()
+      .then(setDeptOptions)
+      .catch(() => {});
+  }, [canFilterByDept]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const offset = (currentPage - 1) * rowsPerPage;
     setLoading(true);
     setError('');
 
+    const isRevisionFilter = selectedStatus === 'revision';
     listPOsWithCount({
       search: appliedSearch || undefined,
-      status: selectedStatus !== 'all' ? selectedStatus : undefined,
+      status: !isRevisionFilter && selectedStatus !== 'all' ? selectedStatus : undefined,
+      ids: isRevisionFilter ? revisionIds : undefined,
+      departmentId: canFilterByDept && selectedDept !== 'all' ? selectedDept : undefined,
       limit: rowsPerPage,
       offset,
     })
@@ -78,7 +95,7 @@ export default function POListPage() {
       })
       .catch(() => setError('Failed to load purchase orders.'))
       .finally(() => setLoading(false));
-  }, [currentPage, appliedSearch, selectedStatus]);
+  }, [currentPage, appliedSearch, selectedStatus, selectedDept, canFilterByDept, revisionIds]);
 
   // Allow PO creation for procurement role users OR users with Buyer position (regardless of role)
   const canCreatePO = profile?.role === 'procurement' || profile?.position === 'Buyer';
@@ -120,12 +137,28 @@ export default function POListPage() {
       options: [
         { value: 'all', label: 'All statuses' },
         { value: 'draft', label: 'Draft' },
+        { value: 'revision', label: 'Needs Revision' },
         { value: 'for_approval', label: 'For Approval' },
         { value: 'approved', label: 'Approved' },
         { value: 'sent', label: 'Sent' },
         { value: 'cancelled', label: 'Cancelled' },
       ],
     },
+    ...(canFilterByDept ? [{
+      type: 'select' as const,
+      id: 'po-dept',
+      label: 'Department',
+      placeholder: 'All departments',
+      value: selectedDept,
+      onChange: (value: string | [string, string]) => {
+        setSelectedDept(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all', label: 'All departments' },
+        ...deptOptions.map(d => ({ value: d.id, label: d.name })),
+      ],
+    }] : []),
   ];
 
   const handleApply = () => {
@@ -137,6 +170,7 @@ export default function POListPage() {
     setSearch('');
     setAppliedSearch('');
     setSelectedStatus('all');
+    setSelectedDept('all');
     setCurrentPage(1);
   };
 
@@ -159,6 +193,21 @@ export default function POListPage() {
           </Link>
         )}
       </div>
+
+      {revisionIds.length > 0 && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-md bg-pq-warning-50 border border-pq-warning-200">
+          <RotateCcw className="w-4 h-4 text-pq-warning-600 shrink-0" />
+          <span className="text-sm text-pq-warning-700 font-medium">
+            {revisionIds.length} PO{revisionIds.length !== 1 ? 's' : ''} need revision
+          </span>
+          <button
+            onClick={() => { setSelectedStatus('revision'); setCurrentPage(1); }}
+            className="ml-auto text-xs font-semibold text-pq-warning-700 underline hover:text-pq-neutral-900 transition"
+          >
+            Filter to view
+          </button>
+        </div>
+      )}
 
       {/* Stats — global totals, independent of active filters/pagination */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -230,10 +279,17 @@ export default function POListPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 flex-wrap mb-1">
                         <span className="font-mono font-bold text-pq-neutral-900 text-sm">{po.po_number}</span>
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-2.5 py-0.5 ${STATUS_STYLES[po.status] ?? STATUS_STYLES.draft}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[po.status] ?? 'bg-pq-neutral-400'}`} />
-                          {PO_STATUS_LABELS[po.status] ?? po.status}
-                        </span>
+                        {revisionIdSet.has(po.id) ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-2.5 py-0.5 bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200">
+                            <RotateCcw className="w-3 h-3" />
+                            Needs Revision
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-2.5 py-0.5 ${STATUS_STYLES[po.status] ?? STATUS_STYLES.draft}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[po.status] ?? 'bg-pq-neutral-400'}`} />
+                            {PO_STATUS_LABELS[po.status] ?? po.status}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-pq-neutral-500 truncate">{po.purpose}</p>
                       <div className="flex items-center gap-4 mt-1.5 flex-wrap">

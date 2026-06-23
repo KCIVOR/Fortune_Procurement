@@ -136,19 +136,29 @@ export async function notifyApproversForStep({
     .maybeSingle();
   if (stepErr || !step) return;
 
-  // 2. Resolve role_id and position_id from their name/title
-  const [roleRes, posRes] = await Promise.all([
-    db.from('roles').select('id').eq('name', step.role_required).maybeSingle(),
-    db.from('positions').select('id').eq('title', step.position_required).maybeSingle(),
-  ]);
-  if (!roleRes.data?.id || !posRes.data?.id) return;
+  // 2. Resolve role_id and all eligible position_ids.
+  // Procurement Manager inherits Procurement Staff steps, so when a
+  // Procurement Staff step becomes actionable, notify both positions.
+  const eligiblePositionTitles = [step.position_required];
+  if (step.position_required === 'Procurement Staff') {
+    eligiblePositionTitles.push('Procurement Manager');
+  }
 
-  // 3. All profiles matching that role + position
+  const [roleRes, posRows] = await Promise.all([
+    db.from('roles').select('id').eq('name', step.role_required).maybeSingle(),
+    db.from('positions').select('id').in('title', eligiblePositionTitles),
+  ]);
+  if (!roleRes.data?.id) return;
+
+  const posIds: string[] = (posRows.data ?? []).map((p: any) => p.id as string);
+  if (posIds.length === 0) return;
+
+  // 3. All profiles matching that role + any of the eligible positions
   const { data: approvers, error: profErr } = await db
     .from('profiles')
     .select('id')
     .eq('role_id', roleRes.data.id)
-    .eq('position_id', posRes.data.id)
+    .in('position_id', posIds)
     .eq('active', true);
   if (profErr || !approvers || approvers.length === 0) return;
 

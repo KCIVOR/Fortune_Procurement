@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import type { PORequest, POWithItems, POFormValues, POGenerationCandidate } from '@/types/po';
+import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
+import type { RfqQuoteAttachment } from '@/types/canvassing';
 
 const db = supabase as any;
 
@@ -20,18 +22,24 @@ export async function fetchPOs(): Promise<PORequest[]> {
 export interface POFilters {
   search?: string;
   status?: string;
+  departmentId?: string;
+  ids?: string[];
   limit?: number;
   offset?: number;
 }
 
 export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: PORequest[]; total_count: number }> {
-  const { limit = 25, offset = 0, search, status } = filters;
+  const { limit = 25, offset = 0, search, status, departmentId, ids } = filters;
 
   const buildBaseQuery = () => {
     let query = db
       .from('po_requests')
       .select('*')
       .order('generated_at', { ascending: false });
+
+    if (ids && ids.length > 0) {
+      query = query.in('id', ids);
+    }
 
     if (search && search.trim()) {
       const searchTerm = `%${search}%`;
@@ -40,6 +48,10 @@ export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: 
 
     if (status && status !== 'all') {
       query = query.eq('status', status);
+    }
+
+    if (departmentId) {
+      query = query.eq('department_id', departmentId);
     }
 
     return query;
@@ -57,6 +69,28 @@ export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: 
     pos: (posRes.data ?? []).map(normalizePO),
     total_count: countRes.count ?? 0,
   };
+}
+
+export async function fetchRevisionDraftPOIds(): Promise<string[]> {
+  const db2 = supabase as any;
+  const { data, error } = await db2
+    .from('approval_instances')
+    .select('document_id')
+    .eq('document_type', 'PO')
+    .eq('status', 'cancelled');
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  const cancelledPoIds = (data as any[]).map((r: any) => r.document_id as string);
+
+  const { data: drafts, error: draftErr } = await db2
+    .from('po_requests')
+    .select('id')
+    .eq('status', 'draft')
+    .in('id', cancelledPoIds);
+  if (draftErr) throw draftErr;
+
+  return ((drafts ?? []) as any[]).map((r: any) => r.id as string);
 }
 
 // ─── Global status-breakdown counts (for stat cards, filter-independent) ─────
@@ -94,20 +128,27 @@ export async function fetchPOStatusCounts(): Promise<POStatusCounts> {
 export async function fetchPOById(id: string): Promise<POWithItems | null> {
   const [poRes, itemsRes] = await Promise.all([
     db.from('po_requests').select('*').eq('id', id).maybeSingle(),
-    // Phase 9 (Raw Mats): join through pr2_items to forward `is_raw_material`
-    // and `quote_justification` snapshots onto each PO line. The join is a
-    // many-to-one foreign reference, so PostgREST returns the parent row
-    // nested under the relationship name.
     db.from('po_items')
-      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification )')
+      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification, rfq_item_quote_id )')
       .eq('po_id', id)
       .order('item_order', { ascending: true }),
   ]);
   if (poRes.error) throw poRes.error;
   if (!poRes.data) return null;
+
+  const rawItems: any[] = itemsRes.data ?? [];
+  const quoteIds = rawItems
+    .map((r: any) => r.pr2_items?.rfq_item_quote_id)
+    .filter((id: string | null | undefined): id is string => !!id);
+
+  const quoteAttachmentsByQuote: Record<string, RfqQuoteAttachment[]> =
+    quoteIds.length > 0
+      ? await fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({}))
+      : {};
+
   return {
     ...normalizePO(poRes.data),
-    items: (itemsRes.data ?? []).map(normalizeItem),
+    items: rawItems.map(r => normalizeItem(r, quoteAttachmentsByQuote)),
   };
 }
 
@@ -151,7 +192,7 @@ export async function fetchPOGenerationCandidates(): Promise<POGenerationCandida
   const { data: pr2s, error: pr2Err } = await db
     .from('pr2_requests')
     .select('id, pr2_number, purpose, department_name_snapshot, requisitioner_name_snapshot, date_required')
-    .eq('status', 'phase2_approved')
+    .eq('status', 'approved')
     .order('generated_at', { ascending: false });
   if (pr2Err) throw pr2Err;
   if (!pr2s?.length) return [];
@@ -345,15 +386,15 @@ export async function generatePOFromPR2(
     throw new Error('Supplier is required to generate a PO.');
   }
 
-  // Guard: PR2 must be phase2_approved
+  // Guard: PR2 must be approved
   const { data: pr2, error: pr2Err } = await db
     .from('pr2_requests')
-    .select('id, status, pr2_number, pr1_number_snapshot, rfq_number_snapshot, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required')
+    .select('id, status, pr2_number, pr1_number_snapshot, rfq_number_snapshot, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required')
     .eq('id', pr2Id)
     .maybeSingle();
   if (pr2Err) throw pr2Err;
   if (!pr2) throw new Error('PR2 not found.');
-  if (pr2.status !== 'phase2_approved') throw new Error('PO can only be generated from a fully approved PR2.');
+  if (pr2.status !== 'approved') throw new Error('PO can only be generated from a fully approved PR2.');
 
   // Guard: buyer must supply a PO number
   const poNumber = formValues.po_number.trim();
@@ -443,6 +484,7 @@ export async function generatePOFromPR2(
       payment_terms:               formValues.payment_terms.trim(),
       packing:                     formValues.packing.trim(),
       remarks:                     formValues.remarks.trim() || null,
+      department_id:               pr2.department_id ?? null,
       status:                      'draft',
       generated_by:                profile.id,
       generated_at:                now,
@@ -512,6 +554,7 @@ function normalizePO(row: any): PORequest {
     payment_terms:               row.payment_terms,
     packing:                     row.packing,
     remarks:                     row.remarks,
+    department_id:               row.department_id ?? null,
     status:                      row.status,
     generated_by:                row.generated_by,
     generated_at:                row.generated_at,
@@ -520,11 +563,9 @@ function normalizePO(row: any): PORequest {
   };
 }
 
-function normalizeItem(row: any) {
-  // Phase 9 (Raw Mats): the optional embedded `pr2_items` join (added in
-  // fetchPOById and fetchPOApprovalDetail) carries the snapshot. PostgREST
-  // can return either an object or `null` for the embed, so guard both.
+function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuoteAttachment[]> = {}) {
   const pr2Item = row.pr2_items ?? null;
+  const rfqItemQuoteId: string | null = pr2Item?.rfq_item_quote_id ?? null;
   return {
     id:                    row.id,
     po_id:                 row.po_id,
@@ -540,10 +581,24 @@ function normalizeItem(row: any) {
     remarks:               row.remarks,
     is_raw_material:       pr2Item?.is_raw_material === true,
     quote_justification:   pr2Item?.quote_justification ?? null,
+    rfq_item_quote_id:     rfqItemQuoteId,
+    quote_attachments:     rfqItemQuoteId ? (quoteAttachmentsByQuote[rfqItemQuoteId] ?? []) : [],
     created_at:            row.created_at,
   };
 }
 
 export function calcPOGrandTotal(items: { unit_price: number; quantity_to_purchase: number }[]): number {
   return items.reduce((sum, i) => sum + i.unit_price * i.quantity_to_purchase, 0);
+}
+
+export async function updatePODraft(
+  poId: string,
+  values: { po_date: string; delivery_address: string; warehouse: string; payment_terms: string; packing: string; remarks: string }
+): Promise<void> {
+  const { error } = await db
+    .from('po_requests')
+    .update({ ...values, updated_at: new Date().toISOString() })
+    .eq('id', poId)
+    .eq('status', 'draft');
+  if (error) throw error;
 }

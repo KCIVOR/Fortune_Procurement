@@ -66,6 +66,8 @@ export interface GRNItem {
    * Surfaces only when procurement justified the original award.
    */
   quote_justification?: string | null;
+  /** Supplier quote attachments loaded at read time via the grn→po→pr2 join. */
+  quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
 
   created_at: string;
   updated_at: string;
@@ -106,6 +108,7 @@ export interface GRNItemDraft {
   // Phase 9 (Raw Mats): forwarded snapshot fields for badge/justification.
   is_raw_material?: boolean;
   quote_justification?: string | null;
+  quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
 }
 
 export interface GRNFormValues {

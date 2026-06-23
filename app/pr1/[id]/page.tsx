@@ -40,18 +40,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 
 const STATUS_MAP: Record<string, StatusVariant> = {
-  draft:                'draft',
-  pending_warehouse:    'pending',
-  pending_approval:     'in_review',
-  resolved_internal:    'validated',
-  revision_requested:   'in_review',
-  for_canvassing:       'approved',
-  canvassing_complete:  'approved',
-  approved:             'approved',
-  rejected:             'rejected',
-  cancelled:            'cancelled',
+  draft:                  'draft',
+  pending_warehouse:      'pending',
+  pending_approval:       'in_review',
+  approved_for_warehouse: 'in_review',
+  resolved_internal:      'validated',
+  revision_requested:     'in_review',
+  for_canvassing:         'approved',
+  canvassing_complete:    'approved',
+  approved:               'approved',
+  rejected:               'rejected',
+  completed:              'completed',
+  cancelled:              'cancelled',
 };
 
 export default function PR1DetailPage() {
@@ -267,7 +270,7 @@ export default function PR1DetailPage() {
           <div className="bg-orange-50 border border-orange-200 rounded-md px-6 py-4 flex items-start gap-3">
             <RotateCcw className="w-5 h-5 text-orange-600 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-orange-800">Revision Requested</p>
+              <p className="text-sm font-semibold text-orange-800">Needs Revision</p>
               <p className="text-xs text-orange-700 mt-0.5">
                 Warehouse or an approver requested changes. Edit the request and resubmit when ready.
               </p>
@@ -334,6 +337,7 @@ export default function PR1DetailPage() {
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">SOH</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-28">Req. Qty</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide min-w-[160px]">Warehouse route</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-32">Attachments</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-pq-neutral-200">
@@ -357,6 +361,13 @@ export default function PR1DetailPage() {
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-pq-neutral-900 font-mono">{item.quantity_requested.toLocaleString()}</td>
                     <td className="px-4 py-3 text-left text-xs text-pq-neutral-700">{warehouseRouteCell(item)}</td>
+                    <td className="px-4 py-3">
+                      {(item.attachments?.length ?? 0) > 0 ? (
+                        <PR1AttachmentsGallery attachments={item.attachments!} />
+                      ) : (
+                        <span className="text-xs text-pq-neutral-300">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -484,7 +495,7 @@ function PR1SignatoriesUnifiedTimeline({
     });
   }
 
-  const totalItems = prefixRows.length + steps.length;
+  const totalItems = prefixRows.length + steps.length + 1; // +1 for warehouse step
 
   return (
     <ol className="relative space-y-0">
@@ -540,7 +551,7 @@ function PR1SignatoriesUnifiedTimeline({
 
       {steps.map((step, sIdx) => {
         const globalIdx = prefixRows.length + sIdx;
-        const showConnector = globalIdx < totalItems - 1;
+        const showConnector = globalIdx < totalItems - 1; // always true for approval steps now (warehouse follows)
         const action = actions.find(a => a.step_order === step.step_order);
         const isComplete = !!action;
         const isCurrent =
@@ -625,6 +636,107 @@ function PR1SignatoriesUnifiedTimeline({
           </li>
         );
       })}
+
+      {/* Warehouse Validation — appended as final timeline node */}
+      <li className="flex gap-4">
+        <div className="flex flex-col items-center">
+          <div
+            className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 ${
+              pr1.warehouse_validation?.decision != null
+                ? pr1.warehouse_validation.decision === 'rejected'
+                  ? 'bg-pq-danger-50 border-pq-danger-200'
+                  : pr1.warehouse_validation.decision === 'revision_requested'
+                    ? 'bg-pq-warning-50 border-pq-warning-200'
+                    : 'bg-pq-success-50 border-pq-success-200'
+                : pr1.status === 'approved_for_warehouse'
+                  ? 'bg-pq-neutral-50 border-pq-primary-200'
+                  : 'bg-pq-neutral-50 border-pq-neutral-200'
+            }`}
+          >
+            {pr1.warehouse_validation?.decision != null ? (
+              pr1.warehouse_validation.decision === 'rejected' ? (
+                <XCircle className="w-3.5 h-3.5 text-white" />
+              ) : pr1.warehouse_validation.decision === 'revision_requested' ? (
+                <RotateCcw className="w-3.5 h-3.5 text-white" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+              )
+            ) : pr1.status === 'approved_for_warehouse' ? (
+              <span className="w-2.5 h-2.5 rounded-full bg-pq-primary-600 animate-pulse" />
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-pq-neutral-400" />
+            )}
+          </div>
+          {/* No connector after warehouse — it is the last step */}
+        </div>
+
+        <div className="pb-5 flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-pq-neutral-900">
+              Warehouse Validation
+            </span>
+            <span className="text-xs text-pq-neutral-400">Inventory Stock Check</span>
+          </div>
+
+          {pr1.warehouse_validation?.decision != null && (
+            <div className="mt-1.5 space-y-0.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <ActionPill
+                  action={
+                    pr1.warehouse_validation.decision === 'rejected'
+                      ? 'rejected'
+                      : pr1.warehouse_validation.decision === 'revision_requested'
+                        ? 'revision_requested'
+                        : 'approved'
+                  }
+                />
+                {pr1.warehouse_validation.validator_name_snapshot && (
+                  <span className="text-xs text-pq-neutral-700 font-medium">
+                    {pr1.warehouse_validation.validator_name_snapshot}
+                    {pr1.warehouse_validation.validator_position_snapshot && (
+                      <span className="text-pq-neutral-400 font-normal">
+                        {' '}· {pr1.warehouse_validation.validator_position_snapshot}
+                      </span>
+                    )}
+                  </span>
+                )}
+                {pr1.warehouse_validation.validated_at && (
+                  <span className="text-xs text-pq-neutral-400">
+                    · {format(new Date(pr1.warehouse_validation.validated_at), 'MMM d, yyyy h:mm a')}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-pq-neutral-700">
+                Decision:{' '}
+                <span className="font-medium">
+                  {pr1.warehouse_validation.decision === 'sufficient'
+                    ? 'Sufficient — Fulfilled from Stock'
+                    : pr1.warehouse_validation.decision === 'insufficient'
+                      ? 'Insufficient — Routed to Procurement'
+                      : pr1.warehouse_validation.decision === 'rejected'
+                        ? 'Rejected'
+                        : 'Revision Requested'}
+                </span>
+              </p>
+              {pr1.warehouse_validation.notes && (
+                <p className="text-xs text-pq-neutral-700 italic ml-0.5">
+                  <span aria-hidden="true">&quot;</span>
+                  {pr1.warehouse_validation.notes}
+                  <span aria-hidden="true">&quot;</span>
+                </p>
+              )}
+            </div>
+          )}
+
+          {pr1.warehouse_validation?.decision == null && pr1.status === 'approved_for_warehouse' && (
+            <p className="mt-1 text-xs text-pq-primary-600 font-medium">Awaiting warehouse action</p>
+          )}
+
+          {pr1.warehouse_validation?.decision == null && pr1.status !== 'approved_for_warehouse' && (
+            <p className="mt-1 text-xs text-pq-neutral-400">Not yet reached</p>
+          )}
+        </div>
+      </li>
     </ol>
   );
 }

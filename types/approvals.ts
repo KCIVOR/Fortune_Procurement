@@ -1,3 +1,5 @@
+import type { PR1Attachment } from '@/types/pr1';
+
 export type ApprovalAction = 'approved' | 'rejected' | 'revision_requested';
 
 // ─── PR2 approval types ───────────────────────────────────────────────────────
@@ -7,6 +9,7 @@ export interface PR2ApprovalQueueRow {
   pr2_number:                  string;
   requisitioner_name_snapshot: string;
   department_name_snapshot:    string;
+  department_id:               string | null;
   purpose:                     string;
   date_required:               string;
   pr2_status:                  string;
@@ -29,6 +32,7 @@ export interface PR2ApprovalDetail {
   rfq_number_snapshot:         string;
   requisitioner_name_snapshot: string;
   department_name_snapshot:    string;
+  department_id:               string | null;
   purpose:                     string;
   date_required:               string;
   pr2_status:                  string;
@@ -78,6 +82,8 @@ export interface PR2ApprovalItem {
   is_raw_material?:        boolean;
   /** Phase 9 (Raw Mats): forwarded from `pr2_items.quote_justification`. */
   quote_justification?:    string | null;
+  /** Supplier quote attachments loaded at read time via rfq_item_quote_id. */
+  quote_attachments?:      import('./canvassing').RfqQuoteAttachment[];
 }
 
 // Must match approval_instances_status_check constraint: active | approved | rejected | cancelled
@@ -90,6 +96,7 @@ export interface PR1ApprovalQueueRow {
   pr1_number: string;
   requisitioner_name_snapshot: string;
   department_name_snapshot: string;
+  department_id: string | null;
   purpose: string;
   priority: string;
   date_required: string;
@@ -123,6 +130,7 @@ export interface PR1ApprovalDetail {
   pr1_number: string;
   requisitioner_name_snapshot: string;
   department_name_snapshot: string;
+  department_id: string | null;
   purpose: string;
   date_required: string;
   submitted_at: string | null;
@@ -144,8 +152,11 @@ export interface PR1ApprovalDetail {
   // warehouse validation summary (read-only context)
   warehouse_decision: string | null;
   warehouse_validator_name: string | null;
+  warehouse_validator_position: string | null;
   warehouse_validated_at: string | null;
   warehouse_notes: string | null;
+  // attachments
+  attachments: PR1Attachment[];
 }
 
 export interface PR1ApprovalItem {
@@ -160,6 +171,8 @@ export interface PR1ApprovalItem {
   validated_soh?: number | null;
   /** Phase 4 (Raw Mats): forwarded from `pr1_items.is_raw_material` for badge rendering. */
   is_raw_material?: boolean;
+  /** Phase 5: attachments uploaded by the requisitioner for this item. */
+  attachments?: PR1Attachment[];
 }
 
 export interface WorkflowStep {

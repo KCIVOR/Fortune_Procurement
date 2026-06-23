@@ -23,6 +23,7 @@ import {
   XCircle,
   ArrowRight,
   ShoppingCart,
+  RotateCcw,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
@@ -31,17 +32,20 @@ import { ApprovalQueueHeaderRow, ApprovalQueueHeadCell } from '@/components/shar
 
 const db = supabase as any;
 
+type RowStatus = ApprovalInstanceStatus | 'revision';
+
 interface POApprovalRow {
   po_id: string;
   po_number: string;
   supplier_name_snapshot: string;
   department_name_snapshot: string;
+  department_id: string | null;
   purpose: string;
   date_required: string;
   po_status: string;
   instance_id: string;
   current_step: number;
-  instance_status: ApprovalInstanceStatus;
+  instance_status: RowStatus;
   started_at: string;
   step_role_required: string;
   step_position_required: string;
@@ -50,19 +54,21 @@ interface POApprovalRow {
   pr1_priority?: 'normal' | 'medium' | 'high';
 }
 
-type StatusFilter = 'pending' | 'approved' | 'rejected' | 'all';
+type StatusFilter = 'pending' | 'approved' | 'rejected' | 'revision' | 'all';
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
+  { value: 'revision', label: 'Needs Revision' },
   { value: 'all', label: 'All Statuses' },
 ];
 
-const STATUS_FILTER_MAP: Record<StatusFilter, ApprovalInstanceStatus[] | null> = {
+const STATUS_FILTER_MAP: Record<StatusFilter, RowStatus[] | null> = {
   pending: ['active'],
   approved: ['approved'],
   rejected: ['rejected', 'cancelled'],
+  revision: ['revision'],
   all: null,
 };
 
@@ -104,7 +110,7 @@ export default function POApprovalsPage() {
 
         const [poRes, stepsRes, actionsRes] = await Promise.all([
           db.from('po_requests')
-            .select('id, po_number, pr2_id, supplier_name_snapshot, department_name_snapshot, purpose, date_required, status')
+            .select('id, po_number, pr2_id, supplier_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
             .in('id', poIds),
           db.from('approval_steps')
             .select('workflow_id, step_order, role_required, position_required, action_label, is_final')
@@ -157,27 +163,42 @@ export default function POApprovalsPage() {
           const po = poMap[inst.document_id];
           if (!po) continue;
 
-          // Find the step that matches the user's position
-          const userStep = steps.find(
-            (s: any) => s.workflow_id === inst.workflow_id && s.position_required === profile.position
+          const currentStepDef = steps.find(
+            (s: any) => s.workflow_id === inst.workflow_id && s.step_order === inst.current_step
           );
 
-          if (!userStep) continue;
+          const isMyTurn = inst.status === 'active' && !!currentStepDef &&
+            canActOnPOStep(profile, currentStepDef.role_required, currentStepDef.position_required, po.department_id ?? null);
 
           const userAction = userActionMap[inst.id];
-          const isMyTurn = inst.status === 'active' && inst.current_step === userStep.step_order;
 
-          // Include if it's my turn OR I've already acted on it
-          if (!isMyTurn && !userAction) continue;
+          // Revision draft: cancelled instance where the PO was sent back and is still draft
+          const isRevisionDraft = profile.role === 'procurement'
+            && inst.status === 'cancelled'
+            && po.status === 'draft';
 
-          // Display status from the user's perspective:
-          // - if they acted, reflect their action (even if the overall instance is still active)
-          // - otherwise it's their turn → show as pending (active)
-          let displayStatus: ApprovalInstanceStatus;
-          if (userAction) {
+          if (!isMyTurn && !userAction && !isRevisionDraft) continue;
+
+          // For display: use current step when it's user's turn; find acted step for history
+          const displayStep = isRevisionDraft
+            ? { position_required: '', role_required: '', action_label: '', is_final: false }
+            : isMyTurn
+              ? currentStepDef!
+              : (steps.find((s: any) => s.workflow_id === inst.workflow_id && s.step_order === userAction?.step_order) ?? currentStepDef!);
+
+          // Display status — priority order:
+          // 1. isMyTurn — always active, even if user acted on an earlier step
+          // 2. isRevisionDraft — PO returned for revision
+          // 3. userAction — historical record
+          let displayStatus: RowStatus;
+          if (isMyTurn) {
+            displayStatus = 'active';
+          } else if (isRevisionDraft) {
+            displayStatus = 'revision';
+          } else if (userAction) {
             if (userAction.action === 'approved') displayStatus = 'approved';
             else if (userAction.action === 'rejected') displayStatus = 'rejected';
-            else displayStatus = 'cancelled'; // revision_requested
+            else displayStatus = 'cancelled';
           } else {
             displayStatus = 'active';
           }
@@ -191,6 +212,7 @@ export default function POApprovalsPage() {
             po_number: po.po_number,
             supplier_name_snapshot: po.supplier_name_snapshot,
             department_name_snapshot: po.department_name_snapshot,
+            department_id: po.department_id ?? null,
             purpose: po.purpose,
             date_required: po.date_required,
             po_status: po.status,
@@ -198,15 +220,24 @@ export default function POApprovalsPage() {
             current_step: inst.current_step,
             instance_status: displayStatus,
             started_at: inst.started_at,
-            step_role_required: userStep.role_required,
-            step_position_required: userStep.position_required,
-            step_action_label: userStep.action_label,
-            step_is_final: userStep.is_final,
+            step_role_required: displayStep.role_required,
+            step_position_required: displayStep.position_required,
+            step_action_label: displayStep.action_label,
+            step_is_final: displayStep.is_final,
             pr1_priority: pr1Priority as 'normal' | 'medium' | 'high' | undefined,
           });
         }
 
-        setAllRows(rows);
+        // Deduplicate revision rows: keep only the most recent cancelled instance per PO
+        const seenRevisionPos = new Set<string>();
+        const deduped = rows.filter(r => {
+          if (r.instance_status !== 'revision') return true;
+          if (seenRevisionPos.has(r.po_id)) return false;
+          seenRevisionPos.add(r.po_id);
+          return true;
+        });
+
+        setAllRows(deduped);
       } catch (e) {
         console.error(e);
         setError('Failed to load PO approval queue.');
@@ -223,7 +254,7 @@ export default function POApprovalsPage() {
 
     const statusValues = STATUS_FILTER_MAP[statusFilter];
     if (statusValues) {
-      rows = rows.filter(r => statusValues.includes(r.instance_status));
+      rows = rows.filter(r => (statusValues as RowStatus[]).includes(r.instance_status));
     }
 
     if (appliedSearch) {
@@ -242,14 +273,16 @@ export default function POApprovalsPage() {
     const pending = allRows.filter(r => r.instance_status === 'active').length;
     const approved = allRows.filter(r => r.instance_status === 'approved').length;
     const rejected = allRows.filter(r => r.instance_status === 'rejected' || r.instance_status === 'cancelled').length;
-    return { pending, approved, rejected, total: allRows.length };
+    const revision = allRows.filter(r => r.instance_status === 'revision').length;
+    return { pending, approved, rejected, revision, total: allRows.length };
   }, [allRows]);
 
   const totalPages = Math.ceil(filteredRows.length / pageSize);
   const paginatedRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const canAct = (row: POApprovalRow): boolean =>
-    !!(profile && row.instance_status === 'active' && canActOnPOStep(profile, row.step_role_required, row.step_position_required));
+    row.instance_status !== 'revision' &&
+    !!(profile && row.instance_status === 'active' && canActOnPOStep(profile, row.step_role_required, row.step_position_required, row.department_id));
 
   const filters: FilterConfig[] = [
     {
@@ -292,6 +325,21 @@ export default function POApprovalsPage() {
         title="Purchase Orders"
         description="Purchase orders assigned to your approval step."
       />
+
+      {stats.revision > 0 && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-md bg-pq-warning-50 border border-pq-warning-200">
+          <RotateCcw className="w-4 h-4 text-pq-warning-600 shrink-0" />
+          <span className="text-sm text-pq-warning-700 font-medium">
+            {stats.revision} PO{stats.revision !== 1 ? 's' : ''} need revision
+          </span>
+          <button
+            onClick={() => { setStatusFilter('revision'); setCurrentPage(1); }}
+            className="ml-auto text-xs font-semibold text-pq-warning-700 underline hover:text-pq-neutral-900 transition"
+          >
+            Filter to view
+          </button>
+        </div>
+      )}
 
       <div className={`${KPI_GRID_CLASS} mb-6`}>
         <StatCard
@@ -381,7 +429,11 @@ export default function POApprovalsPage() {
                           <StatusBadge status={row.instance_status} />
                         </td>
                         <td className="px-5 py-3.5 text-right">
-                          {active ? (
+                          {row.instance_status === 'revision' ? (
+                            <Link href={`/po/${row.po_id}`} className="inline-flex items-center gap-1.5 text-pq-warning-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
+                              <ArrowRight className="w-3.5 h-3.5" /> Revise
+                            </Link>
+                          ) : active ? (
                             <Link href={`/approvals/po/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
                               <ArrowRight className="w-3.5 h-3.5" /> Review
                             </Link>
@@ -415,19 +467,21 @@ export default function POApprovalsPage() {
   );
 }
 
-function StatusBadge({ status }: { status: ApprovalInstanceStatus }) {
-  const styles: Record<ApprovalInstanceStatus, string> = {
+function StatusBadge({ status }: { status: RowStatus }) {
+  const styles: Record<RowStatus, string> = {
     active: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
     approved: 'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
     rejected: 'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
     cancelled: 'bg-pq-neutral-100 text-pq-neutral-600 border-pq-neutral-200',
+    revision: 'bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200',
   };
 
-  const labels: Record<ApprovalInstanceStatus, string> = {
+  const labels: Record<RowStatus, string> = {
     active: 'Pending',
     approved: 'Approved',
     rejected: 'Rejected',
     cancelled: 'Cancelled',
+    revision: 'Needs Revision',
   };
 
   return (

@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import {
   fetchSupplierQuoteDetail,
   submitSupplierQuotation,
+  uploadRfqQuoteAttachment,
 } from '@/lib/canvassing';
 import type { SupplierQuoteDetail, QuoteDraft } from '@/lib/canvassing';
 import {
@@ -52,6 +53,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
+import RfqQuoteAttachmentSection from '@/components/rfq/RfqQuoteAttachmentSection';
 
 const VERIFIED_PRODUCT_PICKER_PAGE_SIZE = 10;
 
@@ -155,6 +158,8 @@ export default function SupplierQuotationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitted, setSubmitted]   = useState(false);
+  /** Files staged per item (by pr1_item_id) before the first submit. */
+  const [stagedFilesByItem, setStagedFilesByItem] = useState<Record<string, File[]>>({});
 
   // Phase 5 (Raw Mats): renamed from `verifiedProducts`. Now contains
   // verified AND in-flight catalog products (submitted / under_review /
@@ -544,6 +549,31 @@ export default function SupplierQuotationPage() {
     try {
       await submitSupplierQuotation(rfqSupplierId, drafts);
       setSubmitted(true);
+
+      // Upload any files staged before this submit
+      const hasStagedFiles = Object.values(stagedFilesByItem).some(f => f.length > 0);
+      if (hasStagedFiles && profile) {
+        const refreshed = await fetchSupplierQuoteDetail(rfqSupplierId, profile.id).catch(() => null);
+        if (refreshed) {
+          setDetail(refreshed);
+          for (const item of refreshed.items) {
+            const staged = stagedFilesByItem[item.id] ?? [];
+            if (staged.length === 0) continue;
+            const quote = refreshed.quotes.find(q => q.pr1_item_id === item.id);
+            if (!quote) continue;
+            for (const file of staged) {
+              await uploadRfqQuoteAttachment({
+                rfqId:          refreshed.rfqSupplier.rfq_id,
+                rfqSupplierId:  refreshed.rfqSupplier.id,
+                rfqItemQuoteId: quote.id,
+                pr1ItemId:      item.id,
+                file,
+              }).catch(() => {}); // best-effort per file
+            }
+          }
+          setStagedFilesByItem({});
+        }
+      }
     } catch (e: unknown) {
       setSubmitError((e as Error)?.message ?? 'Failed to submit quotation.');
     } finally {
@@ -727,6 +757,9 @@ export default function SupplierQuotationPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-pq-neutral-900">{item.description}</p>
                       <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                      {item.attachments && item.attachments.length > 0 && (
+                        <PR1AttachmentsGallery attachments={item.attachments} />
+                      )}
                     </div>
                     <p className="text-xs text-pq-neutral-400">
                       {item.item_code && <span className="font-mono">{item.item_code} · </span>}
@@ -1203,6 +1236,24 @@ export default function SupplierQuotationPage() {
                       className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none disabled:bg-pq-neutral-50 disabled:text-pq-neutral-500"
                     />
                   </div>
+
+                  {(() => {
+                    const existingQuote = detail?.quotes.find(q => q.pr1_item_id === item.id);
+                    return (
+                      <RfqQuoteAttachmentSection
+                        rfqId={detail?.rfqSupplier.rfq_id ?? ''}
+                        rfqSupplierId={detail?.rfqSupplier.id ?? ''}
+                        rfqItemQuoteId={existingQuote?.id ?? null}
+                        pr1ItemId={item.id}
+                        initialAttachments={existingQuote?.attachments ?? []}
+                        stagedFiles={stagedFilesByItem[item.id] ?? []}
+                        onStagedFilesChange={files =>
+                          setStagedFilesByItem(prev => ({ ...prev, [item.id]: files }))
+                        }
+                        readOnly={isReadOnly}
+                      />
+                    );
+                  })()}
                 </div>
               </div>
             );

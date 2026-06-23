@@ -1,16 +1,18 @@
 import type { StatusVariant } from '@/components/shared/StatusChip';
-import type { WarehouseItemRoute } from '@/types/warehouse';
+import type { WarehouseItemRoute, WarehouseDecision } from '@/types/warehouse';
 
 export type PR1Status =
   | 'draft'
   | 'pending_warehouse'
   | 'pending_approval'
+  | 'approved_for_warehouse'
   | 'resolved_internal'
   | 'revision_requested'
   | 'for_canvassing'
   | 'canvassing_complete'
   | 'approved'
   | 'rejected'
+  | 'completed'
   | 'cancelled';
 
 export type DownstreamStage = 'PR1 Approval' | 'Processing (PR2)' | 'Canvassing' | 'PO Issued' | 'For Delivery' | 'Completed';
@@ -39,11 +41,13 @@ export interface PR1Item {
   warehouse_item_route?: WarehouseItemRoute | null;
   warehouse_internal_fulfilled_qty?: number | null;
   warehouse_procurement_qty?: number | null;
+  /** Populated by fetchPR1ById — attachments for this specific item. */
+  attachments?: PR1Attachment[];
 }
 
 /** `warehouse_validations` header merged by `fetchPR1ById` when a row exists for this PR1. */
 export interface PR1WarehouseValidationSummary {
-  decision: 'sufficient' | 'insufficient' | null;
+  decision: WarehouseDecision | null;
   validator_name_snapshot: string | null;
   validator_position_snapshot: string | null;
   notes: string | null;
@@ -73,9 +77,25 @@ export interface PR1Request {
   lifecycle_display_chip?: StatusVariant;
 }
 
+/** A single image attachment linked to a PR1 item. */
+export interface PR1Attachment {
+  id: string;
+  pr1_id: string;
+  pr1_item_id: string;
+  uploaded_by: string;
+  storage_path: string;   // pr1/{pr1_id}/{pr1_item_id}/{ts}_{filename}
+  file_name: string;
+  file_size: number | null;
+  mime_type: string | null;
+  created_at: string;
+  /** Signed URL generated client-side for display; not stored in DB. */
+  signed_url?: string;
+}
+
 export interface PR1WithItems extends PR1Request {
   items: PR1Item[];
   warehouse_validation?: PR1WarehouseValidationSummary | null;
+  attachments?: PR1Attachment[];
 }
 
 /** Batch lifecycle resolution for PR1 list / detail (Option C — display only). */
@@ -109,16 +129,18 @@ export interface PR1FormValues {
 }
 
 export const PR1_STATUS_LABELS: Record<PR1Status, string> = {
-  draft:                'Draft',
-  pending_warehouse:    'Pending Warehouse Validation',
-  pending_approval:     'Pending Approval',
-  resolved_internal:    'Resolved — Stock Sufficient',
-  revision_requested:   'Revision Requested',
-  for_canvassing:       'For Canvassing',
-  canvassing_complete:  'Canvassing Complete',
-  approved:             'Approved',
-  rejected:             'Rejected',
-  cancelled:            'Cancelled',
+  draft:                  'Draft',
+  pending_warehouse:      'Pending Warehouse Validation',
+  pending_approval:       'Pending Approval',
+  approved_for_warehouse: 'Approved — Awaiting Warehouse',
+  resolved_internal:      'Resolved — Stock Sufficient',
+  revision_requested:     'Needs Revision',
+  for_canvassing:         'For Canvassing',
+  canvassing_complete:    'Canvassing Complete',
+  approved:               'Approved',
+  rejected:               'Rejected',
+  completed:              'Completed',
+  cancelled:              'Cancelled',
 };
 
 export const EMPTY_ITEM = (): PR1ItemDraft => ({

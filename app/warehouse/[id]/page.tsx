@@ -38,6 +38,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
+import RelatedRecords from '@/components/shared/RelatedRecords';
 
 export default function WarehouseValidationPage() {
   const { id: pr1Id } = useParams<{ id: string }>();
@@ -252,6 +254,11 @@ export default function WarehouseValidationPage() {
       </div>
 
       <div className="space-y-5">
+        {/* Related Records — full document chain visibility for warehouse */}
+        {profile && (
+          <RelatedRecords baseType="PR1" baseId={pr1Id} role={profile.role} currentDocType="PR1" />
+        )}
+
         {/* PR1 header summary */}
         <div className="bg-pq-white rounded-md border border-pq-neutral-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center justify-between">
@@ -294,6 +301,7 @@ export default function WarehouseValidationPage() {
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">Req. Qty</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide min-w-[200px]">Outcome</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">Notes</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-32">Attachments</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-pq-neutral-200">
@@ -365,6 +373,17 @@ export default function WarehouseValidationPage() {
                             className="w-full min-w-[140px] px-2.5 py-1.5 border border-pq-neutral-200 bg-pq-neutral-50 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-pq-primary-600 focus:border-pq-neutral-200 transition"
                           />
                         )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {(() => {
+                          const item_obj = pr1.items?.find(i => i.id === item.pr1_item_id);
+                          const atts = item_obj?.attachments ?? [];
+                          return atts.length > 0 ? (
+                            <PR1AttachmentsGallery attachments={atts} />
+                          ) : (
+                            <span className="text-xs text-pq-neutral-300">—</span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );
