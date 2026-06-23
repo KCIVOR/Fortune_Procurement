@@ -9,6 +9,7 @@ import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import ApprovalInstanceStatusChip from '@/components/shared/ApprovalInstanceStatusChip';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchApprovalDetail,
@@ -186,6 +187,7 @@ export default function ApprovalDetailPage() {
               ) : (
                 <PriorityChip priority={detail.priority} />
               )}
+              <RequestTypeBadge type={detail.request_type ?? 'goods'} />
             </DetailTitleRow>
             <p className="text-sm text-pq-neutral-500 mt-1">
               Submitted {detail.submitted_at
@@ -286,7 +288,9 @@ export default function ApprovalDetailPage() {
                       <td className="px-4 py-3 font-mono text-xs text-pq-neutral-500">{item.item_code || '—'}</td>
                       <td className="px-4 py-3 text-pq-neutral-900 font-medium">{item.description}</td>
                       <td className="px-4 py-3 text-center">
-                        {item.is_raw_material ? (
+                        {detail.request_type === 'services' ? (
+                          <span className="text-xs text-pq-neutral-300">—</span>
+                        ) : item.is_raw_material ? (
                           <RawMaterialBadge isRawMaterial size="sm" />
                         ) : (
                           <span className="text-xs text-pq-neutral-300">—</span>
@@ -294,9 +298,11 @@ export default function ApprovalDetailPage() {
                       </td>
                       <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 text-right font-mono text-xs text-pq-neutral-500">
-                        {item.validated_soh !== undefined && item.validated_soh !== null
-                          ? `${item.validated_soh.toLocaleString()}`
-                          : '—'}
+                        {detail.request_type === 'services' ? (
+                          <span className="italic text-pq-neutral-400">N/A</span>
+                        ) : item.validated_soh !== undefined && item.validated_soh !== null ? (
+                          item.validated_soh.toLocaleString()
+                        ) : '—'}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_requested.toLocaleString()}</td>
                       <td className="px-4 py-3">

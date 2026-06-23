@@ -1,4 +1,4 @@
-import type { PR1Attachment } from '@/types/pr1';
+import type { PR1Attachment, PR1RequestType } from '@/types/pr1';
 
 export type ApprovalAction = 'approved' | 'rejected' | 'revision_requested';
 
@@ -23,6 +23,7 @@ export interface PR2ApprovalQueueRow {
   step_action_label:           string;
   step_is_final:               boolean;
   pr1_priority?:               'normal' | 'medium' | 'high';
+  request_type?:               'goods' | 'services';
 }
 
 export interface PR2ApprovalDetail {
@@ -39,6 +40,7 @@ export interface PR2ApprovalDetail {
   generated_at:                string;
   remarks:                     string | null;
   pr1_priority?:               'normal' | 'medium' | 'high';
+  request_type?:               'goods' | 'services';
   /** Intersection ensures `pr1_item_id` for canvass lookups even if tooling resolves an older PR2ApprovalItem shape */
   items: Array<PR2ApprovalItem & { pr1_item_id: string | null }>;
   // Phase 1 instance (always present once submitted)
@@ -112,6 +114,7 @@ export interface PR1ApprovalQueueRow {
   step_role_required: string;
   step_action_label: string;
   step_is_final: boolean;
+  request_type?: 'goods' | 'services';
 }
 
 /** Latest PR1 approval instance snapshot for read-only signatory display (e.g. /pr1/[id]). */
@@ -136,6 +139,7 @@ export interface PR1ApprovalDetail {
   submitted_at: string | null;
   pr1_status: string;
   priority: 'normal' | 'medium' | 'high';
+  request_type: PR1RequestType;
   // items
   items: PR1ApprovalItem[];
   // approval instance

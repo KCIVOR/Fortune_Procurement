@@ -15,6 +15,7 @@ export interface GRNReceipt {
   pr2_number_snapshot: string;
   pr1_number_snapshot: string;
   supplier_name_snapshot: string;
+  request_type: 'goods' | 'services';
   department_name_snapshot: string;
   purpose: string;
   warehouse: string;
@@ -83,6 +84,7 @@ export interface GRNQueueRow {
   grn_number: string;
   delivery_id: string;
   po_number_snapshot: string;
+  pr1_number_snapshot: string;
   supplier_name_snapshot: string;
   department_name_snapshot: string;
   warehouse: string;
@@ -90,6 +92,7 @@ export interface GRNQueueRow {
   status: GRNStatus;
   closed_at: string | null;
   received_by_name_snapshot: string;
+  request_type: 'goods' | 'services';
 }
 
 // Editable form state per item

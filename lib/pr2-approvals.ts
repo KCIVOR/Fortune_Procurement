@@ -169,10 +169,13 @@ export async function fetchPR2ApprovalQueue(): Promise<PR2ApprovalQueueRow[]> {
     (pr2Res.data ?? []).map((pr2: any) => pr2.pr1_id).filter(Boolean)
   ));
   const { data: pr1s } = pr1Ids.length > 0
-    ? await db.from('pr1_requests').select('id, priority').in('id', pr1Ids)
+    ? await db.from('pr1_requests').select('id, priority, request_type').in('id', pr1Ids)
     : { data: [] };
   const pr1PriorityMap: Record<string, string> = Object.fromEntries(
     ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.priority])
+  );
+  const pr1TypeMap: Record<string, 'goods' | 'services'> = Object.fromEntries(
+    ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.request_type ?? 'goods'])
   );
 
   return instances.flatMap((inst: any) => {
@@ -183,7 +186,8 @@ export async function fetchPR2ApprovalQueue(): Promise<PR2ApprovalQueueRow[]> {
     );
     if (!pr2 || !step) return [];
 
-    const pr1Priority = pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined;
+    const pr1Priority    = pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined;
+    const pr1RequestType = pr2.pr1_id ? pr1TypeMap[pr2.pr1_id]    : undefined;
 
     return [{
       pr2_id:                      pr2.id,
@@ -204,6 +208,7 @@ export async function fetchPR2ApprovalQueue(): Promise<PR2ApprovalQueueRow[]> {
       step_action_label:           step.action_label,
       step_is_final:               step.is_final,
       pr1_priority:                pr1Priority as 'normal' | 'medium' | 'high' | undefined,
+      request_type:                pr1RequestType,
     }] as PR2ApprovalQueueRow[];
   });
 }
@@ -325,7 +330,7 @@ export async function fetchPR2ApprovalDetail(
       .eq('pr2_id', pr2.id)
       .order('item_order', { ascending: true }),
     pr2.pr1_id
-      ? db.from('pr1_requests').select('priority').eq('id', pr2.pr1_id).maybeSingle()
+      ? db.from('pr1_requests').select('priority, request_type').eq('id', pr2.pr1_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -337,11 +342,12 @@ export async function fetchPR2ApprovalDetail(
     ? await fetchRfqQuoteAttachmentsByRfq(rfqId).catch(() => ({}))
     : {};
 
-  // Fetch PR1 priority from related PR1 record
+  // Fetch PR1 priority and request_type from related PR1 record
   let pr1Priority: 'normal' | 'medium' | 'high' | undefined;
   if (pr1Res.data?.priority) {
     pr1Priority = pr1Res.data.priority as 'normal' | 'medium' | 'high';
   }
+  const pr1RequestType: 'goods' | 'services' = (pr1Res.data as any)?.request_type ?? 'goods';
 
   return {
     pr2_id:                      pr2.id,
@@ -357,6 +363,7 @@ export async function fetchPR2ApprovalDetail(
     generated_at:                pr2.generated_at,
     remarks:                     pr2.remarks,
     pr1_priority:                pr1Priority,
+    request_type:                pr1RequestType,
     items:                       (itemRows as any[]).map((i: any) => ({
       id:                   i.id,
       item_order:           i.item_order,

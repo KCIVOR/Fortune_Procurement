@@ -3,45 +3,50 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
-import { CardListSkeleton } from '@/components/shared/structural-skeletons';
+import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import EmptyState from '@/components/shared/EmptyState';
 import PaginationControls from '@/components/shared/PaginationControls';
 import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig, TabFilter } from '@/components/shared/FilterBar.types';
 import { useAuth } from '@/context/AuthContext';
 import type { DeliveryListTab } from '@/lib/delivery';
-import {
-  fetchDeliveryQueuePaged,
-  fetchDeliveryTabCounts,
-} from '@/lib/delivery';
+import { fetchDeliveryQueuePaged, fetchDeliveryTabCounts } from '@/lib/delivery';
 import type { Delivery, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 import { format } from 'date-fns';
-import { Truck, Package, Calendar, Building2, ChevronRight, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban } from 'lucide-react';
+import {
+  Truck,
+  Clock,
+  CircleCheck as CheckCircle2,
+  TriangleAlert as AlertTriangle,
+  Navigation,
+  Calendar,
+  Ban,
+  ExternalLink,
+} from 'lucide-react';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 
-const STATUS_CONFIG: Record<DeliveryStatus, {
-  label: string;
-  bg: string;
-  text: string;
-  border: string;
-  icon: React.ElementType;
-}> = {
-  pending:    { label: 'Pending',    bg: 'bg-pq-neutral-50',   text: 'text-pq-neutral-500',   border: 'border-pq-neutral-200',   icon: Clock },
-  scheduled:  { label: 'Scheduled', bg: 'bg-pq-primary-50',    text: 'text-pq-primary-700',    border: 'border-pq-primary-200',    icon: Calendar },
-  in_transit: { label: 'In Transit',bg: 'bg-pq-warning-100',   text: 'text-pq-warning-600',   border: 'border-pq-warning-100',   icon: Navigation },
-  delayed:    { label: 'Delayed',   bg: 'bg-pq-danger-100',     text: 'text-pq-danger-600',     border: 'border-pq-danger-100',     icon: AlertTriangle },
-  delivered:  { label: 'Delivered', bg: 'bg-pq-success-100', text: 'text-pq-success-600', border: 'border-pq-success-100', icon: CheckCircle2 },
-  cancelled:  { label: 'Cancelled', bg: 'bg-pq-neutral-50',  text: 'text-pq-neutral-500',   border: 'border-pq-neutral-200',   icon: Ban },
+const STATUS_STYLES: Record<DeliveryStatus, string> = {
+  pending:    'bg-pq-neutral-100 text-pq-neutral-600 border-pq-neutral-200',
+  scheduled:  'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200',
+  in_transit: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
+  delayed:    'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
+  delivered:  'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
+  cancelled:  'bg-pq-neutral-100 text-pq-neutral-500 border-pq-neutral-200',
+};
+
+const STATUS_ICONS: Record<DeliveryStatus, React.ElementType> = {
+  pending:    Clock,
+  scheduled:  Calendar,
+  in_transit: Navigation,
+  delayed:    AlertTriangle,
+  delivered:  CheckCircle2,
+  cancelled:  Ban,
 };
 
 const EMPTY_TAB_COUNTS: Record<DeliveryListTab, number> = {
-  all: 0,
-  pending: 0,
-  scheduled: 0,
-  in_transit: 0,
-  delayed: 0,
-  delivered: 0,
+  all: 0, pending: 0, scheduled: 0, in_transit: 0, delayed: 0, delivered: 0,
 };
 
 export default function DeliveryQueuePage() {
@@ -97,20 +102,18 @@ export default function DeliveryQueuePage() {
   }, [profile, isEmployee, filter, currentPage, rowsPerPage, appliedSearch]);
 
   const counts = tabCounts ?? EMPTY_TAB_COUNTS;
-
   const totalPages = Math.ceil(totalCount / rowsPerPage);
+  const canViewPrices = canViewCommercialPricing(profile);
 
-  // Tab configuration for FilterBar
   const tabs: TabFilter[] = [
-    { value: 'all', label: `All (${counts.all})` },
-    { value: 'pending', label: `${DELIVERY_STATUS_LABELS.pending} (${counts.pending})` },
-    { value: 'scheduled', label: `${DELIVERY_STATUS_LABELS.scheduled} (${counts.scheduled})` },
+    { value: 'all',        label: `All (${counts.all})` },
+    { value: 'pending',    label: `${DELIVERY_STATUS_LABELS.pending} (${counts.pending})` },
+    { value: 'scheduled',  label: `${DELIVERY_STATUS_LABELS.scheduled} (${counts.scheduled})` },
     { value: 'in_transit', label: `${DELIVERY_STATUS_LABELS.in_transit} (${counts.in_transit})` },
-    { value: 'delayed', label: `${DELIVERY_STATUS_LABELS.delayed} (${counts.delayed})` },
-    { value: 'delivered', label: `${DELIVERY_STATUS_LABELS.delivered} (${counts.delivered})` },
+    { value: 'delayed',    label: `${DELIVERY_STATUS_LABELS.delayed} (${counts.delayed})` },
+    { value: 'delivered',  label: `${DELIVERY_STATUS_LABELS.delivered} (${counts.delivered})` },
   ];
 
-  // Filter configuration for FilterBar
   const filters: FilterConfig[] = [
     {
       type: 'search',
@@ -142,14 +145,13 @@ export default function DeliveryQueuePage() {
   if (!profile) {
     return (
       <AppShell title="Delivery Tracking">
-        <CardListSkeleton cards={4} />
+        <TableSkeleton rows={5} cols={7} />
       </AppShell>
     );
   }
 
   return (
     <AppShell title="Delivery Tracking">
-      {/* Page header */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -167,12 +169,9 @@ export default function DeliveryQueuePage() {
       </div>
 
       {error && (
-        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600 mb-4">
-          {error}
-        </div>
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600 mb-4">{error}</div>
       )}
 
-      {/* FilterBar with tabs */}
       <FilterBar
         tabs={tabs}
         activeTab={filter}
@@ -187,19 +186,85 @@ export default function DeliveryQueuePage() {
       />
 
       {loading ? (
-        <CardListSkeleton cards={4} />
+        <TableSkeleton rows={5} cols={7} />
       ) : totalCount === 0 ? (
-        <EmptyState
-          icon={Truck}
-          title="No deliveries found"
-          description={filter === 'all' ? 'Deliveries will appear here once POs are acknowledged by suppliers.' : `No deliveries with status "${filter}".`}
-        />
+        <div className="bg-white rounded-md border border-pq-neutral-200">
+          <EmptyState
+            icon={Truck}
+            title="No deliveries found"
+            description={filter === 'all'
+              ? 'Deliveries will appear here once POs are acknowledged by suppliers.'
+              : `No deliveries with status "${DELIVERY_STATUS_LABELS[filter as DeliveryStatus] ?? filter}".`}
+          />
+        </div>
       ) : (
         <div className="space-y-4">
-          <div className="space-y-3">
-            {deliveries.map(d => (
-              <DeliveryCard key={d.id} delivery={d} canViewPrices={canViewCommercialPricing(profile)} />
-            ))}
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">PO No.</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">PR1 Ref</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-center">Type</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Department</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Purpose</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Delivery Date</th>
+                    {canViewPrices && (
+                      <th className="text-right px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Amount</th>
+                    )}
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</th>
+                    <th className="px-5 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-pq-neutral-200">
+                  {deliveries.map(d => {
+                    const Icon = STATUS_ICONS[d.status];
+                    const dateLabel = d.status === 'delivered' && d.actual_delivery_date
+                      ? format(new Date(d.actual_delivery_date), 'MMM d, yyyy')
+                      : d.scheduled_date
+                        ? format(new Date(d.scheduled_date), 'MMM d, yyyy')
+                        : d.commitment_date
+                          ? format(new Date(d.commitment_date), 'MMM d, yyyy')
+                          : '—';
+                    return (
+                      <tr key={d.id} className="hover:bg-pq-neutral-50 transition-colors">
+                        <td className="px-5 py-3.5 font-mono font-semibold text-pq-neutral-900">{d.po_number_snapshot}</td>
+                        <td className="px-5 py-3.5 font-mono text-xs text-pq-neutral-500">{d.pr1_number_snapshot}</td>
+                        <td className="px-5 py-3.5 text-center">
+                          <RequestTypeBadge type={d.request_type ?? 'goods'} />
+                        </td>
+                        <td className="px-5 py-3.5 text-pq-neutral-900">{d.supplier_name_snapshot}</td>
+                        <td className="px-5 py-3.5 text-pq-neutral-500">{d.department_name_snapshot}</td>
+                        <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[160px] truncate">{d.purpose}</td>
+                        <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{dateLabel}</td>
+                        {canViewPrices && (
+                          <td className="px-5 py-3.5 text-right font-mono text-xs font-semibold text-pq-neutral-900">
+                            {formatCommercialAmount(d.grand_total, true)}
+                          </td>
+                        )}
+                        <td className="px-5 py-3.5">
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-0.5 ${STATUS_STYLES[d.status]}`}>
+                            <Icon className="w-3 h-3" />
+                            {DELIVERY_STATUS_LABELS[d.status]}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <Link
+                            href={`/delivery/${d.id}`}
+                            className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-primary-700 text-xs font-medium transition"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            View
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {totalCount > 0 && (
@@ -220,64 +285,5 @@ export default function DeliveryQueuePage() {
         </div>
       )}
     </AppShell>
-  );
-}
-
-function DeliveryCard({ delivery: d, canViewPrices }: { delivery: Delivery; canViewPrices: boolean }) {
-  const cfg = STATUS_CONFIG[d.status];
-  const Icon = cfg.icon;
-
-  const dateLabel = d.status === 'delivered' && d.actual_delivery_date
-    ? `Delivered ${format(new Date(d.actual_delivery_date), 'MMM d, yyyy')}`
-    : d.scheduled_date
-      ? `Scheduled ${format(new Date(d.scheduled_date), 'MMM d, yyyy')}`
-      : d.commitment_date
-        ? `Committed ${format(new Date(d.commitment_date), 'MMM d, yyyy')}`
-        : 'No delivery date set';
-
-  return (
-    <Link href={`/delivery/${d.id}`} className="block group">
-      <div className="bg-white border border-pq-neutral-200 rounded-md p-5 hover:border-pq-primary-600 transition flex items-center gap-4">
-        {/* Status icon */}
-        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${cfg.bg} border ${cfg.border}`}>
-          <Icon className={`w-4.5 h-4.5 ${cfg.text}`} />
-        </div>
-
-        {/* Main info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <span className="font-mono font-bold text-pq-neutral-900 text-sm">{d.po_number_snapshot}</span>
-            <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-              <Icon className="w-3 h-3" />
-              {cfg.label}
-            </span>
-          </div>
-          <p className="text-sm text-pq-neutral-900 font-medium truncate">{d.purpose}</p>
-          <div className="flex items-center gap-3 mt-1 text-xs text-pq-neutral-400 flex-wrap">
-            <span className="flex items-center gap-1">
-              <Building2 className="w-3 h-3" />
-              {d.supplier_name_snapshot}
-            </span>
-            <span className="flex items-center gap-1">
-              <Package className="w-3 h-3" />
-              {d.warehouse}
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {dateLabel}
-            </span>
-          </div>
-        </div>
-
-        {/* Amount + chevron */}
-        <div className="flex-shrink-0 text-right">
-          <p className="text-sm font-bold text-pq-neutral-900 font-mono">
-            {formatCommercialAmount(d.grand_total, canViewPrices)}
-          </p>
-          <p className="text-xs text-pq-neutral-400 mt-0.5">PR1 Ref: {d.pr1_number_snapshot}</p>
-        </div>
-        <ChevronRight className="w-4 h-4 text-pq-neutral-400 flex-shrink-0 group-hover:text-pq-neutral-500 transition" />
-      </div>
-    </Link>
   );
 }

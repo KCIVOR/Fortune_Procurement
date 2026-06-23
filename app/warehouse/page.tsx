@@ -20,6 +20,7 @@ import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import { PackageSearch, ClipboardCheck, Clock, CircleCheck as CheckCircle2, Circle as XCircle, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 
 export default function WarehouseQueuePage() {
   const [queue, setQueue] = useState<PR1QueueRow[]>([]);
@@ -31,6 +32,7 @@ export default function WarehouseQueuePage() {
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedPriority, setSelectedPriority] = useState('all');
+  const [selectedRequestType, setSelectedRequestType] = useState('all');
   const [statCounts, setStatCounts] = useState({
     pendingReview: 0,
     sufficient: 0,
@@ -46,10 +48,11 @@ export default function WarehouseQueuePage() {
       try {
         const stats = await fetchWarehouseQueueStatCounts();
         const page = await fetchWarehouseQueuePaged({
-          limit:    rowsPerPage,
+          limit:         rowsPerPage,
           offset,
-          search:   appliedSearch.trim() || undefined,
-          priority: selectedPriority,
+          search:        appliedSearch.trim() || undefined,
+          priority:      selectedPriority,
+          request_type:  selectedRequestType,
         });
         setStatCounts(stats);
         setQueue(page.queue);
@@ -64,7 +67,7 @@ export default function WarehouseQueuePage() {
         setLoading(false);
       }
     })();
-  }, [currentPage, rowsPerPage, appliedSearch, selectedPriority]);
+  }, [currentPage, rowsPerPage, appliedSearch, selectedPriority, selectedRequestType]);
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
@@ -96,15 +99,31 @@ export default function WarehouseQueuePage() {
               setCurrentPage(1);
             },
             options: [
-              { value: 'all', label: 'All Priorities' },
+              { value: 'all',    label: 'All Priorities' },
               { value: 'normal', label: 'Normal' },
               { value: 'medium', label: 'Medium' },
-              { value: 'high', label: 'High' },
+              { value: 'high',   label: 'High' },
+            ],
+          },
+          {
+            type: 'select',
+            id: 'wh-request-type',
+            label: 'Type',
+            placeholder: 'All types',
+            value: selectedRequestType,
+            onChange: (value) => {
+              setSelectedRequestType(value as string);
+              setCurrentPage(1);
+            },
+            options: [
+              { value: 'all',      label: 'All Types' },
+              { value: 'goods',    label: 'Goods' },
+              { value: 'services', label: 'Services' },
             ],
           },
         ] as FilterConfig[]}
         onApply={() => { setAppliedSearch(search); setCurrentPage(1); }}
-        onClear={() => { setSearch(''); setAppliedSearch(''); setSelectedPriority('all'); setCurrentPage(1); }}
+        onClear={() => { setSearch(''); setAppliedSearch(''); setSelectedPriority('all'); setSelectedRequestType('all'); setCurrentPage(1); }}
         loading={loading}
         resultCount={totalCount}
         resultLabel="item"
@@ -120,8 +139,8 @@ export default function WarehouseQueuePage() {
           <EmptyState
             title="No items pending validation"
             description={
-              appliedSearch.trim() || selectedPriority !== 'all'
-                ? 'No requests match your filters. Try adjusting search or priority.'
+              appliedSearch.trim() || selectedPriority !== 'all' || selectedRequestType !== 'all'
+                ? 'No requests match your filters. Try adjusting search, priority, or type.'
                 : 'PR1s submitted by employees will appear here once routed to the warehouse.'
             }
             icon={PackageSearch}
@@ -165,6 +184,7 @@ export default function WarehouseQueuePage() {
                   <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Department</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Purpose</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Priority</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Type</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Date Required</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Validation</th>
@@ -180,6 +200,9 @@ export default function WarehouseQueuePage() {
                     <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[180px] truncate">{row.purpose || '—'}</td>
                     <td className="px-5 py-3.5">
                       <PriorityChip priority={row.priority || 'normal'} />
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <RequestTypeBadge type={row.request_type ?? 'goods'} />
                     </td>
                     <td className="px-5 py-3.5 text-pq-neutral-500">
                       {row.date_required ? format(new Date(row.date_required), 'MMM d, yyyy') : '—'}

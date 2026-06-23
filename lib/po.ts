@@ -136,18 +136,29 @@ export async function fetchPOById(id: string): Promise<POWithItems | null> {
   if (poRes.error) throw poRes.error;
   if (!poRes.data) return null;
 
+  const po = normalizePO(poRes.data);
+
   const rawItems: any[] = itemsRes.data ?? [];
   const quoteIds = rawItems
     .map((r: any) => r.pr2_items?.rfq_item_quote_id)
     .filter((id: string | null | undefined): id is string => !!id);
 
-  const quoteAttachmentsByQuote: Record<string, RfqQuoteAttachment[]> =
+  const [quoteAttachmentsByQuote, pr2Res] = await Promise.all([
     quoteIds.length > 0
-      ? await fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({}))
-      : {};
+      ? fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({} as Record<string, RfqQuoteAttachment[]>))
+      : Promise.resolve({} as Record<string, RfqQuoteAttachment[]>),
+    db.from('pr2_requests').select('pr1_id').eq('id', po.pr2_id).maybeSingle(),
+  ]);
+
+  let request_type: 'goods' | 'services' = 'goods';
+  if (pr2Res.data?.pr1_id) {
+    const { data: pr1Data } = await db.from('pr1_requests').select('request_type').eq('id', pr2Res.data.pr1_id).maybeSingle();
+    request_type = (pr1Data as any)?.request_type ?? 'goods';
+  }
 
   return {
-    ...normalizePO(poRes.data),
+    ...po,
+    request_type,
     items: rawItems.map(r => normalizeItem(r, quoteAttachmentsByQuote)),
   };
 }
@@ -555,6 +566,7 @@ function normalizePO(row: any): PORequest {
     packing:                     row.packing,
     remarks:                     row.remarks,
     department_id:               row.department_id ?? null,
+    request_type:                (row.request_type ?? 'goods') as 'goods' | 'services',
     status:                      row.status,
     generated_by:                row.generated_by,
     generated_at:                row.generated_at,

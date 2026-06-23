@@ -33,6 +33,7 @@ import DetailPrintButton from '@/components/shared/DetailPrintButton';
 import DetailTableCard from '@/components/shared/DetailTableCard';
 import DetailInfoField from '@/components/shared/DetailInfoField';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -153,6 +154,7 @@ export default function PODetailPage() {
               <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_STYLES[po.status] ?? STATUS_STYLES.draft}`}>
                 {PO_STATUS_LABELS[po.status] ?? po.status}
               </span>
+              <RequestTypeBadge type={po.request_type ?? 'goods'} />
             </DetailTitleRow>
             <p className="text-sm text-pq-neutral-500">{po.department_name_snapshot} · {po.purpose}</p>
             <div className="flex items-center gap-3 mt-1 flex-wrap">

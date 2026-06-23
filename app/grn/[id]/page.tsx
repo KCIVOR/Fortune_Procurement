@@ -21,6 +21,7 @@ import DetailTableCard from '@/components/shared/DetailTableCard';
 import DetailInfoField from '@/components/shared/DetailInfoField';
 import { FormFieldLabel } from '@/components/shared/FormFieldLabel';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 
 export default function GRNDetailPage() {
@@ -212,6 +213,7 @@ export default function GRNDetailPage() {
                 {isClosed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Receipt className="w-3.5 h-3.5" />}
                 {isClosed ? 'Closed' : 'Open'}
               </span>
+              <RequestTypeBadge type={grn.request_type ?? 'goods'} />
             </DetailTitleRow>
             <p className="text-sm text-pq-neutral-500">{grn.department_name_snapshot} · {grn.purpose}</p>
             <div className="flex items-center gap-3 mt-1 text-xs text-pq-neutral-400 flex-wrap">

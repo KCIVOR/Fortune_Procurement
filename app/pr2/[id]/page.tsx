@@ -30,6 +30,7 @@ import DetailTableCard from '@/components/shared/DetailTableCard';
 import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:              'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
@@ -328,6 +329,7 @@ export default function PR2DetailPage() {
               <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_STYLES[pr2.status] ?? STATUS_STYLES.draft}`}>
                 {PR2_STATUS_LABELS[pr2.status]}
               </span>
+              <RequestTypeBadge type={pr2.request_type ?? 'goods'} />
             </DetailTitleRow>
             <p className="text-sm text-pq-neutral-500">
               {pr2.department_name_snapshot} · {pr2.purpose}

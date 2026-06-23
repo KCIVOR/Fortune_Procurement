@@ -185,14 +185,14 @@ export async function fetchMyWarehouseValidationHistoryPaged(
 
   const { data: pr1Rows, error: pr1Err } = await db
     .from('pr1_requests')
-    .select('id, pr1_number, purpose, department_name_snapshot, status')
+    .select('id, pr1_number, purpose, department_name_snapshot, status, request_type')
     .in('id', pr1Ids);
 
   if (pr1Err) throw pr1Err;
 
   const pr1Map: Record<
     string,
-    { pr1_number: string; purpose: string; department_name_snapshot: string; status: string }
+    { pr1_number: string; purpose: string; department_name_snapshot: string; status: string; request_type: 'goods' | 'services' }
   > = Object.fromEntries(
     (pr1Rows ?? []).map((p: any) => [
       p.id,
@@ -201,6 +201,7 @@ export async function fetchMyWarehouseValidationHistoryPaged(
         purpose: p.purpose,
         department_name_snapshot: p.department_name_snapshot,
         status: p.status,
+        request_type: (p.request_type ?? 'goods') as 'goods' | 'services',
       },
     ]),
   );
@@ -218,6 +219,7 @@ export async function fetchMyWarehouseValidationHistoryPaged(
       notes: row.notes ?? '',
       validated_at: row.validated_at as string,
       action_url: `/warehouse/${row.pr1_id}`,
+      request_type: p?.request_type ?? 'goods',
     };
   });
 

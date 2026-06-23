@@ -19,6 +19,8 @@ import type { StatusVariant } from '@/components/shared/StatusChip';
 import { FileText, Plus, Eye, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
+import type { PR1RequestType } from '@/types/pr1';
 
 const STATUS_MAP: Record<string, StatusVariant> = {
   draft:                'draft',
@@ -43,6 +45,7 @@ export default function PR1ListPage() {
   const [rowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedRequestType, setSelectedRequestType] = useState('all');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
@@ -57,12 +60,13 @@ export default function PR1ListPage() {
     setLoading(true);
     const offset = (currentPage - 1) * rowsPerPage;
     fetchMyPR1s(profile.id, {
-      limit:  rowsPerPage,
+      limit:        rowsPerPage,
       offset,
-      status: selectedStatus,
-      search: appliedSearch.trim() || undefined,
-      dateFrom: appliedDateRange[0] || undefined,
-      dateTo: appliedDateRange[1] || undefined,
+      status:       selectedStatus,
+      search:       appliedSearch.trim() || undefined,
+      dateFrom:     appliedDateRange[0] || undefined,
+      dateTo:       appliedDateRange[1] || undefined,
+      request_type: selectedRequestType,
     })
       .then((result) => {
         setRequests(result.requests);
@@ -70,7 +74,7 @@ export default function PR1ListPage() {
       })
       .catch(() => setError('Failed to load requests.'))
       .finally(() => setLoading(false));
-  }, [profile, currentPage, rowsPerPage, router, selectedStatus, appliedSearch, appliedDateRange]);
+  }, [profile, currentPage, rowsPerPage, router, selectedStatus, selectedRequestType, appliedSearch, appliedDateRange]);
 
   // Filter configuration for FilterBar
   const filters: FilterConfig[] = [
@@ -101,6 +105,22 @@ export default function PR1ListPage() {
       ],
     },
     {
+      type: 'select',
+      id: 'pr1-request-type',
+      label: 'Type',
+      placeholder: 'All types',
+      value: selectedRequestType,
+      onChange: (value) => {
+        setSelectedRequestType(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',      label: 'All Types' },
+        { value: 'goods',    label: 'Goods' },
+        { value: 'services', label: 'Services' },
+      ],
+    },
+    {
       type: 'dateRange',
       id: 'pr1-date',
       label: 'Date Created',
@@ -119,6 +139,7 @@ export default function PR1ListPage() {
     setSearch('');
     setAppliedSearch('');
     setSelectedStatus('all');
+    setSelectedRequestType('all');
     setDateRange(['', '']);
     setAppliedDateRange(['', '']);
     setCurrentPage(1);
@@ -178,6 +199,7 @@ export default function PR1ListPage() {
                   <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Date Required</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</th>
                   <th className="text-center px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-24">Priority</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-24">Type</th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</th>
                   <th className="px-5 py-3" />
                 </tr>
@@ -202,6 +224,9 @@ export default function PR1ListPage() {
                     </td>
                     <td className="px-5 py-3.5 text-center">
                       <PriorityChip priority={r.priority || 'normal'} />
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <RequestTypeBadge type={(r.request_type ?? 'goods') as PR1RequestType} />
                     </td>
                     <td className="px-5 py-3.5">
                       <StatusChip

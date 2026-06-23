@@ -165,10 +165,13 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
     Object.values(pr2Map).map((pr2: any) => pr2.pr1_id).filter(Boolean)
   ));
   const { data: pr1s } = pr1Ids.length > 0
-    ? await db.from('pr1_requests').select('id, priority').in('id', pr1Ids)
+    ? await db.from('pr1_requests').select('id, priority, request_type').in('id', pr1Ids)
     : { data: [] };
   const pr1PriorityMap: Record<string, string> = Object.fromEntries(
     ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.priority])
+  );
+  const pr1TypeMap: Record<string, 'goods' | 'services'> = Object.fromEntries(
+    ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.request_type ?? 'goods'])
   );
 
   return instances.flatMap((inst: any) => {
@@ -178,10 +181,10 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
     );
     if (!po || !step) return [];
 
-    // Resolve priority through PO → PR2 → PR1 chain
-    const pr1Priority = po.pr2_id && pr2Map[po.pr2_id]?.pr1_id
-      ? pr1PriorityMap[pr2Map[po.pr2_id].pr1_id]
-      : undefined;
+    // Resolve priority and request_type through PO → PR2 → PR1 chain
+    const pr1Id       = po.pr2_id && pr2Map[po.pr2_id]?.pr1_id ? pr2Map[po.pr2_id].pr1_id : undefined;
+    const pr1Priority = pr1Id ? pr1PriorityMap[pr1Id] : undefined;
+    const pr1RequestType = pr1Id ? pr1TypeMap[pr1Id]  : undefined;
 
     return [{
       po_id:                    po.id,
@@ -201,6 +204,7 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
       step_action_label:        step.action_label,
       step_is_final:            step.is_final,
       pr1_priority:             pr1Priority as 'normal' | 'medium' | 'high' | undefined,
+      request_type:             pr1RequestType,
     }] as POApprovalQueueRow[];
   });
 }
@@ -243,8 +247,9 @@ export async function fetchPOApprovalDetail(
 
   const po = poRes.data;
 
-  // Fetch PR1 priority from related PR1 record through PR2
+  // Fetch PR1 priority and request_type from related PR1 record through PR2
   let pr1Priority: 'normal' | 'medium' | 'high' | undefined;
+  let pr1RequestType: 'goods' | 'services' = 'goods';
   if (po.pr2_id) {
     const { data: pr2Data } = await db
       .from('pr2_requests')
@@ -254,11 +259,14 @@ export async function fetchPOApprovalDetail(
     if (pr2Data?.pr1_id) {
       const { data: pr1Data } = await db
         .from('pr1_requests')
-        .select('priority')
+        .select('priority, request_type')
         .eq('id', pr2Data.pr1_id)
         .maybeSingle();
       if (pr1Data?.priority) {
         pr1Priority = pr1Data.priority as 'normal' | 'medium' | 'high';
+      }
+      if ((pr1Data as any)?.request_type) {
+        pr1RequestType = (pr1Data as any).request_type as 'goods' | 'services';
       }
     }
   }
@@ -292,6 +300,7 @@ export async function fetchPOApprovalDetail(
     remarks:                     po.remarks,
     po_status:                   po.status,
     pr1_priority:                pr1Priority,
+    request_type:                pr1RequestType,
     items: rawItems.map((i: any) => {
       const rfqItemQuoteId: string | null = i.pr2_items?.rfq_item_quote_id ?? null;
       return {

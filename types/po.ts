@@ -15,6 +15,7 @@ export interface PORequest {
   pr2_number_snapshot: string;
   pr1_number_snapshot: string;
   rfq_number_snapshot: string;
+  request_type:        'goods' | 'services';
   supplier_name_snapshot: string;
   supplier_id: string | null;
   requisitioner_name_snapshot: string;
@@ -156,6 +157,7 @@ export interface POApprovalQueueRow {
   step_action_label:          string;
   step_is_final:              boolean;
   pr1_priority?:              'normal' | 'medium' | 'high';
+  request_type?:              'goods' | 'services';
 }
 
 export interface POApprovalStep {
@@ -199,6 +201,7 @@ export interface POApprovalDetail {
   remarks:                     string | null;
   po_status:                   string;
   pr1_priority?:               'normal' | 'medium' | 'high';
+  request_type?:               'goods' | 'services';
   items:                       POItem[];
   instance_id:                 string;
   current_step:                number;

@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
+import type { PR1RequestType } from '@/types/pr1';
 import StepChip from '@/components/shared/StepChip';
 import ApprovalQueueTableShell from '@/components/shared/ApprovalQueueTableShell';
 import { ApprovalQueueHeaderRow, ApprovalQueueHeadCell } from '@/components/shared/ApprovalQueueTableHeader';
@@ -39,6 +41,7 @@ interface PR1ApprovalRow {
   department_name_snapshot: string;
   purpose: string;
   priority: string;
+  request_type: PR1RequestType;
   date_required: string;
   submitted_at: string | null;
   instance_id: string;
@@ -53,6 +56,7 @@ interface PR1ApprovalRow {
 }
 
 type StatusFilter = 'pending' | 'approved' | 'rejected' | 'all';
+type RequestTypeFilter = 'all' | 'goods' | 'services';
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
@@ -75,6 +79,7 @@ export default function PR1ApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+  const [requestTypeFilter, setRequestTypeFilter] = useState<RequestTypeFilter>('all');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,7 +114,7 @@ export default function PR1ApprovalsPage() {
 
         const [pr1Res, workflowRes, stepsRes, actionsRes] = await Promise.all([
           db.from('pr1_requests')
-            .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, date_required, submitted_at')
+            .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, request_type, date_required, submitted_at')
             .in('id', pr1Ids),
           db.from('approval_workflows')
             .select('id, code')
@@ -183,6 +188,7 @@ export default function PR1ApprovalsPage() {
             department_name_snapshot: pr1.department_name_snapshot,
             purpose: pr1.purpose,
             priority: pr1.priority,
+            request_type: (pr1.request_type ?? 'goods') as PR1RequestType,
             date_required: pr1.date_required,
             submitted_at: pr1.submitted_at,
             instance_id: inst.id,
@@ -219,6 +225,11 @@ export default function PR1ApprovalsPage() {
       rows = rows.filter(r => statusValues.includes(r.instance_status));
     }
 
+    // Apply request type filter
+    if (requestTypeFilter !== 'all') {
+      rows = rows.filter(r => r.request_type === requestTypeFilter);
+    }
+
     // Apply search filter
     if (appliedSearch) {
       const term = appliedSearch.toLowerCase();
@@ -230,7 +241,7 @@ export default function PR1ApprovalsPage() {
     }
 
     return rows;
-  }, [allRows, statusFilter, appliedSearch]);
+  }, [allRows, statusFilter, requestTypeFilter, appliedSearch]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -269,6 +280,22 @@ export default function PR1ApprovalsPage() {
       },
       options: STATUS_OPTIONS,
     },
+    {
+      type: 'select',
+      id: 'pr1-request-type',
+      label: 'Type',
+      placeholder: 'All types',
+      value: requestTypeFilter,
+      onChange: (value) => {
+        setRequestTypeFilter(value as RequestTypeFilter);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',      label: 'All Types' },
+        { value: 'goods',    label: 'Goods' },
+        { value: 'services', label: 'Services' },
+      ],
+    },
   ];
 
   const handleApply = () => {
@@ -280,6 +307,7 @@ export default function PR1ApprovalsPage() {
     setSearch('');
     setAppliedSearch('');
     setStatusFilter('pending');
+    setRequestTypeFilter('all');
     setCurrentPage(1);
   };
 
@@ -401,6 +429,7 @@ function PR1QueueTable({
               <ApprovalQueueHeadCell>Purpose</ApprovalQueueHeadCell>
               <ApprovalQueueHeadCell>Date Required</ApprovalQueueHeadCell>
               <ApprovalQueueHeadCell align="center" className="w-24">Priority</ApprovalQueueHeadCell>
+              <ApprovalQueueHeadCell className="w-24">Type</ApprovalQueueHeadCell>
               <ApprovalQueueHeadCell>Status</ApprovalQueueHeadCell>
               <ApprovalQueueHeadCell className="px-5 py-3" />
             </ApprovalQueueHeaderRow>
@@ -417,6 +446,9 @@ function PR1QueueTable({
                   <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                   <td className="px-5 py-3.5 text-center">
                     <PriorityChip priority={row.priority} />
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <RequestTypeBadge type={row.request_type} />
                   </td>
                   <td className="px-5 py-3.5">
                     <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-0.5 ${STATUS_STYLES[row.instance_status]}`}>

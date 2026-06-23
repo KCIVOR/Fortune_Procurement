@@ -14,7 +14,7 @@ import {
   uploadPR1Attachment,
   deletePR1Attachment,
 } from '@/lib/pr1';
-import type { PR1WithItems, PR1FormValues, PR1ItemDraft, PR1Attachment } from '@/types/pr1';
+import type { PR1WithItems, PR1FormValues, PR1ItemDraft, PR1Attachment, PR1RequestType } from '@/types/pr1';
 import { EMPTY_ITEM, PURPOSE_OPTIONS, UNIT_OPTIONS } from '@/types/pr1';
 import { Plus, Trash2, TriangleAlert as AlertTriangle, Save, Send, ChevronUp, ChevronDown, FlaskConical, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
@@ -50,9 +50,10 @@ function resolveUnitSelection(stored: string): { sel: string; custom: string } {
 function buildInitialValues(existing?: PR1WithItems): PR1FormValues {
   if (existing) {
     return {
-      pr1_number:   existing.pr1_number,
-      purpose:      existing.purpose,
+      pr1_number:    existing.pr1_number,
+      purpose:       existing.purpose,
       date_required: existing.date_required,
+      request_type:  existing.request_type ?? 'goods',
       items: existing.items.length > 0
         ? existing.items.map(i => ({
             id:                 i.id,
@@ -74,6 +75,7 @@ function buildInitialValues(existing?: PR1WithItems): PR1FormValues {
     pr1_number:    pr1Prefix,
     purpose:       '',
     date_required: format(new Date(), 'yyyy-MM-dd'),
+    request_type:  'goods',
     items:         [{ ...EMPTY_ITEM(), id: `temp-${Math.random().toString(36).substring(2, 9)}` }],
   };
 }
@@ -128,6 +130,13 @@ export default function PR1Form({ existing }: PR1FormProps) {
 
   const isEdit = Boolean(existing);
   const isRevisionRequested = existing?.status === 'revision_requested';
+  const isServices = values.request_type === 'services';
+  const isRequestTypeLocked = isEdit;
+
+  const setRequestType = (type: PR1RequestType) => {
+    if (isRequestTypeLocked) return;
+    setValues(v => ({ ...v, request_type: type }));
+  };
 
   const pr1Prefix = useMemo(() => {
     if (existing?.pr1_number) {
@@ -466,6 +475,36 @@ export default function PR1Form({ existing }: PR1FormProps) {
         </div>
 
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+          {/* Request Type */}
+          <div className="col-span-full">
+            <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+              Request Type <span className="text-pq-danger-600">*</span>
+            </label>
+            <div className="inline-flex rounded-md border border-pq-neutral-300 overflow-hidden">
+              {(['goods', 'services'] as PR1RequestType[]).map((type, i) => (
+                <button
+                  key={type}
+                  type="button"
+                  disabled={isRequestTypeLocked}
+                  onClick={() => setRequestType(type)}
+                  className={cn(
+                    'px-5 py-2 text-sm font-medium transition',
+                    i > 0 && 'border-l border-pq-neutral-300',
+                    values.request_type === type
+                      ? 'bg-pq-primary-600 text-white border-pq-primary-600'
+                      : 'bg-white text-pq-neutral-600 hover:bg-pq-neutral-50',
+                    isRequestTypeLocked && 'opacity-60 cursor-not-allowed pointer-events-none',
+                  )}
+                >
+                  {type === 'goods' ? 'Goods' : 'Services'}
+                </button>
+              ))}
+            </div>
+            {isRequestTypeLocked && (
+              <p className="mt-1 text-xs text-pq-neutral-400">Request type is locked after the draft is created.</p>
+            )}
+          </div>
+
           {/* Requisitioner (read-only) */}
           <div>
             <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
@@ -628,14 +667,18 @@ export default function PR1Form({ existing }: PR1FormProps) {
                 <TableHead className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-28">Item Code</TableHead>
                 <TableHead className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Description</TableHead>
                 <TableHead className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-36">Unit</TableHead>
-                <TableHead className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-24">SOH</TableHead>
-                <TableHead className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-28">Req. Qty</TableHead>
-                <TableHead
-                  className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-20"
-                  title="Mark as Raw Material — used for production inputs (e.g. chemicals). Verified products are preferred during canvassing."
-                >
-                  Raw Mat.
+                <TableHead className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-24">
+                  {isServices ? <span className="text-pq-neutral-400 italic">SOH</span> : 'SOH'}
                 </TableHead>
+                <TableHead className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-28">Req. Qty</TableHead>
+                {!isServices && (
+                  <TableHead
+                    className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-20"
+                    title="Mark as Raw Material — used for production inputs (e.g. chemicals). Verified products are preferred during canvassing."
+                  >
+                    Raw Mat.
+                  </TableHead>
+                )}
                 <TableHead className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-20" title="Attach images to this item">Attach</TableHead>
                 <TableHead className="w-12 px-3 py-2.5" />
               </TableRow>
@@ -713,7 +756,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
                       )}
                     </TableCell>
                     <TableCell className="px-2 py-2 text-right text-xs text-pq-neutral-400 font-mono align-middle">
-                      —
+                      {isServices ? <span className="italic">N/A</span> : '—'}
                     </TableCell>
                     <TableCell className="px-2 py-2 align-middle">
                       <Input
@@ -729,34 +772,36 @@ export default function PR1Form({ existing }: PR1FormProps) {
                         )}
                       />
                     </TableCell>
-                    <TableCell className="px-2 py-2 text-center align-middle">
-                      <label
-                        className="inline-flex items-center justify-center cursor-pointer group/raw"
-                        title={
-                          item.is_raw_material
-                            ? 'Raw material — supplier may offer verified, unverified, or manual entry. Procurement will see verification status during canvassing.'
-                            : 'Not a raw material — verification not required.'
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={item.is_raw_material === true}
-                          onChange={e => setItemRawMaterial(idx, e.target.checked)}
-                          className="sr-only"
-                        />
-                        <span
-                          className={cn(
-                            'inline-flex items-center justify-center w-6 h-6 rounded-md border transition',
+                    {!isServices && (
+                      <TableCell className="px-2 py-2 text-center align-middle">
+                        <label
+                          className="inline-flex items-center justify-center cursor-pointer group/raw"
+                          title={
                             item.is_raw_material
-                              ? 'bg-pq-primary-50 border-pq-primary-600 text-pq-primary-600'
-                              : 'bg-white border-pq-neutral-300 text-pq-neutral-300 group-hover/raw:border-pq-neutral-400 group-hover/raw:text-pq-neutral-400'
-                          )}
-                          aria-hidden="true"
+                              ? 'Raw material — supplier may offer verified, unverified, or manual entry. Procurement will see verification status during canvassing.'
+                              : 'Not a raw material — verification not required.'
+                          }
                         >
-                          <FlaskConical className="w-3.5 h-3.5" />
-                        </span>
-                      </label>
-                    </TableCell>
+                          <input
+                            type="checkbox"
+                            checked={item.is_raw_material === true}
+                            onChange={e => setItemRawMaterial(idx, e.target.checked)}
+                            className="sr-only"
+                          />
+                          <span
+                            className={cn(
+                              'inline-flex items-center justify-center w-6 h-6 rounded-md border transition',
+                              item.is_raw_material
+                                ? 'bg-pq-primary-50 border-pq-primary-600 text-pq-primary-600'
+                                : 'bg-white border-pq-neutral-300 text-pq-neutral-300 group-hover/raw:border-pq-neutral-400 group-hover/raw:text-pq-neutral-400'
+                            )}
+                            aria-hidden="true"
+                          >
+                            <FlaskConical className="w-3.5 h-3.5" />
+                          </span>
+                        </label>
+                      </TableCell>
+                    )}
                     <TableCell className="px-2 py-2 text-center align-middle">
                       <PR1ItemAttachmentButton
                         existingAttachments={existingAttachments[item.id ?? ''] ?? []}

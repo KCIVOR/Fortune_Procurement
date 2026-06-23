@@ -1,6 +1,8 @@
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import type { WarehouseItemRoute, WarehouseDecision } from '@/types/warehouse';
 
+export type PR1RequestType = 'goods' | 'services';
+
 export type PR1Status =
   | 'draft'
   | 'pending_warehouse'
@@ -70,6 +72,7 @@ export interface PR1Request {
   prepared_by_position_snapshot: string | null;
   prepared_at: string | null;
   priority: 'normal' | 'medium' | 'high';
+  request_type: PR1RequestType;
   created_at: string;
   updated_at: string;
   /** Derived employee-facing lifecycle (not stored in DB). */
@@ -125,6 +128,7 @@ export interface PR1FormValues {
   pr1_number: string;
   purpose: string;
   date_required: string;
+  request_type: PR1RequestType;
   items: PR1ItemDraft[];
 }
 

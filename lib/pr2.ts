@@ -83,11 +83,12 @@ export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
 
   if (itemsErr) throw itemsErr;
 
-  const [pr1Attachments, quoteAttachmentsByQuote] = await Promise.all([
+  const [pr1Attachments, quoteAttachmentsByQuote, pr1TypeRes] = await Promise.all([
     fetchPR1Attachments(pr2.pr1_id).catch(() => [] as PR1Attachment[]),
     pr2.rfq_id
       ? fetchRfqQuoteAttachmentsByRfq(pr2.rfq_id).catch(() => ({} as Record<string, RfqQuoteAttachment[]>))
       : Promise.resolve({} as Record<string, RfqQuoteAttachment[]>),
+    db.from('pr1_requests').select('request_type').eq('id', pr2.pr1_id).maybeSingle(),
   ]);
 
   const attachmentsByItem: Record<string, PR1Attachment[]> = {};
@@ -102,7 +103,8 @@ export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
     quote_attachments: item.rfq_item_quote_id ? (quoteAttachmentsByQuote[item.rfq_item_quote_id] ?? []) : [],
   }));
 
-  return { ...pr2, items: itemsWithAttachments } as PR2WithItems;
+  const request_type = (pr1TypeRes.data as any)?.request_type ?? 'goods';
+  return { ...pr2, request_type, items: itemsWithAttachments } as PR2WithItems;
 }
 
 export async function fetchPR2ByRfqId(rfqId: string): Promise<PR2Request | null> {

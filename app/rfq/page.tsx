@@ -16,6 +16,7 @@ import type { CanvassingQueueRow } from '@/types/canvassing';
 import { SendHorizontal as SendHorizonal, ArrowRight, Clock, Plus, CalendarDays, Building2, CircleDot, CheckCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import { StatCard } from '@/components/shared/StatCard';
 import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 
@@ -315,6 +316,7 @@ function QueueRow({
         <div className="flex items-center gap-2 mb-0.5">
           <span className="font-mono text-xs font-bold text-pq-neutral-900">{row.pr1_number}</span>
           <PriorityChip priority={row.priority || 'normal'} />
+          <RequestTypeBadge type={row.request_type ?? 'goods'} />
           {row.rfq_number && (
             <span className="font-mono text-xs text-pq-primary-600 font-semibold">→ {row.rfq_number}</span>
           )}

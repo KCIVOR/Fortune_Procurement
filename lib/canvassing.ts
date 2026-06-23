@@ -205,7 +205,7 @@ async function fetchRfqLineCountsByPr1Id(pr1Ids: string[]): Promise<Record<strin
 export async function fetchCanvassingQueue(): Promise<CanvassingQueueRow[]> {
   const { data: pr1s, error: pr1Err } = await db
     .from('pr1_requests')
-    .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, date_required, submitted_at')
+    .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, request_type, date_required, submitted_at')
     .in('status', ['for_canvassing', 'canvassing_complete'])
     .order('submitted_at', { ascending: true });
 
@@ -240,6 +240,7 @@ export async function fetchCanvassingQueue(): Promise<CanvassingQueueRow[]> {
       rfq_id:                      rfq?.id ?? null,
       rfq_number:                  rfq?.rfq_number ?? null,
       rfq_status:                  rfq?.status ?? null,
+      request_type:                (pr1.request_type ?? 'goods') as 'goods' | 'services',
     };
   });
 }
@@ -247,7 +248,7 @@ export async function fetchCanvassingQueue(): Promise<CanvassingQueueRow[]> {
 // ─── Canvassing queue: paginated ─────────────────────────────────────────────
 
 const CANVASSING_QUEUE_PR1_SELECT =
-  'id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, date_required, submitted_at';
+  'id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, request_type, date_required, submitted_at';
 
 export async function fetchCanvassingQueuePaged(options: {
   limit: number;
@@ -334,6 +335,7 @@ export async function fetchCanvassingQueuePaged(options: {
         rfq_id:                      rfq?.id ?? null,
         rfq_number:                  rfq?.rfq_number ?? null,
         rfq_status:                  rfq?.status ?? null,
+        request_type:                (pr1.request_type ?? 'goods') as 'goods' | 'services',
       };
     }),
     total_count: countRes.count ?? 0,
@@ -354,7 +356,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
 
   const [pr1Res, itemsRes, suppliersRes, attachments] = await Promise.all([
     db.from('pr1_requests')
-      .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required')
+      .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, request_type')
       .eq('id', rfq.pr1_id)
       .maybeSingle(),
     db.from('pr1_items')

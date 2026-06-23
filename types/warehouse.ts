@@ -77,6 +77,7 @@ export interface WarehouseValidationHistoryRow {
   notes: string;
   validated_at: string;
   action_url: string;
+  request_type: 'goods' | 'services';
 }
 
 export type WarehouseHistoryDecisionFilter = 'all' | WarehouseDecision;
@@ -105,6 +106,7 @@ export interface PR1QueueRow {
   date_required: string;
   submitted_at: string | null;
   status: string;
+  request_type: 'goods' | 'services';
   // joined from warehouse_validations if it exists
   validation_id: string | null;
   validation_decision: WarehouseDecision | null;

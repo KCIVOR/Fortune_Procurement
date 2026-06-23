@@ -38,6 +38,7 @@ function normalizeDelivery(row: any): Delivery {
     dr_document_path:             row.dr_document_path ?? null,
     dr_document_filename:         row.dr_document_filename ?? null,
     dr_document_uploaded_at:      row.dr_document_uploaded_at ?? null,
+    request_type:                 (row.request_type ?? 'goods') as 'goods' | 'services',
     created_at:                   row.created_at,
     updated_at:                   row.updated_at,
   };
@@ -123,8 +124,25 @@ export async function fetchDeliveryQueuePaged(params: {
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
+
+  const rows = (data ?? []).map(normalizeDelivery);
+  const pr1Numbers = Array.from(new Set(rows.map((d: Delivery) => d.pr1_number_snapshot).filter(Boolean)));
+  if (pr1Numbers.length > 0) {
+    const { data: pr1TypeData } = await db
+      .from('pr1_requests')
+      .select('pr1_number, request_type')
+      .in('pr1_number', pr1Numbers);
+    const typeMap: Record<string, 'goods' | 'services'> = {};
+    for (const r of (pr1TypeData ?? []) as any[]) {
+      typeMap[r.pr1_number] = r.request_type ?? 'goods';
+    }
+    for (const d of rows) {
+      if (typeMap[d.pr1_number_snapshot]) d.request_type = typeMap[d.pr1_number_snapshot];
+    }
+  }
+
   return {
-    deliveries: (data ?? []).map(normalizeDelivery),
+    deliveries: rows,
     total_count: count ?? 0,
   };
 }
@@ -272,8 +290,17 @@ export async function fetchDeliveryById(id: string): Promise<DeliveryWithHistory
   ]);
   if (deliveryRes.error) throw deliveryRes.error;
   if (!deliveryRes.data) return null;
+
+  const delivery = normalizeDelivery(deliveryRes.data);
+  const { data: pr1TypeData } = await db
+    .from('pr1_requests')
+    .select('request_type')
+    .eq('pr1_number', delivery.pr1_number_snapshot)
+    .maybeSingle();
+
   return {
-    ...normalizeDelivery(deliveryRes.data),
+    ...delivery,
+    request_type: (pr1TypeData as any)?.request_type ?? 'goods',
     history: (historyRes.data ?? []).map(normalizeHistoryEntry),
   };
 }

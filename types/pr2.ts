@@ -31,6 +31,7 @@ export interface PR2Request {
   date_required:               string;
   pr1_number_snapshot:         string;
   rfq_number_snapshot:         string;
+  request_type:                'goods' | 'services';
   remarks:                     string | null;
   status:                      PR2Status;
   generated_by:                string | null;

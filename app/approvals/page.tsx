@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import StepChip from '@/components/shared/StepChip';
 import ApprovalQueueTableShell from '@/components/shared/ApprovalQueueTableShell';
 import { ApprovalQueueHeaderRow, ApprovalQueueHeadCell } from '@/components/shared/ApprovalQueueTableHeader';
@@ -297,6 +298,7 @@ function PR1QueueTable({
             <ApprovalQueueHeadCell>Purpose</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell>Date Required</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell align="center" className="w-24">Priority</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell align="center">Type</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell>Current Step</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell className="px-5 py-3" />
           </ApprovalQueueHeaderRow>
@@ -313,6 +315,9 @@ function PR1QueueTable({
                 <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                 <td className="px-5 py-3.5 text-center">
                   <PriorityChip priority={row.priority} />
+                </td>
+                <td className="px-5 py-3.5 text-center">
+                  <RequestTypeBadge type={row.request_type ?? 'goods'} />
                 </td>
                 <td className="px-5 py-3.5">
                   <StepChip stepName={`Step ${row.current_step}: ${row.step_position_required}`} canAct={active} />
@@ -366,6 +371,7 @@ function PR2QueueTable({
             <ApprovalQueueHeadCell>Purpose</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell>Date Required</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell align="center" className="w-24">Priority</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell align="center">Type</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell>Current Step</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell className="px-5 py-3" />
           </ApprovalQueueHeaderRow>
@@ -386,6 +392,9 @@ function PR2QueueTable({
                 <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                 <td className="px-5 py-3.5 text-center">
                   <PriorityChip priority={row.pr1_priority} />
+                </td>
+                <td className="px-5 py-3.5 text-center">
+                  <RequestTypeBadge type={row.request_type ?? 'goods'} />
                 </td>
                 <td className="px-5 py-3.5">
                   <StepChip stepName={`Step ${row.current_step}: ${row.step_position_required}`} canAct={active} />
@@ -435,6 +444,7 @@ function POQueueTable({
             <ApprovalQueueHeadCell>Purpose</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell>Date Required</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell align="center" className="w-24">Priority</ApprovalQueueHeadCell>
+            <ApprovalQueueHeadCell align="center">Type</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell>Current Step</ApprovalQueueHeadCell>
             <ApprovalQueueHeadCell className="px-5 py-3" />
           </ApprovalQueueHeaderRow>
@@ -451,6 +461,9 @@ function POQueueTable({
                 <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                 <td className="px-5 py-3.5 text-center">
                   <PriorityChip priority={row.pr1_priority} />
+                </td>
+                <td className="px-5 py-3.5 text-center">
+                  <RequestTypeBadge type={row.request_type ?? 'goods'} />
                 </td>
                 <td className="px-5 py-3.5">
                   <StepChip stepName={`Step ${row.current_step}: ${row.step_position_required}`} canAct={active} />

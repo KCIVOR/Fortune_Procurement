@@ -33,7 +33,7 @@ export async function fetchApprovalQueue(): Promise<PR1ApprovalQueueRow[]> {
 
   const [pr1Res, workflowRes, stepsRes] = await Promise.all([
     db.from('pr1_requests')
-      .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, priority, date_required, submitted_at')
+      .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, priority, request_type, date_required, submitted_at')
       .in('id', pr1Ids),
     db.from('approval_workflows')
       .select('id, code')
@@ -66,6 +66,7 @@ export async function fetchApprovalQueue(): Promise<PR1ApprovalQueueRow[]> {
       department_id:               pr1.department_id ?? null,
       purpose:                     pr1.purpose,
       priority:                    pr1.priority,
+      request_type:                (pr1.request_type ?? 'goods') as 'goods' | 'services',
       date_required:               pr1.date_required,
       submitted_at:                pr1.submitted_at,
       instance_id:                 inst.id,
@@ -154,6 +155,7 @@ export async function fetchApprovalDetail(
     submitted_at:                pr1.submitted_at,
     pr1_status:                  pr1.status,
     priority:                    pr1.priority ?? 'normal',
+    request_type:                pr1.request_type ?? 'goods',
     items: (pr1.pr1_items ?? [])
       .sort((a: any, b: any) => a.item_order - b.item_order)
       .map((i: any) => ({

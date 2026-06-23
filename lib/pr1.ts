@@ -277,15 +277,16 @@ export async function fetchPR1LifecycleSummaries(
 export async function fetchMyPR1s(
   userId: string,
   options: {
-    limit?:   number;
-    offset?:  number;
-    status?:  string;
-    search?:  string;
-    dateFrom?: string;
-    dateTo?:   string;
+    limit?:        number;
+    offset?:       number;
+    status?:       string;
+    search?:       string;
+    dateFrom?:     string;
+    dateTo?:       string;
+    request_type?: string;
   } = {}
 ): Promise<{ requests: PR1Request[]; total_count: number }> {
-  const { limit, offset = 0, status, search, dateFrom, dateTo } = options;
+  const { limit, offset = 0, status, search, dateFrom, dateTo, request_type } = options;
 
   // Single `.select(...)` per query — chaining `.select` again after `select('*')`
   // drops the exact count header and yields count = null / 0.
@@ -294,6 +295,10 @@ export async function fetchMyPR1s(
 
     if (status && status !== 'all') {
       q = q.eq('status', status);
+    }
+
+    if (request_type && request_type !== 'all') {
+      q = q.eq('request_type', request_type);
     }
 
     if (search && search.trim()) {
@@ -564,6 +569,7 @@ export async function saveDraftPR1(
     department_name_snapshot:    profile.department,
     purpose:                     values.purpose.trim(),
     date_required:               values.date_required,
+    request_type:                values.request_type ?? 'goods',
     updated_at:                  now,
   };
 

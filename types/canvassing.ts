@@ -138,6 +138,7 @@ export interface CanvassingQueueRow {
   rfq_id:                      string | null;  // null = no RFQ created yet
   rfq_number:                  string | null;
   rfq_status:                  RfqBatchStatus | null;
+  request_type:                'goods' | 'services';
 }
 
 /** Phase 7: catalog product summary keyed by supplier_product_id. */
@@ -169,6 +170,7 @@ export interface RfqDetailView {
     department_name_snapshot:    string;
     purpose:                     string;
     date_required:               string;
+    request_type:                'goods' | 'services';
   };
   items: {
     id:                 string;

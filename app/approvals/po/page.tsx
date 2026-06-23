@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import ApprovalQueueTableShell from '@/components/shared/ApprovalQueueTableShell';
 import { ApprovalQueueHeaderRow, ApprovalQueueHeadCell } from '@/components/shared/ApprovalQueueTableHeader';
 
@@ -52,6 +53,7 @@ interface POApprovalRow {
   step_action_label: string;
   step_is_final: boolean;
   pr1_priority?: 'normal' | 'medium' | 'high';
+  request_type?: 'goods' | 'services';
 }
 
 type StatusFilter = 'pending' | 'approved' | 'rejected' | 'revision' | 'all';
@@ -151,10 +153,13 @@ export default function POApprovalsPage() {
           Object.values(pr2Map).map((pr2: any) => pr2.pr1_id).filter(Boolean)
         ));
         const { data: pr1s } = pr1Ids.length > 0
-          ? await db.from('pr1_requests').select('id, priority').in('id', pr1Ids)
+          ? await db.from('pr1_requests').select('id, priority, request_type').in('id', pr1Ids)
           : { data: [] };
         const pr1PriorityMap: Record<string, string> = Object.fromEntries(
           ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.priority])
+        );
+        const pr1TypeMap: Record<string, 'goods' | 'services'> = Object.fromEntries(
+          ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.request_type ?? 'goods'])
         );
 
         const rows: POApprovalRow[] = [];
@@ -203,9 +208,9 @@ export default function POApprovalsPage() {
             displayStatus = 'active';
           }
 
-          const pr1Priority = po.pr2_id && pr2Map[po.pr2_id]?.pr1_id
-            ? pr1PriorityMap[pr2Map[po.pr2_id].pr1_id]
-            : undefined;
+          const pr1Id = po.pr2_id && pr2Map[po.pr2_id]?.pr1_id ? pr2Map[po.pr2_id].pr1_id : undefined;
+          const pr1Priority = pr1Id ? pr1PriorityMap[pr1Id] : undefined;
+          const pr1RequestType = pr1Id ? pr1TypeMap[pr1Id] : undefined;
 
           rows.push({
             po_id: po.id,
@@ -225,6 +230,7 @@ export default function POApprovalsPage() {
             step_action_label: displayStep.action_label,
             step_is_final: displayStep.is_final,
             pr1_priority: pr1Priority as 'normal' | 'medium' | 'high' | undefined,
+            request_type: pr1RequestType,
           });
         }
 
@@ -379,7 +385,7 @@ export default function POApprovalsPage() {
       />
 
       {loading ? (
-        <TableSkeleton rows={5} cols={8} />
+        <TableSkeleton rows={5} cols={9} />
       ) : error ? (
         <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">{error}</div>
       ) : filteredRows.length === 0 ? (
@@ -408,6 +414,7 @@ export default function POApprovalsPage() {
                     <ApprovalQueueHeadCell>Purpose</ApprovalQueueHeadCell>
                     <ApprovalQueueHeadCell>Date Required</ApprovalQueueHeadCell>
                     <ApprovalQueueHeadCell align="center" className="w-24">Priority</ApprovalQueueHeadCell>
+                    <ApprovalQueueHeadCell align="center">Type</ApprovalQueueHeadCell>
                     <ApprovalQueueHeadCell>Status</ApprovalQueueHeadCell>
                     <ApprovalQueueHeadCell className="px-5 py-3" />
                   </ApprovalQueueHeaderRow>
@@ -424,6 +431,9 @@ export default function POApprovalsPage() {
                         <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3.5 text-center">
                           <PriorityChip priority={row.pr1_priority} />
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <RequestTypeBadge type={row.request_type ?? 'goods'} />
                         </td>
                         <td className="px-5 py-3.5">
                           <StatusBadge status={row.instance_status} />

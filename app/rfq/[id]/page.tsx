@@ -38,6 +38,7 @@ import { formatRfqForViber } from '@/lib/viber-utils';
 import { db } from '@/lib/supabase';
 import { authFetch } from '@/lib/authenticated-fetch';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 
 
 
@@ -428,6 +429,7 @@ export default function RfqDetailPage() {
               <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_BADGE[rfq.status]}`}>
                 {STATUS_LABEL[rfq.status]}
               </span>
+              <RequestTypeBadge type={pr1.request_type ?? 'goods'} />
             </DetailTitleRow>
             <p className="text-sm text-pq-neutral-500">
               PR1 <span className="font-semibold text-pq-neutral-900">{pr1.pr1_number}</span>

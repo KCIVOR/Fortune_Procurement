@@ -16,6 +16,7 @@ import type { PR1ApprovalSignatories } from '@/types/approvals';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import PriorityChip from '@/components/shared/PriorityChip';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
 import { useAuth } from '@/context/AuthContext';
 import AccessDenied from '@/components/layout/AccessDenied';
@@ -220,6 +221,7 @@ export default function PR1DetailPage() {
               ) : (
                 <PriorityChip priority={pr1.priority || 'normal'} />
               )}
+              <RequestTypeBadge type={pr1.request_type ?? 'goods'} />
             </DetailTitleRow>
             <p className="text-sm text-pq-neutral-700 mt-1">
               Created {format(new Date(pr1.created_at), 'MMMM d, yyyy')}
@@ -347,7 +349,9 @@ export default function PR1DetailPage() {
                     <td className="px-4 py-3 font-mono text-xs text-pq-neutral-700">{item.item_code || '—'}</td>
                     <td className="px-4 py-3 text-pq-neutral-900">{item.description}</td>
                     <td className="px-4 py-3 text-center">
-                      {item.is_raw_material ? (
+                      {pr1.request_type === 'services' ? (
+                        <span className="text-xs text-pq-neutral-300">—</span>
+                      ) : item.is_raw_material ? (
                         <RawMaterialBadge isRawMaterial size="sm" />
                       ) : (
                         <span className="text-xs text-pq-neutral-300">—</span>
@@ -355,9 +359,11 @@ export default function PR1DetailPage() {
                     </td>
                     <td className="px-4 py-3 text-center text-pq-neutral-700">{item.unit_of_measure}</td>
                     <td className="px-4 py-3 text-right text-pq-neutral-700 font-mono">
-                      {item.validated_soh !== undefined && item.validated_soh !== null
-                        ? `${item.validated_soh.toLocaleString()}`
-                        : '—'}
+                      {pr1.request_type === 'services' ? (
+                        <span className="italic text-pq-neutral-400">N/A</span>
+                      ) : item.validated_soh !== undefined && item.validated_soh !== null ? (
+                        item.validated_soh.toLocaleString()
+                      ) : '—'}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-pq-neutral-900 font-mono">{item.quantity_requested.toLocaleString()}</td>
                     <td className="px-4 py-3 text-left text-xs text-pq-neutral-700">{warehouseRouteCell(item)}</td>

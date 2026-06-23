@@ -63,6 +63,7 @@ const WAREHOUSE_QUEUE_SELECT = `
   department_name_snapshot,
   purpose,
   priority,
+  request_type,
   date_required,
   submitted_at,
   status,
@@ -77,6 +78,7 @@ function mapPr1QueueRow(row: any): PR1QueueRow {
     department_name_snapshot:    row.department_name_snapshot,
     purpose:                     row.purpose,
     priority:                    row.priority ?? 'normal',
+    request_type:                row.request_type ?? 'goods',
     date_required:               row.date_required,
     submitted_at:                row.submitted_at,
     status:                      row.status,
@@ -99,18 +101,23 @@ export async function fetchWarehouseQueue(): Promise<PR1QueueRow[]> {
 
 /** Paged queue for /warehouse list. Sort: oldest submitted first (unchanged). */
 export async function fetchWarehouseQueuePaged(options: {
-  limit:    number;
-  offset:   number;
-  search?:  string;
-  priority?: string;
+  limit:        number;
+  offset:       number;
+  search?:      string;
+  priority?:    string;
+  request_type?: string;
 }): Promise<{ queue: PR1QueueRow[]; total_count: number }> {
-  const { limit, offset, search, priority } = options;
+  const { limit, offset, search, priority, request_type } = options;
 
   const applyFilters = (q: any) => {
     q = q.eq('status', 'approved_for_warehouse');
 
     if (priority && priority !== 'all') {
       q = q.eq('priority', priority);
+    }
+
+    if (request_type && request_type !== 'all') {
+      q = q.eq('request_type', request_type);
     }
 
     const term = search?.trim();

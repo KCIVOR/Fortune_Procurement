@@ -19,6 +19,7 @@ import type { ApprovalAction } from '@/types/approvals';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
 import DocumentStatusChip from '@/components/shared/DocumentStatusChip';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import ActionPill from '@/components/shared/ActionPill';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
@@ -150,6 +151,7 @@ export default function POApprovalDetailPage() {
               <h1 className="text-xl font-bold text-pq-neutral-900 font-mono">{detail.po_number}</h1>
               <DocumentStatusChip docType="PO" status={detail.po_status} />
               <PriorityChip priority={detail.pr1_priority} />
+              <RequestTypeBadge type={detail.request_type ?? 'goods'} />
             </DetailTitleRow>
             <p className="text-sm text-pq-neutral-500 mt-1">
               {detail.department_name_snapshot} · {detail.purpose}

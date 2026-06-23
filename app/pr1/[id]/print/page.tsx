@@ -280,6 +280,12 @@ export default function PR1PrintPage() {
                 {format(new Date(pr1.date_required), 'MM/dd/yyyy')}
               </td>
             </tr>
+            <tr>
+              <td colSpan={3} style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', fontSize: 9 }}>
+                <span style={{ fontWeight: 'bold' }}>Request Type:</span>{' '}
+                {pr1.request_type === 'services' ? 'Services (intangible — SOH not applicable)' : 'Goods'}
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -315,16 +321,18 @@ export default function PR1PrintPage() {
                   )}
                 </td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 6px', fontSize: 8, textAlign: 'center', fontWeight: 'bold', color: item?.is_raw_material ? '#1e40af' : '#999' }}>
-                  {item ? (item.is_raw_material ? 'RAW' : '—') : ''}
+                  {item ? (pr1.request_type === 'services' ? '—' : item.is_raw_material ? 'RAW' : '—') : ''}
                 </td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 6px', fontSize: 9, textAlign: 'center' }}>
                   {item?.unit_of_measure || ''}
                 </td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 6px', fontSize: 9, textAlign: 'right' }}>
                   {item ? (
-                    (item as any).validated_soh !== undefined && (item as any).validated_soh !== null
-                      ? (item as any).validated_soh.toLocaleString()
-                      : '—'
+                    pr1.request_type === 'services'
+                      ? 'N/A'
+                      : (item as any).validated_soh !== undefined && (item as any).validated_soh !== null
+                        ? (item as any).validated_soh.toLocaleString()
+                        : '—'
                   ) : ''}
                 </td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 6px', fontSize: 9, textAlign: 'right', fontWeight: item ? 'bold' : 'normal' }}>

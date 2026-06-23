@@ -34,6 +34,7 @@ function normalizeGRN(row: any): GRNReceipt {
     received_by_id:               row.received_by_id ?? null,
     received_by_name_snapshot:    row.received_by_name_snapshot,
     received_by_position_snapshot:row.received_by_position_snapshot,
+    request_type:                 (row.request_type ?? 'goods') as 'goods' | 'services',
     status:                       row.status,
     remarks:                      row.remarks,
     created_at:                   row.created_at,
@@ -69,7 +70,7 @@ function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuot
 // ─── Queue: all GRNs (warehouse / procurement view) ──────────────────────────
 
 const GRN_QUEUE_SELECT =
-  'id, grn_number, delivery_id, po_number_snapshot, supplier_name_snapshot, department_name_snapshot, warehouse, transaction_date, status, closed_at, received_by_name_snapshot';
+  'id, grn_number, delivery_id, po_number_snapshot, pr1_number_snapshot, supplier_name_snapshot, department_name_snapshot, warehouse, transaction_date, status, closed_at, received_by_name_snapshot';
 
 export type GRNListTab = 'all' | 'open' | 'closed';
 
@@ -111,8 +112,25 @@ export async function fetchGRNQueuePaged(options: {
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
+
+  const rawRows = (data ?? []) as any[];
+  const pr1Numbers = Array.from(new Set(rawRows.map((r: any) => r.pr1_number_snapshot).filter(Boolean)));
+  const typeMap: Record<string, 'goods' | 'services'> = {};
+  if (pr1Numbers.length > 0) {
+    const { data: pr1TypeData } = await db
+      .from('pr1_requests')
+      .select('pr1_number, request_type')
+      .in('pr1_number', pr1Numbers);
+    for (const r of (pr1TypeData ?? []) as any[]) {
+      typeMap[r.pr1_number] = r.request_type ?? 'goods';
+    }
+  }
+
   return {
-    grns: (data ?? []) as GRNQueueRow[],
+    grns: rawRows.map(r => ({
+      ...r,
+      request_type: typeMap[r.pr1_number_snapshot] ?? 'goods',
+    })) as GRNQueueRow[],
     total_count: count ?? 0,
   };
 }
@@ -192,8 +210,16 @@ export async function fetchGRNById(id: string): Promise<GRNWithItems | null> {
     }
   }
 
+  const grn = normalizeGRN(grnRes.data);
+  const { data: pr1TypeData } = await db
+    .from('pr1_requests')
+    .select('request_type')
+    .eq('pr1_number', grn.pr1_number_snapshot)
+    .maybeSingle();
+
   return {
-    ...normalizeGRN(grnRes.data),
+    ...grn,
+    request_type: (pr1TypeData as any)?.request_type ?? 'goods',
     items,
   };
 }

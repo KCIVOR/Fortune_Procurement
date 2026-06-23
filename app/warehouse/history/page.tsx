@@ -18,6 +18,7 @@ import type {
   WarehouseValidationHistoryRow,
 } from '@/types/warehouse';
 import { ClipboardList, Eye, ArrowRight } from 'lucide-react';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import { format } from 'date-fns';
 
 const DECISION_BADGE: Record<string, string> = {
@@ -233,6 +234,9 @@ export default function WarehouseHistoryPage() {
                     <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                       PR1
                     </th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-center">
+                      Type
+                    </th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                       Purpose
                     </th>
@@ -259,6 +263,9 @@ export default function WarehouseHistoryPage() {
                     <tr key={r.validation_id} className="hover:bg-pq-neutral-50">
                       <td className="px-5 py-3.5 font-mono font-semibold text-pq-neutral-900">
                         {r.pr1_number}
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <RequestTypeBadge type={r.request_type ?? 'goods'} />
                       </td>
                       <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[220px]" title={r.purpose}>
                         <span className="line-clamp-2">{r.purpose}</span>

@@ -20,6 +20,7 @@ import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
 import DetailInfoField from '@/components/shared/DetailInfoField';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 
 const STATUS_CONFIG: Record<DeliveryStatus, {
   bg: string; text: string; border: string; icon: React.ElementType;
@@ -156,6 +157,7 @@ export default function DeliveryDetailPage() {
                 <Icon className="w-3.5 h-3.5" />
                 {DELIVERY_STATUS_LABELS[delivery.status]}
               </span>
+              <RequestTypeBadge type={delivery.request_type ?? 'goods'} />
             </DetailTitleRow>
             <p className="text-sm text-pq-neutral-500">{delivery.department_name_snapshot} · {delivery.purpose}</p>
             <div className="flex items-center gap-3 mt-1 text-xs text-pq-neutral-400 flex-wrap">
