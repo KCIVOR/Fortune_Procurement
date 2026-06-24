@@ -207,20 +207,50 @@ export default function RFQQueuePage() {
 
           {noRfq.length > 0 && (
             <Section title="Awaiting RFQ" accent="amber" count={noRfq.length}>
-              <div className="divide-y divide-pq-neutral-200">
-                {noRfq.map(row => (
-                  <QueueRow key={row.pr1_id} row={row} onCreateRfq={handleOpenCreate} />
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PR1 No.</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ No.</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ Status</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pq-neutral-200">
+                    {noRfq.map(row => (
+                      <QueueRow key={row.pr1_id} row={row} onCreateRfq={handleOpenCreate} />
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </Section>
           )}
 
           {hasRfq.length > 0 && (
             <Section title="RFQ Issued" accent="slate" count={hasRfq.length}>
-              <div className="divide-y divide-pq-neutral-200">
-                {hasRfq.map(row => (
-                  <QueueRow key={row.pr1_id} row={row} onCreateRfq={handleOpenCreate} />
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PR1 No.</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ No.</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ Status</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pq-neutral-200">
+                    {hasRfq.map(row => (
+                      <QueueRow key={row.pr1_id} row={row} onCreateRfq={handleOpenCreate} />
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </Section>
           )}
@@ -311,34 +341,28 @@ function QueueRow({
   onCreateRfq: (row: CanvassingQueueRow) => void;
 }) {
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
+    <tr className="hover:bg-pq-neutral-50 transition">
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-xs font-bold text-pq-neutral-900">{row.pr1_number}</span>
           <PriorityChip priority={row.priority || 'normal'} />
           <RequestTypeBadge type={row.request_type ?? 'goods'} />
-          {row.rfq_number && (
-            <span className="font-mono text-xs text-pq-primary-600 font-semibold">→ {row.rfq_number}</span>
-          )}
-          {row.rfq_status && (
-            <span className={`inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 ${RFQ_STATUS_COLOR[row.rfq_status] ?? ''}`}>
-              {RFQ_STATUS_LABEL[row.rfq_status] ?? row.rfq_status}
-            </span>
-          )}
         </div>
-        <p className="text-sm text-pq-neutral-900 truncate">{row.purpose}</p>
-        <div className="flex items-center gap-3 mt-1">
-          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-            <Building2 className="w-3 h-3" />
-            {row.department_name_snapshot}
+      </td>
+      <td className="px-5 py-3.5 font-mono text-xs font-semibold text-pq-primary-600 whitespace-nowrap">
+        {row.rfq_number ?? '—'}
+      </td>
+      <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[200px] truncate">{row.purpose}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-500 text-xs whitespace-nowrap">{row.department_name_snapshot}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-500 text-xs whitespace-nowrap">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
+      <td className="px-5 py-3.5">
+        {row.rfq_status && (
+          <span className={`inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 ${RFQ_STATUS_COLOR[row.rfq_status] ?? ''}`}>
+            {RFQ_STATUS_LABEL[row.rfq_status] ?? row.rfq_status}
           </span>
-          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-            <CalendarDays className="w-3 h-3" />
-            Need by {format(new Date(row.date_required), 'MMM d, yyyy')}
-          </span>
-        </div>
-      </div>
-      <div className="shrink-0 flex items-center gap-2">
+        )}
+      </td>
+      <td className="px-5 py-3.5 text-right">
         {!row.rfq_id ? (
           <button
             onClick={() => onCreateRfq(row)}
@@ -356,8 +380,8 @@ function QueueRow({
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         )}
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 

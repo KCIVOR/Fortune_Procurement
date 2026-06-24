@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Users, Shield, Activity, ChartBar as BarChart3, Clock, ArrowRight } from 'lucide-react';
+import { Users, Shield, Activity, ChartBar as BarChart3, Clock, ArrowRight, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 import { StatCard } from '@/components/shared/StatCard';
 import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
@@ -141,6 +141,17 @@ export default function AdminDashboard({ profile }: AdminDashboardProps) {
             value={stats.totalAuditLogs}
             icon={<Clock className="w-5 h-5 text-violet-600" />}
             isLoading={isLoading}
+            accent="blue"
+          />
+        </Link>
+
+        {/* System Settings */}
+        <Link href="/admin/settings" className="block w-full min-w-0 transition hover:-translate-y-0.5">
+          <StatCard
+            label="System Settings"
+            value="Config"
+            icon={<Settings className="w-5 h-5 text-pq-neutral-500" />}
+            isLoading={false}
             accent="blue"
           />
         </Link>

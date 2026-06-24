@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import type { SupplierProduct } from '@/types/database';
 import { createNotification } from '@/lib/notifications';
+import { getExpirySettings, addDays } from '@/lib/system-settings';
 
 const db = supabase as any;
 
@@ -46,6 +47,7 @@ export interface SupplierProductInput {
   description?:     string | null;
   specifications?:  string | null;
   accreditation_id?: string | null;
+  item_type?:       'goods' | 'services';
 }
 
 // Queue row type enriched with supplier name for procurement views
@@ -84,6 +86,7 @@ export async function createSupplierProduct(
       description:      input.description      ?? null,
       specifications:   input.specifications   ?? null,
       accreditation_id: input.accreditation_id ?? null,
+      item_type:        input.item_type        ?? 'goods',
       status:           'draft',
       created_at:       now,
       updated_at:       now,
@@ -110,6 +113,7 @@ export async function updateSupplierProduct(
   if (input.description     !== undefined) updates.description     = input.description;
   if (input.specifications  !== undefined) updates.specifications  = input.specifications;
   if (input.accreditation_id !== undefined) updates.accreditation_id = input.accreditation_id;
+  if (input.item_type       !== undefined) updates.item_type       = input.item_type;
 
   const { error } = await db
     .from('supplier_products')
@@ -326,6 +330,9 @@ export async function markProductVerified(
   }
 
   const now = new Date().toISOString();
+  const settings  = await getExpirySettings();
+  const validUntil = addDays(new Date(now), settings.product_validity_days);
+
   const { error } = await db
     .from('supplier_products')
     .update({
@@ -334,6 +341,7 @@ export async function markProductVerified(
       reviewed_by:  profile.id,
       reviewed_at:  now,
       review_notes: notes ?? null,
+      valid_until:  validUntil,
       updated_at:   now,
     })
     .eq('id', productId);
@@ -431,8 +439,8 @@ export async function markProductRejected(
   } catch { /* non-blocking */ }
 }
 
-// ─── Procurement: revoke verification on a verified product ────────────────────
-// verified → inactive. verified_at is retained for audit; Can Offer becomes No.
+// ─── Procurement: revoke/expire a verified product ────────────────────────────
+// verified → expired. verified_at is retained for audit; Can Offer becomes No.
 
 export async function revokeProductVerification(
   productId: string,
@@ -458,7 +466,8 @@ export async function revokeProductVerification(
   const { error } = await db
     .from('supplier_products')
     .update({
-      status:       'inactive',
+      status:       'expired',
+      valid_until:  null,
       reviewed_by:  profile.id,
       reviewed_at:  now,
       review_notes: reason.trim(),
@@ -471,7 +480,7 @@ export async function revokeProductVerification(
   try {
     const { error: auditErr } = await db.from('audit_logs').insert({
       actor_id:      profile.id,
-      action:        'SUPPLIER_PRODUCT_VERIFICATION_REVOKED',
+      action:        'SUPPLIER_PRODUCT_EXPIRED',
       document_type: 'SUPPLIER_PRODUCT',
       document_id:   productId,
       payload:       {
@@ -498,8 +507,8 @@ export async function revokeProductVerification(
   } catch { /* non-blocking */ }
 }
 
-// ─── Procurement: reopen a verified or inactive product for review ─────────────
-// verified | inactive → under_review. Clears verified_at; product re-enters the queue.
+// ─── Procurement: reopen a verified, inactive, or expired product for review ───
+// verified | inactive | expired → under_review. Clears verified_at + valid_until.
 
 export async function reopenProductForReview(
   productId: string,
@@ -515,8 +524,8 @@ export async function reopenProductForReview(
   if (!product) throw new Error('Product not found.');
 
   const st = (product as any).status as string;
-  if (st !== 'verified' && st !== 'inactive') {
-    throw new Error('Only verified or inactive products can be reopened for review.');
+  if (st !== 'verified' && st !== 'inactive' && st !== 'expired') {
+    throw new Error('Only verified, inactive, or expired products can be reopened for review.');
   }
 
   const now = new Date().toISOString();
@@ -525,13 +534,14 @@ export async function reopenProductForReview(
     .update({
       status:       'under_review',
       verified_at:  null,
+      valid_until:  null,
       reviewed_by:  profile.id,
       reviewed_at:  now,
       review_notes: notes?.trim() || null,
       updated_at:   now,
     })
     .eq('id', productId)
-    .in('status', ['verified', 'inactive']);
+    .in('status', ['verified', 'inactive', 'expired']);
   if (error) throw error;
 
   try {
@@ -565,6 +575,60 @@ export async function reopenProductForReview(
       action_url:    null,
     });
   } catch { /* non-blocking */ }
+}
+
+// ─── Supplier: request re-verification of an expired product ─────────────────
+// expired → submitted. Clears valid_until, re-stamps submitted_at.
+// Notifies all Procurement users so the record re-enters the review queue.
+
+export async function requestProductReverification(
+  productId: string,
+  profile:   UserProfile
+): Promise<void> {
+  const { data: product, error: fetchErr } = await db
+    .from('supplier_products')
+    .select('status, product_name')
+    .eq('id', productId)
+    .eq('supplier_id', profile.id)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!product) throw new Error('Product not found.');
+  if ((product as any).status !== 'expired') {
+    throw new Error('Only expired products can be submitted for re-verification.');
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from('supplier_products')
+    .update({
+      status:       'submitted',
+      submitted_at: now,
+      valid_until:  null,
+      updated_at:   now,
+    })
+    .eq('id', productId)
+    .eq('supplier_id', profile.id)
+    .eq('status', 'expired');
+  if (error) throw error;
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'SUPPLIER_PRODUCT_REVERIFICATION_REQUESTED',
+      document_type: 'SUPPLIER_PRODUCT',
+      document_id:   productId,
+      payload:       { supplier: profile.full_name, product_name: (product as any).product_name },
+    });
+  } catch { /* best-effort */ }
+
+  await notifyAllProcurementUsers({
+    title:         'Supplier Requested Re-verification',
+    body:          `${profile.full_name} requested re-verification for "${(product as any).product_name}".`,
+    type:          'action_required',
+    document_type: 'SUPPLIER_PRODUCT',
+    document_id:   productId,
+    action_url:    `/accreditation/products/${productId}`,
+  });
 }
 
 // ─── Supplier: list own verified products ────────────────────────────────────
@@ -604,7 +668,7 @@ export async function getActiveProductsForCurrentSupplier(
     .from('supplier_products')
     .select('*')
     .eq('supplier_id', profile.id)
-    .in('status', ['verified', 'submitted', 'under_review', 'pending_tsqa'])
+    .in('status', ['verified', 'submitted', 'under_review', 'pending_tsqa', 'expired'])
     .order('verified_at', { ascending: false, nullsFirst: false });
   if (error) throw error;
   return (data ?? []) as SupplierProduct[];
@@ -624,6 +688,7 @@ export interface RFQProductProposalInput {
   category?:       string | null;
   description?:    string | null;
   specifications?: string | null;
+  item_type?:      'goods' | 'services';
 }
 
 export async function createAndSubmitSupplierProductForRFQ(
@@ -658,6 +723,7 @@ export async function createAndSubmitSupplierProductForRFQ(
       description:      input.description     ?? null,
       specifications:   input.specifications  ?? null,
       accreditation_id: accreditationId,
+      item_type:        input.item_type       ?? 'goods',
       status:           'submitted',
       submitted_at:     now,
       created_at:       now,

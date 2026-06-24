@@ -125,12 +125,25 @@ export default function TSQADashboardPage() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-pq-neutral-200">
-                {recentRows.map(row => (
-                  <RSEMiniRow key={row.id} row={row} />
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RSE No.</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Product</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Supplier</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pq-neutral-200">
+                    {recentRows.map(row => (
+                      <RSEMiniRow key={row.id} row={row} />
+                    ))}
+                  </tbody>
+                </table>
                 {rows.length > 5 && (
-                  <div className="px-5 py-3.5 text-center">
+                  <div className="px-5 py-3.5 text-center border-t border-pq-neutral-200">
                     <Link
                       href="/tsqa/rse"
                       className="text-xs text-pq-primary-600 hover:text-pq-neutral-900 font-medium transition"
@@ -153,27 +166,25 @@ export default function TSQADashboardPage() {
 function RSEMiniRow({ row }: { row: RSEQueueRow }) {
   const chip = rseChip(row.status);
   return (
-    <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-pq-neutral-50 transition">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-xs font-bold text-pq-neutral-900">
-            {row.rse_number ?? row.id.slice(0, 8).toUpperCase()}
-          </span>
-          <StatusChip status={chip.variant} label={chip.label} size="sm" />
-        </div>
-        <p className="text-sm text-pq-neutral-500 truncate mt-0.5">
-          {row.product_name ?? '—'}
-          {row.supplier_full_name ? ` · ${row.supplier_full_name}` : ''}
-        </p>
-      </div>
-      <Link
-        href={`/tsqa/rse/${row.id}`}
-        className="shrink-0 flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition"
-      >
-        Evaluate
-        <ArrowRight className="w-3.5 h-3.5" />
-      </Link>
-    </div>
+    <tr className="hover:bg-pq-neutral-50 transition">
+      <td className="px-5 py-3.5 font-mono text-xs font-bold text-pq-neutral-900 whitespace-nowrap">
+        {row.rse_number ?? row.id.slice(0, 8).toUpperCase()}
+      </td>
+      <td className="px-5 py-3.5">
+        <StatusChip status={chip.variant} label={chip.label} size="sm" />
+      </td>
+      <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[180px] truncate">{row.product_name ?? '—'}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs">{row.supplier_full_name ?? '—'}</td>
+      <td className="px-5 py-3.5 text-right">
+        <Link
+          href={`/tsqa/rse/${row.id}`}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+        >
+          Evaluate
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </td>
+    </tr>
   );
 }
 

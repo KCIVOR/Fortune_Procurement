@@ -14,7 +14,7 @@ import { useAuth } from '@/context/AuthContext';
 import type { PR2Request } from '@/types/pr2';
 import { PR2_STATUS_LABELS, type PR2Status } from '@/types/pr2';
 import { format } from 'date-fns';
-import { ClipboardList, ArrowRight, Building2, CalendarDays } from 'lucide-react';
+import { ClipboardList, ArrowRight } from 'lucide-react';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:              'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
@@ -163,47 +163,45 @@ export default function PR2ListPage() {
       ) : (
         <div className="space-y-4">
           <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-pq-neutral-200 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-pq-neutral-900">
-                {totalCount} purchase request{totalCount !== 1 ? 's' : ''}
-              </h2>
+            <div className="px-5 py-2.5 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center gap-2">
+              <ClipboardList className="w-3.5 h-3.5 text-pq-neutral-400" />
+              <span className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                {totalCount} Purchase Request{totalCount !== 1 ? 's' : ''}
+              </span>
             </div>
-            <div className="divide-y divide-pq-neutral-200">
-              {pr2s.map(pr2 => (
-                <Link
-                  key={pr2.id}
-                  href={`/pr2/${pr2.id}`}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-pq-neutral-50 transition group"
-                >
-                  <div className="flex items-start gap-4 min-w-0">
-                    <div className="w-8 h-8 rounded-md bg-pq-neutral-50 flex items-center justify-center shrink-0 mt-0.5">
-                      <ClipboardList className="w-4 h-4 text-pq-neutral-500" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-mono text-sm font-semibold text-pq-neutral-900">
-                          {pr2.pr2_number}
-                        </span>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PR2 No.</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-pq-neutral-200">
+                  {pr2s.map(pr2 => (
+                    <tr key={pr2.id} className="hover:bg-pq-neutral-50 transition">
+                      <td className="px-5 py-3.5 font-mono font-semibold text-pq-neutral-900 whitespace-nowrap">{pr2.pr2_number}</td>
+                      <td className="px-5 py-3.5">
                         <span className={`inline-flex text-xs font-semibold border rounded-full px-2 py-0.5 ${STATUS_STYLES[pr2.status] ?? STATUS_STYLES.draft}`}>
                           {PR2_STATUS_LABELS[pr2.status]}
                         </span>
-                      </div>
-                      <p className="text-sm text-pq-neutral-500 truncate">{pr2.purpose}</p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-                          <Building2 className="w-3 h-3" />
-                          {pr2.department_name_snapshot}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-                          <CalendarDays className="w-3 h-3" />
-                          {format(new Date(pr2.date_required), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-pq-neutral-400 group-hover:text-pq-neutral-500 shrink-0 transition" />
-                </Link>
-              ))}
+                      </td>
+                      <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[220px] truncate">{pr2.purpose}</td>
+                      <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{pr2.department_name_snapshot}</td>
+                      <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{format(new Date(pr2.date_required), 'MMM d, yyyy')}</td>
+                      <td className="px-5 py-3.5 text-right">
+                        <Link href={`/pr2/${pr2.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition">
+                          View <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 

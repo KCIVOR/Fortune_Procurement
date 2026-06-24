@@ -360,14 +360,12 @@ export async function savePR2Items(
 ): Promise<void> {
   const now = new Date().toISOString();
 
-  // Upsert each item (update inventory fields only — pricing comes from canvassing)
+  // Update quantity_to_purchase and remarks only — SOH and in-transit come from warehouse validation
   for (const item of items) {
     const qtyToPurchase = Math.max(0, Number(item.quantity_to_purchase) || 0);
     await db
       .from('pr2_items')
       .update({
-        qty_on_hand:          Number(item.qty_on_hand) || 0,
-        qty_incoming:         Number(item.qty_incoming) || 0,
         quantity_to_purchase: qtyToPurchase,
         total_price:          item.unit_price * qtyToPurchase,
         remarks:              item.remarks?.trim() || null,

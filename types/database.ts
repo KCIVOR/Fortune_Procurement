@@ -489,7 +489,7 @@ export interface Database {
         Row: {
           id: string;
           supplier_id: string;
-          status: 'draft' | 'submitted' | 'under_review' | 'missing_documents' | 'approved' | 'rejected' | 'withdrawn';
+          status: 'draft' | 'submitted' | 'under_review' | 'missing_documents' | 'approved' | 'rejected' | 'withdrawn' | 'expired';
           submitted_at: string | null;
           reviewed_by: string | null;
           reviewed_at: string | null;
@@ -497,13 +497,14 @@ export interface Database {
           missing_documents_note: string | null;
           approved_at: string | null;
           rejected_at: string | null;
+          valid_until: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           supplier_id: string;
-          status?: 'draft' | 'submitted' | 'under_review' | 'missing_documents' | 'approved' | 'rejected';
+          status?: 'draft' | 'submitted' | 'under_review' | 'missing_documents' | 'approved' | 'rejected' | 'expired';
           submitted_at?: string | null;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
@@ -511,13 +512,14 @@ export interface Database {
           missing_documents_note?: string | null;
           approved_at?: string | null;
           rejected_at?: string | null;
+          valid_until?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           supplier_id?: string;
-          status?: 'draft' | 'submitted' | 'under_review' | 'missing_documents' | 'approved' | 'rejected' | 'withdrawn';
+          status?: 'draft' | 'submitted' | 'under_review' | 'missing_documents' | 'approved' | 'rejected' | 'withdrawn' | 'expired';
           submitted_at?: string | null;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
@@ -525,6 +527,30 @@ export interface Database {
           missing_documents_note?: string | null;
           approved_at?: string | null;
           rejected_at?: string | null;
+          valid_until?: string | null;
+          updated_at?: string;
+        };
+      };
+
+      system_expiry_settings: {
+        Row: {
+          id: boolean;
+          accreditation_validity_days: number;
+          product_validity_days: number;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: boolean;
+          accreditation_validity_days?: number;
+          product_validity_days?: number;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          accreditation_validity_days?: number;
+          product_validity_days?: number;
+          updated_by?: string | null;
           updated_at?: string;
         };
       };
@@ -539,13 +565,15 @@ export interface Database {
           category: string | null;
           description: string | null;
           specifications: string | null;
-          status: 'draft' | 'submitted' | 'under_review' | 'pending_tsqa' | 'verified' | 'rejected' | 'inactive' | 'withdrawn';
+          item_type: 'goods' | 'services';
+          status: 'draft' | 'submitted' | 'under_review' | 'pending_tsqa' | 'verified' | 'rejected' | 'inactive' | 'withdrawn' | 'expired';
           submitted_at: string | null;
           reviewed_by: string | null;
           reviewed_at: string | null;
           review_notes: string | null;
           verified_at: string | null;
           rejected_at: string | null;
+          valid_until: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -558,13 +586,15 @@ export interface Database {
           category?: string | null;
           description?: string | null;
           specifications?: string | null;
-          status?: 'draft' | 'submitted' | 'under_review' | 'pending_tsqa' | 'verified' | 'rejected' | 'inactive';
+          item_type?: 'goods' | 'services';
+          status?: 'draft' | 'submitted' | 'under_review' | 'pending_tsqa' | 'verified' | 'rejected' | 'inactive' | 'expired';
           submitted_at?: string | null;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
           review_notes?: string | null;
           verified_at?: string | null;
           rejected_at?: string | null;
+          valid_until?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -577,13 +607,15 @@ export interface Database {
           category?: string | null;
           description?: string | null;
           specifications?: string | null;
-          status?: 'draft' | 'submitted' | 'under_review' | 'pending_tsqa' | 'verified' | 'rejected' | 'inactive' | 'withdrawn';
+          item_type?: 'goods' | 'services';
+          status?: 'draft' | 'submitted' | 'under_review' | 'pending_tsqa' | 'verified' | 'rejected' | 'inactive' | 'withdrawn' | 'expired';
           submitted_at?: string | null;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
           review_notes?: string | null;
           verified_at?: string | null;
           rejected_at?: string | null;
+          valid_until?: string | null;
           updated_at?: string;
         };
       };
@@ -863,6 +895,7 @@ export type ControlledFormTemplate = Database['public']['Tables']['controlled_fo
 // ── Phase 1: Supplier Accreditation + RSE + TSQA convenience types ───────────
 export type SupplierAccreditation  = Database['public']['Tables']['supplier_accreditations']['Row'];
 export type SupplierProduct        = Database['public']['Tables']['supplier_products']['Row'];
+export type SystemExpirySettings   = Database['public']['Tables']['system_expiry_settings']['Row'];
 export type SupplierDocument       = Database['public']['Tables']['supplier_documents']['Row'];
 export type RseRecord              = Database['public']['Tables']['rse_records']['Row'];
 export type TsqaReview             = Database['public']['Tables']['tsqa_reviews']['Row'];

@@ -171,17 +171,24 @@ export default function TSQARSEQueuePage() {
       ) : (
         <div className="space-y-4">
           <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-            {/* Column headers */}
-            <div className="hidden md:grid grid-cols-[1fr_1fr_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">RSE / Product</p>
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Date</p>
-            </div>
-            <div className="divide-y divide-pq-neutral-200">
-              {paginatedRows.map(row => (
-                <RSERow key={row.id} row={row} />
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RSE No.</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Product</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Supplier</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-pq-neutral-200">
+                  {paginatedRows.map(row => (
+                    <RSERow key={row.id} row={row} />
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -207,38 +214,33 @@ function RSERow({ row }: { row: RSEQueueRow }) {
   const chip     = rseChip(row.status);
   const isActive = row.status === 'created' || row.status === 'assigned' || row.status === 'under_review';
   const dateStr  = row.completed_at
-    ? `Completed ${format(new Date(row.completed_at), 'MMM d, yyyy')}`
+    ? format(new Date(row.completed_at), 'MMM d, yyyy')
     : row.assigned_at
-    ? `Assigned ${format(new Date(row.assigned_at), 'MMM d, yyyy')}`
-    : `Created ${format(new Date(row.created_at), 'MMM d, yyyy')}`;
+    ? format(new Date(row.assigned_at), 'MMM d, yyyy')
+    : format(new Date(row.created_at), 'MMM d, yyyy');
 
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="font-mono text-xs font-bold text-pq-neutral-900">
-            {row.rse_number ?? row.id.slice(0, 8).toUpperCase()}
-          </span>
-          <StatusChip status={chip.variant} label={chip.label} size="sm" />
-        </div>
-        <p className="text-sm text-pq-neutral-900 truncate">{row.product_name ?? '—'}</p>
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-          {row.supplier_full_name && (
-            <span className="text-xs text-pq-neutral-400">{row.supplier_full_name}</span>
-          )}
-          <span className="text-xs text-pq-neutral-400">{dateStr}</span>
-        </div>
-      </div>
-
-      <Link
-        href={`/tsqa/rse/${row.id}`}
-        className={`shrink-0 flex items-center gap-1 text-xs font-semibold transition ${
-          isActive ? 'text-pq-primary-600 hover:text-pq-neutral-900' : 'text-pq-neutral-500 hover:text-pq-neutral-900'
-        }`}
-      >
-        {isActive ? 'Evaluate' : 'View'}
-        <ArrowRight className="w-3.5 h-3.5" />
-      </Link>
-    </div>
+    <tr className="hover:bg-pq-neutral-50 transition">
+      <td className="px-5 py-3.5 font-mono text-xs font-bold text-pq-neutral-900 whitespace-nowrap">
+        {row.rse_number ?? row.id.slice(0, 8).toUpperCase()}
+      </td>
+      <td className="px-5 py-3.5">
+        <StatusChip status={chip.variant} label={chip.label} size="sm" />
+      </td>
+      <td className="px-5 py-3.5 text-pq-neutral-900 max-w-[180px] truncate">{row.product_name ?? '—'}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs">{row.supplier_full_name ?? '—'}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">{dateStr}</td>
+      <td className="px-5 py-3.5 text-right">
+        <Link
+          href={`/tsqa/rse/${row.id}`}
+          className={`inline-flex items-center gap-1 text-xs font-semibold transition ${
+            isActive ? 'text-pq-primary-600 hover:text-pq-neutral-900' : 'text-pq-neutral-500 hover:text-pq-neutral-900'
+          }`}
+        >
+          {isActive ? 'Evaluate' : 'View'}
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </td>
+    </tr>
   );
 }

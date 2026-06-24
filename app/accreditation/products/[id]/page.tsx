@@ -30,7 +30,7 @@ import {
   getAccreditationDocumentSignedUrl,
 } from '@/lib/accreditation-documents';
 import type { SupplierProduct, SupplierDocument } from '@/types/database';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import {
   ChevronLeft,
   FileText,
@@ -42,6 +42,7 @@ import {
   Circle,
   AlertCircle,
   RotateCcw,
+  CalendarClock,
 } from 'lucide-react';
 import {
   Select,
@@ -63,6 +64,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
     rejected:     { variant: 'rejected',  label: 'Rejected' },
     inactive:     { variant: 'cancelled', label: 'Inactive' },
     withdrawn:    { variant: 'cancelled', label: 'Withdrawn' },
+    expired:      { variant: 'cancelled', label: 'Expired' },
   };
   return map[status] ?? { variant: 'draft', label: status };
 }
@@ -269,7 +271,7 @@ export default function ProductReviewDetailPage() {
       await revokeProductVerification(product.id, profile, noteInput.trim());
       await load();
       setActivePanel('none');
-      setActionSuccess('Verification revoked. Product is inactive and Can Offer = No.');
+      setActionSuccess('Verification revoked. Product is expired and Can Offer = No.');
     } catch (err: unknown) {
       setActionError((err as Error)?.message || 'Action failed.');
     } finally {
@@ -297,15 +299,16 @@ export default function ProductReviewDetailPage() {
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const status         = product?.status ?? '';
+  const isService      = (product?.item_type ?? 'goods') === 'services';
   const canMarkReview  = status === 'submitted';
   const canVerify      = status === 'submitted' || status === 'under_review';
   const canRejectProd  = status === 'submitted' || status === 'under_review';
-  const canCreateRSE   = status === 'submitted' || status === 'under_review';
+  const canCreateRSE   = !isService && (status === 'submitted' || status === 'under_review');
   const isClosed       = status === 'rejected' || status === 'withdrawn';
   const canRevoke      = status === 'verified';
-  const canReopen      = status === 'verified' || status === 'inactive';
+  const canReopen      = status === 'verified' || status === 'inactive' || status === 'expired';
   const showReviewActions = status === 'submitted' || status === 'under_review';
-  const showPostVerifyActions = canRevoke || status === 'inactive';
+  const showPostVerifyActions = status === 'verified' || status === 'expired' || status === 'inactive';
   const canOffer       = status === 'verified';
   const chip           = product ? productChip(status) : null;
 
@@ -338,7 +341,16 @@ export default function ProductReviewDetailPage() {
           {/* ── Header ── */}
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-pq-neutral-900">{product.product_name}</h1>
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-xl font-bold text-pq-neutral-900">{product.product_name}</h1>
+                <span className={`inline-flex text-xs font-semibold border rounded-full px-2.5 py-0.5 ${
+                  isService
+                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                    : 'bg-blue-50 text-blue-700 border-blue-200'
+                }`}>
+                  {isService ? 'Services' : 'Goods'}
+                </span>
+              </div>
               {product.category && (
                 <p className="text-sm text-pq-neutral-500 mt-0.5">{product.category}</p>
               )}
@@ -348,19 +360,24 @@ export default function ProductReviewDetailPage() {
 
           {/* ── Can Offer banner ── */}
           <div
-            className={`rounded-md border px-4 py-3 flex items-center gap-2.5 text-sm font-medium ${
+            className={`rounded-md border px-4 py-3 flex items-start gap-2.5 text-sm ${
               canOffer
                 ? 'bg-pq-success-100 border-pq-success-100 text-pq-success-600'
                 : 'bg-pq-neutral-50 border-pq-neutral-200 text-pq-neutral-500'
             }`}
           >
             {canOffer ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             ) : (
-              <Circle className="w-4 h-4 shrink-0 text-pq-neutral-400" />
+              <Circle className="w-4 h-4 shrink-0 mt-0.5 text-pq-neutral-400" />
             )}
-            <span>
-              Verified = Can Offer / Can Award (when linked on an RFQ quote and substitute rules are met). Pending validation = not awardable until verified.
+            <span className="font-medium">
+              {canOffer
+                ? 'Verified — this product can be offered and awarded on RFQ quotes when substitute rules are met.'
+                : status === 'expired'
+                ? 'Expired — this product can still be offered on RFQ quotes, but Procurement will see that verification has expired. Re-verification is recommended before award.'
+                : 'Unverified — this product can still be offered and awarded on RFQ quotes, but Procurement will see a notice that it is pending validation. Verification is recommended before award.'
+              }
             </span>
           </div>
 
@@ -382,17 +399,55 @@ export default function ProductReviewDetailPage() {
                 This product is inactive and cannot be offered in RFQ until re-verified.
               </div>
             )}
+
+            {status === 'expired' && (
+              <div className="rounded-md border border-pq-danger-100 bg-pq-danger-100 px-4 py-3 flex items-start gap-2.5">
+                <CalendarClock className="w-4 h-4 text-pq-danger-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-pq-danger-600">Verification Expired</p>
+                  <p className="text-xs text-pq-danger-600 mt-0.5">
+                    This product's verification has expired
+                    {product.valid_until
+                      ? ` on ${format(new Date(product.valid_until), 'MMMM d, yyyy')}`
+                      : ''}.
+                    Use <span className="font-semibold">Reopen for Review</span> to begin a renewal.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {status === 'verified' && product.valid_until && (() => {
+              const daysLeft = differenceInDays(new Date(product.valid_until), new Date());
+              if (daysLeft <= 30) return (
+                <div className="rounded-md border border-pq-warning-100 bg-pq-warning-100 px-4 py-3 flex items-start gap-2.5">
+                  <CalendarClock className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-pq-warning-600">
+                    <span className="font-semibold">Expiring soon —</span>{' '}
+                    valid until {format(new Date(product.valid_until), 'MMMM d, yyyy')} ({daysLeft} day{daysLeft !== 1 ? 's' : ''} left).
+                  </p>
+                </div>
+              );
+              return null;
+            })()}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InfoField label="Product Code" value={product.product_code ?? '—'} />
-              <InfoField label="Category"     value={product.category     ?? '—'} />
+              {!isService && (
+                <InfoField label="Product Code" value={product.product_code ?? '—'} />
+              )}
+              <InfoField label="Category" value={product.category ?? '—'} />
               {product.description && (
                 <div className="sm:col-span-2">
-                  <InfoField label="Description" value={product.description} />
+                  <InfoField
+                    label={isService ? 'Scope of Service' : 'Description'}
+                    value={product.description}
+                  />
                 </div>
               )}
               {product.specifications && (
                 <div className="sm:col-span-2">
-                  <InfoField label="Specifications" value={product.specifications} />
+                  <InfoField
+                    label={isService ? 'Terms & Conditions / SLA' : 'Specifications'}
+                    value={product.specifications}
+                  />
                 </div>
               )}
             </div>
@@ -406,6 +461,9 @@ export default function ProductReviewDetailPage() {
               )}
               {product.verified_at && (
                 <InfoField label="Verified"  value={format(new Date(product.verified_at),  'MMM d, yyyy')} />
+              )}
+              {product.valid_until && (
+                <InfoField label="Valid Until" value={format(new Date(product.valid_until), 'MMM d, yyyy')} />
               )}
               {product.rejected_at && (
                 <InfoField label="Rejected"  value={format(new Date(product.rejected_at),  'MMM d, yyyy')} />
@@ -499,8 +557,10 @@ export default function ProductReviewDetailPage() {
                         Verification Notes (optional)
                       </p>
                       <p className="text-xs text-pq-neutral-400">
-                        Use this only when TSQA evaluation is not required for this product.
-                        After verification, Can Offer = Yes.
+                        {isService
+                          ? 'Service offerings do not require TSQA/RSE evaluation. Verify after reviewing the supplier\'s credentials and service documentation.'
+                          : 'Use this only when TSQA evaluation is not required for this product.'}
+                        {' '}After verification, Can Offer = Yes.
                       </p>
                       <textarea
                         value={noteInput}
@@ -739,7 +799,7 @@ export default function ProductReviewDetailPage() {
                         Revocation Reason (required)
                       </p>
                       <p className="text-xs text-pq-neutral-400">
-                        Sets product to Inactive. Existing RFQ quotes are not automatically removed.
+                        Sets product to Expired. Existing RFQ quotes are not automatically removed.
                       </p>
                       <textarea
                         value={noteInput}
@@ -788,7 +848,7 @@ export default function ProductReviewDetailPage() {
           {/* ── Product documents ── */}
           <div className="bg-white rounded-md border border-pq-neutral-200">
             <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
-              <h2 className="text-sm font-semibold text-pq-neutral-900">Product Documents</h2>
+              <h2 className="text-sm font-semibold text-pq-neutral-900">{isService ? 'Supporting Documents' : 'Product Documents'}</h2>
               <span className="text-xs text-pq-neutral-400">
                 {documents.length} file{documents.length !== 1 ? 's' : ''}
               </span>
@@ -812,8 +872,8 @@ export default function ProductReviewDetailPage() {
             )}
           </div>
 
-          {/* ── RSE / TSQA evaluation records ── */}
-          {rseRecords.length > 0 && (
+          {/* ── RSE / TSQA evaluation records — goods only ── */}
+          {!isService && rseRecords.length > 0 && (
             <div className="bg-white rounded-md border border-pq-neutral-200">
               <div className="px-5 py-3.5 border-b border-pq-neutral-200">
                 <h2 className="text-sm font-semibold text-pq-neutral-900">RSE / TSQA Evaluation Records</h2>

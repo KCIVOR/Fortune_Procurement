@@ -17,8 +17,7 @@ import type { PORequest } from '@/types/po';
 import { PO_STATUS_LABELS } from '@/types/po';
 import { format } from 'date-fns';
 import {
-  ShoppingCart, Plus, Building2, User, CalendarDays,
-  FileText, Package, ChevronRight, Clock, CircleCheck as CheckCircle2,
+  ShoppingCart, Plus, FileText, CalendarDays, Clock, CircleCheck as CheckCircle2,
   RotateCcw,
 } from 'lucide-react';
 
@@ -263,70 +262,58 @@ export default function POListPage() {
       ) : (
         <div className="space-y-4">
           <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-            <div className="px-6 py-3 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center gap-2">
+            <div className="px-5 py-2.5 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center gap-2">
               <ShoppingCart className="w-3.5 h-3.5 text-pq-neutral-400" />
               <span className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                 {pos.length} Purchase Order{pos.length !== 1 ? 's' : ''}
               </span>
             </div>
-            <ul className="divide-y divide-pq-neutral-200">
-              {pos.map(po => (
-                <li key={po.id}>
-                  <Link
-                    href={`/po/${po.id}`}
-                    className="flex items-center gap-4 px-6 py-4 hover:bg-pq-neutral-50 transition group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 flex-wrap mb-1">
-                        <span className="font-mono font-bold text-pq-neutral-900 text-sm">{po.po_number}</span>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PO No.</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Supplier</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PR2 Ref.</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-pq-neutral-200">
+                  {pos.map(po => (
+                    <tr key={po.id} className="hover:bg-pq-neutral-50 transition">
+                      <td className="px-5 py-3.5 font-mono font-bold text-pq-neutral-900 whitespace-nowrap">{po.po_number}</td>
+                      <td className="px-5 py-3.5">
                         {revisionIdSet.has(po.id) ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-2.5 py-0.5 bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200">
                             <RotateCcw className="w-3 h-3" />
                             Needs Revision
                           </span>
                         ) : (
-                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-2.5 py-0.5 ${STATUS_STYLES[po.status] ?? STATUS_STYLES.draft}`}>
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 ${STATUS_STYLES[po.status] ?? STATUS_STYLES.draft}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[po.status] ?? 'bg-pq-neutral-400'}`} />
                             {PO_STATUS_LABELS[po.status] ?? po.status}
                           </span>
                         )}
-                      </div>
-                      <p className="text-sm text-pq-neutral-500 truncate">{po.purpose}</p>
-                      <div className="flex items-center gap-4 mt-1.5 flex-wrap">
-                        <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-                          <Package className="w-3 h-3" />
-                          {po.supplier_name_snapshot}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-                          <Building2 className="w-3 h-3" />
-                          {po.department_name_snapshot}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-                          <User className="w-3 h-3" />
-                          {po.requisitioner_name_snapshot}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-                          <CalendarDays className="w-3 h-3" />
-                          {format(new Date(po.date_required), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="hidden md:flex flex-col gap-1 text-right shrink-0">
-                      <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-                        <FileText className="w-3 h-3" />
-                        <span className="font-mono">{po.pr2_number_snapshot}</span>
-                      </span>
-                      <span className="text-xs text-pq-neutral-400">
-                        {format(new Date(po.generated_at), 'MMM d, yyyy')}
-                      </span>
-                    </div>
-
-                    <ChevronRight className="w-4 h-4 text-pq-neutral-400 group-hover:text-pq-neutral-500 shrink-0 transition" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
+                      </td>
+                      <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[200px] truncate">{po.purpose}</td>
+                      <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{po.supplier_name_snapshot}</td>
+                      <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{po.department_name_snapshot}</td>
+                      <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{format(new Date(po.date_required), 'MMM d, yyyy')}</td>
+                      <td className="px-5 py-3.5 font-mono text-xs text-pq-neutral-400 whitespace-nowrap">{po.pr2_number_snapshot}</td>
+                      <td className="px-5 py-3.5 text-right">
+                        <Link href={`/po/${po.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition">
+                          View <FileText className="w-3.5 h-3.5" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Pagination Controls */}

@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import type { SupplierAccreditation } from '@/types/database';
 import { createNotification, type NotificationInsert } from '@/lib/notifications';
+import { getExpirySettings, addDays } from '@/lib/system-settings';
 
 const db = supabase as any;
 
@@ -379,6 +380,9 @@ export async function approveAccreditation(
   }
 
   const now = new Date().toISOString();
+  const settings  = await getExpirySettings();
+  const validUntil = addDays(new Date(now), settings.accreditation_validity_days);
+
   const { error } = await db
     .from('supplier_accreditations')
     .update({
@@ -387,6 +391,7 @@ export async function approveAccreditation(
       reviewed_by:  profile.id,
       reviewed_at:  now,
       review_notes: reviewNotes ?? null,
+      valid_until:  validUntil,
       updated_at:   now,
     })
     .eq('id', accreditationId);
@@ -485,8 +490,8 @@ export async function rejectAccreditation(
   } catch { /* non-blocking */ }
 }
 
-// ─── Procurement: revoke an approved accreditation ─────────────────────────────
-// approved → rejected. Prior approval timestamps are retained for audit.
+// ─── Procurement: revoke/expire an approved accreditation ──────────────────────
+// approved → expired. Prior approval timestamps are retained for audit.
 
 export async function revokeAccreditation(
   accreditationId: string,
@@ -512,8 +517,8 @@ export async function revokeAccreditation(
   const { error } = await db
     .from('supplier_accreditations')
     .update({
-      status:       'rejected',
-      rejected_at:  now,
+      status:       'expired',
+      valid_until:  null,
       reviewed_by:  profile.id,
       reviewed_at:  now,
       review_notes: reason.trim(),
@@ -526,7 +531,7 @@ export async function revokeAccreditation(
   try {
     const { error: auditErr } = await db.from('audit_logs').insert({
       actor_id:      profile.id,
-      action:        'ACCREDITATION_REVOKED',
+      action:        'ACCREDITATION_EXPIRED',
       document_type: 'ACCREDITATION',
       document_id:   accreditationId,
       payload:       { reviewer: profile.full_name, reason: reason.trim() },
@@ -549,8 +554,8 @@ export async function revokeAccreditation(
   } catch { /* non-blocking */ }
 }
 
-// ─── Procurement: reopen an approved accreditation for review ────────────────
-// approved → under_review. Clears approved_at; prior approval history stays in audit_logs.
+// ─── Procurement: reopen an approved or expired accreditation for review ─────
+// approved | expired → under_review. Clears approved_at + valid_until; prior history stays in audit_logs.
 
 export async function reopenAccreditationForReview(
   accreditationId: string,
@@ -564,8 +569,9 @@ export async function reopenAccreditationForReview(
     .maybeSingle();
   if (fetchErr) throw fetchErr;
   if (!acc) throw new Error('Accreditation not found.');
-  if ((acc as any).status !== 'approved') {
-    throw new Error('Only approved accreditations can be reopened for review.');
+  const accSt = (acc as any).status as string;
+  if (accSt !== 'approved' && accSt !== 'expired') {
+    throw new Error('Only approved or expired accreditations can be reopened for review.');
   }
 
   const now = new Date().toISOString();
@@ -574,13 +580,14 @@ export async function reopenAccreditationForReview(
     .update({
       status:       'under_review',
       approved_at:  null,
+      valid_until:  null,
       reviewed_by:  profile.id,
       reviewed_at:  now,
       review_notes: notes?.trim() || null,
       updated_at:   now,
     })
     .eq('id', accreditationId)
-    .eq('status', 'approved');
+    .in('status', ['approved', 'expired']);
   if (error) throw error;
 
   try {

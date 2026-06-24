@@ -12,7 +12,7 @@ import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { fetchSupplierInboxPaged } from '@/lib/canvassing';
 import { useAuth } from '@/context/AuthContext';
 import type { SupplierRfqInboxRow } from '@/types/canvassing';
-import { Tag, ArrowRight, Clock, CircleCheck as CheckCircle2, CalendarDays, Building2, PackageSearch } from 'lucide-react';
+import { Tag, ArrowRight, Clock, CircleCheck as CheckCircle2, PackageSearch } from 'lucide-react';
 import { format } from 'date-fns';
 
 const SUPPLIER_STATUS_BADGE: Record<string, string> = {
@@ -170,7 +170,7 @@ export default function SupplierQuotationsPage() {
               )}
 
               {other.length > 0 && (
-                <InboxSection title="Other" accent="slate" count={other.length}>
+                <InboxSection title="Other / Closed" accent="slate" count={other.length}>
                   {other.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
                 </InboxSection>
               )}
@@ -202,48 +202,30 @@ function InboxRow({ row }: { row: SupplierRfqInboxRow }) {
   const hasPartial = row.quotes_submitted > 0 && row.quotes_submitted < row.item_count;
 
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="font-mono text-xs font-bold text-pq-neutral-900">{row.rfq_number}</span>
-          <span className={`inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 ${RFQ_STATUS_BADGE[row.rfq_status] ?? ''}`}>
-            {row.rfq_status.charAt(0).toUpperCase() + row.rfq_status.slice(1)}
+    <tr className="hover:bg-pq-neutral-50 transition">
+      <td className="px-5 py-3.5 font-mono text-xs font-bold text-pq-neutral-900 whitespace-nowrap">{row.rfq_number}</td>
+      <td className="px-5 py-3.5">
+        <span className={`inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 ${SUPPLIER_STATUS_BADGE[row.supplier_status]}`}>
+          {SUPPLIER_STATUS_LABEL[row.supplier_status]}
+        </span>
+        {hasPartial && (
+          <span className="ml-1 inline-flex items-center text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
+            {row.quotes_submitted}/{row.item_count} quoted
           </span>
-          <span className={`inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 ${SUPPLIER_STATUS_BADGE[row.supplier_status]}`}>
-            {SUPPLIER_STATUS_LABEL[row.supplier_status]}
-          </span>
-          {hasPartial && (
-            <span className="inline-flex items-center text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
-              {row.quotes_submitted}/{row.item_count} items quoted
-            </span>
-          )}
-        </div>
-        <p className="text-sm text-pq-neutral-900 truncate">{row.purpose}</p>
-        <div className="flex items-center gap-3 mt-1">
-          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-            <Building2 className="w-3 h-3" />
-            {row.department_name}
-          </span>
-          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-            <PackageSearch className="w-3 h-3" />
-            {row.item_count} item{row.item_count !== 1 ? 's' : ''}
-          </span>
-          {row.rfq_deadline && (
-            <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-              <CalendarDays className="w-3 h-3" />
-              Deadline: {format(new Date(row.rfq_deadline), 'MMM d, yyyy')}
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="shrink-0">
+        )}
+      </td>
+      <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[200px] truncate">{row.purpose}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">{row.department_name}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">{row.item_count} item{row.item_count !== 1 ? 's' : ''}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">
+        {row.rfq_deadline ? format(new Date(row.rfq_deadline), 'MMM d, yyyy') : '—'}
+      </td>
+      <td className="px-5 py-3.5 text-right">
         {canRespond || row.supplier_status === 'submitted' ? (
           <Link
             href={`/supplier/quotations/${row.rfq_supplier_id}`}
             className={`inline-flex items-center gap-1 text-xs font-semibold transition ${
-              canRespond
-                ? 'text-pq-primary-600 hover:text-pq-neutral-900'
-                : 'text-pq-neutral-500 hover:text-pq-neutral-900'
+              canRespond ? 'text-pq-primary-600 hover:text-pq-neutral-900' : 'text-pq-neutral-500 hover:text-pq-neutral-900'
             }`}
           >
             {canRespond ? 'Submit Quote' : 'View Quote'}
@@ -252,8 +234,8 @@ function InboxRow({ row }: { row: SupplierRfqInboxRow }) {
         ) : (
           <span className="text-xs text-pq-neutral-400">Closed</span>
         )}
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
@@ -276,11 +258,26 @@ function InboxSection({
 
   return (
     <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
-        <h2 className="text-sm font-semibold text-pq-neutral-900">{title}</h2>
+      <div className="flex items-center gap-3 px-5 py-2.5 border-b border-pq-neutral-200 bg-pq-neutral-50">
+        <span className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">{title}</span>
         <span className={`text-xs font-semibold border rounded-full px-2 py-0.5 ${accentClass}`}>{count}</span>
       </div>
-      <div className="divide-y divide-pq-neutral-200">{children}</div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ No.</th>
+              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
+              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
+              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Items</th>
+              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Deadline</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-pq-neutral-200">{children}</tbody>
+        </table>
+      </div>
     </div>
   );
 }

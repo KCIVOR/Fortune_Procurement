@@ -17,7 +17,8 @@ import CreateSupplierModal from '@/components/procurement/CreateSupplierModal';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
-import { BadgeCheck, ArrowRight, AlertCircle, Plus } from 'lucide-react';
+import { BadgeCheck, ArrowRight, AlertCircle, Plus, CalendarClock } from 'lucide-react';
+import { differenceInDays } from 'date-fns';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -30,13 +31,14 @@ function accreditationChip(status: string): { variant: StatusVariant; label: str
     approved:          { variant: 'approved',  label: 'Accredited' },
     rejected:          { variant: 'rejected',  label: 'Rejected' },
     withdrawn:         { variant: 'cancelled', label: 'Withdrawn' },
+    expired:           { variant: 'cancelled', label: 'Expired' },
   };
   return map[status] ?? { variant: 'draft', label: status };
 }
 
 // ─── Filter tab definitions ───────────────────────────────────────────────────
 
-type FilterKey = 'pending' | 'approved' | 'rejected' | 'all';
+type FilterKey = 'pending' | 'approved' | 'expired' | 'rejected' | 'all';
 
 const PENDING_STATUSES = ['submitted', 'under_review', 'missing_documents'];
 
@@ -48,6 +50,8 @@ function getFilteredRows(rows: AccreditationQueueRow[], filter: FilterKey): Accr
       return rows.filter(r => PENDING_STATUSES.includes(r.status));
     case 'approved':
       return rows.filter(r => r.status === 'approved');
+    case 'expired':
+      return rows.filter(r => r.status === 'expired');
     case 'rejected':
       return rows.filter(r => r.status === 'rejected');
     case 'all':
@@ -87,6 +91,7 @@ export default function AccreditationQueuePage() {
   const counts = useMemo(() => ({
     pending:  allRows.filter(r => PENDING_STATUSES.includes(r.status)).length,
     approved: allRows.filter(r => r.status === 'approved').length,
+    expired:  allRows.filter(r => r.status === 'expired').length,
     rejected: allRows.filter(r => r.status === 'rejected').length,
     all:      allRows.length,
   }), [allRows]);
@@ -114,6 +119,7 @@ export default function AccreditationQueuePage() {
   const tabs: TabFilter[] = [
     { value: 'pending',  label: `Pending (${counts.pending})` },
     { value: 'approved', label: `Approved (${counts.approved})` },
+    { value: 'expired',  label: `Expired (${counts.expired})` },
     { value: 'rejected', label: `Rejected (${counts.rejected})` },
     { value: 'all',      label: `All (${counts.all})` },
   ];
@@ -196,17 +202,25 @@ export default function AccreditationQueuePage() {
       ) : (
         <div className="space-y-4">
           <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-            {/* Column headers */}
-            <div className="hidden md:grid grid-cols-[1fr_180px_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</p>
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Reviewed</p>
-            </div>
-            <div className="divide-y divide-pq-neutral-200">
-              {paginatedRows.map(row => (
-                <QueueRow key={row.id} row={row} />
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Supplier</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Email</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Submitted</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Reviewed</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Valid Until</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-pq-neutral-200">
+                  {paginatedRows.map(row => (
+                    <QueueRow key={row.id} row={row} />
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -239,13 +253,33 @@ function QueueRow({ row }: { row: AccreditationQueueRow }) {
   const chip = accreditationChip(row.status);
   const isActionable = ['submitted', 'under_review', 'missing_documents'].includes(row.status);
 
+  const validUntilCell = () => {
+    if (!row.valid_until) return <span className="text-pq-neutral-300">—</span>;
+    const daysLeft = differenceInDays(new Date(row.valid_until), new Date());
+    if (row.status === 'expired' || daysLeft < 0) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded-full px-2 py-0.5">
+          <CalendarClock className="w-3 h-3" />
+          Expired {format(new Date(row.valid_until), 'MMM d, yyyy')}
+        </span>
+      );
+    }
+    if (daysLeft <= 30) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-full px-2 py-0.5">
+          <CalendarClock className="w-3 h-3" />
+          {format(new Date(row.valid_until), 'MMM d, yyyy')} · {daysLeft}d left
+        </span>
+      );
+    }
+    return <span className="text-pq-neutral-400 text-xs whitespace-nowrap">{format(new Date(row.valid_until), 'MMM d, yyyy')}</span>;
+  };
+
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="font-medium text-sm text-pq-neutral-900">
-            {row.supplier_full_name ?? 'Unknown Supplier'}
-          </span>
+    <tr className="hover:bg-pq-neutral-50 transition">
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium text-sm text-pq-neutral-900">{row.supplier_full_name ?? 'Unknown Supplier'}</span>
           {row.status === 'missing_documents' && (
             <span className="inline-flex items-center gap-1 text-xs text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-full px-2 py-0.5">
               <AlertCircle className="w-3 h-3" />
@@ -253,35 +287,28 @@ function QueueRow({ row }: { row: AccreditationQueueRow }) {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-          {row.supplier_email && (
-            <span className="text-xs text-pq-neutral-400">{row.supplier_email}</span>
-          )}
-          {row.submitted_at && (
-            <span className="text-xs text-pq-neutral-400">
-              Submitted {format(new Date(row.submitted_at), 'MMM d, yyyy')}
-            </span>
-          )}
-          {row.reviewed_at && (
-            <span className="text-xs text-pq-neutral-400">
-              Reviewed {format(new Date(row.reviewed_at), 'MMM d, yyyy')}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="shrink-0 hidden sm:block">
+      </td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs">{row.supplier_email ?? '—'}</td>
+      <td className="px-5 py-3.5">
         <StatusChip status={chip.variant} label={chip.label} size="sm" />
-      </div>
-
-      <Link
-        href={`/accreditation/${row.id}`}
-        className="shrink-0 flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition"
-      >
-        {isActionable ? 'Review' : 'View'}
-        <ArrowRight className="w-3.5 h-3.5" />
-      </Link>
-    </div>
+      </td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">
+        {row.submitted_at ? format(new Date(row.submitted_at), 'MMM d, yyyy') : '—'}
+      </td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">
+        {row.reviewed_at ? format(new Date(row.reviewed_at), 'MMM d, yyyy') : '—'}
+      </td>
+      <td className="px-5 py-3.5">{validUntilCell()}</td>
+      <td className="px-5 py-3.5 text-right">
+        <Link
+          href={`/accreditation/${row.id}`}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+        >
+          {isActionable ? 'Review' : 'View'}
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </td>
+    </tr>
   );
 }
 
@@ -290,28 +317,31 @@ function QueueRow({ row }: { row: AccreditationQueueRow }) {
 function AccreditationQueueSkeleton() {
   return (
     <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden" aria-busy="true" aria-label="Loading accreditation queue">
-      {/* Column headers skeleton */}
-      <div className="hidden md:grid grid-cols-[1fr_180px_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-3 w-14" />
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-3 w-18" />
-      </div>
-      {/* Row skeletons */}
-      <div className="divide-y divide-pq-neutral-200">
-        {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className="flex items-center gap-4 px-5 py-4">
-            <div className="flex-1 min-w-0 space-y-2">
-              <Skeleton className="h-4 w-48" />
-              <div className="flex items-center gap-3">
-                <Skeleton className="h-3 w-36" />
-                <Skeleton className="h-3 w-28" />
-              </div>
-            </div>
-            <Skeleton className="h-6 w-32 rounded-full hidden sm:block" />
-            <Skeleton className="h-4 w-14" />
-          </div>
-        ))}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+              {['Supplier', 'Email', 'Status', 'Submitted', 'Reviewed', 'Valid Until', ''].map((h, i) => (
+                <th key={i} className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">
+                  {h && <Skeleton className="h-3 w-16" />}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-pq-neutral-200">
+            {Array.from({ length: 5 }, (_, i) => (
+              <tr key={i}>
+                <td className="px-5 py-3.5"><Skeleton className="h-4 w-40" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-3 w-36" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-5 w-32 rounded-full" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-3 w-24" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-3 w-24" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-3 w-24" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-4 w-14" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

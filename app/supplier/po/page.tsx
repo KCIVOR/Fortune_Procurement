@@ -15,7 +15,6 @@ import { useAuth } from '@/context/AuthContext';
 import type { SupplierPORow } from '@/types/po';
 import {
   ShoppingCart, ArrowRight, Clock, CircleCheck as CheckCircle2,
-  CalendarDays, CreditCard, Warehouse,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -172,15 +171,56 @@ export default function SupplierPOPage() {
       ) : (
         <div className="space-y-6">
           {pending.length > 0 && (
-            <POSection title="Awaiting Your Acknowledgment" accent="amber">
-              {pending.map(row => <PORow key={row.po_id} row={row} />)}
-            </POSection>
+            <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+              <div className="px-5 py-2.5 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-pq-warning-500" />
+                <span className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Awaiting Your Acknowledgment ({pending.length})</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PO No.</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Warehouse</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Payment Terms</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pq-neutral-200">
+                    {pending.map(row => <PORow key={row.po_id} row={row} />)}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
 
           {acknowledged.length > 0 && (
-            <POSection title="Acknowledged" accent="emerald">
-              {acknowledged.map(row => <PORow key={row.po_id} row={row} />)}
-            </POSection>
+            <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+              <div className="px-5 py-2.5 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-pq-success-500" />
+                <span className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Acknowledged ({acknowledged.length})</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PO No.</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Warehouse</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Payment Terms</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Delivery</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pq-neutral-200">
+                    {acknowledged.map(row => <PORow key={row.po_id} row={row} />)}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
 
           {totalCount > 0 && (
@@ -207,80 +247,29 @@ function PORow({ row }: { row: SupplierPORow }) {
   const needsAck = row.po_status === 'approved' && !row.receipt;
 
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="font-mono text-xs font-bold text-pq-neutral-900">{row.po_number}</span>
-          <span className={`inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 ${PO_STATUS_BADGE[row.po_status] ?? 'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200'}`}>
-            {PO_STATUS_LABEL[row.po_status] ?? row.po_status}
-          </span>
-          {row.receipt && (
-            <span className="inline-flex items-center gap-1 text-xs text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2 py-0.5">
-              <CheckCircle2 className="w-3 h-3" />
-              Acknowledged
-            </span>
-          )}
-        </div>
-        <p className="text-sm text-pq-neutral-900 truncate">{row.purpose}</p>
-        <div className="flex items-center gap-3 mt-1 flex-wrap">
-          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-            <CalendarDays className="w-3 h-3" />
-            Required by: {format(new Date(row.date_required), 'MMM d, yyyy')}
-          </span>
-          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-            <Warehouse className="w-3 h-3" />
-            {row.warehouse}
-          </span>
-          <span className="inline-flex items-center gap-1 text-xs text-pq-neutral-400">
-            <CreditCard className="w-3 h-3" />
-            {row.payment_terms}
-          </span>
-          {row.receipt?.commitment_date && (
-            <span className="inline-flex items-center gap-1 text-xs text-pq-primary-600">
-              <CalendarDays className="w-3 h-3" />
-              Delivery: {format(new Date(row.receipt.commitment_date), 'MMM d, yyyy')}
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="shrink-0">
+    <tr className="hover:bg-pq-neutral-50 transition">
+      <td className="px-5 py-3.5 font-mono text-xs font-bold text-pq-neutral-900 whitespace-nowrap">{row.po_number}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[180px] truncate">{row.purpose}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">{row.warehouse}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">{row.payment_terms}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
+      {row.receipt?.commitment_date && (
+        <td className="px-5 py-3.5 text-pq-primary-600 text-xs whitespace-nowrap">{format(new Date(row.receipt.commitment_date), 'MMM d, yyyy')}</td>
+      )}
+      {!row.receipt?.commitment_date && (
+        <td className="px-5 py-3.5 text-pq-neutral-400 text-xs">—</td>
+      )}
+      <td className="px-5 py-3.5 text-right">
         <Link
           href={`/supplier/po/${row.po_id}`}
           className={`inline-flex items-center gap-1 text-xs font-semibold transition ${
-            needsAck
-              ? 'text-pq-warning-600 hover:text-pq-warning-600'
-              : 'text-pq-neutral-500 hover:text-pq-neutral-900'
+            needsAck ? 'text-pq-warning-600 hover:text-pq-neutral-900' : 'text-pq-neutral-500 hover:text-pq-neutral-900'
           }`}
         >
           {needsAck ? 'Acknowledge PO' : 'View PO'}
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
-      </div>
-    </div>
-  );
-}
-
-function POSection({
-  title,
-  accent,
-  children,
-}: {
-  title: string;
-  accent: 'amber' | 'emerald' | 'slate';
-  children: React.ReactNode;
-}) {
-  const accentClass = {
-    amber:   'border-amber-300 bg-pq-warning-100 text-pq-warning-600',
-    emerald: 'border-pq-success-100 bg-pq-success-100 text-pq-success-600',
-    slate:   'border-pq-neutral-200 bg-pq-neutral-50 text-pq-neutral-500',
-  }[accent];
-
-  return (
-    <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
-        <h2 className="text-sm font-semibold text-pq-neutral-900">{title}</h2>
-      </div>
-      <div className="divide-y divide-pq-neutral-200">{children}</div>
-    </div>
+      </td>
+    </tr>
   );
 }

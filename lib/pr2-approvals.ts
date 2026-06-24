@@ -9,6 +9,8 @@ import type {
 import { createNotification, notifyApproversForStep } from '@/lib/notifications';
 import { fetchRfqQuoteAttachmentsByRfq } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
+import { fetchPR1Attachments } from '@/lib/pr1';
+import type { PR1Attachment } from '@/types/pr1';
 
 const db = supabase as any;
 
@@ -338,9 +340,19 @@ export async function fetchPR2ApprovalDetail(
 
   // Batch-fetch quote attachments by RFQ id (pr2.rfq_id is on the pr2_requests row)
   const rfqId: string | null = (pr2 as any).rfq_id ?? null;
-  const quoteAttachmentsByQuote: Record<string, RfqQuoteAttachment[]> = rfqId
-    ? await fetchRfqQuoteAttachmentsByRfq(rfqId).catch(() => ({}))
-    : {};
+  const [quoteAttachmentsByQuote, pr1AttachmentsByItem] = await Promise.all([
+    rfqId ? fetchRfqQuoteAttachmentsByRfq(rfqId).catch(() => ({})) : Promise.resolve({}),
+    pr2.pr1_id
+      ? fetchPR1Attachments(pr2.pr1_id).then((atts: PR1Attachment[]) => {
+          const map: Record<string, PR1Attachment[]> = {};
+          for (const att of atts) {
+            if (!map[att.pr1_item_id]) map[att.pr1_item_id] = [];
+            map[att.pr1_item_id].push(att);
+          }
+          return map;
+        }).catch(() => ({}))
+      : Promise.resolve({}),
+  ]) as [Record<string, RfqQuoteAttachment[]>, Record<string, PR1Attachment[]>];
 
   // Fetch PR1 priority and request_type from related PR1 record
   let pr1Priority: 'normal' | 'medium' | 'high' | undefined;
@@ -381,6 +393,7 @@ export async function fetchPR2ApprovalDetail(
       is_raw_material:      i.is_raw_material === true,
       quote_justification:  i.quote_justification ?? null,
       quote_attachments:    i.rfq_item_quote_id ? (quoteAttachmentsByQuote[i.rfq_item_quote_id] ?? []) : [],
+      attachments:          i.pr1_item_id ? (pr1AttachmentsByItem[i.pr1_item_id] ?? []) : [],
     })),
     phase1_instance_id:     phase1Inst?.id ?? inst.id,
     phase1_workflow_id:     phase1Inst?.workflow_id ?? inst.workflow_id,

@@ -11,6 +11,8 @@ import { createDeliveryForPO } from '@/lib/delivery';
 import { createNotification, notifyApproversForStep } from '@/lib/notifications';
 import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
+import { fetchPR1Attachments } from '@/lib/pr1';
+import type { PR1Attachment } from '@/types/pr1';
 
 const db = supabase as any;
 
@@ -225,7 +227,7 @@ export async function fetchPOApprovalDetail(
   const [poRes, itemsRes, stepsRes, actionsRes, receiptRes] = await Promise.all([
     db.from('po_requests').select('*').eq('id', inst.document_id).maybeSingle(),
     db.from('po_items')
-      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification, rfq_item_quote_id )')
+      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification, rfq_item_quote_id, pr1_item_id )')
       .eq('po_id', inst.document_id)
       .order('item_order', { ascending: true }),
     db.from('approval_steps')
@@ -275,10 +277,27 @@ export async function fetchPOApprovalDetail(
   const quoteIds = rawItems
     .map((r: any) => r.pr2_items?.rfq_item_quote_id)
     .filter((id: string | null | undefined): id is string => !!id);
-  const quoteAttachmentsByQuote: Record<string, RfqQuoteAttachment[]> =
+
+  const pr1IdFetch: string | null = po.pr2_id
+    ? await db.from('pr2_requests').select('pr1_id').eq('id', po.pr2_id).maybeSingle()
+        .then(({ data }: any) => data?.pr1_id ?? null).catch(() => null)
+    : null;
+
+  const [quoteAttachmentsByQuote, pr1AttachmentsByItem] = await Promise.all([
     quoteIds.length > 0
-      ? await fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({}))
-      : {};
+      ? fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({}))
+      : Promise.resolve({}),
+    pr1IdFetch
+      ? fetchPR1Attachments(pr1IdFetch).then((atts: PR1Attachment[]) => {
+          const map: Record<string, PR1Attachment[]> = {};
+          for (const att of atts) {
+            if (!map[att.pr1_item_id]) map[att.pr1_item_id] = [];
+            map[att.pr1_item_id].push(att);
+          }
+          return map;
+        }).catch(() => ({}))
+      : Promise.resolve({}),
+  ]) as [Record<string, RfqQuoteAttachment[]>, Record<string, PR1Attachment[]>];
 
   return {
     po_id:                       po.id,
@@ -320,6 +339,7 @@ export async function fetchPOApprovalDetail(
         quote_justification:  i.pr2_items?.quote_justification ?? null,
         rfq_item_quote_id:    rfqItemQuoteId,
         quote_attachments:    rfqItemQuoteId ? (quoteAttachmentsByQuote[rfqItemQuoteId] ?? []) : [],
+        attachments:          i.pr2_items?.pr1_item_id ? (pr1AttachmentsByItem[i.pr2_items.pr1_item_id] ?? []) : [],
         created_at:           i.created_at,
       };
     }),

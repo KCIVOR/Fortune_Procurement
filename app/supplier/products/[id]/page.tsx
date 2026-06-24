@@ -16,6 +16,7 @@ import {
   updateSupplierProduct,
   submitSupplierProductForReview,
   withdrawSupplierProduct,
+  requestProductReverification,
 } from '@/lib/supplier-products';
 import {
   uploadSupplierProductDocument,
@@ -30,12 +31,13 @@ import {
   Package,
   CheckCircle2,
   Circle,
-  Upload,
   FileText,
   ExternalLink,
   AlertCircle,
   Pencil,
   X,
+  CalendarClock,
+  RefreshCw,
 } from 'lucide-react';
 import {
   Select,
@@ -70,6 +72,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
     rejected: { variant: 'rejected', label: 'Rejected' },
     inactive: { variant: 'cancelled', label: 'Inactive' },
     withdrawn: { variant: 'cancelled', label: 'Withdrawn' },
+    expired:  { variant: 'cancelled', label: 'Expired' },
   };
   return map[status] ?? { variant: 'draft', label: status };
 }
@@ -95,10 +98,11 @@ function validateDocFile(file: File): string | null {
 // ─── Form state type ─────────────────────────────────────────────────────────
 
 interface ProductForm {
-  product_name: string;
-  product_code: string;
-  category: string;
-  description: string;
+  item_type:      'goods' | 'services';
+  product_name:   string;
+  product_code:   string;
+  category:       string;
+  description:    string;
   specifications: string;
 }
 
@@ -114,7 +118,7 @@ export default function SupplierProductDetailPage() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<ProductForm>({
-    product_name: '', product_code: '', category: '', description: '', specifications: '',
+    item_type: 'goods', product_name: '', product_code: '', category: '', description: '', specifications: '',
   });
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
@@ -152,10 +156,11 @@ export default function SupplierProductDetailPage() {
       if (!p) { setError('Product not found.'); return; }
       setProduct(p);
       setForm({
-        product_name: p.product_name,
-        product_code: p.product_code ?? '',
-        category: p.category ?? '',
-        description: p.description ?? '',
+        item_type:      (p.item_type ?? 'goods') as 'goods' | 'services',
+        product_name:   p.product_name,
+        product_code:   p.product_code ?? '',
+        category:       p.category ?? '',
+        description:    p.description ?? '',
         specifications: p.specifications ?? '',
       });
       const [, rse] = await Promise.all([
@@ -181,7 +186,11 @@ export default function SupplierProductDetailPage() {
 
   const handleSave = async () => {
     if (!profile || !product) return;
-    if (!form.product_name.trim()) { setFormError('Product name is required.'); return; }
+    const isServiceForm = form.item_type === 'services';
+    if (!form.product_name.trim()) {
+      setFormError(isServiceForm ? 'Service name is required.' : 'Product name is required.');
+      return;
+    }
     setBusy(true);
     setFormError('');
     setActionSuccess('');
@@ -189,10 +198,11 @@ export default function SupplierProductDetailPage() {
       await updateSupplierProduct(
         product.id,
         {
-          product_name: form.product_name,
-          product_code: form.product_code.trim() || null,
-          category: form.category.trim() || null,
-          description: form.description.trim() || null,
+          item_type:      form.item_type,
+          product_name:   form.product_name,
+          product_code:   isServiceForm ? null : (form.product_code.trim() || null),
+          category:       form.category.trim()       || null,
+          description:    form.description.trim()    || null,
           specifications: form.specifications.trim() || null,
         },
         profile
@@ -210,10 +220,11 @@ export default function SupplierProductDetailPage() {
   const handleCancelEdit = () => {
     if (!product) return;
     setForm({
-      product_name: product.product_name,
-      product_code: product.product_code ?? '',
-      category: product.category ?? '',
-      description: product.description ?? '',
+      item_type:      (product.item_type ?? 'goods') as 'goods' | 'services',
+      product_name:   product.product_name,
+      product_code:   product.product_code ?? '',
+      category:       product.category ?? '',
+      description:    product.description ?? '',
       specifications: product.specifications ?? '',
     });
     setFormError('');
@@ -270,12 +281,13 @@ export default function SupplierProductDetailPage() {
     }
   };
 
-  const isDraft = product?.status === 'draft';
+  const isDraft     = product?.status === 'draft';
   const isWithdrawn = product?.status === 'withdrawn';
-  const chip = product ? productChip(product.status) : null;
-  const canOffer = product?.status === 'verified';
-  const canWithdraw =
-    product?.status === 'draft' || product?.status === 'submitted';
+  const isExpired   = product?.status === 'expired';
+  const chip        = product ? productChip(product.status) : null;
+  const canOffer    = product?.status === 'verified';
+  const canWithdraw = product?.status === 'draft' || product?.status === 'submitted';
+  const isService   = (product?.item_type ?? 'goods') === 'services';
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -314,24 +326,44 @@ export default function SupplierProductDetailPage() {
 
           {/* ── Can Offer banner ── */}
           <div
-            className={`rounded-md border px-4 py-3 flex items-center gap-2.5 text-sm font-medium ${canOffer
+            className={`rounded-md border px-4 py-3 flex items-center gap-2.5 text-sm font-medium ${
+              canOffer
                 ? 'bg-pq-success-100 border-pq-success-100 text-pq-success-600'
-                : 'bg-pq-neutral-50 border-pq-neutral-200 text-pq-neutral-500'
-              }`}
+                : isExpired
+                  ? 'bg-pq-danger-100 border-pq-danger-100 text-pq-danger-600'
+                  : 'bg-pq-neutral-50 border-pq-neutral-200 text-pq-neutral-500'
+            }`}
           >
             {canOffer ? (
               <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : isExpired ? (
+              <CalendarClock className="w-4 h-4 shrink-0" />
             ) : (
               <Circle className="w-4 h-4 shrink-0 text-pq-neutral-400" />
             )}
             <span>
               {canOffer
-                ? 'Verified = Can Offer in RFQ / awardable when linked on a quote (requestor substitute rules still apply).'
-                : isWithdrawn
-                  ? 'This product was withdrawn and cannot be offered in procurement.'
-                  : 'Pending validation = Awardable directly only on non-raw-material lines; raw-material awards require procurement justification.'}
+                ? 'Verified — this product can be offered and awarded on RFQ quotes when substitute rules are met.'
+                : isExpired
+                  ? 'Expired — this product can still be offered on RFQ quotes, but Procurement will see that verification has expired. Re-verification is recommended before award.'
+                  : isWithdrawn
+                    ? 'This product was withdrawn and cannot be offered in procurement.'
+                    : 'Pending validation — this product can still be offered and awarded on RFQ quotes, but Procurement will see a notice that it is pending validation.'}
             </span>
           </div>
+
+          {/* ── Expired notice ── */}
+          {isExpired && (
+            <div className="rounded-md border border-pq-warning-100 bg-pq-warning-100 px-4 py-3 text-sm text-pq-warning-600">
+              <p className="font-semibold mb-0.5">Verification Expired</p>
+              <p className="text-xs font-normal">
+                Verification expired
+                {product.valid_until ? ` on ${format(new Date(product.valid_until), 'MMM d, yyyy')}` : ''}.
+                You can still offer this {isService ? 'service' : 'product'} on RFQ quotes — Procurement will see the expiry notice.
+                Click <strong>Request Re-verification</strong> below to renew your verification.
+              </p>
+            </div>
+          )}
 
           {profile && (
             <ComplianceTraceability anchor={{ kind: 'product', id: product.id }} role={profile.role} />
@@ -346,7 +378,7 @@ export default function SupplierProductDetailPage() {
           {/* ── Product details card ── */}
           <div className="bg-white rounded-md border border-pq-neutral-200">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-pq-neutral-200">
-              <h2 className="text-sm font-semibold text-pq-neutral-900">Product Details</h2>
+              <h2 className="text-sm font-semibold text-pq-neutral-900">{isService ? 'Service Details' : 'Product Details'}</h2>
               {isDraft && !editing && !isWithdrawn && (
                 <button
                   type="button"
@@ -379,7 +411,30 @@ export default function SupplierProductDetailPage() {
                     </div>
                   )}
 
-                  <FormField label="Product Name" required>
+                  {/* Offering type toggle — only changeable while draft */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                      Offering Type
+                    </label>
+                    <div className="flex rounded-md border border-pq-neutral-200 overflow-hidden w-fit">
+                      {(['goods', 'services'] as const).map(t => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setForm(prev => ({ ...prev, item_type: t }))}
+                          className={`px-5 py-2 text-sm font-medium transition ${
+                            form.item_type === t
+                              ? 'bg-pq-primary-600 text-white'
+                              : 'bg-white text-pq-neutral-500 hover:bg-pq-neutral-50'
+                          }`}
+                        >
+                          {t === 'goods' ? 'Goods' : 'Services'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <FormField label={form.item_type === 'services' ? 'Service Name' : 'Product Name'} required>
                     <input
                       type="text"
                       name="product_name"
@@ -389,43 +444,48 @@ export default function SupplierProductDetailPage() {
                     />
                   </FormField>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <FormField label="Product Code / SKU">
-                      <input
-                        type="text"
-                        name="product_code"
-                        value={form.product_code}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
-                      />
-                    </FormField>
+                  <div className={`grid grid-cols-1 gap-5 ${form.item_type === 'services' ? '' : 'sm:grid-cols-2'}`}>
+                    {form.item_type === 'goods' && (
+                      <FormField label="Product Code / SKU">
+                        <input
+                          type="text"
+                          name="product_code"
+                          value={form.product_code}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+                        />
+                      </FormField>
+                    )}
                     <FormField label="Category">
                       <input
                         type="text"
                         name="category"
                         value={form.category}
                         onChange={handleChange}
+                        placeholder={form.item_type === 'services' ? 'e.g. Maintenance, Consulting, Security' : 'e.g. Chemicals, Reagents'}
                         className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
                       />
                     </FormField>
                   </div>
 
-                  <FormField label="Description">
+                  <FormField label={form.item_type === 'services' ? 'Scope of Service' : 'Description'}>
                     <textarea
                       name="description"
                       value={form.description}
                       onChange={handleChange}
                       rows={3}
+                      placeholder={form.item_type === 'services' ? 'Describe what is included in this service offering' : 'Short description of the product'}
                       className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                     />
                   </FormField>
 
-                  <FormField label="Specifications">
+                  <FormField label={form.item_type === 'services' ? 'Terms & Conditions / SLA' : 'Specifications'}>
                     <textarea
                       name="specifications"
                       value={form.specifications}
                       onChange={handleChange}
                       rows={5}
+                      placeholder={form.item_type === 'services' ? 'SLA, billing model, coverage period, support hours, exclusions, response time, etc.' : 'Technical specifications: purity, grade, packaging, storage conditions, etc.'}
                       className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                     />
                   </FormField>
@@ -442,16 +502,35 @@ export default function SupplierProductDetailPage() {
               ) : (
                 /* Read-only view */
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <InfoField label="Product Code" value={product.product_code ?? '—'} />
+                  {/* Offering type badge */}
+                  <div>
+                    <p className="text-xs text-pq-neutral-400 mb-1">Offering Type</p>
+                    <span className={`inline-flex text-xs font-semibold border rounded-full px-2.5 py-0.5 ${
+                      isService
+                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>
+                      {isService ? 'Services' : 'Goods'}
+                    </span>
+                  </div>
+                  {!isService && (
+                    <InfoField label="Product Code" value={product.product_code ?? '—'} />
+                  )}
                   <InfoField label="Category" value={product.category ?? '—'} />
                   {product.description && (
                     <div className="sm:col-span-2">
-                      <InfoField label="Description" value={product.description} />
+                      <InfoField
+                        label={isService ? 'Scope of Service' : 'Description'}
+                        value={product.description}
+                      />
                     </div>
                   )}
                   {product.specifications && (
                     <div className="sm:col-span-2">
-                      <InfoField label="Specifications" value={product.specifications} />
+                      <InfoField
+                        label={isService ? 'Terms & Conditions / SLA' : 'Specifications'}
+                        value={product.specifications}
+                      />
                     </div>
                   )}
                   {product.submitted_at && (
@@ -517,7 +596,7 @@ export default function SupplierProductDetailPage() {
               </div>
               <p className="text-xs text-pq-neutral-400">
                 Upload supporting documents below before submitting. Once submitted, you cannot
-                edit this product until the review is complete.
+                edit this {isService ? 'service offering' : 'product'} until the review is complete.
               </p>
               {canWithdraw && profile && (
                 <div className="pt-2 border-t border-pq-neutral-200 mt-3">
@@ -625,13 +704,57 @@ export default function SupplierProductDetailPage() {
             </div>
           )}
 
-          {/* Success / errors for non-draft (e.g. after submit or withdraw from submitted) */}
-          {!isDraft && actionError && (
+          {/* ── Request Re-verification (expired only) ── */}
+          {isExpired && profile && (
+            <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-3">
+              {actionError && (
+                <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
+                  {actionError}
+                </div>
+              )}
+              {actionSuccess && (
+                <div className="bg-pq-success-100 border border-pq-success-100 rounded-md p-3 text-sm text-pq-success-600 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  {actionSuccess}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!profile || !product) return;
+                  setBusy(true);
+                  setActionError('');
+                  setActionSuccess('');
+                  try {
+                    await requestProductReverification(product.id, profile);
+                    await load();
+                    setActionSuccess('Re-verification request submitted. Procurement has been notified.');
+                  } catch (err: unknown) {
+                    setActionError((err as Error)?.message || 'Failed to request re-verification.');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                disabled={busy}
+                className="flex items-center gap-1.5 px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
+              >
+                <RefreshCw className="w-4 h-4" />
+                {busy ? 'Submitting…' : 'Request Re-verification'}
+              </button>
+              <p className="text-xs text-pq-neutral-400">
+                This will resubmit the {isService ? 'service' : 'product'} for Procurement review.
+                Procurement will be notified and will re-evaluate the listing.
+              </p>
+            </div>
+          )}
+
+          {/* Success / errors for non-draft, non-expired (e.g. after withdraw from submitted) */}
+          {!isDraft && !isExpired && actionError && (
             <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
               {actionError}
             </div>
           )}
-          {!isDraft && actionSuccess && (
+          {!isDraft && !isExpired && actionSuccess && (
             <div className="bg-pq-success-100 border border-pq-success-100 rounded-md p-3 text-sm text-pq-success-600 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               {actionSuccess}
@@ -750,8 +873,8 @@ export default function SupplierProductDetailPage() {
             )}
           </div>
 
-          {/* ── TSQA / RSE evaluation section (read-only for supplier) ── */}
-          {rseRecords.length > 0 && (
+          {/* ── TSQA / RSE evaluation section (goods only; services skip TSQA) ── */}
+          {!isService && rseRecords.length > 0 && (
             <div className="bg-white rounded-md border border-pq-neutral-200">
               <div className="px-5 py-3.5 border-b border-pq-neutral-200">
                 <h2 className="text-sm font-semibold text-pq-neutral-900">Technical Evaluation (RSE)</h2>
@@ -764,7 +887,7 @@ export default function SupplierProductDetailPage() {
             </div>
           )}
 
-          {product?.status === 'pending_tsqa' && rseRecords.length === 0 && (
+          {!isService && product?.status === 'pending_tsqa' && rseRecords.length === 0 && (
             <div className="bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-4 py-3 text-sm text-pq-neutral-500">
               This product is currently under technical evaluation by TSQA. Results will be reflected here once complete.
             </div>

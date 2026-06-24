@@ -729,6 +729,7 @@ export default function RfqDetailPage() {
                         suppliers={suppliers}
                         canSelect={isOpen && !isClosed}
                         canViewPrices={canViewPrices}
+                        requestType={pr1.request_type ?? 'goods'}
                         onSelect={handleSelectWinner}
                       />
                     ))}
@@ -812,12 +813,14 @@ function MatrixRow({
   suppliers,
   canSelect,
   canViewPrices,
+  requestType,
   onSelect,
 }: {
   row: QuoteMatrixRow;
   suppliers: { id: string; supplier_name_snapshot: string; status: string }[];
   canSelect: boolean;
   canViewPrices: boolean;
+  requestType: 'goods' | 'services';
   onSelect: (pr1ItemId: string, rfqSupplierId: string) => void;
 }) {
   return (
@@ -966,6 +969,30 @@ function MatrixRow({
                           Review product →
                         </Link>
                       )}
+
+                      {quote.supplier_product_item_type !== null &&
+                        quote.supplier_product_item_type !== requestType && (
+                          <p className="text-[10px] font-semibold text-pq-warning-700 flex items-center gap-0.5">
+                            <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                            Type mismatch — supplier offered{' '}
+                            <span className={`mx-0.5 rounded px-1 py-px ${
+                              quote.supplier_product_item_type === 'services'
+                                ? 'bg-purple-50 text-purple-700'
+                                : 'bg-blue-50 text-blue-700'
+                            }`}>
+                              {quote.supplier_product_item_type === 'services' ? 'Services' : 'Goods'}
+                            </span>
+                            for a{' '}
+                            <span className={`mx-0.5 rounded px-1 py-px ${
+                              requestType === 'services'
+                                ? 'bg-purple-50 text-purple-700'
+                                : 'bg-blue-50 text-blue-700'
+                            }`}>
+                              {requestType === 'services' ? 'Services' : 'Goods'}
+                            </span>
+                            request
+                          </p>
+                        )}
 
                       {showQuotedDesc && (
                         <p className="text-xs text-pq-neutral-500 leading-snug">{quotedDesc}</p>

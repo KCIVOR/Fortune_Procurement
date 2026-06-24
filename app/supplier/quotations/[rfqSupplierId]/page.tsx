@@ -38,6 +38,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -123,6 +124,8 @@ function describeProductStatus(status: string | null | undefined): {
       return { kind: 'pending', label: 'Under review' };
     case 'pending_tsqa':
       return { kind: 'pending', label: 'Pending TSQA' };
+    case 'expired':
+      return { kind: 'pending', label: 'Expired' };
     default:
       return { kind: 'unknown', label: status ? status.replace(/_/g, ' ') : 'Unknown' };
   }
@@ -179,7 +182,11 @@ export default function SupplierQuotationPage() {
   const [pickerLineIndex, setPickerLineIndex] = useState<number | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerCategory, setPickerCategory] = useState<string>('__all__');
+  const [pickerType, setPickerType] = useState<'__all__' | 'goods' | 'services'>('__all__');
   const [pickerPage, setPickerPage] = useState(1);
+
+  // Type-mismatch confirmation (product type ≠ RFQ type)
+  const [mismatchPending, setMismatchPending] = useState<{ productId: string; lineIndex: number } | null>(null);
 
   useEffect(() => {
     if (!rfqSupplierId || !profile) return;
@@ -273,6 +280,7 @@ export default function SupplierQuotationPage() {
     setPickerLineIndex(lineIndex);
     setPickerSearch('');
     setPickerCategory('__all__');
+    setPickerType('__all__');
     setPickerPage(1);
   };
 
@@ -282,13 +290,20 @@ export default function SupplierQuotationPage() {
 
   const confirmPickerProduct = (productId: string) => {
     if (pickerLineIndex === null) return;
+    const product = availableProducts.find(p => p.id === productId);
+    const rfqType = isServiceRfq ? 'services' : 'goods';
+    if (product && (product.item_type ?? 'goods') !== rfqType) {
+      setMismatchPending({ productId, lineIndex: pickerLineIndex });
+      closeProductPicker();
+      return;
+    }
     handleProductSelect(pickerLineIndex, productId);
     closeProductPicker();
   };
 
   useEffect(() => {
     setPickerPage(1);
-  }, [pickerSearch, pickerCategory]);
+  }, [pickerSearch, pickerCategory, pickerType]);
 
   const pickerCategoryKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -304,6 +319,9 @@ export default function SupplierQuotationPage() {
 
   const pickerFilteredProducts = useMemo(() => {
     let list = availableProducts;
+    if (pickerType !== '__all__') {
+      list = list.filter(p => (p.item_type ?? 'goods') === pickerType);
+    }
     if (pickerCategory !== '__all__') {
       list = list.filter(p => supplierProductCategoryKey(p) === pickerCategory);
     }
@@ -323,7 +341,7 @@ export default function SupplierQuotationPage() {
       });
     }
     return list;
-  }, [availableProducts, pickerCategory, pickerSearch]);
+  }, [availableProducts, pickerCategory, pickerType, pickerSearch]);
 
   const pickerTotalPages = Math.max(
     1,
@@ -600,9 +618,10 @@ export default function SupplierQuotationPage() {
   );
 
   const { rfq, pr1, items } = detail;
-  const isClosed   = rfq.status === 'closed';
-  const canSubmit  = rfq.status === 'open' && !isClosed;
-  const isReadOnly = isClosed;
+  const isClosed      = rfq.status === 'closed';
+  const canSubmit     = rfq.status === 'open' && !isClosed;
+  const isReadOnly    = isClosed;
+  const isServiceRfq  = (pr1.request_type ?? 'goods') === 'services';
 
   return (
     <AppShell title="Submit Quotation">
@@ -704,11 +723,11 @@ export default function SupplierQuotationPage() {
               <div className="flex items-center gap-1.5 mb-1">
                 <Package className="w-3.5 h-3.5 text-pq-neutral-400" />
                 <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                  Catalog Products
+                  {isServiceRfq ? 'Catalog Services' : 'Catalog Products'}
                 </p>
               </div>
               <p className="text-xs text-pq-neutral-400">
-                {availableProducts.length} available for selection
+                {availableProducts.length} {isServiceRfq ? 'service offering' : 'product'}{availableProducts.length !== 1 ? 's' : ''} available
                 {(() => {
                   const verifiedCount = availableProducts.filter(p => p.status === 'verified').length;
                   const pendingCount = availableProducts.length - verifiedCount;
@@ -757,6 +776,13 @@ export default function SupplierQuotationPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-pq-neutral-900">{item.description}</p>
                       <RawMaterialBadge isRawMaterial={item.is_raw_material} size="sm" />
+                      <span className={`inline-flex items-center text-[10px] font-semibold rounded px-1.5 py-0.5 ${
+                        isServiceRfq
+                          ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                          : 'bg-blue-50 text-blue-700 border border-blue-200'
+                      }`}>
+                        {isServiceRfq ? 'Services' : 'Goods'}
+                      </span>
                       {item.attachments && item.attachments.length > 0 && (
                         <PR1AttachmentsGallery attachments={item.attachments} />
                       )}
@@ -793,7 +819,7 @@ export default function SupplierQuotationPage() {
                           }`}
                         >
                           <Package className="inline w-3 h-3 mr-1" />
-                          Select Catalog Product
+                          {isServiceRfq ? 'Select Catalog Service' : 'Select Catalog Product'}
                         </button>
                         <button
                           type="button"
@@ -817,7 +843,7 @@ export default function SupplierQuotationPage() {
                           }`}
                         >
                           <PlusCircle className="inline w-3 h-3 mr-1" />
-                          Propose New Product
+                          {isServiceRfq ? 'Propose New Service' : 'Propose New Product'}
                         </button>
                         <button
                           type="button"
@@ -865,11 +891,11 @@ export default function SupplierQuotationPage() {
                           {availableProducts.length === 0 ? (
                             <div className="flex items-center gap-2 px-3 py-2 border border-pq-neutral-200 bg-pq-neutral-50 rounded-md text-xs text-pq-neutral-600">
                               <Info className="w-3.5 h-3.5 shrink-0" />
-                              No catalog products yet.{' '}
+                              {isServiceRfq ? 'No catalog services yet.' : 'No catalog products yet.'}{' '}
                               <Link href="/supplier/products" className="underline font-medium">
-                                Add to your Product Catalog
+                                {isServiceRfq ? 'Add to your Catalog' : 'Add to your Product Catalog'}
                               </Link>{' '}
-                              or use &ldquo;Manual Entry&rdquo;, &ldquo;Propose New Product&rdquo;, or &ldquo;No Quote&rdquo; above.
+                              or use &ldquo;Manual Entry&rdquo;, &ldquo;{isServiceRfq ? 'Propose New Service' : 'Propose New Product'}&rdquo;, or &ldquo;No Quote&rdquo; above.
                             </div>
                           ) : (
                             <div className="space-y-3">
@@ -965,7 +991,7 @@ export default function SupplierQuotationPage() {
                           <div className="px-4 py-3 bg-pq-primary-50 border-b border-pq-neutral-200 flex items-center justify-between">
                             <p className="text-xs font-semibold text-pq-primary-600">
                               <PlusCircle className="inline w-3.5 h-3.5 mr-1" />
-                              Propose New Product for Validation
+                              {isServiceRfq ? 'Propose New Service for Validation' : 'Propose New Product for Validation'}
                             </p>
                             <p className="text-xs text-pq-primary-600">
                               Product will be submitted to Procurement for review.
@@ -1003,50 +1029,52 @@ export default function SupplierQuotationPage() {
                             </div>
                           ) : (
                             <div className="p-4 space-y-3">
-                              <ProposalField label="Product Name *">
+                              <ProposalField label={isServiceRfq ? 'Service Name *' : 'Product Name *'}>
                                 <input
                                   type="text"
                                   value={proposalForm.product_name}
                                   onChange={e => updateProposalForm(index, 'product_name', e.target.value)}
-                                  placeholder="e.g. Rust Inhibitor Primer Type B"
+                                  placeholder={isServiceRfq ? 'e.g. Annual Preventive Maintenance, IT Consulting' : 'e.g. Rust Inhibitor Primer Type B'}
                                   className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
                                 />
                               </ProposalField>
-                              <div className="grid grid-cols-2 gap-3">
-                                <ProposalField label="Product Code (optional)">
-                                  <input
-                                    type="text"
-                                    value={proposalForm.product_code}
-                                    onChange={e => updateProposalForm(index, 'product_code', e.target.value)}
-                                    placeholder="SKU or part number"
-                                    className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
-                                  />
-                                </ProposalField>
+                              <div className={`grid gap-3 ${isServiceRfq ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                                {!isServiceRfq && (
+                                  <ProposalField label="Product Code (optional)">
+                                    <input
+                                      type="text"
+                                      value={proposalForm.product_code}
+                                      onChange={e => updateProposalForm(index, 'product_code', e.target.value)}
+                                      placeholder="SKU or part number"
+                                      className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
+                                    />
+                                  </ProposalField>
+                                )}
                                 <ProposalField label="Category (optional)">
                                   <input
                                     type="text"
                                     value={proposalForm.category}
                                     onChange={e => updateProposalForm(index, 'category', e.target.value)}
-                                    placeholder="e.g. Chemicals, Hardware"
+                                    placeholder={isServiceRfq ? 'e.g. Maintenance, Consulting, IT Services' : 'e.g. Chemicals, Hardware'}
                                     className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
                                   />
                                 </ProposalField>
                               </div>
-                              <ProposalField label="Description (optional)">
+                              <ProposalField label={isServiceRfq ? 'Scope of Service (optional)' : 'Description (optional)'}>
                                 <textarea
                                   rows={2}
                                   value={proposalForm.description}
                                   onChange={e => updateProposalForm(index, 'description', e.target.value)}
-                                  placeholder="Brief product description..."
+                                  placeholder={isServiceRfq ? 'Describe what is included in this service offering' : 'Brief product description...'}
                                   className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
                                 />
                               </ProposalField>
-                              <ProposalField label="Specifications (optional)">
+                              <ProposalField label={isServiceRfq ? 'Terms & Conditions / SLA (optional)' : 'Specifications (optional)'}>
                                 <textarea
                                   rows={2}
                                   value={proposalForm.specifications}
                                   onChange={e => updateProposalForm(index, 'specifications', e.target.value)}
-                                  placeholder="Technical specs, standards, grades..."
+                                  placeholder={isServiceRfq ? 'SLA, billing model, response time, coverage period...' : 'Technical specs, standards, grades...'}
                                   className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
                                 />
                               </ProposalField>
@@ -1169,14 +1197,14 @@ export default function SupplierQuotationPage() {
                   {/* Quoted description */}
                   <div>
                     <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
-                      Quoted Item / Specification <span className="text-pq-danger-600">*</span>
+                      {isServiceRfq ? 'Quoted Service / Description' : 'Quoted Item / Specification'} <span className="text-pq-danger-600">*</span>
                     </label>
                     <input
                       type="text"
                       value={draft.quoted_description}
                       onChange={e => updateDraft(index, 'quoted_description', e.target.value)}
                       disabled={isReadOnly}
-                      placeholder="Brand, model, exact specification..."
+                      placeholder={isServiceRfq ? 'Service name, scope, or offering description...' : 'Brand, model, exact specification...'}
                       className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-pq-neutral-50 disabled:text-pq-neutral-500"
                     />
                   </div>
@@ -1207,7 +1235,7 @@ export default function SupplierQuotationPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
-                        Lead Time (days) <span className="text-pq-danger-600">*</span>
+                        {isServiceRfq ? 'Delivery Timeline (days)' : 'Lead Time (days)'} <span className="text-pq-danger-600">*</span>
                       </label>
                       <input
                         type="number"
@@ -1303,10 +1331,12 @@ export default function SupplierQuotationPage() {
         <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden sm:rounded-lg border-pq-neutral-200 bg-white">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-pq-neutral-200 shrink-0 text-left space-y-1.5">
             <DialogTitle className="text-lg font-semibold text-pq-neutral-900">
-              Select Catalog Product
+              {isServiceRfq ? 'Select Catalog Service' : 'Select Catalog Product'}
             </DialogTitle>
             <DialogDescription className="text-sm text-pq-neutral-500">
-              Choose a verified or in-flight product from your catalog. Procurement will see the verification state during canvassing.
+              {isServiceRfq
+                ? 'Choose a verified or in-flight service offering from your catalog. Procurement will see the verification state during canvassing.'
+                : 'Choose a verified or in-flight product from your catalog. Procurement will see the verification state during canvassing.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1318,6 +1348,16 @@ export default function SupplierQuotationPage() {
               className="text-sm border-pq-neutral-200 flex-1"
               aria-label="Search catalog products"
             />
+            <select
+              value={pickerType}
+              onChange={e => setPickerType(e.target.value as '__all__' | 'goods' | 'services')}
+              className="h-10 rounded-md border border-pq-neutral-200 bg-white px-3 text-sm text-pq-neutral-900 min-w-[8rem]"
+              aria-label="Filter by type"
+            >
+              <option value="__all__">All types</option>
+              <option value="goods">Goods</option>
+              <option value="services">Services</option>
+            </select>
             <select
               value={pickerCategory}
               onChange={e => setPickerCategory(e.target.value)}
@@ -1348,6 +1388,9 @@ export default function SupplierQuotationPage() {
                     <TableHead className="text-[10px] uppercase text-pq-neutral-500 font-semibold w-[100px]">
                       Code
                     </TableHead>
+                    <TableHead className="text-[10px] uppercase text-pq-neutral-500 font-semibold w-[80px]">
+                      Type
+                    </TableHead>
                     <TableHead className="text-[10px] uppercase text-pq-neutral-500 font-semibold hidden md:table-cell">
                       Category
                     </TableHead>
@@ -1375,7 +1418,16 @@ export default function SupplierQuotationPage() {
                         {p.product_name}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-pq-neutral-500 align-top">
-                        {p.product_code?.trim() ? p.product_code : '—'}
+                        {p.item_type === 'services' ? '—' : (p.product_code?.trim() ? p.product_code : '—')}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <span className={`inline-flex text-[10px] font-semibold border rounded-full px-2 py-0.5 whitespace-nowrap ${
+                          p.item_type === 'services'
+                            ? 'bg-purple-50 text-purple-700 border-purple-200'
+                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                        }`}>
+                          {p.item_type === 'services' ? 'Services' : 'Goods'}
+                        </span>
                       </TableCell>
                       <TableCell className="text-xs text-pq-neutral-500 align-top hidden md:table-cell">
                         {categoryOptionLabel(supplierProductCategoryKey(p))}
@@ -1457,6 +1509,48 @@ export default function SupplierQuotationPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Type mismatch confirmation */}
+      <Dialog open={mismatchPending !== null} onOpenChange={open => { if (!open) setMismatchPending(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-pq-warning-600 shrink-0" />
+              Type mismatch
+            </DialogTitle>
+            <DialogDescription className="text-left">
+              {(() => {
+                const product = availableProducts.find(p => p.id === mismatchPending?.productId);
+                const productType = (product?.item_type ?? 'goods') === 'services' ? 'Services' : 'Goods';
+                const rfqType = isServiceRfq ? 'Services' : 'Goods';
+                return (
+                  <span>
+                    You selected a <strong>{productType}</strong> offering for a <strong>{rfqType}</strong> request. Procurement will see a type mismatch notice during canvassing and may request justification before awarding.
+                    <br /><br />
+                    Do you want to proceed?
+                  </span>
+                );
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 flex-row justify-end">
+            <Button variant="outline" size="sm" onClick={() => setMismatchPending(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-pq-warning-600 hover:bg-pq-warning-700 text-white"
+              onClick={() => {
+                if (!mismatchPending) return;
+                handleProductSelect(mismatchPending.lineIndex, mismatchPending.productId);
+                setMismatchPending(null);
+              }}
+            >
+              Proceed anyway
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppShell>

@@ -39,7 +39,9 @@ import {
   Eye,
   MessageSquare,
   RotateCcw,
+  CalendarClock,
 } from 'lucide-react';
+import { differenceInDays } from 'date-fns';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -52,6 +54,7 @@ function accreditationChip(status: string): { variant: StatusVariant; label: str
     approved:          { variant: 'approved',  label: 'Accredited' },
     rejected:          { variant: 'rejected',  label: 'Rejected' },
     withdrawn:         { variant: 'cancelled', label: 'Withdrawn' },
+    expired:           { variant: 'cancelled', label: 'Expired' },
   };
   return map[status] ?? { variant: 'draft', label: status };
 }
@@ -238,7 +241,8 @@ export default function AccreditationDetailPage() {
   const canApprove         = status === 'submitted' || status === 'under_review' || status === 'missing_documents';
   const canReject          = status === 'submitted' || status === 'under_review' || status === 'missing_documents';
   const isClosed           = status === 'rejected' || status === 'withdrawn';
-  const canPostApproval    = status === 'approved';
+  const canPostApproval    = status === 'approved' || status === 'expired';
+  const canRevoke          = status === 'approved';
   const showReviewActions  = !isClosed && !canPostApproval;
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -293,6 +297,36 @@ export default function AccreditationDetailPage() {
               </div>
             )}
 
+            {status === 'expired' && (
+              <div className="rounded-md border border-pq-danger-100 bg-pq-danger-100 px-4 py-3 flex items-start gap-2.5">
+                <CalendarClock className="w-4 h-4 text-pq-danger-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-pq-danger-600">Accreditation Expired</p>
+                  <p className="text-xs text-pq-danger-600 mt-0.5">
+                    This accreditation has expired
+                    {accreditation.valid_until
+                      ? ` on ${format(new Date(accreditation.valid_until), 'MMMM d, yyyy')}`
+                      : ''}.
+                    Use <span className="font-semibold">Reopen for Review</span> to begin a renewal.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {status === 'approved' && accreditation.valid_until && (() => {
+              const daysLeft = differenceInDays(new Date(accreditation.valid_until), new Date());
+              if (daysLeft <= 30) return (
+                <div className="rounded-md border border-pq-warning-100 bg-pq-warning-100 px-4 py-3 flex items-start gap-2.5">
+                  <CalendarClock className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-pq-warning-600">
+                    <span className="font-semibold">Expiring soon —</span>{' '}
+                    valid until {format(new Date(accreditation.valid_until), 'MMMM d, yyyy')} ({daysLeft} day{daysLeft !== 1 ? 's' : ''} left).
+                  </p>
+                </div>
+              );
+              return null;
+            })()}
+
             {/* Key dates */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <InfoField
@@ -315,6 +349,12 @@ export default function AccreditationDetailPage() {
                 <InfoField
                   label="Approved"
                   value={format(new Date(accreditation.approved_at), 'MMM d, yyyy')}
+                />
+              )}
+              {accreditation.valid_until && (
+                <InfoField
+                  label="Valid Until"
+                  value={format(new Date(accreditation.valid_until), 'MMM d, yyyy')}
                 />
               )}
               {accreditation.rejected_at && (
@@ -536,17 +576,19 @@ export default function AccreditationDetailPage() {
                   Reopen for Review
                 </button>
 
-                <button
-                  onClick={() => openPanel(activePanel === 'revoke' ? 'none' : 'revoke')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
-                    activePanel === 'revoke'
-                      ? 'bg-pq-danger-100 text-pq-danger-600 border-red-300'
-                      : 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100 hover:bg-pq-danger-100'
-                  }`}
-                >
-                  <XCircle className="w-3.5 h-3.5" />
-                  Revoke Accreditation
-                </button>
+                {canRevoke && (
+                  <button
+                    onClick={() => openPanel(activePanel === 'revoke' ? 'none' : 'revoke')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                      activePanel === 'revoke'
+                        ? 'bg-pq-danger-100 text-pq-danger-600 border-red-300'
+                        : 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100 hover:bg-pq-danger-100'
+                    }`}
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Revoke Accreditation
+                  </button>
+                )}
               </div>
 
               {activePanel !== 'none' && (
@@ -596,7 +638,7 @@ export default function AccreditationDetailPage() {
                         Revocation Reason (required)
                       </p>
                       <p className="text-xs text-pq-neutral-400">
-                        Marks accreditation as rejected. Existing RFQ assignments are not automatically cancelled.
+                        Marks accreditation as expired. Existing RFQ assignments are not automatically cancelled.
                       </p>
                       <textarea
                         value={noteInput}
@@ -723,6 +765,7 @@ function LinkedProductRow({ product }: { product: ProductWithRSESummary }) {
     rejected:     'Rejected',
     inactive:     'Inactive',
     withdrawn:    'Withdrawn',
+    expired:      'Expired',
   };
 
   return (

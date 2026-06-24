@@ -433,12 +433,12 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
     const latestAccBySupplier: Record<string, string | null> = {};
     const countsBySupplier: Record<
       string,
-      { v: number; p: number; r: number; w: number }
+      { v: number; vg: number; vs: number; p: number; r: number; w: number }
     > = {};
 
     for (const id of candidateUserIds) {
       latestAccBySupplier[id] = null;
-      countsBySupplier[id] = { v: 0, p: 0, r: 0, w: 0 };
+      countsBySupplier[id] = { v: 0, vg: 0, vs: 0, p: 0, r: 0, w: 0 };
     }
 
     if (candidateUserIds.length > 0) {
@@ -449,7 +449,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
           .in('supplier_id', candidateUserIds),
         db
           .from('supplier_products')
-          .select('supplier_id, status')
+          .select('supplier_id, status, item_type')
           .in('supplier_id', candidateUserIds),
       ]);
 
@@ -480,12 +480,16 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
       for (const row of (prodRes.data ?? []) as {
         supplier_id: string;
         status: string;
+        item_type: string;
       }[]) {
         const bucket = countsBySupplier[row.supplier_id];
         if (!bucket) continue;
         const st = row.status;
-        if (st === 'verified') bucket.v++;
-        else if (
+        const isService = (row.item_type ?? 'goods') === 'services';
+        if (st === 'verified') {
+          bucket.v++;
+          if (isService) bucket.vs++; else bucket.vg++;
+        } else if (
           st === 'submitted' ||
           st === 'under_review' ||
           st === 'pending_tsqa'
@@ -501,10 +505,12 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
       full_name:               p.full_name,
       email:                   p.email ?? null,
       accreditation_status:    latestAccBySupplier[p.id] ?? null,
-      verified_product_count:  countsBySupplier[p.id]?.v ?? 0,
-      pending_product_count:   countsBySupplier[p.id]?.p ?? 0,
-      rejected_product_count:  countsBySupplier[p.id]?.r ?? 0,
-      withdrawn_product_count: countsBySupplier[p.id]?.w ?? 0,
+      verified_product_count:  countsBySupplier[p.id]?.v  ?? 0,
+      verified_goods_count:    countsBySupplier[p.id]?.vg ?? 0,
+      verified_service_count:  countsBySupplier[p.id]?.vs ?? 0,
+      pending_product_count:   countsBySupplier[p.id]?.p  ?? 0,
+      rejected_product_count:  countsBySupplier[p.id]?.r  ?? 0,
+      withdrawn_product_count: countsBySupplier[p.id]?.w  ?? 0,
     }));
   }
 
@@ -527,13 +533,14 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
   if (linkedProductIds.length > 0) {
     const { data: products } = await db
       .from('supplier_products')
-      .select('id, product_name, product_code, status')
+      .select('id, product_name, product_code, status, item_type')
       .in('id', linkedProductIds);
     for (const p of (products ?? []) as any[]) {
       productLookup[p.id as string] = {
         product_name: p.product_name as string,
         product_code: p.product_code as string | null,
         status:       p.status as string,
+        item_type:    ((p.item_type ?? 'goods') as 'goods' | 'services'),
       };
     }
   }
@@ -601,10 +608,11 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
         total_price:             quote ? Number(quote.unit_price) * item.quantity_requested : 0,
         is_selected:             selection?.selected_rfq_supplier_id === supplier.id,
         substitute_decision:     quote ? decisionByQuoteId[quote.id] ?? null : null,
-        supplier_product_id:     productId,
-        supplier_product_name:   productInfo?.product_name   ?? null,
-        supplier_product_code:   productInfo?.product_code   ?? null,
-        supplier_product_status: productInfo?.status         ?? null,
+        supplier_product_id:        productId,
+        supplier_product_name:      productInfo?.product_name  ?? null,
+        supplier_product_code:      productInfo?.product_code  ?? null,
+        supplier_product_status:    productInfo?.status        ?? null,
+        supplier_product_item_type: productInfo?.item_type     ?? null,
         verification_status:     verificationStatus,
         response_status:         responseStatus,
         no_quote_reason:         noQuoteReason,
@@ -1493,6 +1501,7 @@ export interface SupplierQuoteDetail {
     pr1_number:              string;
     department_name_snapshot: string;
     purpose:                 string;
+    request_type:            'goods' | 'services';
   };
   items: {
     id:                 string;
@@ -1540,7 +1549,7 @@ export async function fetchSupplierQuoteDetail(
 
   const [pr1Res, pr1ItemsRes, legacyIds, attachments] = await Promise.all([
     db.from('pr1_requests')
-      .select('pr1_number, department_name_snapshot, purpose')
+      .select('pr1_number, department_name_snapshot, purpose, request_type')
       .eq('id', rfq.pr1_id)
       .maybeSingle(),
     db.from('pr1_items')
@@ -1580,7 +1589,10 @@ export async function fetchSupplierQuoteDetail(
   return {
     rfqSupplier: rs,
     rfq,
-    pr1:         pr1Res.data,
+    pr1: {
+      ...pr1Res.data,
+      request_type: ((pr1Res.data as any).request_type ?? 'goods') as 'goods' | 'services',
+    },
     items,
     quotes,
   };
@@ -1650,6 +1662,15 @@ export async function submitSupplierQuotation(
     .upsert(rows, { onConflict: 'rfq_supplier_id,pr1_item_id' });
 
   if (upsertErr) throw upsertErr;
+
+  // When a supplier materially changes a quote that procurement had already
+  // selected as the winner, the prior selection becomes stale and procurement
+  // must re-evaluate. That unselect + procurement notification is handled
+  // atomically by the `trg_unselect_on_quote_change` DB trigger on
+  // rfq_item_quotes (SECURITY DEFINER) — it cannot live here because supplier
+  // RLS forbids the supplier session from reading or deleting
+  // supplier_item_selections rows. See migration
+  // 20260624120000_unselect_on_quote_change.sql.
 
   const { error: statusErr } = await db
     .from('rfq_suppliers')

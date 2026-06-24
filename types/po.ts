@@ -1,3 +1,5 @@
+import type { PR1Attachment } from '@/types/pr1';
+
 export type POStatus = 'draft' | 'for_approval' | 'approved' | 'sent' | 'cancelled';
 
 export const PO_STATUS_LABELS: Record<POStatus, string> = {
@@ -66,6 +68,8 @@ export interface POItem {
   rfq_item_quote_id?: string | null;
   /** Supplier quote attachments loaded at read time via rfq_item_quote_id. */
   quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
+  /** Requestor PR1 item attachments, forwarded via pr1_item_id at read time. */
+  attachments?: PR1Attachment[];
   created_at: string;
 }
 

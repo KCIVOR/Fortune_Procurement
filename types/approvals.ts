@@ -86,6 +86,8 @@ export interface PR2ApprovalItem {
   quote_justification?:    string | null;
   /** Supplier quote attachments loaded at read time via rfq_item_quote_id. */
   quote_attachments?:      import('./canvassing').RfqQuoteAttachment[];
+  /** Requestor PR1 item attachments, forwarded via pr1_item_id at read time. */
+  attachments?:            PR1Attachment[];
 }
 
 // Must match approval_instances_status_check constraint: active | approved | rejected | cancelled

@@ -155,46 +155,51 @@ export default function SubstitutesIndexPage() {
             />
           </div>
 
-          <div className="space-y-3">
-            {bundlePage.map(bundle => {
-              const pending = bundle.substitutes.filter(s => s.decision === null).length;
-              const total   = bundle.substitutes.length;
-
-              return (
-                <Link
-                  key={bundle.pr1.id}
-                  href={`/substitutes/${bundle.pr1.id}`}
-                  className="block bg-white rounded-md border border-pq-neutral-200 hover:border-pq-primary-600 transition"
-                >
-                  <div className="flex items-center gap-4 px-5 py-4">
-                    <div className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${
-                      pending > 0 ? 'bg-pq-warning-100 text-pq-warning-600' : 'bg-pq-success-100 text-pq-success-600'
-                    }`}>
-                      <Replace className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-mono text-sm font-bold text-pq-neutral-900">{bundle.pr1.pr1_number}</span>
-                        {pending > 0 ? (
-                          <span className="text-xs font-semibold border rounded-full px-2 py-0.5 bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100">
-                            {pending} pending
-                          </span>
-                        ) : (
-                          <span className="text-xs font-semibold border rounded-full px-2 py-0.5 bg-pq-success-100 text-pq-success-600 border-pq-success-100">
-                            All decided
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-pq-neutral-500 truncate">{bundle.pr1.purpose}</p>
-                      <p className="text-xs text-pq-neutral-400 mt-0.5">
-                        {bundle.pr1.department_name_snapshot} · {total} substitute{total !== 1 ? 's' : ''} offered
-                      </p>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-pq-neutral-400 shrink-0" />
-                  </div>
-                </Link>
-              );
-            })}
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PR1 No.</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Substitutes</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Decision</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-pq-neutral-200">
+                  {bundlePage.map(bundle => {
+                    const pending = bundle.substitutes.filter(s => s.decision === null).length;
+                    const total   = bundle.substitutes.length;
+                    return (
+                      <tr key={bundle.pr1.id} className="hover:bg-pq-neutral-50 transition">
+                        <td className="px-5 py-3.5 font-mono font-bold text-pq-neutral-900 whitespace-nowrap">{bundle.pr1.pr1_number}</td>
+                        <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[200px] truncate">{bundle.pr1.purpose}</td>
+                        <td className="px-5 py-3.5 text-pq-neutral-500 text-xs whitespace-nowrap">{bundle.pr1.department_name_snapshot}</td>
+                        <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{total} substitute{total !== 1 ? 's' : ''}</td>
+                        <td className="px-5 py-3.5">
+                          {pending > 0 ? (
+                            <span className="text-xs font-semibold border rounded-full px-2 py-0.5 bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100">
+                              {pending} pending
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold border rounded-full px-2 py-0.5 bg-pq-success-100 text-pq-success-600 border-pq-success-100">
+                              All decided
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <Link href={`/substitutes/${bundle.pr1.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition">
+                            Review <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {filteredBundles.length > 0 && (

@@ -224,14 +224,11 @@ export default function PR2DetailPage() {
     }
   };
 
-  const handleQtyChange = (idx: number, field: 'qty_on_hand' | 'qty_incoming' | 'quantity_to_purchase', val: string) => {
+  const handleQtyChange = (idx: number, field: 'quantity_to_purchase', val: string) => {
     setEditItems(prev => {
       const next = [...prev];
       const item = { ...next[idx] };
       item[field] = Number(val) || 0;
-      if (field !== 'quantity_to_purchase') {
-        item.quantity_to_purchase = Math.max(0, item.quantity_requested - item.qty_on_hand - item.qty_incoming);
-      }
       item.total_price = item.unit_price * item.quantity_to_purchase;
       next[idx] = item;
       return next;
@@ -472,7 +469,7 @@ export default function PR2DetailPage() {
         <div className="flex items-start gap-3 bg-pq-primary-50 border border-pq-primary-200 rounded-md px-5 py-4 mb-6">
           <Pencil className="w-4 h-4 text-pq-primary-600 mt-0.5 shrink-0" />
           <p className="text-sm text-pq-primary-600">
-            Enter current Qty on Hand and Qty In-Transit for each item. Quantity to Purchase is calculated automatically.
+            Review and adjust the Quantity to Purchase for each item if needed. SOH and In-Transit are set by warehouse validation and are read-only.
           </p>
         </div>
       )}
@@ -611,32 +608,12 @@ export default function PR2DetailPage() {
                       <td className="px-4 py-3 text-xs text-center text-pq-neutral-500">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 text-right text-sm text-pq-neutral-900">{item.quantity_requested}</td>
 
-                      {/* Editable inventory fields */}
+                      {/* SOH and In-Transit — read-only; set by warehouse validation */}
                       <td className="px-4 py-3 text-right">
-                        {editing ? (
-                          <input
-                            type="number"
-                            min="0"
-                            value={editItems[idx].qty_on_hand}
-                            onChange={e => handleQtyChange(idx, 'qty_on_hand', e.target.value)}
-                            className="w-16 text-right text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        ) : (
-                          <span className="text-sm text-pq-neutral-900">{item.qty_on_hand}</span>
-                        )}
+                        <span className="text-sm text-pq-neutral-900">{item.qty_on_hand}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {editing ? (
-                          <input
-                            type="number"
-                            min="0"
-                            value={editItems[idx].qty_incoming}
-                            onChange={e => handleQtyChange(idx, 'qty_incoming', e.target.value)}
-                            className="w-16 text-right text-sm border border-pq-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        ) : (
-                          <span className="text-sm text-pq-neutral-900">{item.qty_incoming}</span>
-                        )}
+                        <span className="text-sm text-pq-neutral-900">{item.qty_incoming}</span>
                       </td>
 
                       <td className="px-4 py-3 text-right">
@@ -677,10 +654,16 @@ export default function PR2DetailPage() {
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1.5 items-start">
                           {(item.attachments?.length ?? 0) > 0 && (
-                            <PR1AttachmentsGallery attachments={item.attachments!} />
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-semibold text-pq-neutral-400 uppercase tracking-wide w-9 shrink-0">Req.</span>
+                              <PR1AttachmentsGallery attachments={item.attachments!} />
+                            </div>
                           )}
                           {(item.quote_attachments?.length ?? 0) > 0 && (
-                            <QuoteAttachmentPills attachments={item.quote_attachments!} />
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-semibold text-pq-neutral-400 uppercase tracking-wide w-9 shrink-0">Quote</span>
+                              <QuoteAttachmentPills attachments={item.quote_attachments!} />
+                            </div>
                           )}
                           {(item.attachments?.length ?? 0) === 0 && (item.quote_attachments?.length ?? 0) === 0 && (
                             <span className="text-xs text-pq-neutral-300">—</span>

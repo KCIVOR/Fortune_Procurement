@@ -42,6 +42,7 @@ import {
   ClipboardList, DollarSign,
 } from 'lucide-react';
 import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
+import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 
 export default function PR2ApprovalDetailPage() {
   const { id: instanceId } = useParams<{ id: string }>();
@@ -348,10 +349,24 @@ export default function PR2ApprovalDetailPage() {
                             </p>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          {(item.quote_attachments?.length ?? 0) > 0
-                            ? <QuoteAttachmentPills attachments={item.quote_attachments!} />
-                            : <span className="text-xs text-pq-neutral-300">—</span>}
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-1.5 items-start">
+                            {(item.attachments?.length ?? 0) > 0 && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-semibold text-pq-neutral-400 uppercase tracking-wide w-9 shrink-0">Req.</span>
+                                <PR1AttachmentsGallery attachments={item.attachments!} />
+                              </div>
+                            )}
+                            {(item.quote_attachments?.length ?? 0) > 0 && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-semibold text-pq-neutral-400 uppercase tracking-wide w-9 shrink-0">Quote</span>
+                                <QuoteAttachmentPills attachments={item.quote_attachments!} />
+                              </div>
+                            )}
+                            {(item.attachments?.length ?? 0) === 0 && (item.quote_attachments?.length ?? 0) === 0 && (
+                              <span className="text-xs text-pq-neutral-300">—</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs text-pq-neutral-500">{item.quantity_requested}</td>

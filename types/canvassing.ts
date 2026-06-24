@@ -146,6 +146,7 @@ export interface CatalogProductSummary {
   product_name: string;
   product_code: string | null;
   status:       string;
+  item_type:    'goods' | 'services';
 }
 
 /** Supplier users eligible for RFQ canvassing (procurement), with readiness context. */
@@ -155,7 +156,10 @@ export interface CanvassSupplierCandidate {
   email:                     string | null;
   /** Latest `supplier_accreditations.status` by `created_at` DESC, or null if none. */
   accreditation_status:      string | null;
+  /** Total verified (goods + services). Used for readiness checks. */
   verified_product_count:    number;
+  verified_goods_count:      number;
+  verified_service_count:    number;
   pending_product_count:     number;
   rejected_product_count:    number;
   withdrawn_product_count:   number;
@@ -231,10 +235,11 @@ export interface QuoteMatrixRow {
     is_selected:           boolean;
     substitute_decision:   SubstituteDecision | null;
     /** Phase 7: linked catalog product — null for old or unlinked quotes. */
-    supplier_product_id:   string | null;
-    supplier_product_name: string | null;
-    supplier_product_code: string | null;
-    supplier_product_status: string | null;
+    supplier_product_id:        string | null;
+    supplier_product_name:      string | null;
+    supplier_product_code:      string | null;
+    supplier_product_status:    string | null;
+    supplier_product_item_type: 'goods' | 'services' | null;
     /**
      * Phase 6 (Raw Mats): coarse-grained verification state for the cell pill.
      * - `verified`   → linked product status = 'verified'

@@ -14,8 +14,8 @@ import type { StatusVariant } from '@/components/shared/StatusChip';
 import { useAuth } from '@/context/AuthContext';
 import { getMySupplierProducts } from '@/lib/supplier-products';
 import type { SupplierProduct } from '@/types/database';
-import { format } from 'date-fns';
-import { Package, Plus, ArrowRight, CheckCircle2, Circle } from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
+import { Package, Plus, ArrowRight, CheckCircle2, Circle, CalendarClock } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -29,6 +29,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
     rejected:     { variant: 'rejected',  label: 'Rejected' },
     inactive:     { variant: 'cancelled', label: 'Inactive' },
     withdrawn:    { variant: 'cancelled', label: 'Withdrawn' },
+    expired:      { variant: 'cancelled', label: 'Expired' },
   };
   return map[status] ?? { variant: 'draft', label: status };
 }
@@ -40,6 +41,7 @@ const STATUS_OPTIONS = [
   { value: 'under_review', label: 'Under Review' },
   { value: 'pending_tsqa', label: 'Under Technical Evaluation' },
   { value: 'verified', label: 'Verified' },
+  { value: 'expired',  label: 'Expired' },
   { value: 'rejected', label: 'Rejected' },
 ];
 
@@ -55,6 +57,7 @@ export default function SupplierProductsPage() {
   const [search, setSearch]     = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter]     = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -67,14 +70,15 @@ export default function SupplierProductsPage() {
       .finally(() => setLoading(false));
   }, [profile]);
 
-  // Filter products based on search and status
+  // Filter products based on search, status, and type
   const filteredProducts = products.filter((p) => {
-    const matchesSearch = !appliedSearch.trim() || 
+    const matchesSearch = !appliedSearch.trim() ||
       p.product_name.toLowerCase().includes(appliedSearch.toLowerCase()) ||
       (p.product_code && p.product_code.toLowerCase().includes(appliedSearch.toLowerCase())) ||
       (p.category && p.category.toLowerCase().includes(appliedSearch.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesType   = typeFilter === 'all' || (p.item_type ?? 'goods') === typeFilter;
+    return matchesSearch && matchesStatus && matchesType;
   });
 
   // Pagination
@@ -93,13 +97,14 @@ export default function SupplierProductsPage() {
     setSearch('');
     setAppliedSearch('');
     setStatusFilter('all');
+    setTypeFilter('all');
     setCurrentPage(1);
   };
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [appliedSearch, statusFilter]);
+  }, [appliedSearch, statusFilter, typeFilter]);
 
   return (
     <AppShell title="Product Catalog">
@@ -112,7 +117,7 @@ export default function SupplierProductsPage() {
             className="flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
           >
             <Plus className="w-4 h-4" />
-            Add Product
+            Add to Catalog
           </Link>
         }
       />
@@ -133,9 +138,22 @@ export default function SupplierProductsPage() {
                 type: 'search',
                 id: 'product-search',
                 label: 'Search',
-                placeholder: 'Search by product name, code, or category...',
+                placeholder: 'Search by name, code, or category…',
                 value: search,
                 onChange: (value) => setSearch(value as string),
+              },
+              {
+                type: 'select',
+                id: 'product-type',
+                label: 'Type',
+                placeholder: 'All types',
+                value: typeFilter,
+                onChange: (value) => setTypeFilter(value as string),
+                options: [
+                  { value: 'all',      label: 'All types' },
+                  { value: 'goods',    label: 'Goods' },
+                  { value: 'services', label: 'Services' },
+                ],
               },
               {
                 type: 'select',
@@ -177,17 +195,23 @@ export default function SupplierProductsPage() {
           ) : (
             <div className="space-y-4">
               <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-                {/* Column headers — desktop only; grid must match ProductRow */}
-                <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_140px_132px_5rem] md:items-center gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
-                  <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Product</p>
-                  <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
-                  <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Can Offer</p>
-                  <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-right">View</p>
-                </div>
-                <div className="divide-y divide-pq-neutral-200">
-                  {paginatedProducts.map(product => (
-                    <ProductRow key={product.id} product={product} />
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Product</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Type</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Can Offer</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-pq-neutral-200">
+                      {paginatedProducts.map(product => (
+                        <ProductRow key={product.id} product={product} />
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -214,52 +238,73 @@ export default function SupplierProductsPage() {
 function ProductRow({ product }: { product: SupplierProduct }) {
   const chip      = productChip(product.status);
   const canOffer  = product.status === 'verified';
+  const isService = (product.item_type ?? 'goods') === 'services';
+
+  const expiryNote = (() => {
+    if (!product.valid_until) return null;
+    const daysLeft = differenceInDays(new Date(product.valid_until), new Date());
+    if (product.status === 'expired' || daysLeft < 0) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs text-pq-danger-600">
+          <CalendarClock className="w-3 h-3" />
+          Expired {format(new Date(product.valid_until), 'MMM d, yyyy')}
+        </span>
+      );
+    }
+    if (daysLeft <= 30) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs text-pq-warning-600">
+          <CalendarClock className="w-3 h-3" />
+          Expires {format(new Date(product.valid_until), 'MMM d, yyyy')} · {daysLeft}d left
+        </span>
+      );
+    }
+    return null;
+  })();
+
+  const dateNote = product.status === 'expired'
+    ? null
+    : product.verified_at
+    ? <span className="text-pq-success-600">Verified {format(new Date(product.verified_at), 'MMM d, yyyy')}</span>
+    : product.rejected_at
+    ? <span className="text-pq-danger-600">Rejected {format(new Date(product.rejected_at), 'MMM d, yyyy')}</span>
+    : product.submitted_at
+    ? <span className="text-pq-neutral-400">Submitted {format(new Date(product.submitted_at), 'MMM d, yyyy')}</span>
+    : null;
 
   return (
-    <div className="grid grid-cols-1 gap-3 px-5 py-4 hover:bg-pq-neutral-50 transition md:grid-cols-[minmax(0,1fr)_140px_132px_5rem] md:gap-4 md:items-center">
-      {/* Product — name + meta only (status lives in its own column on md+) */}
-      <div className="min-w-0">
-        <div className="mb-0.5 min-w-0">
-          <span className="font-medium text-sm text-pq-neutral-900 truncate block">
-            {product.product_name}
-          </span>
-        </div>
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-          {product.product_code && (
+    <tr className="hover:bg-pq-neutral-50 transition">
+      <td className="px-5 py-3.5">
+        <span className="font-medium text-sm text-pq-neutral-900 block truncate max-w-[200px]">{product.product_name}</span>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {!isService && product.product_code && (
             <span className="text-xs text-pq-neutral-400">#{product.product_code}</span>
           )}
-          {product.category && (
-            <span className="text-xs text-pq-neutral-400">{product.category}</span>
-          )}
-          {product.submitted_at && !product.verified_at && !product.rejected_at && (
-            <span className="text-xs text-pq-neutral-400">
-              Submitted {format(new Date(product.submitted_at), 'MMM d, yyyy')}
-            </span>
-          )}
-          {product.verified_at && (
-            <span className="text-xs text-pq-success-600">
-              Verified {format(new Date(product.verified_at), 'MMM d, yyyy')}
-            </span>
-          )}
-          {product.rejected_at && (
-            <span className="text-xs text-pq-danger-600">
-              Rejected {format(new Date(product.rejected_at), 'MMM d, yyyy')}
-            </span>
-          )}
+          {product.category && <span className="text-xs text-pq-neutral-400">{product.category}</span>}
+          {dateNote && <span className="text-xs">{dateNote}</span>}
+          {expiryNote}
         </div>
-      </div>
-
-      {/* Status */}
-      <div className="flex items-center">
+      </td>
+      <td className="px-5 py-3.5">
+        <span className={`inline-flex text-xs font-semibold border rounded-full px-2.5 py-0.5 ${
+          isService ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+        }`}>
+          {isService ? 'Services' : 'Goods'}
+        </span>
+      </td>
+      <td className="px-5 py-3.5">
         <StatusChip status={chip.variant} label={chip.label} size="sm" />
-      </div>
-
-      {/* Can Offer */}
-      <div className="flex items-center">
+      </td>
+      <td className="px-5 py-3.5">
         {canOffer ? (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2.5 py-1">
             <CheckCircle2 className="w-3 h-3 shrink-0" />
             Can Offer
+          </span>
+        ) : product.status === 'expired' ? (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-full px-2.5 py-1">
+            <CalendarClock className="w-3 h-3 shrink-0" />
+            Expired · Offerable
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-neutral-400 bg-pq-neutral-50 border border-pq-neutral-200 rounded-full px-2.5 py-1">
@@ -267,18 +312,12 @@ function ProductRow({ product }: { product: SupplierProduct }) {
             Not Verified
           </span>
         )}
-      </div>
-
-      {/* View */}
-      <div className="flex items-center md:justify-end">
-        <Link
-          href={`/supplier/products/${product.id}`}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition whitespace-nowrap"
-        >
-          View
-          <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+      </td>
+      <td className="px-5 py-3.5 text-right">
+        <Link href={`/supplier/products/${product.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition">
+          View <ArrowRight className="w-3.5 h-3.5 shrink-0" />
         </Link>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }

@@ -13,8 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { getAllProductsForProcurement } from '@/lib/supplier-products';
 import type { ProductQueueRow } from '@/lib/supplier-products';
-import { format } from 'date-fns';
-import { PackageSearch, ArrowRight } from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
+import { PackageSearch, ArrowRight, CalendarClock } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -28,13 +28,14 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
     rejected:     { variant: 'rejected',  label: 'Rejected' },
     inactive:     { variant: 'cancelled', label: 'Inactive' },
     withdrawn:    { variant: 'cancelled', label: 'Withdrawn' },
+    expired:      { variant: 'cancelled', label: 'Expired' },
   };
   return map[status] ?? { variant: 'draft', label: status };
 }
 
 // ─── Filter tab definitions ───────────────────────────────────────────────────
 
-type FilterKey = 'pending' | 'tsqa' | 'verified' | 'inactive' | 'rejected' | 'all';
+type FilterKey = 'pending' | 'tsqa' | 'verified' | 'expired' | 'inactive' | 'rejected' | 'all';
 
 const PENDING_STATUSES = ['submitted', 'under_review'];
 const PAGE_SIZE = 20;
@@ -47,6 +48,8 @@ function getFilteredRows(rows: ProductQueueRow[], filter: FilterKey): ProductQue
       return rows.filter(r => r.status === 'pending_tsqa');
     case 'verified':
       return rows.filter(r => r.status === 'verified');
+    case 'expired':
+      return rows.filter(r => r.status === 'expired');
     case 'inactive':
       return rows.filter(r => r.status === 'inactive');
     case 'rejected':
@@ -66,6 +69,7 @@ export default function ProductReviewQueuePage() {
   const [activeTab, setActiveTab] = useState<FilterKey>('pending');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -84,14 +88,18 @@ export default function ProductReviewQueuePage() {
     pending:  allRows.filter(r => PENDING_STATUSES.includes(r.status)).length,
     tsqa:     allRows.filter(r => r.status === 'pending_tsqa').length,
     verified: allRows.filter(r => r.status === 'verified').length,
+    expired:  allRows.filter(r => r.status === 'expired').length,
     inactive: allRows.filter(r => r.status === 'inactive').length,
     rejected: allRows.filter(r => r.status === 'rejected').length,
     all:      allRows.length,
   }), [allRows]);
 
-  // Filter rows based on active tab and search
+  // Filter rows based on active tab, type, and search
   const filteredRows = useMemo(() => {
     let rows = getFilteredRows(allRows, activeTab);
+    if (typeFilter !== 'all') {
+      rows = rows.filter(r => (r.item_type ?? 'goods') === typeFilter);
+    }
     if (appliedSearch.trim()) {
       const searchLower = appliedSearch.toLowerCase();
       rows = rows.filter(r =>
@@ -102,7 +110,7 @@ export default function ProductReviewQueuePage() {
       );
     }
     return rows;
-  }, [allRows, activeTab, appliedSearch]);
+  }, [allRows, activeTab, typeFilter, appliedSearch]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
@@ -115,6 +123,7 @@ export default function ProductReviewQueuePage() {
     { value: 'pending',  label: `Pending (${counts.pending})` },
     { value: 'tsqa',     label: `Under TSQA (${counts.tsqa})` },
     { value: 'verified', label: `Verified (${counts.verified})` },
+    { value: 'expired',  label: `Expired (${counts.expired})` },
     { value: 'inactive', label: `Inactive (${counts.inactive})` },
     { value: 'rejected', label: `Rejected (${counts.rejected})` },
     { value: 'all',      label: `All (${counts.all})` },
@@ -123,6 +132,7 @@ export default function ProductReviewQueuePage() {
   const handleClear = () => {
     setSearch('');
     setAppliedSearch('');
+    setTypeFilter('all');
     setActiveTab('pending');
     setCurrentPage(1);
   };
@@ -130,7 +140,7 @@ export default function ProductReviewQueuePage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, appliedSearch]);
+  }, [activeTab, typeFilter, appliedSearch]);
 
   return (
     <AppShell title="Product Review">
@@ -153,6 +163,19 @@ export default function ProductReviewQueuePage() {
               placeholder: 'Search by product name, supplier, code, or category...',
               value: search,
               onChange: (value) => setSearch(value as string),
+            },
+            {
+              type: 'select',
+              id: 'product-type',
+              label: 'Type',
+              placeholder: 'All types',
+              value: typeFilter,
+              onChange: (value) => setTypeFilter(value as string),
+              options: [
+                { value: 'all',      label: 'All types' },
+                { value: 'goods',    label: 'Goods' },
+                { value: 'services', label: 'Services' },
+              ],
             },
           ] as FilterConfig[]}
           onApply={() => { setAppliedSearch(search); setCurrentPage(1); }}
@@ -185,17 +208,25 @@ export default function ProductReviewQueuePage() {
       ) : (
         <div className="space-y-4">
           <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-            {/* Column headers */}
-            <div className="hidden md:grid grid-cols-[1fr_1fr_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Product</p>
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Supplier</p>
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</p>
-              <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Submitted</p>
-            </div>
-            <div className="divide-y divide-pq-neutral-200">
-              {paginatedRows.map(row => (
-                <ProductQueueRowItem key={row.id} row={row} />
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Product</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Supplier</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Category</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Submitted</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Valid Until</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-pq-neutral-200">
+                  {paginatedRows.map(row => (
+                    <ProductQueueRowItem key={row.id} row={row} />
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -221,41 +252,50 @@ function ProductQueueRowItem({ row }: { row: ProductQueueRow }) {
   const chip = productChip(row.status);
   const isActionable = ['submitted', 'under_review'].includes(row.status);
 
-  return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-pq-neutral-50 transition">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="font-medium text-sm text-pq-neutral-900 truncate">
-            {row.product_name}
-          </span>
-          <StatusChip status={chip.variant} label={chip.label} size="sm" />
-        </div>
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-          {row.supplier_full_name && (
-            <span className="text-xs text-pq-neutral-400">{row.supplier_full_name}</span>
-          )}
-          {row.product_code && (
-            <span className="text-xs text-pq-neutral-400">#{row.product_code}</span>
-          )}
-          {row.category && (
-            <span className="text-xs text-pq-neutral-400">{row.category}</span>
-          )}
-          {row.submitted_at && (
-            <span className="text-xs text-pq-neutral-400">
-              {format(new Date(row.submitted_at), 'MMM d, yyyy')}
-            </span>
-          )}
-        </div>
-      </div>
+  const validUntilCell = () => {
+    if (!row.valid_until) return <span className="text-pq-neutral-300">—</span>;
+    const daysLeft = differenceInDays(new Date(row.valid_until), new Date());
+    if (row.status === 'expired' || daysLeft < 0) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded-full px-2 py-0.5">
+          <CalendarClock className="w-3 h-3" />
+          Expired {format(new Date(row.valid_until), 'MMM d, yyyy')}
+        </span>
+      );
+    }
+    if (daysLeft <= 30) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-full px-2 py-0.5">
+          <CalendarClock className="w-3 h-3" />
+          {format(new Date(row.valid_until), 'MMM d, yyyy')} · {daysLeft}d left
+        </span>
+      );
+    }
+    return <span className="text-pq-neutral-400 text-xs whitespace-nowrap">{format(new Date(row.valid_until), 'MMM d, yyyy')}</span>;
+  };
 
-      <Link
-        href={`/accreditation/products/${row.id}`}
-        className="shrink-0 flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition"
-      >
-        {isActionable ? 'Review' : 'View'}
-        <ArrowRight className="w-3.5 h-3.5" />
-      </Link>
-    </div>
+  return (
+    <tr className="hover:bg-pq-neutral-50 transition">
+      <td className="px-5 py-3.5 font-medium text-pq-neutral-900 max-w-[180px] truncate">{row.product_name}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-500 text-xs whitespace-nowrap">{row.supplier_full_name ?? '—'}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs">{row.category ?? '—'}</td>
+      <td className="px-5 py-3.5">
+        <StatusChip status={chip.variant} label={chip.label} size="sm" />
+      </td>
+      <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">
+        {row.submitted_at ? format(new Date(row.submitted_at), 'MMM d, yyyy') : '—'}
+      </td>
+      <td className="px-5 py-3.5">{validUntilCell()}</td>
+      <td className="px-5 py-3.5 text-right">
+        <Link
+          href={`/accreditation/products/${row.id}`}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+        >
+          {isActionable ? 'Review' : 'View'}
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </td>
+    </tr>
   );
 }
 
@@ -264,31 +304,31 @@ function ProductQueueRowItem({ row }: { row: ProductQueueRow }) {
 function ProductQueueSkeleton() {
   return (
     <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden" aria-busy="true" aria-label="Loading product queue">
-      {/* Column headers skeleton */}
-      <div className="hidden md:grid grid-cols-[1fr_1fr_140px_120px] gap-4 px-5 py-2.5 bg-pq-neutral-50 border-b border-pq-neutral-200">
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="h-3 w-14" />
-        <Skeleton className="h-3 w-20" />
-      </div>
-      {/* Row skeletons */}
-      <div className="divide-y divide-pq-neutral-200">
-        {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className="flex items-center gap-4 px-5 py-4">
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-5 w-28 rounded-full" />
-              </div>
-              <div className="flex items-center gap-3">
-                <Skeleton className="h-3 w-32" />
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-3 w-24" />
-              </div>
-            </div>
-            <Skeleton className="h-4 w-14" />
-          </div>
-        ))}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+              {['Product', 'Supplier', 'Category', 'Status', 'Submitted', 'Valid Until', ''].map((h, i) => (
+                <th key={i} className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">
+                  {h && <Skeleton className="h-3 w-16" />}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-pq-neutral-200">
+            {Array.from({ length: 5 }, (_, i) => (
+              <tr key={i}>
+                <td className="px-5 py-3.5"><Skeleton className="h-4 w-40" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-3 w-28" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-3 w-20" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-5 w-28 rounded-full" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-3 w-24" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-3 w-24" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-4 w-14" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

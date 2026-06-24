@@ -189,7 +189,8 @@ export default function AssignSuppliersModal({
                       <th className="px-3 py-2.5 min-w-[8rem]">Supplier</th>
                       <th className="px-3 py-2.5 min-w-[10rem]">Email</th>
                       <th className="px-3 py-2.5 min-w-[7rem]">Accreditation</th>
-                      <th className="px-3 py-2.5 text-center whitespace-nowrap">Verified</th>
+                      <th className="px-3 py-2.5 text-center whitespace-nowrap text-blue-600">Goods ✓</th>
+                      <th className="px-3 py-2.5 text-center whitespace-nowrap text-purple-600">Services ✓</th>
                       <th className="px-3 py-2.5 text-center whitespace-nowrap">Pending</th>
                       <th className="px-3 py-2.5 text-center whitespace-nowrap hidden xl:table-cell">
                         Rejected
@@ -302,8 +303,12 @@ function SupplierAssignCard({
           </div>
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-pq-neutral-600">
             <div>
-              <dt className="text-pq-neutral-400">Verified</dt>
-              <dd className="font-medium tabular-nums">{c.verified_product_count}</dd>
+              <dt className="text-pq-neutral-400">Verified Goods</dt>
+              <dd className="font-medium tabular-nums text-blue-700">{c.verified_goods_count}</dd>
+            </div>
+            <div>
+              <dt className="text-pq-neutral-400">Verified Services</dt>
+              <dd className="font-medium tabular-nums text-purple-700">{c.verified_service_count}</dd>
             </div>
             <div>
               <dt className="text-pq-neutral-400">Pending</dt>
@@ -312,10 +317,6 @@ function SupplierAssignCard({
             <div>
               <dt className="text-pq-neutral-400">Rejected</dt>
               <dd className="font-medium tabular-nums">{c.rejected_product_count}</dd>
-            </div>
-            <div>
-              <dt className="text-pq-neutral-400">Withdrawn</dt>
-              <dd className="font-medium tabular-nums">{c.withdrawn_product_count}</dd>
             </div>
           </dl>
           <div className="text-xs space-y-0.5">
@@ -378,7 +379,8 @@ function SupplierAssignTableRow({
           {productInventoryBadges(c)}
         </div>
       </td>
-      <td className="px-3 py-2.5 align-top text-center tabular-nums">{c.verified_product_count}</td>
+      <td className="px-3 py-2.5 align-top text-center tabular-nums text-blue-700">{c.verified_goods_count}</td>
+      <td className="px-3 py-2.5 align-top text-center tabular-nums text-purple-700">{c.verified_service_count}</td>
       <td className="px-3 py-2.5 align-top text-center tabular-nums hidden lg:table-cell">
         {c.pending_product_count}
       </td>
@@ -467,31 +469,30 @@ function productInventoryBadges(c: CanvassSupplierCandidate) {
   const chip =
     'inline-flex items-center text-[10px] font-medium border rounded px-1.5 py-0.5';
   const nodes: ReactNode[] = [];
-  if (c.verified_product_count > 0) {
+  if (c.verified_goods_count > 0) {
     nodes.push(
-      <span
-        key="verified"
-        className={`${chip} text-pq-success-600 bg-white border-pq-success-100`}
-      >
-        Has Verified Products
+      <span key="vg" className={`${chip} text-blue-700 bg-white border-blue-200`}>
+        {c.verified_goods_count} Verified {c.verified_goods_count === 1 ? 'Good' : 'Goods'}
       </span>,
     );
-  } else {
+  }
+  if (c.verified_service_count > 0) {
     nodes.push(
-      <span
-        key="no-verified"
-        className={`${chip} text-pq-neutral-500 bg-white border-pq-neutral-200`}
-      >
+      <span key="vs" className={`${chip} text-purple-700 bg-white border-purple-200`}>
+        {c.verified_service_count} Verified {c.verified_service_count === 1 ? 'Service' : 'Services'}
+      </span>,
+    );
+  }
+  if (c.verified_product_count === 0) {
+    nodes.push(
+      <span key="no-verified" className={`${chip} text-pq-neutral-500 bg-white border-pq-neutral-200`}>
         No Verified Products
       </span>,
     );
   }
   if (c.pending_product_count > 0) {
     nodes.push(
-      <span
-        key="pending-val"
-        className={`${chip} text-pq-warning-600 bg-white border-pq-warning-100`}
-      >
+      <span key="pending-val" className={`${chip} text-pq-warning-600 bg-white border-pq-warning-100`}>
         Pending Validation
       </span>,
     );
