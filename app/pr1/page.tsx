@@ -12,9 +12,9 @@ import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { fetchMyPR1s } from '@/lib/pr1';
+import { fetchMyPR1s, PR1_LIFECYCLE_FILTER_OPTIONS } from '@/lib/pr1';
 import type { PR1Request } from '@/types/pr1';
-import { PR1_STATUS_LABELS, type PR1Status } from '@/types/pr1';
+import { PR1_STATUS_LABELS } from '@/types/pr1';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { FileText, Plus, Eye, Clock } from 'lucide-react';
 import { format } from 'date-fns';
@@ -98,9 +98,9 @@ export default function PR1ListPage() {
       },
       options: [
         { value: 'all', label: 'All statuses' },
-        ...(Object.keys(PR1_STATUS_LABELS) as PR1Status[]).map((key) => ({
-          value: key,
-          label: PR1_STATUS_LABELS[key],
+        ...PR1_LIFECYCLE_FILTER_OPTIONS.map((opt) => ({
+          value: opt.value,
+          label: opt.label,
         })),
       ],
     },

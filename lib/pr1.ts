@@ -88,6 +88,23 @@ function pickPreferredDelivery(
   );
 }
 
+/**
+ * Canonical derived lifecycle labels shown to employees on the PR1 list.
+ * Single source of truth so the status filter options can't drift from
+ * what deriveEmployeeLifecycleSummary actually returns.
+ */
+export const PR1_LIFECYCLE_LABELS = {
+  COMPLETED_GRN:        'Completed (GRN Closed)',
+  PARTIAL_GRN:          'Partial GRN',
+  DELIVERED:            'Delivered',
+  DELIVERY_IN_PROGRESS: 'Delivery In Progress',
+  PO_SENT:              'PO — Sent to Supplier',
+  PARTIAL_PO_SENT:      'Partial PO — Sent to Supplier',
+  PR2_APPROVED:         'PR2 Approved',
+  PR2_PENDING:          'PR2 — Pending Approval',
+  CANVASSING_COMPLETE:  'Canvassing Complete',
+} as const;
+
 /** Pure employee-facing lifecycle (Option C): does not read or write pr1_requests.workflow fields beyond fallback label. */
 export function deriveEmployeeLifecycleSummary(
   rawPr1Status: PR1Status,
@@ -100,17 +117,17 @@ export function deriveEmployeeLifecycleSummary(
   if (nPo > 0) {
     const closedGrn = poSummaries.filter(s => s.grnStatus === 'closed').length;
     if (closedGrn === nPo) {
-      return { lifecycle_display_label: 'Completed (GRN Closed)', lifecycle_display_chip: 'completed' };
+      return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.COMPLETED_GRN, lifecycle_display_chip: 'completed' };
     }
     if (closedGrn > 0) {
-      return { lifecycle_display_label: 'Partial GRN', lifecycle_display_chip: 'in_review' };
+      return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.PARTIAL_GRN, lifecycle_display_chip: 'in_review' };
     }
 
     const allHaveDelivery = poSummaries.every(s => s.deliveryStatus !== null);
     const allDelivered =
       allHaveDelivery && poSummaries.every(s => s.deliveryStatus === 'delivered');
     if (allDelivered) {
-      return { lifecycle_display_label: 'Delivered', lifecycle_display_chip: 'received' };
+      return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.DELIVERED, lifecycle_display_chip: 'received' };
     }
 
     const anyDelivery = poSummaries.some(s => s.deliveryStatus !== null);
@@ -118,7 +135,7 @@ export function deriveEmployeeLifecycleSummary(
       s => s.deliveryStatus !== null && DELIVERY_IN_PROGRESS_STATUSES.has(s.deliveryStatus),
     );
     if (anyDelivery && (!allDelivered || anyInFlight)) {
-      return { lifecycle_display_label: 'Delivery In Progress', lifecycle_display_chip: 'sent' };
+      return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.DELIVERY_IN_PROGRESS, lifecycle_display_chip: 'sent' };
     }
 
     let nIssued = 0;
@@ -126,23 +143,23 @@ export function deriveEmployeeLifecycleSummary(
       if (PO_ISSUED_STATUSES.has(s.poStatus)) nIssued++;
     }
     if (nIssued === nPo) {
-      return { lifecycle_display_label: 'PO — Sent to Supplier', lifecycle_display_chip: 'sent' };
+      return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.PO_SENT, lifecycle_display_chip: 'sent' };
     }
     if (nIssued > 0) {
-      return { lifecycle_display_label: 'Partial PO — Sent to Supplier', lifecycle_display_chip: 'in_review' };
+      return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.PARTIAL_PO_SENT, lifecycle_display_chip: 'in_review' };
     }
   }
 
   if (pr2Statuses.length > 0) {
     const allPr2Approved = pr2Statuses.every(s => s === PR2_PHASE2_APPROVED);
     if (allPr2Approved) {
-      return { lifecycle_display_label: 'PR2 Approved', lifecycle_display_chip: 'approved' };
+      return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.PR2_APPROVED, lifecycle_display_chip: 'approved' };
     }
-    return { lifecycle_display_label: 'PR2 — Pending Approval', lifecycle_display_chip: 'pending' };
+    return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.PR2_PENDING, lifecycle_display_chip: 'pending' };
   }
 
   if (rfqStatus === 'closed' || rawPr1Status === 'canvassing_complete') {
-    return { lifecycle_display_label: 'Canvassing Complete', lifecycle_display_chip: 'approved' };
+    return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.CANVASSING_COMPLETE, lifecycle_display_chip: 'approved' };
   }
 
   return {
@@ -150,6 +167,33 @@ export function deriveEmployeeLifecycleSummary(
     lifecycle_display_chip:  PR1_RAW_CHIP[rawPr1Status],
   };
 }
+
+/**
+ * Status-filter options for the employee PR1 list, in lifecycle order.
+ * Values are the exact `lifecycle_display_label` strings produced above, so
+ * filtering matches on the label the user actually sees. Fetched/filtered
+ * in-memory in fetchMyPR1s because the lifecycle is derived, not a column.
+ */
+export const PR1_LIFECYCLE_FILTER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: PR1_STATUS_LABELS.draft,                  label: PR1_STATUS_LABELS.draft },
+  { value: PR1_STATUS_LABELS.pending_warehouse,      label: PR1_STATUS_LABELS.pending_warehouse },
+  { value: PR1_STATUS_LABELS.pending_approval,       label: PR1_STATUS_LABELS.pending_approval },
+  { value: PR1_STATUS_LABELS.revision_requested,     label: PR1_STATUS_LABELS.revision_requested },
+  { value: PR1_STATUS_LABELS.approved_for_warehouse, label: PR1_STATUS_LABELS.approved_for_warehouse },
+  { value: PR1_STATUS_LABELS.resolved_internal,      label: PR1_STATUS_LABELS.resolved_internal },
+  { value: PR1_STATUS_LABELS.for_canvassing,         label: PR1_STATUS_LABELS.for_canvassing },
+  { value: PR1_LIFECYCLE_LABELS.CANVASSING_COMPLETE, label: PR1_LIFECYCLE_LABELS.CANVASSING_COMPLETE },
+  { value: PR1_LIFECYCLE_LABELS.PR2_PENDING,         label: PR1_LIFECYCLE_LABELS.PR2_PENDING },
+  { value: PR1_LIFECYCLE_LABELS.PR2_APPROVED,        label: PR1_LIFECYCLE_LABELS.PR2_APPROVED },
+  { value: PR1_LIFECYCLE_LABELS.PARTIAL_PO_SENT,     label: PR1_LIFECYCLE_LABELS.PARTIAL_PO_SENT },
+  { value: PR1_LIFECYCLE_LABELS.PO_SENT,             label: PR1_LIFECYCLE_LABELS.PO_SENT },
+  { value: PR1_LIFECYCLE_LABELS.DELIVERY_IN_PROGRESS,label: PR1_LIFECYCLE_LABELS.DELIVERY_IN_PROGRESS },
+  { value: PR1_LIFECYCLE_LABELS.DELIVERED,           label: PR1_LIFECYCLE_LABELS.DELIVERED },
+  { value: PR1_LIFECYCLE_LABELS.PARTIAL_GRN,         label: PR1_LIFECYCLE_LABELS.PARTIAL_GRN },
+  { value: PR1_LIFECYCLE_LABELS.COMPLETED_GRN,       label: PR1_LIFECYCLE_LABELS.COMPLETED_GRN },
+  { value: PR1_STATUS_LABELS.rejected,               label: PR1_STATUS_LABELS.rejected },
+  { value: PR1_STATUS_LABELS.cancelled,              label: PR1_STATUS_LABELS.cancelled },
+];
 
 /**
  * Batched lifecycle labels for employee PR1 list/detail. Uses existing FK graph only (no PR1 row updates).
@@ -288,14 +332,17 @@ export async function fetchMyPR1s(
 ): Promise<{ requests: PR1Request[]; total_count: number }> {
   const { limit, offset = 0, status, search, dateFrom, dateTo, request_type } = options;
 
-  // Single `.select(...)` per query — chaining `.select` again after `select('*')`
-  // drops the exact count header and yields count = null / 0.
+  // The status filter targets the *derived* lifecycle label (e.g. "Completed
+  // (GRN Closed)"), which is computed from downstream PO/GRN/PR2 state — not a
+  // column on pr1_requests. So we cannot filter it in SQL. When a lifecycle
+  // filter is active we fetch all of the user's matching PR1s (per-user volume
+  // is small, and the lifecycle queries are fully batched), enrich, then filter
+  // and paginate in memory.
+  const isLifecycleFilter = !!status && status !== 'all';
+
+  // Column-level filters that CAN run in SQL (everything except status).
   const applyFilters = (q: any) => {
     q = q.eq('requisitioner_id', userId);
-
-    if (status && status !== 'all') {
-      q = q.eq('status', status);
-    }
 
     if (request_type && request_type !== 'all') {
       q = q.eq('request_type', request_type);
@@ -316,6 +363,29 @@ export async function fetchMyPR1s(
     return q;
   };
 
+  if (isLifecycleFilter) {
+    const listRes = await applyFilters(db.from('pr1_requests').select('*')).order(
+      'created_at',
+      { ascending: false },
+    );
+    if (listRes.error) throw listRes.error;
+
+    const all = (listRes.data ?? []) as PR1Request[];
+    const summaries = await fetchPR1LifecycleSummaries(
+      all.map(r => ({ id: r.id, status: r.status })),
+    );
+    const enrichedAll: PR1Request[] = all.map(r => ({ ...r, ...summaries[r.id] }));
+    const filtered = enrichedAll.filter(r => r.lifecycle_display_label === status);
+
+    const page =
+      limit != null && limit > 0 ? filtered.slice(offset, offset + limit) : filtered;
+
+    return { requests: page, total_count: filtered.length };
+  }
+
+  // No status filter: efficient server-side pagination with an exact count.
+  // Single `.select(...)` per query — chaining `.select` again after `select('*')`
+  // drops the exact count header and yields count = null / 0.
   let dataQuery = applyFilters(db.from('pr1_requests').select('*')).order(
     'created_at',
     { ascending: false }
