@@ -10,9 +10,17 @@ import DocumentStatusChip from '@/components/shared/DocumentStatusChip';
 
 // ── Role visibility rules ─────────────────────────────────────────────────────
 
-// Only approver-level roles can view the Related Records section
+// Roles that can view the Related Records section. Employee + warehouse get a
+// read-only view (see canNavigateRelatedRecords) — the section is visible but
+// rows are not clickable.
 function canViewRelatedRecords(role: AppRole): boolean {
-  return role === 'approver' || role === 'procurement' || role === 'admin' || role === 'warehouse';
+  return (
+    role === 'approver' ||
+    role === 'procurement' ||
+    role === 'admin' ||
+    role === 'warehouse' ||
+    role === 'employee'
+  );
 }
 
 // Roles that can click through to related documents
@@ -64,9 +72,15 @@ export default function RelatedRecords({ baseType, baseId, role, currentDocType,
   useEffect(() => {
     if (!canViewRelatedRecords(role)) return;
     let cancelled = false;
-    fetchDocumentChain(baseType, baseId).then(c => {
-      if (!cancelled) setChain(c);
-    });
+    fetchDocumentChain(baseType, baseId)
+      .then(c => {
+        if (!cancelled) setChain(c);
+      })
+      .catch(() => {
+        // Don't hang on "Loading chain..." if a query fails (e.g. RLS) —
+        // render nothing rather than a perpetual spinner.
+        if (!cancelled) setChain([]);
+      });
     return () => { cancelled = true; };
   }, [baseType, baseId, role]);
 
