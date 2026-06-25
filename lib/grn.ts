@@ -401,13 +401,15 @@ export async function openGRNForDelivery(
     }
   }
 
-  await db.from('audit_logs').insert({
-    actor_id:      profile.id,
-    action:        'GRN_OPENED',
-    document_type: 'GRN',
-    document_id:   grn.id,
-    payload:       { delivery_id: deliveryId, po_number: delivery.po_number_snapshot },
-  }).catch(() => {});
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'GRN_OPENED',
+      document_type: 'GRN',
+      document_id:   grn.id,
+      payload:       { delivery_id: deliveryId, po_number: delivery.po_number_snapshot },
+    });
+  } catch {}
 
   return grn.id;
 }
@@ -438,13 +440,15 @@ export async function saveGRNProgress(
     }).eq('id', item.id);
   }
 
-  await db.from('audit_logs').insert({
-    actor_id:      profile.id,
-    action:        'GRN_PROGRESS_SAVED',
-    document_type: 'GRN',
-    document_id:   grnId,
-    payload:       { item_count: values.items.length },
-  }).catch(() => {});
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'GRN_PROGRESS_SAVED',
+      document_type: 'GRN',
+      document_id:   grnId,
+      payload:       { item_count: values.items.length },
+    });
+  } catch {}
 }
 
 // ─── Close GRN (save + close transaction) ────────────────────────────────────
@@ -490,18 +494,20 @@ export async function closeGRN(
     created_at:     now,
   });
 
-  await db.from('audit_logs').insert({
-    actor_id:      profile.id,
-    action:        'GRN_CLOSED',
-    document_type: 'GRN',
-    document_id:   grnId,
-    payload: {
-      delivery_id:      deliveryId,
-      dr_no:            values.dr_no.trim(),
-      transaction_date: values.transaction_date,
-      closed_by:        profile.full_name,
-    },
-  }).catch(() => {});
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'GRN_CLOSED',
+      document_type: 'GRN',
+      document_id:   grnId,
+      payload: {
+        delivery_id:      deliveryId,
+        dr_no:            values.dr_no.trim(),
+        transaction_date: values.transaction_date,
+        closed_by:        profile.full_name,
+      },
+    });
+  } catch {}
 
   // Notify requisitioner (best-effort)
   try {

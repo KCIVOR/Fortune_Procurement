@@ -721,7 +721,23 @@ export async function assignSuppliers(
 ): Promise<void> {
   const nameMap = Object.fromEntries(allSuppliers.map(s => [s.id, s.full_name]));
 
-  const rows = supplierIds.map(id => ({
+  // Dedup guard: skip suppliers already assigned to this RFQ so retries /
+  // double-clicks can't create duplicate invitations.
+  const { data: existing, error: existingErr } = await db
+    .from('rfq_suppliers')
+    .select('supplier_id')
+    .eq('rfq_id', rfqId)
+    .not('supplier_id', 'is', null);
+  if (existingErr) throw existingErr;
+
+  const alreadyAssigned = new Set(
+    (existing ?? []).map((r: { supplier_id: string }) => r.supplier_id),
+  );
+  const toInsert = supplierIds.filter(id => !alreadyAssigned.has(id));
+
+  if (toInsert.length === 0) return;
+
+  const rows = toInsert.map(id => ({
     rfq_id:                 rfqId,
     supplier_id:            id,
     supplier_name_snapshot: nameMap[id] ?? '',
@@ -732,13 +748,15 @@ export async function assignSuppliers(
   const { error } = await db.from('rfq_suppliers').insert(rows);
   if (error) throw error;
 
-  await db.from('audit_logs').insert({
-    actor_id:      profile.id,
-    action:        'RFQ_SUPPLIERS_ASSIGNED',
-    document_type: 'RFQ',
-    document_id:   rfqId,
-    payload:       { supplier_ids: supplierIds, count: supplierIds.length },
-  }).catch(() => {});
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'RFQ_SUPPLIERS_ASSIGNED',
+      document_type: 'RFQ',
+      document_id:   rfqId,
+      payload:       { supplier_ids: toInsert, count: toInsert.length },
+    });
+  } catch {}
 }
 
 // ─── Add external vendor (no supplier account) ────────────────────────────────
@@ -754,6 +772,19 @@ export async function addExternalVendorToRfq(
   const name = vendorName.trim();
   if (!name) throw new Error('Vendor name is required.');
 
+  // Dedup guard: reject an external vendor name already on this RFQ
+  // (case-insensitive) so retries / double-clicks don't duplicate it.
+  const { data: existing, error: existingErr } = await db
+    .from('rfq_suppliers')
+    .select('id')
+    .eq('rfq_id', rfqId)
+    .eq('is_external', true)
+    .ilike('supplier_name_snapshot', name);
+  if (existingErr) throw existingErr;
+  if (existing && existing.length > 0) {
+    throw new Error(`"${name}" is already added to this RFQ.`);
+  }
+
   const { error } = await db.from('rfq_suppliers').insert({
     rfq_id:                 rfqId,
     supplier_id:            null,
@@ -764,13 +795,15 @@ export async function addExternalVendorToRfq(
   });
   if (error) throw error;
 
-  await db.from('audit_logs').insert({
-    actor_id:      profile.id,
-    action:        'RFQ_EXTERNAL_VENDOR_ADDED',
-    document_type: 'RFQ',
-    document_id:   rfqId,
-    payload:       { vendor_name: name },
-  }).catch(() => {});
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'RFQ_EXTERNAL_VENDOR_ADDED',
+      document_type: 'RFQ',
+      document_id:   rfqId,
+      payload:       { vendor_name: name },
+    });
+  } catch {}
 }
 
 // ─── Fetch quote ID for a specific supplier+item combination ─────────────────
@@ -2028,13 +2061,15 @@ export async function uploadRfqQuoteAttachment(params: {
 
   const uploaderId = (data as any).uploaded_by;
   if (uploaderId) {
-    await db.from('audit_logs').insert({
-      actor_id:      uploaderId,
-      action:        'RFQ_QUOTE_ATTACHMENT_UPLOADED',
-      document_type: 'RFQ',
-      document_id:   rfqId,
-      payload:       { rfq_supplier_id: rfqSupplierId, pr1_item_id: pr1ItemId, file_name: file.name, file_size: file.size },
-    }).catch(() => {});
+    try {
+      await db.from('audit_logs').insert({
+        actor_id:      uploaderId,
+        action:        'RFQ_QUOTE_ATTACHMENT_UPLOADED',
+        document_type: 'RFQ',
+        document_id:   rfqId,
+        payload:       { rfq_supplier_id: rfqSupplierId, pr1_item_id: pr1ItemId, file_name: file.name, file_size: file.size },
+      });
+    } catch {}
   }
 
   return data as RfqQuoteAttachment;
@@ -2053,13 +2088,15 @@ export async function deleteRfqQuoteAttachment(
   if (error) throw error;
 
   if (actorId) {
-    await db.from('audit_logs').insert({
-      actor_id:      actorId,
-      action:        'RFQ_QUOTE_ATTACHMENT_DELETED',
-      document_type: 'RFQ',
-      document_id:   attachmentId,
-      payload:       { storage_path: storagePath },
-    }).catch(() => {});
+    try {
+      await db.from('audit_logs').insert({
+        actor_id:      actorId,
+        action:        'RFQ_QUOTE_ATTACHMENT_DELETED',
+        document_type: 'RFQ',
+        document_id:   attachmentId,
+        payload:       { storage_path: storagePath },
+      });
+    } catch {}
   }
 }
 
