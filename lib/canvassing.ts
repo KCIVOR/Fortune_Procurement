@@ -1292,7 +1292,7 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
   // Find all RFQ batches linked to this PR1
   const { data: rfqs } = await db
     .from('rfq_batches')
-    .select('id, rfq_number')
+    .select('id, rfq_number, status')
     .eq('pr1_id', pr1.id);
 
   const rfqArr: any[] = rfqs ?? [];
@@ -1332,7 +1332,7 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
   const itemIds = Array.from(new Set(quoteArr.map(q => q.pr1_item_id)));
   const quoteIds = quoteArr.map(q => q.id);
 
-  const [itemsRes, decisionsRes, attachmentsByQuote] = await Promise.all([
+  const [itemsRes, decisionsRes, attachmentsByQuote, selectionsRes] = await Promise.all([
     db.from('pr1_items')
       .select('id, item_order, item_code, description, unit_of_measure, quantity_requested')
       .in('id', itemIds),
@@ -1340,6 +1340,9 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
       .select('*')
       .in('rfq_item_quote_id', quoteIds),
     fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({} as Record<string, RfqQuoteAttachment[]>)),
+    db.from('supplier_item_selections')
+      .select('rfq_id, pr1_item_id')
+      .in('rfq_id', rfqIds),
   ]);
 
   const itemMap: Record<string, any> = Object.fromEntries(((itemsRes.data ?? []) as any[]).map((i: any) => [i.id, i]));
@@ -1347,6 +1350,10 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
   const rfqMap: Record<string, any> = Object.fromEntries(rfqArr.map(r => [r.id, r]));
   const decisionMap: Record<string, SubstituteDecisionRow> = Object.fromEntries(
     ((decisionsRes.data ?? []) as SubstituteDecisionRow[]).map(d => [d.rfq_item_quote_id, d])
+  );
+  // Set of "rfqId|pr1ItemId" keys that have an award recorded
+  const awardedKeys = new Set<string>(
+    ((selectionsRes.data ?? []) as any[]).map((s: any) => `${s.rfq_id}|${s.pr1_item_id}`)
   );
 
   const wh = await fetchWarehouseProcurementByPr1Item(pr1.id);
@@ -1384,6 +1391,8 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
         decided_at:           decision?.decided_at ?? null,
         decision_notes:       decision?.notes ?? null,
         attachments:          attachmentsByQuote[q.id] ?? [],
+        rfq_status:           rfq?.status ?? 'open',
+        is_awarded:           awardedKeys.has(`${supplier.rfq_id}|${item.id}`),
       };
     })
     .filter((s): s is SubstituteReviewItem => s !== null)

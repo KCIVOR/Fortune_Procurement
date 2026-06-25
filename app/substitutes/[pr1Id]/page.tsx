@@ -109,15 +109,19 @@ export default function SubstituteReviewPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {bundle.substitutes.map(sub => (
+          {bundle.substitutes.map(sub => {
+            const rfqDone = sub.rfq_status === 'closed' || sub.rfq_status === 'cancelled';
+            return (
             <SubstituteCard
               key={sub.quote_id}
               substitute={sub}
-              canDecide={!!isOwner}
+              canDecide={!!isOwner && !rfqDone && !sub.is_awarded}
+              locked={rfqDone || sub.is_awarded}
               onDecided={load}
               pr1Id={bundle.pr1.id}
             />
-          ))}
+            );
+          })}
         </div>
       )}
     </AppShell>
@@ -127,11 +131,13 @@ export default function SubstituteReviewPage() {
 function SubstituteCard({
   substitute,
   canDecide,
+  locked,
   onDecided,
   pr1Id,
 }: {
   substitute: SubstituteReviewItem;
   canDecide: boolean;
+  locked: boolean;
   onDecided: () => void;
   pr1Id: string;
 }) {
@@ -252,10 +258,20 @@ function SubstituteCard({
                   Change decision to {substitute.decision === 'accepted' ? 'Rejected' : 'Accepted'}
                 </button>
               )}
+              {locked && (
+                <span className="text-[10px] text-pq-neutral-400 italic">
+                  {substitute.is_awarded ? 'Line already awarded — decision locked.' : 'RFQ closed — decision locked.'}
+                </span>
+              )}
             </div>
             {substitute.decision_notes && (
               <p className="mt-1 text-pq-neutral-500 italic">Notes: {substitute.decision_notes}</p>
             )}
+          </div>
+        ) : locked ? (
+          <div className="flex items-center gap-1.5 text-xs text-pq-neutral-400 italic">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            {substitute.is_awarded ? 'Line already awarded — decision locked.' : 'RFQ closed — decision locked.'}
           </div>
         ) : canDecide ? (
           <div className="space-y-3">

@@ -51,6 +51,9 @@ export interface SubstituteReviewItem {
   decision_notes:        string | null;
   /** Supplier-uploaded attachments for this substitute quote line. */
   attachments:           RfqQuoteAttachment[];
+  rfq_status:            RfqBatchStatus;
+  /** True if procurement has already awarded this PR1 line item in this RFQ. */
+  is_awarded:            boolean;
 }
 
 export interface SubstituteReviewBundle {
