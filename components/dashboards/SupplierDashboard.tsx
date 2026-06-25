@@ -171,18 +171,6 @@ export default function SupplierDashboard({ profile }: Props) {
                 </div>
               </div>
 
-              {cStats.rfqsPendingProductValidation > 0 && (
-                <div className="flex items-center gap-2 text-xs text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-3 py-2">
-                  <CircleAlert className="w-3.5 h-3.5 shrink-0" />
-                  <span>
-                    {cStats.rfqsPendingProductValidation} open RFQ
-                    {cStats.rfqsPendingProductValidation !== 1 ? 's have' : ' has'} a raw-material line offered with an unverified product. Procurement may need a written justification before awarding—getting your product verified avoids the extra step.
-                  </span>
-                  <Link href="/supplier/quotations" className="ml-auto font-semibold underline shrink-0">
-                    RFQs
-                  </Link>
-                </div>
-              )}
             </>
           )}
         </>
