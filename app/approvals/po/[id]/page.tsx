@@ -37,7 +37,7 @@ import {
   User, Building2, FileText, CalendarDays, Clock,
   CircleCheck as CheckCircle2, Circle as XCircle, RotateCcw,
   Package, TriangleAlert as AlertTriangle, CheckCheck, Lock,
-  ClipboardList, ShoppingCart, Truck, CreditCard, MapPin,
+  ClipboardList, ShoppingCart, Truck, CreditCard, MapPin, Store,
 } from 'lucide-react';
 
 export default function POApprovalDetailPage() {
@@ -128,7 +128,8 @@ export default function POApprovalDetailPage() {
     </AppShell>
   );
 
-  const isClosed = detail.instance_status !== 'active';
+  const isClosed    = detail.instance_status !== 'active';
+  const isExternal  = !detail.supplier_id;
   const canViewPrices = canViewCommercialPricing(profile);
   const grandTotal = canViewPrices
     ? detail.items.reduce((sum, i) => sum + i.unit_price * i.quantity_to_purchase, 0)
@@ -207,8 +208,25 @@ export default function POApprovalDetailPage() {
             <DetailInfoField
               icon={<Package className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="Supplier"
-              value={detail.supplier_name_snapshot}
+              value={
+                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                  {detail.supplier_name_snapshot}
+                  {isExternal && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                      <Store className="w-2.5 h-2.5 shrink-0" />
+                      External vendor
+                    </span>
+                  )}
+                </span>
+              }
             />
+            {isExternal && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold
+                text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 col-span-full -mt-2">
+                <Store className="w-2.5 h-2.5 shrink-0" />
+                External vendor — quote entered manually by Procurement
+              </span>
+            )}
             <DetailInfoField
               icon={<CalendarDays className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="PO Date"
@@ -393,7 +411,13 @@ export default function POApprovalDetailPage() {
               <div className="flex items-center gap-2">
                 <ShoppingCart className="w-3.5 h-3.5 text-pq-neutral-400" />
                 <h2 className="text-xs font-semibold text-pq-neutral-900 uppercase tracking-wide">Supplier Acknowledgment</h2>
-                {detail.receipt ? (
+                {isExternal ? (
+                  <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold
+                    text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                    <Store className="w-2.5 h-2.5 shrink-0" />
+                    External vendor
+                  </span>
+                ) : detail.receipt ? (
                   <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2.5 py-1">
                     <CheckCircle2 className="w-3 h-3" /> Acknowledged
                   </span>
@@ -405,7 +429,11 @@ export default function POApprovalDetailPage() {
               </div>
             </div>
             <div className="p-6">
-              {detail.receipt ? (
+              {isExternal ? (
+                <p className="text-sm text-pq-neutral-500 italic">
+                  External vendor — no portal account. Procurement marks this PO as ordered manually.
+                </p>
+              ) : detail.receipt ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
                   <DetailInfoField
                     icon={<User className="w-3.5 h-3.5 text-pq-neutral-400" />}
@@ -542,8 +570,14 @@ export default function POApprovalDetailPage() {
           <div className="bg-pq-success-100 border border-pq-success-100 rounded-md px-6 py-4 flex items-start gap-3">
             <CheckCheck className="w-5 h-5 text-pq-success-600 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-pq-success-600">PO Approved — Awaiting Supplier Acknowledgment</p>
-              <p className="text-xs text-pq-success-600 mt-0.5">Internal approval chain is complete. The supplier will receive and acknowledge this PO.</p>
+              <p className="text-sm font-semibold text-pq-success-600">
+                {isExternal ? 'PO Approved — External Vendor' : 'PO Approved — Awaiting Supplier Acknowledgment'}
+              </p>
+              <p className="text-xs text-pq-success-600 mt-0.5">
+                {isExternal
+                  ? 'Internal approval chain is complete. This PO is for an external vendor — place the order directly, then use Mark as Ordered to trigger delivery tracking.'
+                  : 'Internal approval chain is complete. The supplier will receive and acknowledge this PO.'}
+              </p>
             </div>
           </div>
         )}

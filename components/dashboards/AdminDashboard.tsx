@@ -144,17 +144,6 @@ export default function AdminDashboard({ profile }: AdminDashboardProps) {
             accent="blue"
           />
         </Link>
-
-        {/* System Settings */}
-        <Link href="/admin/settings" className="block w-full min-w-0 transition hover:-translate-y-0.5">
-          <StatCard
-            label="System Settings"
-            value="Config"
-            icon={<Settings className="w-5 h-5 text-pq-neutral-500" />}
-            isLoading={false}
-            accent="blue"
-          />
-        </Link>
       </div>
 
       {/* Recent Activity */}

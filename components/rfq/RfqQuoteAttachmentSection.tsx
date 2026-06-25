@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { FileText, ImageIcon, Paperclip, X, ZoomIn } from 'lucide-react';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import {
@@ -173,6 +174,7 @@ export default function RfqQuoteAttachmentSection({
   onStagedFilesChange,
   readOnly = false,
 }: Props) {
+  const { profile } = useAuth();
   const [attachments, setAttachments]     = useState<RfqQuoteAttachment[]>(initialAttachments);
   const [signedUrls, setSignedUrls]       = useState<Record<string, string>>({});
   const [uploading, setUploading]         = useState(false);
@@ -250,7 +252,7 @@ export default function RfqQuoteAttachmentSection({
     if (!confirm(`Remove "${att.file_name}"?`)) return;
     setDeletingId(att.id);
     try {
-      await deleteRfqQuoteAttachment(att.id, att.storage_path);
+      await deleteRfqQuoteAttachment(att.id, att.storage_path, profile?.id);
       setAttachments(prev => prev.filter(a => a.id !== att.id));
       setSignedUrls(prev => { const n = { ...prev }; delete n[att.id]; return n; });
     } catch {

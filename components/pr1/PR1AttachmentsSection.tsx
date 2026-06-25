@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ImageIcon, Paperclip, Trash2, X, ZoomIn } from 'lucide-react';
 import type { PR1Attachment } from '@/types/pr1';
 import { uploadPR1Attachment, deletePR1Attachment } from '@/lib/pr1';
+import { useAuth } from '@/context/AuthContext';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal } from '@/components/ui/dialog';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
@@ -302,6 +303,7 @@ export function PR1AttachmentsUploader({
   pr1ItemId,
   initialAttachments = [],
 }: PR1AttachmentsUploaderProps) {
+  const { profile } = useAuth();
   const [attachments, setAttachments] = useState<PR1Attachment[]>(initialAttachments);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -343,7 +345,7 @@ export function PR1AttachmentsUploader({
     if (!confirm(`Remove "${att.file_name}"?`)) return;
     setDeleting(att.id);
     try {
-      await deletePR1Attachment(att);
+      await deletePR1Attachment(att, profile?.id);
       setAttachments((prev) => prev.filter((a) => a.id !== att.id));
     } catch (err: any) {
       setUploadError(err.message ?? 'Failed to remove.');

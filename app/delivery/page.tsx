@@ -193,7 +193,7 @@ export default function DeliveryQueuePage() {
             icon={Truck}
             title="No deliveries found"
             description={filter === 'all'
-              ? 'Deliveries will appear here once POs are acknowledged by suppliers.'
+              ? 'Deliveries appear here once POs are acknowledged by suppliers, or marked as ordered for external vendors.'
               : `No deliveries with status "${DELIVERY_STATUS_LABELS[filter as DeliveryStatus] ?? filter}".`}
           />
         </div>

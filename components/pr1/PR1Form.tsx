@@ -15,7 +15,8 @@ import {
   deletePR1Attachment,
 } from '@/lib/pr1';
 import type { PR1WithItems, PR1FormValues, PR1ItemDraft, PR1Attachment, PR1RequestType } from '@/types/pr1';
-import { EMPTY_ITEM, PURPOSE_OPTIONS, UNIT_OPTIONS } from '@/types/pr1';
+import { EMPTY_ITEM } from '@/types/pr1';
+import { useDropdownOptions } from '@/hooks/useDropdownOptions';
 import { Plus, Trash2, TriangleAlert as AlertTriangle, Save, Send, ChevronUp, ChevronDown, FlaskConical, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -29,17 +30,9 @@ interface PR1FormProps {
 
 // ── Dropdown option helpers ────────────────────────────────────────────────────
 
-function resolvePurposeSelection(stored: string): { sel: string; custom: string } {
+function resolveOptionSelection(stored: string, options: string[]): { sel: string; custom: string } {
   if (!stored) return { sel: '', custom: '' };
-  if ((PURPOSE_OPTIONS as readonly string[]).includes(stored) && stored !== 'Other') {
-    return { sel: stored, custom: '' };
-  }
-  return { sel: 'Other', custom: stored };
-}
-
-function resolveUnitSelection(stored: string): { sel: string; custom: string } {
-  if (!stored) return { sel: '', custom: '' };
-  if ((UNIT_OPTIONS as readonly string[]).includes(stored) && stored !== 'Other') {
+  if (options.includes(stored) && stored !== 'Other') {
     return { sel: stored, custom: '' };
   }
   return { sel: 'Other', custom: stored };
@@ -86,9 +79,9 @@ interface ItemUnitState {
   custom: string;
 }
 
-function buildInitialItemUnitStates(existing?: PR1WithItems): ItemUnitState[] {
+function buildInitialItemUnitStates(existing: PR1WithItems | undefined, unitValues: string[]): ItemUnitState[] {
   const items = existing && existing.items.length > 0 ? existing.items : [EMPTY_ITEM()];
-  return items.map(i => resolveUnitSelection(i.unit_of_measure));
+  return items.map(i => resolveOptionSelection(i.unit_of_measure, unitValues));
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -118,15 +111,38 @@ export default function PR1Form({ existing }: PR1FormProps) {
   });
   const [attachmentsToDelete, setAttachmentsToDelete] = useState<Record<string, boolean>>({});
 
+  // Dynamic dropdown options
+  const { options: purposeOpts } = useDropdownOptions('PURPOSE_OPTIONS');
+  const { options: unitOpts }    = useDropdownOptions('UNIT_OPTIONS');
+  const purposeValues = useMemo(() => purposeOpts.map(o => o.option_value), [purposeOpts]);
+  const unitValues    = useMemo(() => unitOpts.map(o => o.option_value), [unitOpts]);
+
   // Purpose dropdown state
-  const initialPurpose = resolvePurposeSelection(existing?.purpose ?? '');
+  const initialPurpose = useMemo(() => resolveOptionSelection(existing?.purpose ?? '', purposeValues), [existing?.purpose, purposeValues]);
   const [purposeSel, setPurposeSel] = useState(initialPurpose.sel);
   const [purposeCustom, setPurposeCustom] = useState(initialPurpose.custom);
 
+  // Re-resolve purpose when dynamic options load
+  useEffect(() => {
+    if (purposeValues.length === 0) return;
+    const resolved = resolveOptionSelection(existing?.purpose ?? '', purposeValues);
+    setPurposeSel(resolved.sel);
+    setPurposeCustom(resolved.custom);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purposeValues]);
+
   // Per-item unit dropdown state
   const [itemUnitStates, setItemUnitStates] = useState<ItemUnitState[]>(
-    () => buildInitialItemUnitStates(existing)
+    () => buildInitialItemUnitStates(existing, unitValues)
   );
+
+  // Re-resolve unit states when dynamic options load
+  useEffect(() => {
+    if (unitValues.length === 0) return;
+    const items = existing && existing.items.length > 0 ? existing.items : [EMPTY_ITEM()];
+    setItemUnitStates(items.map(i => resolveOptionSelection(i.unit_of_measure, unitValues)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitValues]);
 
   const isEdit = Boolean(existing);
   const isRevisionRequested = existing?.status === 'revision_requested';
@@ -352,7 +368,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
           if (foundAtt) break;
         }
         if (foundAtt) {
-          await deletePR1Attachment(foundAtt);
+          await deletePR1Attachment(foundAtt, profile?.id);
         }
       });
       await Promise.all(deletePromises);
@@ -407,7 +423,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
           if (foundAtt) break;
         }
         if (foundAtt) {
-          await deletePR1Attachment(foundAtt);
+          await deletePR1Attachment(foundAtt, profile?.id);
         }
       });
       await Promise.all(deletePromises);
@@ -585,7 +601,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
               className={`${selectBaseHeader} ${errors.purpose && !purposeSel ? 'border-red-300 bg-pq-danger-100' : 'border-pq-neutral-200'}`}
             >
               <option value="">— Select purpose —</option>
-              {PURPOSE_OPTIONS.map(opt => (
+              {purposeValues.map(opt => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>
@@ -735,7 +751,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
                         className={`${selectBase} ${uomError && !uState.sel ? 'border-red-300 bg-pq-danger-100' : 'border-pq-neutral-200'}`}
                       >
                         <option value="">— Unit —</option>
-                        {UNIT_OPTIONS.map(opt => (
+                        {unitValues.map(opt => (
                           <option key={opt} value={opt}>{opt}</option>
                         ))}
                       </select>

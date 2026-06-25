@@ -716,7 +716,8 @@ export async function createRfq(
 export async function assignSuppliers(
   rfqId: string,
   supplierIds: string[],
-  allSuppliers: Pick<CanvassSupplierCandidate, 'id' | 'full_name'>[]
+  allSuppliers: Pick<CanvassSupplierCandidate, 'id' | 'full_name'>[],
+  profile: UserProfile,
 ): Promise<void> {
   const nameMap = Object.fromEntries(allSuppliers.map(s => [s.id, s.full_name]));
 
@@ -729,6 +730,99 @@ export async function assignSuppliers(
   }));
 
   const { error } = await db.from('rfq_suppliers').insert(rows);
+  if (error) throw error;
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'RFQ_SUPPLIERS_ASSIGNED',
+    document_type: 'RFQ',
+    document_id:   rfqId,
+    payload:       { supplier_ids: supplierIds, count: supplierIds.length },
+  }).catch(() => {});
+}
+
+// ─── Add external vendor (no supplier account) ────────────────────────────────
+// Procurement adds an off-system vendor (e.g. Shopee, Lazada, a walk-in store)
+// to an RFQ. There is no invite/response cycle — Procurement enters the quote on
+// the vendor's behalf in the canvassing matrix — so the row is created directly
+// in 'submitted' status with a null supplier_id and is_external = true.
+export async function addExternalVendorToRfq(
+  rfqId: string,
+  vendorName: string,
+  profile: UserProfile,
+): Promise<void> {
+  const name = vendorName.trim();
+  if (!name) throw new Error('Vendor name is required.');
+
+  const { error } = await db.from('rfq_suppliers').insert({
+    rfq_id:                 rfqId,
+    supplier_id:            null,
+    supplier_name_snapshot: name,
+    is_external:            true,
+    status:                 'submitted',
+    invited_at:             new Date().toISOString(),
+  });
+  if (error) throw error;
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'RFQ_EXTERNAL_VENDOR_ADDED',
+    document_type: 'RFQ',
+    document_id:   rfqId,
+    payload:       { vendor_name: name },
+  }).catch(() => {});
+}
+
+// ─── Fetch quote ID for a specific supplier+item combination ─────────────────
+// Used by the external quote modal to resolve the rfq_item_quote id after
+// submitSupplierQuotation so that file attachments can be linked to it.
+export async function fetchQuoteIdForSupplierItem(
+  rfqSupplierId: string,
+  pr1ItemId: string,
+): Promise<string | null> {
+  const { data } = await db
+    .from('rfq_item_quotes')
+    .select('id')
+    .eq('rfq_supplier_id', rfqSupplierId)
+    .eq('pr1_item_id', pr1ItemId)
+    .maybeSingle();
+  return (data as any)?.id ?? null;
+}
+
+// ─── Remove external vendor (draft RFQ only, no quotes) ──────────────────────
+// Blocked if the RFQ is no longer draft, the slot belongs to a registered
+// supplier, or any rfq_item_quotes rows already exist (FK is NO ACTION —
+// the DB would reject the delete anyway; we surface a clear message instead).
+export async function removeExternalVendorFromRfq(
+  rfqSupplierId: string,
+): Promise<void> {
+  // Fetch the slot and its RFQ status in one join
+  const { data: rs, error: rsErr } = await db
+    .from('rfq_suppliers')
+    .select('id, is_external, rfq_id, rfq_batches!rfq_id ( status )')
+    .eq('id', rfqSupplierId)
+    .maybeSingle();
+  if (rsErr) throw rsErr;
+  if (!rs) throw new Error('Vendor slot not found.');
+  if (!rs.is_external) throw new Error('Only external vendors can be removed this way.');
+
+  const rfqStatus = (rs.rfq_batches as any)?.status ?? null;
+  if (rfqStatus !== 'draft') {
+    throw new Error('External vendors can only be removed while the RFQ is still a draft.');
+  }
+
+  // Guard: no quotes entered yet (FK is NO ACTION; this gives a clear error)
+  const { count } = await db
+    .from('rfq_item_quotes')
+    .select('id', { count: 'exact', head: true })
+    .eq('rfq_supplier_id', rfqSupplierId);
+  if ((count ?? 0) > 0) {
+    throw new Error(
+      'This vendor already has quotes entered. Remove the quotes first, or leave the vendor on the RFQ.',
+    );
+  }
+
+  const { error } = await db.from('rfq_suppliers').delete().eq('id', rfqSupplierId);
   if (error) throw error;
 }
 
@@ -780,7 +874,11 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
       .select('id, supplier_id')
       .eq('rfq_id', rfqId);
 
-    const supplierRows: { id: string; supplier_id: string }[] = suppliers ?? [];
+    // External vendors have supplier_id = null — exclude them from all notification
+    // and email paths (they have no portal account to notify).
+    const supplierRows: { id: string; supplier_id: string }[] =
+      ((suppliers ?? []) as { id: string; supplier_id: string | null }[])
+        .filter((s): s is { id: string; supplier_id: string } => !!s.supplier_id);
     if (supplierRows.length === 0) return;
 
     const supplierUserIds = supplierRows.map(s => s.supplier_id);
@@ -1927,12 +2025,25 @@ export async function uploadRfqQuoteAttachment(params: {
     await supabase.storage.from('rfq-attachments').remove([storagePath]).catch(() => {});
     throw insertErr;
   }
+
+  const uploaderId = (data as any).uploaded_by;
+  if (uploaderId) {
+    await db.from('audit_logs').insert({
+      actor_id:      uploaderId,
+      action:        'RFQ_QUOTE_ATTACHMENT_UPLOADED',
+      document_type: 'RFQ',
+      document_id:   rfqId,
+      payload:       { rfq_supplier_id: rfqSupplierId, pr1_item_id: pr1ItemId, file_name: file.name, file_size: file.size },
+    }).catch(() => {});
+  }
+
   return data as RfqQuoteAttachment;
 }
 
 export async function deleteRfqQuoteAttachment(
   attachmentId: string,
-  storagePath:  string
+  storagePath:  string,
+  actorId?:     string,
 ): Promise<void> {
   await supabase.storage.from('rfq-attachments').remove([storagePath]);
   const { error } = await db
@@ -1940,6 +2051,16 @@ export async function deleteRfqQuoteAttachment(
     .delete()
     .eq('id', attachmentId);
   if (error) throw error;
+
+  if (actorId) {
+    await db.from('audit_logs').insert({
+      actor_id:      actorId,
+      action:        'RFQ_QUOTE_ATTACHMENT_DELETED',
+      document_type: 'RFQ',
+      document_id:   attachmentId,
+      payload:       { storage_path: storagePath },
+    }).catch(() => {});
+  }
 }
 
 /** Get a short-lived public URL for a stored RFQ quote attachment. */

@@ -401,6 +401,14 @@ export async function openGRNForDelivery(
     }
   }
 
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'GRN_OPENED',
+    document_type: 'GRN',
+    document_id:   grn.id,
+    payload:       { delivery_id: deliveryId, po_number: delivery.po_number_snapshot },
+  }).catch(() => {});
+
   return grn.id;
 }
 
@@ -408,7 +416,8 @@ export async function openGRNForDelivery(
 
 export async function saveGRNProgress(
   grnId: string,
-  values: GRNFormValues
+  values: GRNFormValues,
+  profile: UserProfile,
 ): Promise<void> {
   const now = new Date().toISOString();
 
@@ -428,6 +437,14 @@ export async function saveGRNProgress(
       updated_at:        now,
     }).eq('id', item.id);
   }
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'GRN_PROGRESS_SAVED',
+    document_type: 'GRN',
+    document_id:   grnId,
+    payload:       { item_count: values.items.length },
+  }).catch(() => {});
 }
 
 // ─── Close GRN (save + close transaction) ────────────────────────────────────
@@ -441,7 +458,7 @@ export async function closeGRN(
   const now = new Date().toISOString();
 
   // Save all fields
-  await saveGRNProgress(grnId, values);
+  await saveGRNProgress(grnId, values, profile);
 
   // Close the GRN
   await db.from('grn_receipts').update({
@@ -472,6 +489,19 @@ export async function closeGRN(
     scheduled_date: null,
     created_at:     now,
   });
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'GRN_CLOSED',
+    document_type: 'GRN',
+    document_id:   grnId,
+    payload: {
+      delivery_id:      deliveryId,
+      dr_no:            values.dr_no.trim(),
+      transaction_date: values.transaction_date,
+      closed_by:        profile.full_name,
+    },
+  }).catch(() => {});
 
   // Notify requisitioner (best-effort)
   try {

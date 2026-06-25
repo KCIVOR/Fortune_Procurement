@@ -532,6 +532,39 @@ export interface Database {
         };
       };
 
+      system_dropdown_options: {
+        Row: {
+          id: string;
+          category: string;
+          option_value: string;
+          option_label: string;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          category: string;
+          option_value: string;
+          option_label: string;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          category?: string;
+          option_value?: string;
+          option_label?: string;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+
       system_expiry_settings: {
         Row: {
           id: boolean;

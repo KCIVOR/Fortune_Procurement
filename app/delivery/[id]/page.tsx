@@ -13,7 +13,7 @@ import { openGRNForDelivery, fetchGRNByDeliveryId } from '@/lib/grn';
 import type { DeliveryWithHistory, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
 import { format } from 'date-fns';
-import { Truck, Building2, Package, CalendarDays, MapPin, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban, Calendar, MessageSquare, User, Send, ShieldCheck, PackageCheck } from 'lucide-react';
+import { Truck, Building2, Package, CalendarDays, MapPin, Clock, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Navigation, Ban, Calendar, MessageSquare, User, Send, ShieldCheck, PackageCheck, Store } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
@@ -122,8 +122,9 @@ export default function DeliveryDetailPage() {
     </AppShell>
   );
 
-  const cfg    = STATUS_CONFIG[delivery.status];
-  const Icon   = cfg.icon;
+  const cfg        = STATUS_CONFIG[delivery.status];
+  const Icon       = cfg.icon;
+  const isExternal = !delivery.supplier_id;
   const isProcurement = profile?.role === 'procurement';
   const isWarehouse   = profile?.role === 'warehouse';
   const canViewPrices = canViewCommercialPricing(profile);
@@ -209,6 +210,18 @@ export default function DeliveryDetailPage() {
         </div>
       )}
 
+      {/* External vendor notice */}
+      {isExternal && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-md px-5 py-4 mb-6">
+          <Store className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+          <div className="text-sm text-amber-800">
+            <span className="font-semibold">External vendor — manual order.</span>{' '}
+            This delivery was created from a PO issued to an off-system supplier.
+            No portal commitment date is available; Procurement is tracking the order directly.
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-4">
@@ -219,7 +232,17 @@ export default function DeliveryDetailPage() {
               layout="inline"
               icon={<Building2 className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />}
               label="Supplier"
-              value={delivery.supplier_name_snapshot}
+              value={
+                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                  {delivery.supplier_name_snapshot}
+                  {isExternal && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                      <Store className="w-2.5 h-2.5 shrink-0" />
+                      External vendor
+                    </span>
+                  )}
+                </span>
+              }
             />
             <DetailInfoField
               layout="inline"
@@ -300,7 +323,11 @@ export default function DeliveryDetailPage() {
               />
             )}
             {!delivery.commitment_date && !delivery.scheduled_date && (
-              <p className="text-xs text-pq-neutral-400">No dates confirmed yet.</p>
+              <p className="text-xs text-pq-neutral-400">
+                {isExternal
+                  ? 'No commitment date — external vendor orders are tracked manually by Procurement.'
+                  : 'No dates confirmed yet.'}
+              </p>
             )}
           </div>
 

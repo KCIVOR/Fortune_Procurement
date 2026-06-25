@@ -37,6 +37,7 @@ export const MODULE_ROUTE_PREFIX: Partial<Record<ModuleKey, string>> = {
   admin_audit: '/admin',
   admin_module_visibility: '/admin',
   admin_workflows: '/admin',
+  admin_settings: '/admin',
 };
 
 /** Module keys that remain visible when visibility rules cannot be loaded (fail-closed). */

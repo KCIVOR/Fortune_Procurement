@@ -82,9 +82,15 @@ export interface RfqBatch {
 export interface RfqSupplier {
   id:                     string;
   rfq_id:                 string;
-  supplier_id:            string;
+  /** Null for external vendors (no supplier account) — see `is_external`. */
+  supplier_id:            string | null;
   supplier_name_snapshot: string;
   status:                 RfqSupplierStatus;
+  /**
+   * External vendor (e.g. Shopee, Lazada) added by Procurement with no supplier
+   * account. Procurement enters the quote on their behalf; they never log in.
+   */
+  is_external?:           boolean;
   invited_at:             string;
   responded_at:           string | null;
   created_at:             string;

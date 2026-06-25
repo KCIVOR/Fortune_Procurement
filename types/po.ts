@@ -96,9 +96,11 @@ export interface POGenerationCandidate {
   department_name_snapshot: string;
   requisitioner_name_snapshot: string;
   date_required: string;
-  /** Supplier user id (profiles.id / auth user). */
-  supplier_id: string;
+  /** Supplier user id (profiles.id / auth user). Null for external vendors. */
+  supplier_id: string | null;
   supplier_name_snapshot: string;
+  /** True when this candidate is an external vendor (no supplier account). */
+  is_external?: boolean;
   selected_rfq_supplier_ids: string[];
   item_count: number;
   grand_total: number;
@@ -106,7 +108,8 @@ export interface POGenerationCandidate {
   existing_po_id: string | null;
 }
 
-export const WAREHOUSE_OPTIONS = [
+/** Fallback defaults — dynamic options are now served from system_dropdown_options table. */
+export const WAREHOUSE_OPTIONS_DEFAULTS = [
   'Main Warehouse',
   'Warehouse A',
   'Warehouse B',
@@ -116,7 +119,8 @@ export const WAREHOUSE_OPTIONS = [
   'Other',
 ] as const;
 
-export const PAYMENT_TERMS_OPTIONS = [
+/** Fallback defaults — dynamic options are now served from system_dropdown_options table. */
+export const PAYMENT_TERMS_OPTIONS_DEFAULTS = [
   '15 days net',
   '30 days net',
   '45 days net',
@@ -191,6 +195,7 @@ export interface POApprovalDetail {
   pr2_number_snapshot:         string;
   pr1_number_snapshot:         string;
   rfq_number_snapshot:         string;
+  supplier_id:                 string | null;
   supplier_name_snapshot:      string;
   requisitioner_name_snapshot: string;
   department_name_snapshot:    string;

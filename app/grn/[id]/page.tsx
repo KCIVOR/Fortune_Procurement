@@ -144,12 +144,12 @@ export default function GRNDetailPage() {
   }, []);
 
   const handleSave = async () => {
-    if (!grn) return;
+    if (!grn || !profile) return;
     setSaving(true);
     setSaveMsg('');
     setFormError('');
     try {
-      await saveGRNProgress(grn.id, form);
+      await saveGRNProgress(grn.id, form, profile);
       setSaveMsg('Progress saved.');
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (e: any) {

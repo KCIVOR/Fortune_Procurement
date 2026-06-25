@@ -12,6 +12,12 @@ import {
   fetchRfqDetail,
   buildQuoteMatrix,
   assignSuppliers,
+  addExternalVendorToRfq,
+  removeExternalVendorFromRfq,
+  submitSupplierQuotation,
+  fetchQuoteIdForSupplierItem,
+  uploadRfqQuoteAttachment,
+  deleteRfqQuoteAttachment,
   issueRfq,
   closeRfq,
   saveItemSelection,
@@ -20,7 +26,7 @@ import {
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
 import type { RfqDetailView, QuoteMatrixRow, CanvassSupplierCandidate } from '@/types/canvassing';
-import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail, Info } from 'lucide-react';
+import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail, Info, Store, Trash2, X, Paperclip } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
@@ -85,6 +91,90 @@ export default function RfqDetailPage() {
   const [justificationCtx, setJustificationCtx] =
     useState<JustificationContext | null>(null);
   const [justificationBusy, setJustificationBusy] = useState(false);
+
+  // External vendor: Procurement-entered quote modal state.
+  const [extQuote, setExtQuote] = useState<{
+    pr1ItemId: string;
+    rfqSupplierId: string;
+    itemDescription: string;
+    unitPrice: string;
+    quotedDescription: string;
+    leadTimeDays: string;
+    remarks: string;
+    existingAttachments: RfqQuoteAttachment[];
+    pendingFiles: File[];
+  } | null>(null);
+  const [extQuoteBusy, setExtQuoteBusy] = useState(false);
+  const [extQuoteError, setExtQuoteError] = useState('');
+
+  const openExternalQuoteModal = (args: {
+    pr1ItemId: string;
+    rfqSupplierId: string;
+    itemDescription: string;
+    existing: { unit_price: number; quoted_description: string; lead_time_days: number; remarks?: string | null; attachments?: RfqQuoteAttachment[] } | null;
+  }) => {
+    setExtQuoteError('');
+    setExtQuote({
+      pr1ItemId: args.pr1ItemId,
+      rfqSupplierId: args.rfqSupplierId,
+      itemDescription: args.itemDescription,
+      unitPrice: args.existing ? String(args.existing.unit_price) : '',
+      quotedDescription: args.existing?.quoted_description ?? args.itemDescription,
+      leadTimeDays: args.existing ? String(args.existing.lead_time_days) : '',
+      remarks: args.existing?.remarks ?? '',
+      existingAttachments: args.existing?.attachments ?? [],
+      pendingFiles: [],
+    });
+  };
+
+  const handleSaveExternalQuote = async () => {
+    if (!extQuote || !detail) return;
+    const price = Number(extQuote.unitPrice);
+    const lead = Number(extQuote.leadTimeDays);
+    if (!extQuote.quotedDescription.trim()) { setExtQuoteError('Description is required.'); return; }
+    if (!Number.isFinite(price) || price <= 0) { setExtQuoteError('Enter a valid unit price.'); return; }
+    if (!Number.isFinite(lead) || lead < 0) { setExtQuoteError('Enter a valid lead time.'); return; }
+
+    setExtQuoteBusy(true);
+    setExtQuoteError('');
+    try {
+      await submitSupplierQuotation(extQuote.rfqSupplierId, [{
+        pr1_item_id:        extQuote.pr1ItemId,
+        quoted_description: extQuote.quotedDescription.trim(),
+        is_alternative:     false,
+        unit_price:         price,
+        lead_time_days:     lead,
+        remarks:            extQuote.remarks.trim(),
+        response_status:    'quoted',
+      }]);
+
+      if (extQuote.pendingFiles.length > 0) {
+        const rfqItemQuoteId = await fetchQuoteIdForSupplierItem(
+          extQuote.rfqSupplierId,
+          extQuote.pr1ItemId,
+        );
+        if (rfqItemQuoteId) {
+          for (const file of extQuote.pendingFiles) {
+            await uploadRfqQuoteAttachment({
+              rfqId:          detail.rfq.id,
+              rfqSupplierId:  extQuote.rfqSupplierId,
+              rfqItemQuoteId,
+              pr1ItemId:      extQuote.pr1ItemId,
+              file,
+            });
+          }
+        }
+      }
+
+      setExtQuote(null);
+      setLoading(true);
+      load();
+    } catch (e: any) {
+      setExtQuoteError(e.message ?? 'Failed to save quote.');
+    } finally {
+      setExtQuoteBusy(false);
+    }
+  };
 
   const load = useCallback(() => {
     if (!id) return;
@@ -216,12 +306,43 @@ export default function RfqDetailPage() {
     setWorking(true);
     setActionError('');
     try {
-      await assignSuppliers(rfq.id, Array.from(selectedIds), allSuppliers);
+      await assignSuppliers(rfq.id, Array.from(selectedIds), allSuppliers, profile);
       closeAssignModal();
       setLoading(true);
       load();
     } catch (e: any) {
       setActionError(e.message ?? 'Failed to assign suppliers.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const handleAddExternalVendor = async (vendorName: string) => {
+    if (!profile) return;
+    setWorking(true);
+    setActionError('');
+    try {
+      await addExternalVendorToRfq(rfq.id, vendorName, profile);
+      closeAssignModal();
+      setLoading(true);
+      load();
+    } catch (e: any) {
+      setActionError(e.message ?? 'Failed to add external vendor.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const handleRemoveExternalVendor = async (rfqSupplierId: string) => {
+    if (!profile) return;
+    setWorking(true);
+    setActionError('');
+    try {
+      await removeExternalVendorFromRfq(rfqSupplierId);
+      setLoading(true);
+      load();
+    } catch (e: any) {
+      setActionError(e.message ?? 'Failed to remove external vendor.');
     } finally {
       setWorking(false);
     }
@@ -288,19 +409,22 @@ export default function RfqDetailPage() {
         ? detail.suppliers.filter(s => s.id === supplierAssignmentId)
         : detail.suppliers;
       
-      const supplierUserIds = targets.map(s => s.supplier_id);
+      // External vendors have no supplier account / email — exclude them.
+      const supplierUserIds = targets
+        .map(s => s.supplier_id)
+        .filter((id): id is string => !!id);
       const { data: profiles } = await db
         .from('profiles')
         .select('id, email')
         .in('id', supplierUserIds);
-      
+
       const emailMap = Object.fromEntries(
         ((profiles ?? []) as { id: string; email: string | null }[]).map(p => [p.id, p.email])
       );
       const emailTargets = targets
-        .filter(s => emailMap[s.supplier_id])
+        .filter(s => s.supplier_id && emailMap[s.supplier_id])
         .map(s => ({
-          email: emailMap[s.supplier_id],
+          email: emailMap[s.supplier_id as string],
           actionUrl: `/supplier/quotations/${s.id}`
         }));
 
@@ -642,28 +766,50 @@ export default function RfqDetailPage() {
                 {suppliers.map(s => (
                   <div key={s.id} className="px-5 py-3 flex items-center justify-between hover:bg-pq-neutral-50 group transition">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-pq-neutral-900">{s.supplier_name_snapshot}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-medium text-pq-neutral-900">{s.supplier_name_snapshot}</p>
+                        {s.is_external && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                            <Store className="w-2.5 h-2.5 shrink-0" />
+                            External
+                          </span>
+                        )}
+                      </div>
                       <span className={`inline-block mt-1 text-[10px] font-medium border rounded-full px-2 py-0.5 ${SUPPLIER_STATUS_COLOR[s.status]}`}>
                         {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleSendEmail(s.id)}
-                        className="p-2 text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-neutral-200 rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
-                        title="Resend email to this supplier"
-                        disabled={working}
-                      >
-                        <Mail className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleCopyForViber(s.id)}
-                        className="p-2 text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-neutral-200 rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
-                        title="Copy personal link for Viber"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {/* External vendors have no email/portal — Procurement enters the quote directly. */}
+                    {s.is_external ? (
+                      rfq.status === 'draft' && (
+                        <button
+                          onClick={() => handleRemoveExternalVendor(s.id)}
+                          disabled={working}
+                          className="p-2 text-pq-neutral-400 hover:text-pq-danger-600 hover:bg-pq-danger-50 rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          title="Remove external vendor"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleSendEmail(s.id)}
+                          className="p-2 text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-neutral-200 rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          title="Resend email to this supplier"
+                          disabled={working}
+                        >
+                          <Mail className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleCopyForViber(s.id)}
+                          className="p-2 text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-neutral-200 rounded-full transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          title="Copy personal link for Viber"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
 
@@ -713,6 +859,12 @@ export default function RfqDetailPage() {
                         <th key={s.id} className="text-left px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 border-l border-pq-neutral-200">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="truncate">{s.supplier_name_snapshot}</span>
+                            {s.is_external && (
+                              <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                                <Store className="w-2.5 h-2.5" />
+                                Ext
+                              </span>
+                            )}
                             <span className={`shrink-0 text-xs border rounded-full px-1.5 py-0.5 ${SUPPLIER_STATUS_COLOR[s.status]}`}>
                               {s.status === 'submitted' ? '✓' : '…'}
                             </span>
@@ -731,6 +883,7 @@ export default function RfqDetailPage() {
                         canViewPrices={canViewPrices}
                         requestType={pr1.request_type ?? 'goods'}
                         onSelect={handleSelectWinner}
+                        onEnterExternalQuote={openExternalQuoteModal}
                       />
                     ))}
                   </tbody>
@@ -764,6 +917,7 @@ export default function RfqDetailPage() {
         onPageChange={setSupplierPage}
         onClose={closeAssignModal}
         onAssign={handleAssign}
+        onAddExternalVendor={handleAddExternalVendor}
       />
 
       {/* Phase 7 (Raw Mats): justification capture for awarding an
@@ -775,6 +929,169 @@ export default function RfqDetailPage() {
         onSubmit={handleJustificationSubmit}
         onCancel={handleJustificationCancel}
       />
+
+      {/* External vendor — Procurement-entered quote */}
+      {extQuote && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white w-full max-w-md rounded-md border border-pq-neutral-200 shadow-lg overflow-hidden">
+            <header className="px-5 py-4 border-b border-pq-neutral-200 flex items-center gap-2">
+              <Store className="w-4 h-4 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-pq-neutral-900">External vendor quote</h2>
+                <p className="text-xs text-pq-neutral-500 truncate">{extQuote.itemDescription}</p>
+              </div>
+            </header>
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-pq-neutral-600 mb-1">Quoted description / specification</label>
+                <input
+                  type="text"
+                  value={extQuote.quotedDescription}
+                  onChange={e => setExtQuote(prev => prev && { ...prev, quotedDescription: e.target.value })}
+                  disabled={extQuoteBusy}
+                  className="w-full h-9 rounded-md border border-pq-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-pq-primary-600/30"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-pq-neutral-600 mb-1">Unit price</label>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={extQuote.unitPrice}
+                    onChange={e => setExtQuote(prev => prev && { ...prev, unitPrice: e.target.value })}
+                    disabled={extQuoteBusy}
+                    className="w-full h-9 rounded-md border border-pq-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-pq-primary-600/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-pq-neutral-600 mb-1">Lead time (days)</label>
+                  <input
+                    type="number" min="0" step="1"
+                    value={extQuote.leadTimeDays}
+                    onChange={e => setExtQuote(prev => prev && { ...prev, leadTimeDays: e.target.value })}
+                    disabled={extQuoteBusy}
+                    className="w-full h-9 rounded-md border border-pq-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-pq-primary-600/30"
+                  />
+                </div>
+              </div>
+              {/* Notes / Remarks */}
+              <div>
+                <label className="block text-xs font-semibold text-pq-neutral-600 mb-1">
+                  Notes / Remarks <span className="font-normal text-pq-neutral-400">(optional)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={extQuote.remarks}
+                  onChange={e => setExtQuote(prev => prev && { ...prev, remarks: e.target.value })}
+                  disabled={extQuoteBusy}
+                  placeholder="Delivery terms, brand, warranty, etc."
+                  className="w-full rounded-md border border-pq-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pq-primary-600/30 resize-none"
+                />
+              </div>
+              {/* File attachments */}
+              <div>
+                <label className="block text-xs font-semibold text-pq-neutral-600 mb-1">
+                  <span className="inline-flex items-center gap-1">
+                    <Paperclip className="w-3.5 h-3.5" />
+                    Attachments
+                    <span className="font-normal text-pq-neutral-400">
+                      (JPEG, PNG, PDF, max 10 MB · {Math.max(0, 3 - extQuote.existingAttachments.length - extQuote.pendingFiles.length)} of 3 slots remaining)
+                    </span>
+                  </span>
+                </label>
+                {/* Already-saved attachments */}
+                {extQuote.existingAttachments.length > 0 && (
+                  <ul className="mb-2 space-y-1">
+                    {extQuote.existingAttachments.map(att => (
+                      <li key={att.id} className="flex items-center justify-between text-xs text-pq-neutral-700 bg-pq-neutral-50 border border-pq-neutral-200 rounded px-2 py-1">
+                        <span className="truncate mr-2">{att.file_name}</span>
+                        <button
+                          type="button"
+                          disabled={extQuoteBusy}
+                          onClick={async () => {
+                            try {
+                              await deleteRfqQuoteAttachment(att.id, att.storage_path, profile?.id);
+                              setExtQuote(prev => prev && {
+                                ...prev,
+                                existingAttachments: prev.existingAttachments.filter(a => a.id !== att.id),
+                              });
+                            } catch (e: any) {
+                              setExtQuoteError(e.message ?? 'Failed to remove attachment.');
+                            }
+                          }}
+                          className="shrink-0 text-pq-neutral-400 hover:text-pq-danger-600 transition disabled:opacity-40"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {/* New files not yet uploaded */}
+                {extQuote.pendingFiles.length > 0 && (
+                  <ul className="mb-2 space-y-1">
+                    {extQuote.pendingFiles.map((f, i) => (
+                      <li key={i} className="flex items-center justify-between text-xs text-pq-neutral-700 bg-pq-primary-50 border border-pq-primary-200 rounded px-2 py-1">
+                        <span className="truncate mr-2">{f.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setExtQuote(prev => prev && { ...prev, pendingFiles: prev.pendingFiles.filter((_, j) => j !== i) })}
+                          className="shrink-0 text-pq-neutral-400 hover:text-pq-danger-600 transition"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {extQuote.existingAttachments.length + extQuote.pendingFiles.length < 3 && (
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                    disabled={extQuoteBusy}
+                    onChange={e => {
+                      const incoming = Array.from(e.target.files ?? []);
+                      setExtQuote(prev => {
+                        if (!prev) return prev;
+                        const slots = 3 - prev.existingAttachments.length - prev.pendingFiles.length;
+                        const combined = [...prev.pendingFiles, ...incoming].slice(0, slots);
+                        return { ...prev, pendingFiles: combined };
+                      });
+                      e.currentTarget.value = '';
+                    }}
+                    className="block w-full text-sm text-pq-neutral-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-pq-neutral-100 file:text-pq-neutral-700 hover:file:bg-pq-neutral-200 cursor-pointer"
+                  />
+                )}
+              </div>
+              {extQuoteError && <p className="text-xs text-pq-danger-600">{extQuoteError}</p>}
+            </div>
+            <footer className="px-5 py-3 border-t border-pq-neutral-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setExtQuote(null)}
+                disabled={extQuoteBusy}
+                className="px-4 py-2 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveExternalQuote}
+                disabled={extQuoteBusy}
+                className="px-4 py-2 text-sm font-semibold bg-pq-primary-600 hover:bg-pq-neutral-900 text-white rounded-md transition disabled:opacity-50 flex items-center gap-2"
+              >
+                {extQuoteBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                Save quote
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
@@ -815,13 +1132,20 @@ function MatrixRow({
   canViewPrices,
   requestType,
   onSelect,
+  onEnterExternalQuote,
 }: {
   row: QuoteMatrixRow;
-  suppliers: { id: string; supplier_name_snapshot: string; status: string }[];
+  suppliers: { id: string; supplier_name_snapshot: string; status: string; is_external?: boolean }[];
   canSelect: boolean;
   canViewPrices: boolean;
   requestType: 'goods' | 'services';
   onSelect: (pr1ItemId: string, rfqSupplierId: string) => void;
+  onEnterExternalQuote: (args: {
+    pr1ItemId: string;
+    rfqSupplierId: string;
+    itemDescription: string;
+    existing: { unit_price: number; quoted_description: string; lead_time_days: number; remarks?: string | null; attachments?: RfqQuoteAttachment[] } | null;
+  }) => void;
 }) {
   return (
     <tr className="hover:bg-pq-neutral-50 transition">
@@ -864,8 +1188,24 @@ function MatrixRow({
             key={supplier.id}
             className={`px-3 py-2.5 align-top border-l border-pq-neutral-200 ${isSelected ? 'bg-pq-success-100' : ''}`}
           >
-            {!quote ? (
-              <p className="text-xs text-pq-neutral-400 italic">No quote</p>
+            {!quote?.quote_id ? (
+              supplier.is_external && canSelect ? (
+                <button
+                  type="button"
+                  onClick={() => onEnterExternalQuote({
+                    pr1ItemId: row.item.id,
+                    rfqSupplierId: supplier.id,
+                    itemDescription: row.item.description,
+                    existing: null,
+                  })}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 hover:bg-amber-100 transition"
+                >
+                  <Store className="w-3 h-3" />
+                  Enter quote
+                </button>
+              ) : (
+                <p className="text-xs text-pq-neutral-400 italic">No quote</p>
+              )
             ) : explicitNoQuote ? (
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold text-rose-700">No Quote</p>
@@ -1112,6 +1452,28 @@ function MatrixRow({
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-pq-success-600 bg-pq-success-100 rounded-md px-2 py-1">
                     <CheckCircle2 className="w-3 h-3" /> Winner
                   </span>
+                )}
+                {/* External vendor — Procurement may revise the quote it entered.
+                    Editing a selected line re-evaluates via the unselect trigger. */}
+                {supplier.is_external && canSelect && (
+                  <button
+                    type="button"
+                    onClick={() => onEnterExternalQuote({
+                      pr1ItemId: row.item.id,
+                      rfqSupplierId: supplier.id,
+                      itemDescription: row.item.description,
+                      existing: {
+                        unit_price: quote.unit_price,
+                        quoted_description: quote.quoted_description,
+                        lead_time_days: quote.lead_time_days,
+                        remarks: quote.remarks ?? null,
+                        attachments: quote.attachments ?? [],
+                      },
+                    })}
+                    className="mt-1 ml-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 hover:text-amber-900 underline transition"
+                  >
+                    <Store className="w-3 h-3" /> Edit quote
+                  </button>
                 )}
               </div>
             )}

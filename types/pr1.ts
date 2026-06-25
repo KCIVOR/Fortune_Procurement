@@ -158,7 +158,8 @@ export const EMPTY_ITEM = (): PR1ItemDraft => ({
   is_raw_material: false,
 });
 
-export const PURPOSE_OPTIONS = [
+/** Fallback defaults — dynamic options are now served from system_dropdown_options table. */
+export const PURPOSE_OPTIONS_DEFAULTS = [
   'Office Supplies',
   'IT Equipment',
   'Maintenance & Repair',
@@ -167,7 +168,8 @@ export const PURPOSE_OPTIONS = [
   'Other',
 ] as const;
 
-export const UNIT_OPTIONS = [
+/** Fallback defaults — dynamic options are now served from system_dropdown_options table. */
+export const UNIT_OPTIONS_DEFAULTS = [
   'pcs',
   'box',
   'set',

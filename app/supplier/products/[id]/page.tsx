@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
@@ -25,6 +25,7 @@ import {
 } from '@/lib/accreditation-documents';
 import { getRSERecordsByProductId, type RSEWithReview } from '@/lib/rse';
 import type { SupplierProduct, SupplierDocument } from '@/types/database';
+import { useDropdownOptions } from '@/hooks/useDropdownOptions';
 import { format } from 'date-fns';
 import {
   ChevronLeft,
@@ -79,14 +80,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 
 // ─── Document upload constants ────────────────────────────────────────────────
 
-const DOC_TYPE_OPTIONS = [
-  { value: 'tds', label: 'Technical Data Sheet (TDS)' },
-  { value: 'msds', label: 'MSDS / Safety Data Sheet' },
-  { value: 'product_specification', label: 'Product Specification' },
-  { value: 'certification', label: 'Certification' },
-  { value: 'company_profile', label: 'Company Profile' },
-  { value: 'other', label: 'Other' },
-];
+// DOC_TYPE_OPTIONS are now fetched dynamically via useDropdownOptions.
 
 function validateDocFile(file: File): string | null {
   const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png']);
@@ -112,6 +106,12 @@ export default function SupplierProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
 
+  // Dynamic doc type options
+  const { options: docTypeOpts } = useDropdownOptions('PRODUCT_DOC_TYPE_OPTIONS');
+  const docTypeOptions = useMemo(
+    () => docTypeOpts.map(o => ({ value: o.option_value, label: o.option_label })),
+    [docTypeOpts],
+  );
   const [product, setProduct] = useState<SupplierProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -788,7 +788,7 @@ export default function SupplierProductDetailPage() {
                           <SelectValue placeholder="Document type" />
                         </SelectTrigger>
                         <SelectContent>
-                          {DOC_TYPE_OPTIONS.map(opt => (
+                          {docTypeOptions.map(opt => (
                             <SelectItem key={opt.value} value={opt.value}>
                               {opt.label}
                             </SelectItem>
@@ -853,7 +853,7 @@ export default function SupplierProductDetailPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
                       <p className="text-xs text-pq-neutral-400">
-                        {DOC_TYPE_OPTIONS.find(o => o.value === doc.document_type)?.label ??
+                        {docTypeOptions.find(o => o.value === doc.document_type)?.label ??
                           doc.document_type}
                         {' · '}
                         {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}

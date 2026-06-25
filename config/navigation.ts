@@ -33,7 +33,8 @@ export type ModuleKey =
   | 'admin_departments'
   | 'admin_audit'
   | 'admin_module_visibility'
-  | 'admin_workflows';
+  | 'admin_workflows'
+  | 'admin_settings';
 
 export interface NavItem {
   label: string;
@@ -212,6 +213,12 @@ export const ALL_NAV: Record<string, NavItem> = {
     icon: 'GitBranch',
     module_key: 'admin_workflows',
   },
+  adminSettings: {
+    label: 'System Settings',
+    href: '/admin/settings',
+    icon: 'Settings2',
+    module_key: 'admin_settings',
+  },
   approverPR1: {
     label: 'PR1 Requests',
     href: '/approvals/pr1',
@@ -269,6 +276,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     // System Configuration
     ALL_NAV.adminWorkflows,
     ALL_NAV.adminModuleVisibility,
+    ALL_NAV.adminSettings,
     // Monitoring (reference, last)
     ALL_NAV.adminAudit,
   ],

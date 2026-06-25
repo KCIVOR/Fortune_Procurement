@@ -18,7 +18,7 @@ import type { PORequest } from '@/types/po';
 import type { PR2ApprovalDetail, ApprovalActionRecord, WorkflowStep } from '@/types/approvals';
 import { PR2_STATUS_LABELS } from '@/types/pr2';
 import { format } from 'date-fns';
-import { FileText, Building2, CalendarDays, User, Package, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, Pencil, Save, X as XIcon, RefreshCw, Send, ArrowRight, ShoppingCart, ClipboardList, Lock, RotateCcw, Circle as XCircle, CheckCheck, FlaskConical } from 'lucide-react';
+import { FileText, Building2, CalendarDays, User, Package, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, Pencil, Save, X as XIcon, RefreshCw, Send, ArrowRight, ShoppingCart, ClipboardList, Lock, RotateCcw, Circle as XCircle, CheckCheck, FlaskConical, Store } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import ActionPill from '@/components/shared/ActionPill';
@@ -166,7 +166,7 @@ export default function PR2DetailPage() {
         );
         let pending = false;
         if (rsIds.length > 0) {
-          const { data: rs } = await db.from('rfq_suppliers').select('id, supplier_id').in('id', rsIds);
+          const { data: rs } = await db.from('rfq_suppliers').select('id, supplier_id, is_external').in('id', rsIds);
           const uniqueProfileIds = new Set<string>(
             (rs ?? [])
               .map((r: { supplier_id: string | null }) => r.supplier_id)
@@ -176,6 +176,11 @@ export default function PR2DetailPage() {
             poList.map(p => p.supplier_id).filter((id: string | null): id is string => Boolean(id))
           );
           pending = Array.from(uniqueProfileIds).some(sid => !poSids.has(sid));
+          setExternalRfqIds(new Set<string>(
+            (rs ?? [])
+              .filter((r: any) => r.is_external)
+              .map((r: any) => r.id as string)
+          ));
         }
         setHasPendingPOGroups(pending);
       })
@@ -265,6 +270,7 @@ export default function PR2DetailPage() {
   const [activeStepLabel, setActiveStepLabel] = useState<string | null>(null);
   const [existingPOs, setExistingPOs] = useState<PORequest[]>([]);
   const [hasPendingPOGroups, setHasPendingPOGroups] = useState(false);
+  const [externalRfqIds, setExternalRfqIds] = useState(new Set<string>());
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -634,6 +640,13 @@ export default function PR2DetailPage() {
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-xs font-medium text-pq-neutral-900">{item.supplier_name_snapshot}</p>
+                        {item.selected_rfq_supplier_id && externalRfqIds.has(item.selected_rfq_supplier_id) && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold
+                            text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-0.5">
+                            <Store className="w-2.5 h-2.5 shrink-0" />
+                            External vendor
+                          </span>
+                        )}
                       </td>
                       {canViewPrices ? (
                         <>

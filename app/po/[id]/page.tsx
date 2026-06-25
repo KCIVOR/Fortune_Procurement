@@ -13,6 +13,7 @@ import {
   submitPOForApproval,
   fetchPOApprovalDetailByPOId,
   canActOnPOStep,
+  markExternalPOOrdered,
 } from '@/lib/po-approvals';
 import type { POWithItems, POApprovalDetail, POApprovalStep, POApprovalAction } from '@/types/po';
 import { PO_STATUS_LABELS } from '@/types/po';
@@ -22,7 +23,7 @@ import {
   Package, Truck, CreditCard, MapPin,
   DollarSign, ClipboardList, Send, CircleCheck as CheckCircle2,
   Circle as XCircle, RotateCcw, Lock, TriangleAlert as AlertTriangle,
-  Pencil, Save, X as XIcon,
+  Pencil, Save, X as XIcon, Store,
 } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
@@ -92,6 +93,20 @@ export default function PODetailPage() {
     }
   };
 
+  const handleMarkOrdered = async () => {
+    if (!po || !profile) return;
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      await markExternalPOOrdered(po.id, profile);
+      load();
+    } catch (err: any) {
+      setSubmitError(err.message ?? 'Failed to mark PO as ordered.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleEditToggle = () => {
     if (!po) return;
     setEditForm({
@@ -121,7 +136,8 @@ export default function PODetailPage() {
     }
   };
 
-  const canEdit = po?.status === 'draft' && profile?.role === 'procurement';
+  const canEdit    = po?.status === 'draft' && profile?.role === 'procurement';
+  const isExternal = !po?.supplier_id;
 
   if (loading) return (
     <AppShell title="Purchase Order">
@@ -214,6 +230,18 @@ export default function PODetailPage() {
                 View Approval
               </Link>
             )}
+            {/* External vendor (no supplier portal): Procurement places the order
+                externally, then marks it ordered to start delivery/GRN. */}
+            {isExternal && po.status === 'approved' && (
+              <button
+                onClick={handleMarkOrdered}
+                disabled={submitting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
+              >
+                <Truck className="w-4 h-4" />
+                {submitting ? 'Marking...' : 'Mark as Ordered'}
+              </button>
+            )}
             <DetailPrintButton
               href={`/po/${po.id}/print`}
               label="Print PO"
@@ -227,6 +255,19 @@ export default function PODetailPage() {
       {profile && (
         <div className="mb-6">
           <RelatedRecords baseType="PO" baseId={po.id} role={profile.role} currentDocType="PO" />
+        </div>
+      )}
+
+      {/* External vendor notice */}
+      {isExternal && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-md px-5 py-4 mb-6">
+          <Store className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+          <div className="text-sm text-amber-800">
+            <span className="font-semibold">External vendor — manual order.</span>{' '}
+            This PO is for an off-system supplier with no portal account. Place the order directly
+            with the vendor, then click <span className="font-semibold">Mark as Ordered</span> once
+            confirmed to trigger delivery tracking and GRN.
+          </div>
         </div>
       )}
 
@@ -300,7 +341,17 @@ export default function PODetailPage() {
               layout="inline"
               icon={<Package className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />}
               label="Supplier"
-              value={po.supplier_name_snapshot}
+              value={
+                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                  {po.supplier_name_snapshot}
+                  {isExternal && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                      <Store className="w-2.5 h-2.5 shrink-0" />
+                      External vendor
+                    </span>
+                  )}
+                </span>
+              }
             />
           </div>
 

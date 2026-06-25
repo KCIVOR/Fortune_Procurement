@@ -10,6 +10,7 @@ import {
   BadgeCheck,
   Info,
   Loader2,
+  Store,
   X,
 } from 'lucide-react';
 
@@ -32,6 +33,8 @@ export interface AssignSuppliersModalProps {
   onPageChange: (page: number) => void;
   onClose: () => void;
   onAssign: () => void;
+  /** Add an external vendor (e.g. Shopee) with no supplier account. */
+  onAddExternalVendor: (vendorName: string) => void;
 }
 
 export default function AssignSuppliersModal({
@@ -53,11 +56,16 @@ export default function AssignSuppliersModal({
   onPageChange,
   onClose,
   onAssign,
+  onAddExternalVendor,
 }: AssignSuppliersModalProps) {
   const [guidelinesOpen, setGuidelinesOpen] = useState(false);
+  const [externalName, setExternalName] = useState('');
 
   useEffect(() => {
-    if (!open) setGuidelinesOpen(false);
+    if (!open) {
+      setGuidelinesOpen(false);
+      setExternalName('');
+    }
   }, [open]);
 
   if (!open) return null;
@@ -227,6 +235,41 @@ export default function AssignSuppliersModal({
               className="border-0 border-t border-pq-neutral-200 rounded-none shadow-none"
             />
           )}
+
+        <div className="px-4 sm:px-6 py-3 border-t border-pq-neutral-200 bg-pq-neutral-50/60">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Store className="w-4 h-4 text-pq-neutral-500 shrink-0" />
+            <p className="text-xs font-semibold text-pq-neutral-700">Add external vendor</p>
+          </div>
+          <p className="text-[11px] text-pq-neutral-500 mb-2">
+            For off-system sellers (e.g. Shopee, Lazada, a walk-in store). No account needed —
+            Procurement enters the quote on their behalf.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={externalName}
+              onChange={e => setExternalName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && externalName.trim() && !working) {
+                  onAddExternalVendor(externalName.trim());
+                }
+              }}
+              disabled={working}
+              placeholder="Vendor name (e.g. Shopee — ABC Store)"
+              className="flex-1 h-9 rounded-md border border-pq-neutral-200 bg-white px-3 text-sm text-pq-neutral-900 placeholder:text-pq-neutral-400 focus:outline-none focus:ring-2 focus:ring-pq-primary-600/30"
+            />
+            <button
+              type="button"
+              onClick={() => externalName.trim() && onAddExternalVendor(externalName.trim())}
+              disabled={working || !externalName.trim()}
+              className="shrink-0 px-4 h-9 text-sm font-semibold rounded-md border border-pq-neutral-200 bg-white text-pq-neutral-700 hover:bg-pq-neutral-100 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {working && <Loader2 className="w-4 h-4 animate-spin" />}
+              Add vendor
+            </button>
+          </div>
+        </div>
 
         {actionError && (
           <p className="text-sm text-pq-danger-600 px-4 sm:px-6 py-2 border-t border-pq-neutral-200">

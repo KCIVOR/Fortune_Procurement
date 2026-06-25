@@ -18,7 +18,8 @@ import {
   generatePOFromPR2,
 } from '@/lib/po';
 import type { POFormValues, POGenerationCandidate } from '@/types/po';
-import { WAREHOUSE_OPTIONS, PO_OTHER_OPTION } from '@/types/po';
+import { PO_OTHER_OPTION } from '@/types/po';
+import { useDropdownOptions } from '@/hooks/useDropdownOptions';
 import PaymentTermsSelect from '@/components/shared/PaymentTermsSelect';
 import {
   ChevronLeft, Building2, Package,
@@ -61,6 +62,8 @@ export default function PONewPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const { options: warehouseOpts } = useDropdownOptions('WAREHOUSE_OPTIONS');
+  const warehouseValues = useMemo(() => warehouseOpts.map(o => o.option_value), [warehouseOpts]);
   const [warehouseSel, setWarehouseSel] = useState('');
   const [warehouseCustom, setWarehouseCustom] = useState('');
   const [paymentTermsPrefilled, setPaymentTermsPrefilled] = useState(false);
@@ -143,6 +146,8 @@ export default function PONewPage() {
 
     (async () => {
       try {
+        // External vendors have no stored payment terms — leave blank for manual entry.
+        if (!candidate.supplier_id) return;
         const terms = await fetchSupplierPaymentTermsBySupplierId(candidate.supplier_id);
         if (cancelled || !terms) return;
         setForm((prev) => ({ ...prev, payment_terms: terms }));
@@ -214,7 +219,8 @@ export default function PONewPage() {
         selectedCandidate.pr2_id,
         selectedCandidate.supplier_id,
         form,
-        profile
+        profile,
+        selectedCandidate.selected_rfq_supplier_ids,
       );
       router.push(`/po/${poId}`);
     } catch (e: unknown) {
@@ -513,7 +519,7 @@ export default function PONewPage() {
                   className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition bg-white"
                 >
                   <option value="">Select warehouse...</option>
-                  {WAREHOUSE_OPTIONS.map(w => (
+                  {warehouseValues.map(w => (
                     <option key={w} value={w}>{w}</option>
                   ))}
                 </select>

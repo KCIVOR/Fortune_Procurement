@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import LoadingState from '@/components/shared/LoadingState';
@@ -19,6 +19,7 @@ import {
   getAccreditationDocumentSignedUrl,
 } from '@/lib/accreditation-documents';
 import type { SupplierAccreditation, SupplierDocument } from '@/types/database';
+import { useDropdownOptions } from '@/hooks/useDropdownOptions';
 import { format } from 'date-fns';
 import {
   BadgeCheck,
@@ -83,16 +84,7 @@ const STATUS_DESCRIPTION: Record<string, string> = {
 
 // ─── Document upload constants ────────────────────────────────────────────────
 
-const DOC_TYPE_OPTIONS = [
-  { value: 'company_profile',        label: 'Company Profile' },
-  { value: 'self_assessment',        label: 'Self Assessment' },
-  { value: 'legal_document',         label: 'Legal Document' },
-  { value: 'certification',          label: 'Certification' },
-  { value: 'tds',                    label: 'Technical Data Sheet (TDS)' },
-  { value: 'msds',                   label: 'MSDS / Safety Data Sheet' },
-  { value: 'product_specification',  label: 'Product Specification' },
-  { value: 'other',                  label: 'Other' },
-];
+// DOC_TYPE_OPTIONS are now fetched dynamically via useDropdownOptions.
 
 function validateDocFile(file: File): string | null {
   const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png']);
@@ -106,6 +98,12 @@ function validateDocFile(file: File): string | null {
 export default function SupplierAccreditationPage() {
   const { profile } = useAuth();
 
+  // Dynamic doc type options
+  const { options: docTypeOpts } = useDropdownOptions('ACCREDITATION_DOC_TYPE_OPTIONS');
+  const docTypeOptions = useMemo(
+    () => docTypeOpts.map(o => ({ value: o.option_value, label: o.option_label })),
+    [docTypeOpts],
+  );
   const [accreditation, setAccreditation] = useState<SupplierAccreditation | null>(null);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState('');
@@ -479,7 +477,7 @@ export default function SupplierAccreditationPage() {
                           <SelectValue placeholder="Document type" />
                         </SelectTrigger>
                         <SelectContent>
-                          {DOC_TYPE_OPTIONS.map(opt => (
+                          {docTypeOptions.map(opt => (
                             <SelectItem key={opt.value} value={opt.value}>
                               {opt.label}
                             </SelectItem>
@@ -544,7 +542,7 @@ export default function SupplierAccreditationPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
                       <p className="text-xs text-pq-neutral-400">
-                        {DOC_TYPE_OPTIONS.find(o => o.value === doc.document_type)?.label ??
+                        {docTypeOptions.find(o => o.value === doc.document_type)?.label ??
                           doc.document_type}
                         {' · '}
                         {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}

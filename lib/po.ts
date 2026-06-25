@@ -215,10 +215,39 @@ export async function fetchPOGenerationCandidates(): Promise<POGenerationCandida
     .select('id, pr2_id, supplier_id')
     .in('pr2_id', pr2Ids);
 
+  // Existing-PO dedup map, keyed by `${pr2_id}:${groupKey}` where groupKey is the
+  // supplier profile id, or `ext:<rfq_supplier_id>` for external vendors.
   const poByPr2Supplier = new Map<string, string>();
   for (const po of (allPOs ?? []) as any[]) {
     if (po.supplier_id) {
       poByPr2Supplier.set(`${po.pr2_id}:${po.supplier_id}`, po.id);
+    }
+  }
+
+  // External POs have a null supplier_id — resolve their group via their items'
+  // pr2_items.selected_rfq_supplier_id so they dedup against external candidates.
+  const externalPoIds = ((allPOs ?? []) as any[]).filter(po => !po.supplier_id).map(po => po.id);
+  if (externalPoIds.length > 0) {
+    const { data: extPoItems } = await db
+      .from('po_items')
+      .select('po_id, pr2_item_id')
+      .in('po_id', externalPoIds);
+    const extPr2ItemIds = Array.from(
+      new Set(((extPoItems ?? []) as any[]).map(i => i.pr2_item_id).filter(Boolean))
+    ) as string[];
+    if (extPr2ItemIds.length > 0) {
+      const { data: extPr2Items } = await db
+        .from('pr2_items')
+        .select('id, pr2_id, selected_rfq_supplier_id')
+        .in('id', extPr2ItemIds);
+      const pr2ItemById: Record<string, { pr2_id: string; selected_rfq_supplier_id: string | null }> =
+        Object.fromEntries(((extPr2Items ?? []) as any[]).map(r => [r.id, r]));
+      for (const it of (extPoItems ?? []) as any[]) {
+        const row = pr2ItemById[it.pr2_item_id];
+        if (row?.selected_rfq_supplier_id) {
+          poByPr2Supplier.set(`${row.pr2_id}:ext:${row.selected_rfq_supplier_id}`, it.po_id);
+        }
+      }
     }
   }
 
@@ -235,26 +264,29 @@ export async function fetchPOGenerationCandidates(): Promise<POGenerationCandida
     if (it.selected_rfq_supplier_id) rfqSupIds.add(it.selected_rfq_supplier_id);
   }
 
-  let rsById: Record<string, { supplier_id: string; supplier_name_snapshot: string }> = {};
+  let rsById: Record<string, { supplier_id: string | null; supplier_name_snapshot: string; is_external: boolean }> = {};
   if (rfqSupIds.size > 0) {
     const { data: rsRows, error: rsErr } = await db
       .from('rfq_suppliers')
-      .select('id, supplier_id, supplier_name_snapshot')
+      .select('id, supplier_id, supplier_name_snapshot, is_external')
       .in('id', Array.from(rfqSupIds));
     if (rsErr) throw rsErr;
     for (const r of (rsRows ?? []) as any[]) {
       rsById[r.id as string] = {
-        supplier_id:            r.supplier_id as string,
+        supplier_id:            (r.supplier_id as string | null) ?? null,
         supplier_name_snapshot: r.supplier_name_snapshot as string,
+        is_external:            r.is_external === true,
       };
     }
   }
 
   type GroupAcc = {
-    name:     string;
-    rfqSids:  Set<string>;
-    count:    number;
-    total:    number;
+    name:        string;
+    supplier_id: string | null;
+    is_external: boolean;
+    rfqSids:     Set<string>;
+    count:       number;
+    total:       number;
   };
 
   const groupsByPr2 = new Map<string, Map<string, GroupAcc>>();
@@ -265,17 +297,21 @@ export async function fetchPOGenerationCandidates(): Promise<POGenerationCandida
   for (const it of (allItems ?? []) as any[]) {
     const sid = it.selected_rfq_supplier_id as string | null;
     if (!sid || !rsById[sid]) continue;
-    const profileId = rsById[sid].supplier_id;
+    const { supplier_id, is_external } = rsById[sid];
+    // Group key: profile id for registered suppliers (unchanged), or a
+    // per-vendor-slot key for external vendors so distinct external vendors on
+    // the same PR2 never collapse under a shared null key.
+    const groupKey = supplier_id ?? `ext:${sid}`;
     const name =
       String(it.supplier_name_snapshot ?? '').trim() ||
       rsById[sid].supplier_name_snapshot;
     const pr2Map = groupsByPr2.get(it.pr2_id);
     if (!pr2Map) continue;
 
-    if (!pr2Map.has(profileId)) {
-      pr2Map.set(profileId, { name, rfqSids: new Set(), count: 0, total: 0 });
+    if (!pr2Map.has(groupKey)) {
+      pr2Map.set(groupKey, { name, supplier_id, is_external, rfqSids: new Set(), count: 0, total: 0 });
     }
-    const g = pr2Map.get(profileId)!;
+    const g = pr2Map.get(groupKey)!;
     g.rfqSids.add(sid);
     g.count += 1;
     g.total += Number(it.unit_price) * Number(it.quantity_to_purchase);
@@ -284,18 +320,19 @@ export async function fetchPOGenerationCandidates(): Promise<POGenerationCandida
   const candidates: POGenerationCandidate[] = [];
     for (const pr2 of pr2s as any[]) {
       const pr2Map = groupsByPr2.get(pr2.id)!;
-      for (const [supplierId, g] of Array.from(pr2Map.entries())) {
-      const existingPoId = poByPr2Supplier.get(`${pr2.id}:${supplierId}`) ?? null;
+      for (const [groupKey, g] of Array.from(pr2Map.entries())) {
+      const existingPoId = poByPr2Supplier.get(`${pr2.id}:${groupKey}`) ?? null;
       candidates.push({
-        candidateKey:              `${pr2.id}:${supplierId}`,
+        candidateKey:              `${pr2.id}:${groupKey}`,
         pr2_id:                    pr2.id,
         pr2_number:                pr2.pr2_number,
         purpose:                   pr2.purpose,
         department_name_snapshot:  pr2.department_name_snapshot,
         requisitioner_name_snapshot: pr2.requisitioner_name_snapshot,
         date_required:             pr2.date_required,
-        supplier_id:               supplierId,
+        supplier_id:               g.supplier_id,
         supplier_name_snapshot:      g.name,
+        is_external:                 g.is_external,
         selected_rfq_supplier_ids:   Array.from(g.rfqSids),
         item_count:                  g.count,
         grand_total:                 g.total,
@@ -387,14 +424,19 @@ export async function fetchSuggestedPOSequence(year?: number): Promise<string> {
 
 export async function generatePOFromPR2(
   pr2Id: string,
-  supplierProfileId: string,
+  supplierProfileId: string | null,
   formValues: POFormValues,
-  profile: UserProfile
+  profile: UserProfile,
+  // The exact winning rfq_supplier slots for this candidate. Required for
+  // external vendors (null supplier_id); optional for registered suppliers,
+  // where the legacy supplier_id filter still applies if omitted.
+  selectedRfqSupplierIds?: string[],
 ): Promise<string> {
   const now = new Date().toISOString();
 
-  if (!supplierProfileId?.trim()) {
-    throw new Error('Supplier is required to generate a PO.');
+  const isExternal = !supplierProfileId;
+  if (isExternal && (!selectedRfqSupplierIds || selectedRfqSupplierIds.length === 0)) {
+    throw new Error('Cannot generate PO: no awarded vendor slot identified.');
   }
 
   // Guard: PR2 must be approved
@@ -411,15 +453,35 @@ export async function generatePOFromPR2(
   const poNumber = formValues.po_number.trim();
   if (!poNumber) throw new Error('PO number is required.');
 
-  // Guard: no duplicate PO for this PR2 + supplier
-  const { data: existing } = await db
-    .from('po_requests')
-    .select('id, po_number')
-    .eq('pr2_id', pr2Id)
-    .eq('supplier_id', supplierProfileId)
-    .maybeSingle();
-  if (existing?.id) {
-    throw new Error(`A PO already exists for this PR2 and supplier: ${existing.po_number}`);
+  // Guard: no duplicate PO for this PR2 + supplier.
+  // Registered suppliers dedup on supplier_id. External vendors (null
+  // supplier_id) dedup by checking whether an existing PO already contains the
+  // same awarded vendor slots.
+  if (!isExternal) {
+    const { data: existing } = await db
+      .from('po_requests')
+      .select('id, po_number')
+      .eq('pr2_id', pr2Id)
+      .eq('supplier_id', supplierProfileId)
+      .maybeSingle();
+    if (existing?.id) {
+      throw new Error(`A PO already exists for this PR2 and supplier: ${existing.po_number}`);
+    }
+  } else {
+    const { data: existingExtPOs } = await db
+      .from('po_requests')
+      .select('id, po_number, po_items:po_items ( pr2_item:pr2_item_id ( selected_rfq_supplier_id ) )')
+      .eq('pr2_id', pr2Id)
+      .is('supplier_id', null);
+    const winning = new Set(selectedRfqSupplierIds);
+    for (const epo of (existingExtPOs ?? []) as any[]) {
+      const overlaps = (epo.po_items ?? []).some(
+        (pi: any) => pi.pr2_item?.selected_rfq_supplier_id && winning.has(pi.pr2_item.selected_rfq_supplier_id)
+      );
+      if (overlaps) {
+        throw new Error(`A PO already exists for this external vendor on this PR2: ${epo.po_number}`);
+      }
+    }
   }
 
   // Guard: PO number must be unique across all POs
@@ -449,21 +511,33 @@ export async function generatePOFromPR2(
     )
   ) as string[];
 
-  let profileByRfqSid: Record<string, string> = {};
-  if (rfqSids.length > 0) {
-    const { data: rsRows, error: rsErr } = await db
-      .from('rfq_suppliers')
-      .select('id, supplier_id')
-      .in('id', rfqSids);
-    if (rsErr) throw rsErr;
-    profileByRfqSid = Object.fromEntries(
-      ((rsRows ?? []) as any[]).map((r: any) => [r.id as string, r.supplier_id as string])
+  // Filter to this candidate's PR2 lines.
+  // Preferred: filter by the exact awarded vendor slots (works for both external
+  // and registered, and is the precise set the candidate was built from).
+  // Fallback (legacy callers that omit selectedRfqSupplierIds): match by the
+  // supplier profile resolved from each line's rfq_supplier.
+  let pr2Items: any[];
+  if (selectedRfqSupplierIds && selectedRfqSupplierIds.length > 0) {
+    const winning = new Set(selectedRfqSupplierIds);
+    pr2Items = (pr2ItemsRaw as any[]).filter(
+      (item: any) => item.selected_rfq_supplier_id && winning.has(item.selected_rfq_supplier_id)
+    );
+  } else {
+    let profileByRfqSid: Record<string, string | null> = {};
+    if (rfqSids.length > 0) {
+      const { data: rsRows, error: rsErr } = await db
+        .from('rfq_suppliers')
+        .select('id, supplier_id')
+        .in('id', rfqSids);
+      if (rsErr) throw rsErr;
+      profileByRfqSid = Object.fromEntries(
+        ((rsRows ?? []) as any[]).map((r: any) => [r.id as string, (r.supplier_id as string | null) ?? null])
+      );
+    }
+    pr2Items = (pr2ItemsRaw as any[]).filter(
+      (item: any) => profileByRfqSid[item.selected_rfq_supplier_id] === supplierProfileId
     );
   }
-
-  const pr2Items = (pr2ItemsRaw as any[]).filter(
-    (item: any) => profileByRfqSid[item.selected_rfq_supplier_id] === supplierProfileId
-  );
 
   if (pr2Items.length === 0) {
     throw new Error('No PR2 lines are awarded to this supplier. Nothing to include in the PO.');
@@ -484,7 +558,7 @@ export async function generatePOFromPR2(
       pr1_number_snapshot:         pr2.pr1_number_snapshot,
       rfq_number_snapshot:         pr2.rfq_number_snapshot,
       supplier_name_snapshot:      supplierName,
-      supplier_id:                 supplierProfileId,
+      supplier_id:                 supplierProfileId ?? null,
       requisitioner_name_snapshot: pr2.requisitioner_name_snapshot,
       department_name_snapshot:    pr2.department_name_snapshot,
       purpose:                     pr2.purpose,

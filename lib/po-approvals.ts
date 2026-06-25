@@ -305,6 +305,7 @@ export async function fetchPOApprovalDetail(
     pr2_number_snapshot:         po.pr2_number_snapshot,
     pr1_number_snapshot:         po.pr1_number_snapshot,
     rfq_number_snapshot:         po.rfq_number_snapshot,
+    supplier_id:                 po.supplier_id ?? null,
     supplier_name_snapshot:      po.supplier_name_snapshot,
     requisitioner_name_snapshot: po.requisitioner_name_snapshot,
     department_name_snapshot:    po.department_name_snapshot,
@@ -891,6 +892,77 @@ export async function acknowledgeSupplierPO(
       po_number:       po.po_number,
       commitment_date: commitmentDate,
       supplier:        profile.full_name,
+    },
+  });
+}
+
+// ─── External vendor: Procurement marks an external PO as ordered ─────────────
+// External vendors (supplier_id IS NULL) have no portal, so there is no supplier
+// acknowledgment. This is the procurement-side sibling of acknowledgeSupplierPO:
+// it transitions the PO approved → sent and creates the delivery row that GRN
+// depends on, without requiring a supplier session.
+export async function markExternalPOOrdered(
+  poId:    string,
+  profile: UserProfile,
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  const { data: po } = await db
+    .from('po_requests')
+    .select('id, status, po_number, pr2_id, pr2_number_snapshot, pr1_number_snapshot, rfq_number_snapshot, supplier_id, supplier_name_snapshot, requisitioner_name_snapshot, department_name_snapshot, purpose, delivery_address, warehouse')
+    .eq('id', poId)
+    .maybeSingle();
+  if (!po) throw new Error('PO not found.');
+  if (po.supplier_id) throw new Error('This PO has a registered supplier — use the supplier acknowledgment flow.');
+  if (po.status !== 'approved') throw new Error('PO must be fully approved before it can be marked as ordered.');
+
+  // Resolve requisitioner_id for employee delivery RLS (procurement can read pr2).
+  let requisitionerId: string | null = null;
+  try {
+    const { data: pr2Row } = await db
+      .from('pr2_requests')
+      .select('requisitioner_id')
+      .eq('id', po.pr2_id)
+      .maybeSingle();
+    requisitionerId = pr2Row?.requisitioner_id ?? null;
+  } catch {
+    requisitionerId = null;
+  }
+
+  // Mark PO as sent
+  await db
+    .from('po_requests')
+    .update({ status: 'sent', updated_at: now })
+    .eq('id', poId);
+
+  // Create the delivery record GRN depends on (idempotent). No commitment date
+  // and no supplier_id — warehouse drives fulfillment from here.
+  await createDeliveryForPO({
+    poId,
+    po_number:                   po.po_number,
+    pr2_number_snapshot:         po.pr2_number_snapshot,
+    pr1_number_snapshot:         po.pr1_number_snapshot,
+    rfq_number_snapshot:         po.rfq_number_snapshot,
+    supplier_id:                 null,
+    supplier_name_snapshot:      po.supplier_name_snapshot,
+    requisitioner_id:            requisitionerId,
+    requisitioner_name_snapshot: po.requisitioner_name_snapshot,
+    department_name_snapshot:    po.department_name_snapshot,
+    purpose:                     po.purpose,
+    delivery_address:            po.delivery_address,
+    warehouse:                   po.warehouse,
+    commitment_date:             null,
+  }).catch(() => null);
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'PO_MARKED_ORDERED_EXTERNAL',
+    document_type: 'PO',
+    document_id:   poId,
+    payload: {
+      po_number: po.po_number,
+      vendor:    po.supplier_name_snapshot,
+      ordered_by: profile.full_name,
     },
   });
 }

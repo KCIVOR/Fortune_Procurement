@@ -595,6 +595,19 @@ export async function saveDraftPR1(
   }
 
   const syncedItems = await syncItems(pr1Id, values.items);
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        existingId ? 'PR1_DRAFT_UPDATED' : 'PR1_DRAFT_CREATED',
+    document_type: 'PR1',
+    document_id:   pr1Id,
+    payload: {
+      pr1_number: values.pr1_number.trim(),
+      purpose:    values.purpose.trim(),
+      item_count: values.items.length,
+    },
+  }).catch(() => {});
+
   return { id: pr1Id, items: syncedItems };
 }
 
@@ -786,6 +799,14 @@ export async function deleteDraftPR1(pr1Id: string, profile: UserProfile): Promi
     throw new Error('Only draft requests can be deleted.');
   }
 
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'PR1_DRAFT_DELETED',
+    document_type: 'PR1',
+    document_id:   pr1Id,
+    payload:       { deleted_by: profile.full_name },
+  }).catch(() => {});
+
   // 2. Delete PR1 items first (unless cascade is set, but this is safer)
   const { error: itemsErr } = await db
     .from('pr1_items')
@@ -961,13 +982,21 @@ export async function uploadPR1Attachment(
     throw insertErr;
   }
 
+  await db.from('audit_logs').insert({
+    actor_id:      authUserId,
+    action:        'PR1_ATTACHMENT_UPLOADED',
+    document_type: 'PR1',
+    document_id:   pr1Id,
+    payload:       { file_name: file.name, file_size: file.size, pr1_item_id: pr1ItemId },
+  }).catch(() => {});
+
   return data as PR1Attachment;
 }
 
 /**
  * Delete an attachment record and its storage object.
  */
-export async function deletePR1Attachment(attachment: PR1Attachment): Promise<void> {
+export async function deletePR1Attachment(attachment: PR1Attachment, actorId?: string): Promise<void> {
   const { error: dbErr } = await db
     .from('pr1_attachments')
     .delete()
@@ -977,6 +1006,16 @@ export async function deletePR1Attachment(attachment: PR1Attachment): Promise<vo
 
   // Best-effort storage removal (don't fail if already gone)
   await supabase.storage.from('pr1-attachments').remove([attachment.storage_path]);
+
+  if (actorId) {
+    await db.from('audit_logs').insert({
+      actor_id:      actorId,
+      action:        'PR1_ATTACHMENT_DELETED',
+      document_type: 'PR1',
+      document_id:   attachment.pr1_id,
+      payload:       { file_name: attachment.file_name, pr1_item_id: attachment.pr1_item_id },
+    }).catch(() => {});
+  }
 }
 
 /**

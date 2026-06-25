@@ -39,7 +39,7 @@ import {
   User, Building2, FileText, CalendarDays, Clock,
   CircleCheck as CheckCircle2, Circle as XCircle, RotateCcw,
   Package, TriangleAlert as AlertTriangle, CheckCheck, Lock,
-  ClipboardList, DollarSign,
+  ClipboardList, DollarSign, Store,
 } from 'lucide-react';
 import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
@@ -57,7 +57,7 @@ export default function PR2ApprovalDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [pendingAction, setPendingAction] = useState<ApprovalAction | null>(null);
-  const [quotesMap, setQuotesMap]   = useState<Record<string, Array<{ supplier: string; unit_price: number; lead_time: number }>>>({});
+  const [quotesMap, setQuotesMap]   = useState<Record<string, Array<{ supplier: string; unit_price: number; lead_time: number; is_external: boolean }>>>({});
 
   useEffect(() => {
     if (!instanceId) return;
@@ -83,7 +83,7 @@ export default function PR2ApprovalDetailPage() {
         if (pr1ItemIds.length > 0) {
           const { data: quotes, error: quotesErr } = await (supabase as any)
             .from('rfq_item_quotes')
-            .select('pr1_item_id, unit_price, lead_time_days, rfq_supplier_id, rfq_suppliers!rfq_item_quotes_rfq_supplier_id_fkey(supplier_name_snapshot)')
+            .select('pr1_item_id, unit_price, lead_time_days, rfq_supplier_id, rfq_suppliers!rfq_item_quotes_rfq_supplier_id_fkey(supplier_name_snapshot, is_external)')
             .in('pr1_item_id', pr1ItemIds);
 
           // DEBUG: Log query results
@@ -92,13 +92,14 @@ export default function PR2ApprovalDetailPage() {
           console.log('Quotes count:', quotes?.length);
 
           if (!quotesErr && quotes) {
-            const qMap: Record<string, Array<{ supplier: string; unit_price: number; lead_time: number }>> = {};
+            const qMap: Record<string, Array<{ supplier: string; unit_price: number; lead_time: number; is_external: boolean }>> = {};
             quotes.forEach((q: any) => {
               if (!qMap[q.pr1_item_id]) qMap[q.pr1_item_id] = [];
               qMap[q.pr1_item_id].push({
                 supplier: q.rfq_suppliers?.supplier_name_snapshot || 'Unknown',
                 unit_price: q.unit_price,
-                lead_time: q.lead_time_days || 0
+                lead_time: q.lead_time_days || 0,
+                is_external: q.rfq_suppliers?.is_external ?? false,
               });
             });
             console.log('quotesMap:', qMap);
@@ -373,7 +374,23 @@ export default function PR2ApprovalDetailPage() {
                         <td className="px-4 py-3 text-right font-mono text-xs text-pq-neutral-500">{item.qty_on_hand}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs text-pq-neutral-500">{item.qty_incoming}</td>
                         <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_to_purchase}</td>
-                        <td className="px-4 py-3 text-xs text-pq-neutral-900">{item.supplier_name_snapshot}</td>
+                        <td className="px-4 py-3 text-xs text-pq-neutral-900">
+                          <p>{item.supplier_name_snapshot}</p>
+                          {(() => {
+                            const winningQuote = item.pr1_item_id
+                              ? (quotesMap[item.pr1_item_id] ?? []).find(
+                                  q => q.supplier === item.supplier_name_snapshot && q.is_external
+                                )
+                              : undefined;
+                            return winningQuote ? (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold
+                                text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-0.5">
+                                <Store className="w-2.5 h-2.5 shrink-0" />
+                                External vendor
+                              </span>
+                            ) : null;
+                          })()}
+                        </td>
                         {canViewPrice ? (
                           <>
                             <td className="px-4 py-3 text-right text-xs text-pq-neutral-500">{formatCommercialAmount(item.unit_price, true)}</td>
@@ -394,7 +411,16 @@ export default function PR2ApprovalDetailPage() {
                                 <div className="inline-grid grid-cols-3 gap-4">
                                   {quotes.map((q, idx) => (
                                     <div key={idx} className="text-pq-neutral-500">
-                                      <div className="font-mono">{q.supplier}</div>
+                                      <div className="font-mono flex items-center gap-1 flex-wrap">
+                                        {q.supplier}
+                                        {q.is_external && (
+                                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold
+                                            text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                                            <Store className="w-2 h-2 shrink-0" />
+                                            External
+                                          </span>
+                                        )}
+                                      </div>
                                       <div className="text-pq-neutral-900 font-semibold">{formatCommercialAmount(q.unit_price, true)}</div>
                                       <div className="text-pq-neutral-400 text-xs">{q.lead_time}d</div>
                                     </div>
