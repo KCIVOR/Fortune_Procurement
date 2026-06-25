@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
@@ -809,11 +810,22 @@ function DocumentRow({ doc }: { doc: SupplierDocument }) {
 
   const handleView = async () => {
     setLoading(true);
+    // Open the tab immediately (before any await) to preserve the user-gesture
+    // context — browsers block window.open called after an async gap on HTTPS.
+    const win = window.open('', '_blank');
     try {
       const url = await getAccreditationDocumentSignedUrl(doc.file_path);
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } catch { /* fail silently */ }
-    finally { setLoading(false); }
+      if (win) {
+        win.location.href = url;
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (e: any) {
+      win?.close();
+      toast.error(e?.message ?? 'Could not open document. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
