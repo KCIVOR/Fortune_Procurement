@@ -745,7 +745,10 @@ export async function assignSuppliers(
     invited_at:             new Date().toISOString(),
   }));
 
-  const { error } = await db.from('rfq_suppliers').insert(rows);
+  const { data: inserted, error } = await db
+    .from('rfq_suppliers')
+    .insert(rows)
+    .select('id, supplier_id');
   if (error) throw error;
 
   try {
@@ -757,6 +760,57 @@ export async function assignSuppliers(
       payload:       { supplier_ids: toInsert, count: toInsert.length },
     });
   } catch {}
+
+  // If the RFQ is already open, notify newly added suppliers immediately.
+  // (When the RFQ is still draft, issueRfq handles notifications at issue time.)
+  try {
+    const { data: rfq } = await db
+      .from('rfq_batches')
+      .select('status')
+      .eq('id', rfqId)
+      .single();
+
+    if (rfq?.status !== 'open') return;
+
+    const newRows = ((inserted ?? []) as { id: string; supplier_id: string | null }[])
+      .filter((r): r is { id: string; supplier_id: string } => !!r.supplier_id);
+    if (newRows.length === 0) return;
+
+    const newSupplierIds = newRows.map(r => r.supplier_id);
+
+    // Dedup: skip anyone who already has an unread action_required notification
+    // for this RFQ (guards against retries / concurrent calls).
+    const { data: existingNotifs } = await db
+      .from('notifications')
+      .select('user_id')
+      .eq('document_id', rfqId)
+      .eq('type', 'action_required')
+      .eq('read', false)
+      .in('user_id', newSupplierIds);
+
+    const alreadyNotified = new Set<string>(
+      ((existingNotifs ?? []) as { user_id: string }[]).map(n => n.user_id)
+    );
+
+    await Promise.all(
+      newRows
+        .filter(r => !alreadyNotified.has(r.supplier_id))
+        .map(r =>
+          createNotification({
+            user_id:       r.supplier_id,
+            title:         'RFQ Issued',
+            body:          'You have been invited to submit a quotation.',
+            type:          'action_required',
+            document_type: 'rfq',
+            document_id:   rfqId,
+            action_url:    `/supplier/quotations/${r.id}`,
+          })
+        )
+    );
+  } catch (err) {
+    console.error('assignSuppliers notifications error:', err);
+    // Notifications are best-effort; do not fail the assignment
+  }
 }
 
 // ─── Add external vendor (no supplier account) ────────────────────────────────

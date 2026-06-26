@@ -762,7 +762,7 @@ export default function RfqDetailPage() {
             {suppliers.length === 0 ? (
               <p className="text-xs text-pq-neutral-400 px-5 py-4">No suppliers assigned yet.</p>
             ) : (
-              <div className="divide-y divide-pq-neutral-200">
+              <div className="divide-y divide-pq-neutral-200 max-h-[400px] overflow-y-auto">
                 {suppliers.map(s => (
                   <div key={s.id} className="px-5 py-3 flex items-center justify-between hover:bg-pq-neutral-50 group transition">
                     <div className="min-w-0">
