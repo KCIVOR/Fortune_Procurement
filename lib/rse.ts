@@ -434,7 +434,7 @@ export async function getProductsByAccreditationId(
     .from('supplier_products')
     .select('id, product_name, product_code, status, verified_at, rejected_at')
     .eq('accreditation_id', accreditationId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
   if (error) throw error;
   if (!products || (products as any[]).length === 0) return [];
 

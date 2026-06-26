@@ -209,7 +209,7 @@ export async function getAccreditationQueueForProcurement(): Promise<Accreditati
     .from('supplier_accreditations')
     .select('*')
     .in('status', ['submitted', 'under_review', 'missing_documents'])
-    .order('submitted_at', { ascending: true });
+    .order('submitted_at', { ascending: false });
   if (error) throw error;
   if (!data || (data as any[]).length === 0) return [];
 

@@ -236,7 +236,7 @@ export async function getProductReviewQueueForProcurement(): Promise<ProductQueu
     .from('supplier_products')
     .select('*')
     .in('status', ['submitted', 'under_review'])
-    .order('submitted_at', { ascending: true });
+    .order('submitted_at', { ascending: false });
   if (error) throw error;
   if (!data || (data as any[]).length === 0) return [];
 

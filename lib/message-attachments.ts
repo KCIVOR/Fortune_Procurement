@@ -202,7 +202,7 @@ export async function getMessageAttachments(
     .from('message_attachments')
     .select('*')
     .eq('message_id', messageId.trim())
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
   return (data ?? []) as MessageAttachment[];

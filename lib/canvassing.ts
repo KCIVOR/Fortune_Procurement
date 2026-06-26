@@ -207,7 +207,7 @@ export async function fetchCanvassingQueue(): Promise<CanvassingQueueRow[]> {
     .from('pr1_requests')
     .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, request_type, date_required, submitted_at')
     .in('status', ['for_canvassing', 'canvassing_complete'])
-    .order('submitted_at', { ascending: true });
+    .order('submitted_at', { ascending: false });
 
   if (pr1Err) throw pr1Err;
   if (!pr1s || pr1s.length === 0) return [];
@@ -319,7 +319,7 @@ export async function fetchCanvassingQueuePaged(options: {
 
   const [pr1sRes, countRes] = await Promise.all([
     applyFilters(db.from('pr1_requests').select(CANVASSING_QUEUE_PR1_SELECT))
-      .order('submitted_at', { ascending: true })
+      .order('submitted_at', { ascending: false })
       .range(offset, offset + limit - 1),
     applyFilters(db.from('pr1_requests').select('id', { count: 'exact', head: true })),
   ]);
@@ -2094,7 +2094,7 @@ export async function fetchRfqQuoteAttachments(
     .from('rfq_quote_attachments')
     .select('*')
     .eq('rfq_item_quote_id', rfqItemQuoteId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as RfqQuoteAttachment[];
 }
@@ -2107,7 +2107,7 @@ export async function fetchRfqQuoteAttachmentsByRfq(
     .from('rfq_quote_attachments')
     .select('*')
     .eq('rfq_id', rfqId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
   if (error) throw error;
 
   const grouped: Record<string, RfqQuoteAttachment[]> = {};
@@ -2127,7 +2127,7 @@ export async function fetchRfqQuoteAttachmentsByQuoteIds(
     .from('rfq_quote_attachments')
     .select('*')
     .in('rfq_item_quote_id', quoteIds)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
   if (error) throw error;
 
   const grouped: Record<string, RfqQuoteAttachment[]> = {};

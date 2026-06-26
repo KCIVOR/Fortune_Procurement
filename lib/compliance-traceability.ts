@@ -157,7 +157,7 @@ async function traceFromAccreditation(accreditationId: string, role: AppRole): P
     .from('supplier_products')
     .select('id, product_name, status')
     .eq('accreditation_id', accreditationId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(12);
 
   for (const p of (products ?? []) as any[]) {

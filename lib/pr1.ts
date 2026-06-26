@@ -1104,7 +1104,7 @@ export async function fetchPR1Attachments(pr1Id: string): Promise<PR1Attachment[
     .from('pr1_attachments')
     .select('*')
     .eq('pr1_id', pr1Id)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
   const rows = (data ?? []) as PR1Attachment[];

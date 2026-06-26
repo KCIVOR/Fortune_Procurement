@@ -92,7 +92,7 @@ export async function fetchWarehouseQueue(): Promise<PR1QueueRow[]> {
     .from('pr1_requests')
     .select(WAREHOUSE_QUEUE_SELECT)
     .eq('status', 'approved_for_warehouse')
-    .order('submitted_at', { ascending: true });
+    .order('submitted_at', { ascending: false });
 
   if (error) throw error;
 
@@ -134,7 +134,7 @@ export async function fetchWarehouseQueuePaged(options: {
   const listQuery = applyFilters(
     db.from('pr1_requests').select(WAREHOUSE_QUEUE_SELECT)
   )
-    .order('submitted_at', { ascending: true })
+    .order('submitted_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
   const countQuery = applyFilters(

@@ -50,7 +50,7 @@ export async function getAssignedRSEForCurrentTSQA(
     .select('*')
     .or(`assigned_to.eq.${profile.id},status.eq.created`)
     .in('status', ['created', 'assigned', 'under_review'])
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as RseRecord[];
 }

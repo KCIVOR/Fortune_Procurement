@@ -129,7 +129,7 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
     .select('id, workflow_id, document_id, current_step, status, started_at')
     .eq('document_type', 'PO')
     .eq('status', 'active')
-    .order('started_at', { ascending: true });
+    .order('started_at', { ascending: false });
 
   if (error) throw error;
   if (!instances || instances.length === 0) return [];

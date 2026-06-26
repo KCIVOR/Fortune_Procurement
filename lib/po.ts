@@ -171,7 +171,7 @@ export async function fetchPOsByPR2Id(pr2Id: string): Promise<PORequest[]> {
     .from('po_requests')
     .select('*')
     .eq('pr2_id', pr2Id)
-    .order('generated_at', { ascending: true });
+    .order('generated_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(normalizePO);
 }
