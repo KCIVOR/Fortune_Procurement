@@ -445,39 +445,74 @@ export async function supplierUpdateDelivery(
     created_at:     now,
   });
 
-  // Notify requisitioner on meaningful status changes (best-effort)
+  // Notify on meaningful status changes (best-effort)
   const notifiableStatuses: DeliveryStatus[] = ['in_transit', 'delayed', 'delivered'];
-  if (
-    statusTo !== statusFrom &&
-    notifiableStatuses.includes(statusTo) &&
-    delivery.requisitioner_id
-  ) {
-    try {
-      const statusLabel = statusTo === 'in_transit' ? 'in transit' : statusTo;
+  if (statusTo !== statusFrom && notifiableStatuses.includes(statusTo)) {
+    const statusLabel = statusTo === 'in_transit' ? 'in transit' : statusTo;
+    const notifPayload = {
+      type:          'info' as const,
+      document_type: 'delivery',
+      document_id:   deliveryId,
+      action_url:    `/delivery/${deliveryId}`,
+    };
 
-      // Deduplicate: skip if an unread 'Delivery Update' already exists for this delivery + user
-      const { data: existing } = await db
-        .from('notifications')
-        .select('id')
-        .eq('user_id', delivery.requisitioner_id)
-        .eq('document_id', deliveryId)
-        .eq('title', 'Delivery Update')
-        .eq('read', false)
-        .maybeSingle();
-
-      if (!existing) {
-        await createNotification({
-          user_id:       delivery.requisitioner_id,
-          title:         'Delivery Update',
-          body:          `Delivery status has been updated to ${statusLabel}.`,
-          type:          'info',
-          document_type: 'delivery',
-          document_id:   deliveryId,
-          action_url:    `/delivery/${deliveryId}`,
-        });
+    // Notify requisitioner (employee)
+    if (delivery.requisitioner_id) {
+      try {
+        const { data: existing } = await db
+          .from('notifications')
+          .select('id')
+          .eq('user_id', delivery.requisitioner_id)
+          .eq('document_id', deliveryId)
+          .eq('title', 'Delivery Update')
+          .eq('read', false)
+          .maybeSingle();
+        if (!existing) {
+          await createNotification({
+            user_id: delivery.requisitioner_id,
+            title:   'Delivery Update',
+            body:    `Delivery status has been updated to ${statusLabel}.`,
+            ...notifPayload,
+          });
+        }
+      } catch {
+        // best-effort
       }
+    }
+
+    // Notify procurement on all status changes
+    try {
+      await notifyByRole(
+        'procurement',
+        {
+          title: 'Delivery Status Updated',
+          body:  `Supplier updated delivery status to ${statusLabel}.`,
+          ...notifPayload,
+        },
+        { dedupeUnreadForDocument: false },
+      );
     } catch {
-      // Notifications are best-effort; do not fail the status update
+      // best-effort
+    }
+
+    // Notify warehouse when delivered — they need to perform GRN
+    if (statusTo === 'delivered') {
+      try {
+        await notifyByRole(
+          'warehouse',
+          {
+            title: 'Delivery Ready for GRN',
+            body:  'A delivery has been marked delivered and is ready for goods receipt.',
+            type:  'action_required',
+            document_type: 'delivery',
+            document_id:   deliveryId,
+            action_url:    `/delivery/${deliveryId}`,
+          },
+          { dedupeUnreadForDocument: true },
+        );
+      } catch {
+        // best-effort
+      }
     }
   }
 }
