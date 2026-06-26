@@ -6,7 +6,7 @@ import type {
   ApprovalAction,
   ApprovalInstanceStatus,
 } from '@/types/approvals';
-import { createNotification, notifyApproversForStep } from '@/lib/notifications';
+import { createNotification, notifyApproversForStep, notifyByRole } from '@/lib/notifications';
 import { fetchRfqQuoteAttachmentsByRfq } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { fetchPR1Attachments } from '@/lib/pr1';
@@ -540,7 +540,7 @@ export async function submitPR2ApprovalAction(
   try {
     if (action === 'approved') {
       if (isFinalStep) {
-        // Final approved → notify requisitioner
+        // Final approved → notify requisitioner + procurement (ready for PO)
         const { data: pr2Row } = await db
           .from('pr2_requests')
           .select('pr2_number, requisitioner_id')
@@ -557,6 +557,14 @@ export async function submitPR2ApprovalAction(
             action_url:    `/pr2/${pr2Id}`,
           });
         }
+        await notifyByRole('procurement', {
+          title:         'PR2 Ready for PO',
+          body:          `PR2 ${pr2Row?.pr2_number ?? ''} has been fully approved. Generate the Purchase Order.`,
+          type:          'action_required',
+          document_type: 'pr2',
+          document_id:   pr2Id,
+          action_url:    `/pr2/${pr2Id}`,
+        });
       } else {
         // Normal step advance (auto dept-head already returned early)
         const [instData, pr2Data] = await Promise.all([
