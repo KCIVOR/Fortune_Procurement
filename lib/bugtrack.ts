@@ -72,6 +72,16 @@ export async function getBugReport(id: string) {
   return bug as BugReport;
 }
 
+export async function getMyBugReports(reporterId: string) {
+  const { data, error } = await supabase
+    .from('bug_reports')
+    .select('*')
+    .eq('reporter_id', reporterId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data as BugReport[];
+}
+
 export async function createBugReport(bug: Partial<BugReport>) {
   const table = supabase.from('bug_reports') as any;
   const { data, error } = await table

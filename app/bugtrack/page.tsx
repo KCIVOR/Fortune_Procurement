@@ -23,7 +23,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/context/AuthContext';
-import { getBugReports, createBugReport, type BugReport } from '@/lib/bugtrack';
+import { getBugReports, createBugReport, getMyBugReports, type BugReport } from '@/lib/bugtrack';
+import { notifyByRole } from '@/lib/notifications';
 import { authFetch } from '@/lib/authenticated-fetch';
 import { format } from 'date-fns';
 import {
@@ -78,6 +79,9 @@ export default function BugTrackPage() {
 
   const isAdmin = profile?.role === 'admin' || (profile?.role as string) === 'superadmin';
 
+  const [myBugs, setMyBugs] = useState<BugReport[]>([]);
+  const [myBugsLoading, setMyBugsLoading] = useState(false);
+
   const fetchBugs = async () => {
     setLoading(true);
     try {
@@ -91,12 +95,18 @@ export default function BugTrackPage() {
   };
 
   useEffect(() => {
+    if (!profile) return;
     if (isAdmin) {
       fetchBugs();
     } else {
       setLoading(false);
+      setMyBugsLoading(true);
+      getMyBugReports(profile.id)
+        .then(setMyBugs)
+        .catch(() => {})
+        .finally(() => setMyBugsLoading(false));
     }
-  }, [isAdmin]);
+  }, [isAdmin, profile]);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
@@ -153,17 +163,22 @@ export default function BugTrackPage() {
     setActiveTab('all');
   };
 
-  // Non-admin users see the inline report form
+  // Non-admin users see the report form + their own reports
   if (!isAdmin) {
     return (
       <AppShell title="Report a Bug">
-        <div className="max-w-2xl mx-auto">
-          <PageHeader
-            title="Report a Bug"
-            description="Found an issue? Let us know and we'll get it fixed as soon as possible."
-          />
-          
-          <BugReportForm profile={profile} />
+        <div className="max-w-2xl mx-auto space-y-8">
+          <div>
+            <PageHeader
+              title="Report a Bug"
+              description="Found an issue? Let us know and we'll get it fixed as soon as possible."
+            />
+            <BugReportForm
+              profile={profile}
+              onSuccess={(bug) => setMyBugs((prev) => [bug, ...prev])}
+            />
+          </div>
+          <MyReportsSection bugs={myBugs} loading={myBugsLoading} />
         </div>
       </AppShell>
     );
@@ -405,9 +420,71 @@ function BugQueueSkeleton() {
   );
 }
 
+// ─── My Reports Section (non-admin) ──────────────────────────────────────────
+
+function MyReportsSection({ bugs, loading }: { bugs: BugReport[]; loading: boolean }) {
+  const statusMap: Record<string, { variant: 'pending' | 'in_review' | 'approved' | 'rejected'; label: string }> = {
+    open:        { variant: 'pending',  label: 'Open' },
+    in_progress: { variant: 'in_review', label: 'In Progress' },
+    resolved:    { variant: 'approved', label: 'Resolved' },
+    closed:      { variant: 'rejected', label: 'Closed' },
+  };
+
+  const severityColors = {
+    low:    'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200',
+    medium: 'bg-pq-warning-50 text-pq-warning-700 border-pq-warning-200',
+    high:   'bg-pq-danger-50 text-pq-danger-700 border-pq-danger-200',
+  };
+
+  return (
+    <div>
+      <h2 className="text-base font-semibold text-pq-neutral-900 mb-3">My Reports</h2>
+      <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+        {loading ? (
+          <div className="p-5 space-y-3">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-16 ml-auto" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+              </div>
+            ))}
+          </div>
+        ) : bugs.length === 0 ? (
+          <EmptyState
+            icon={Bug}
+            title="No reports yet"
+            description="Your submitted bug reports will appear here."
+          />
+        ) : (
+          <div className="divide-y divide-pq-neutral-200">
+            {bugs.map((bug) => {
+              const status = statusMap[bug.status] || { variant: 'pending' as const, label: bug.status };
+              return (
+                <div key={bug.id} className="flex items-center gap-3 px-5 py-3.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-pq-neutral-900 truncate">{bug.title}</p>
+                    <p className="text-xs text-pq-neutral-500 mt-0.5">
+                      {bug.location} · {format(new Date(bug.created_at), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                  <span className={cn('text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border tracking-wide shrink-0', severityColors[bug.severity])}>
+                    {bug.severity}
+                  </span>
+                  <StatusChip status={status.variant} label={status.label} size="sm" />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Inline Bug Report Form ──────────────────────────────────────────────────
 
-function BugReportForm({ profile }: { profile: any }) {
+function BugReportForm({ profile, onSuccess }: { profile: any; onSuccess?: (bug: BugReport) => void }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -426,12 +503,22 @@ function BugReportForm({ profile }: { profile: any }) {
 
     setLoading(true);
     try {
-      await createBugReport({
+      const newBug = await createBugReport({
         ...formData,
         reporter_id: profile.id,
         status: 'open',
       });
-      
+
+      // Notify admins in-app
+      notifyByRole('admin', {
+        title: 'New Bug Report',
+        body: `${profile.full_name || 'A user'} reported: ${formData.title}`,
+        type: 'action_required',
+        document_type: 'bug',
+        document_id: newBug.id,
+        action_url: `/bugtrack/${newBug.id}`,
+      }).catch(() => {});
+
       // Trigger email notification
       await authFetch('/api/bugtrack/send-email', {
         method: 'POST',
@@ -445,7 +532,8 @@ function BugReportForm({ profile }: { profile: any }) {
       });
 
       toast.success('Bug reported successfully! Our team will review it shortly.');
-      
+      onSuccess?.(newBug);
+
       // Reset form
       setFormData({
         title: '',

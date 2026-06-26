@@ -7,6 +7,7 @@ import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import StatusChip from '@/components/shared/StatusChip';
 import { useAuth } from '@/context/AuthContext';
 import { getBugReport, updateBugReport, generateAIReadyPrompt, type BugReport } from '@/lib/bugtrack';
+import { createNotification } from '@/lib/notifications';
 import { authFetch } from '@/lib/authenticated-fetch';
 import { format } from 'date-fns';
 import {
@@ -72,7 +73,27 @@ export default function BugDetailPage() {
     try {
       await updateBugReport(bug.id, { status: newStatus });
       toast.success(`Status updated to ${newStatus.replace('_', ' ').toUpperCase()}`);
-      
+
+      // Notify reporter in-app for every status change
+      const statusNotif: Record<BugReport['status'], { title: string; body: string; type: 'info' | 'approved' }> = {
+        open:        { title: 'Bug Report Opened',     body: `Your report "${bug.title}" has been opened.`,        type: 'info' },
+        in_progress: { title: 'Bug Report In Progress', body: `Your report "${bug.title}" is now being reviewed.`, type: 'info' },
+        resolved:    { title: 'Bug Report Resolved',    body: `Your report "${bug.title}" has been resolved.`,     type: 'approved' },
+        closed:      { title: 'Bug Report Closed',      body: `Your report "${bug.title}" has been closed.`,       type: 'info' },
+      };
+      const notif = statusNotif[newStatus];
+      if (notif) {
+        createNotification({
+          user_id:       bug.reporter_id,
+          title:         notif.title,
+          body:          notif.body,
+          type:          notif.type,
+          document_type: 'bug',
+          document_id:   bug.id,
+          action_url:    '/bugtrack',
+        }).catch(() => {});
+      }
+
       // Dispatch email if resolved
       if (newStatus === 'resolved' && bug.reporter?.email) {
         await authFetch('/api/bugtrack/send-resolved-email', {
