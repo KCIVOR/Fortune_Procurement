@@ -255,8 +255,10 @@ export async function fetchCanvassingQueuePaged(options: {
   offset: number;
   search?: string;
   departmentId?: string;
+  /** 'awaiting' = PR1s with no RFQ yet; 'issued' = PR1s that already have an RFQ; 'all' = both. */
+  view?: 'awaiting' | 'issued' | 'all';
 }): Promise<{ rows: CanvassingQueueRow[]; total_count: number }> {
-  const { limit, offset, search, departmentId } = options;
+  const { limit, offset, search, departmentId, view = 'all' } = options;
   const term = search?.trim();
 
   let pr1IdsMatchingRfqNumber: string[] = [];
@@ -272,8 +274,30 @@ export async function fetchCanvassingQueuePaged(options: {
     );
   }
 
+  // For view filtering, resolve the set of PR1s that already have an RFQ.
+  let rfqPr1Ids: string[] = [];
+  if (view !== 'all') {
+    const { data: allRfqs, error: allRfqErr } = await db
+      .from('rfq_batches')
+      .select('pr1_id');
+    if (allRfqErr) throw allRfqErr;
+    rfqPr1Ids = Array.from(
+      new Set((allRfqs ?? []).map((r: any) => r.pr1_id).filter(Boolean))
+    );
+  }
+
   const applyFilters = (q: any) => {
     q = q.in('status', ['for_canvassing', 'canvassing_complete']);
+    if (view === 'awaiting' && rfqPr1Ids.length > 0) {
+      q = q.not('id', 'in', `(${rfqPr1Ids.join(',')})`);
+    } else if (view === 'issued') {
+      // Issued list is exactly the PR1s that have an RFQ. None → empty result.
+      if (rfqPr1Ids.length === 0) {
+        q = q.eq('id', '00000000-0000-0000-0000-000000000000');
+      } else {
+        q = q.in('id', rfqPr1Ids);
+      }
+    }
     if (term) {
       const p = `%${term}%`;
       const orParts = [
@@ -339,6 +363,49 @@ export async function fetchCanvassingQueuePaged(options: {
       };
     }),
     total_count: countRes.count ?? 0,
+  };
+}
+
+// ─── Canvassing queue: global KPI counts ─────────────────────────────────────
+// Accurate totals across the whole canvassing pipeline (not page-scoped):
+//   awaiting = canvassing PR1s with no RFQ yet
+//   active   = RFQs currently open (collecting quotations)
+//   complete = RFQs closed
+//   issued   = distinct PR1s that have an RFQ (drives the "RFQ Issued" tab count)
+
+export async function fetchCanvassingQueueCounts(): Promise<{
+  awaiting: number;
+  active: number;
+  complete: number;
+  issued: number;
+}> {
+  const { data: rfqs, error: rfqErr } = await db
+    .from('rfq_batches')
+    .select('pr1_id, status');
+  if (rfqErr) throw rfqErr;
+
+  const rfqRows = (rfqs ?? []) as { pr1_id: string | null; status: string }[];
+  const rfqPr1Ids = Array.from(
+    new Set(rfqRows.map((r) => r.pr1_id).filter(Boolean) as string[])
+  );
+  const active   = rfqRows.filter((r) => r.status === 'open').length;
+  const complete = rfqRows.filter((r) => r.status === 'closed').length;
+
+  let q = db
+    .from('pr1_requests')
+    .select('id', { count: 'exact', head: true })
+    .in('status', ['for_canvassing', 'canvassing_complete']);
+  if (rfqPr1Ids.length > 0) {
+    q = q.not('id', 'in', `(${rfqPr1Ids.join(',')})`);
+  }
+  const { count: awaitingCount, error: awaitingErr } = await q;
+  if (awaitingErr) throw awaitingErr;
+
+  return {
+    awaiting: awaitingCount ?? 0,
+    active,
+    complete,
+    issued: rfqPr1Ids.length,
   };
 }
 

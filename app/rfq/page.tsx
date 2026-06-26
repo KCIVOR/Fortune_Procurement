@@ -9,7 +9,7 @@ import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
 import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
-import { fetchCanvassingQueuePaged, createRfq } from '@/lib/canvassing';
+import { fetchCanvassingQueuePaged, fetchCanvassingQueueCounts, createRfq } from '@/lib/canvassing';
 import { fetchDepartmentOptions } from '@/lib/pr2';
 import { useAuth } from '@/context/AuthContext';
 import type { CanvassingQueueRow } from '@/types/canvassing';
@@ -47,6 +47,10 @@ export default function RFQQueuePage() {
   const [selectedDept, setSelectedDept]   = useState('all');
   const [deptOptions, setDeptOptions]     = useState<{ id: string; name: string }[]>([]);
 
+  const [view, setView] = useState<'awaiting' | 'issued'>('awaiting');
+  const [viewInitialized, setViewInitialized] = useState(false);
+  const [counts, setCounts] = useState<{ awaiting: number; active: number; complete: number; issued: number } | null>(null);
+
   const canFilterByDept = profile?.role === 'admin' || profile?.role === 'procurement';
 
   const [creating, setCreating]       = useState(false);
@@ -63,6 +67,23 @@ export default function RFQQueuePage() {
       .catch(() => {});
   }, [canFilterByDept]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const loadCounts = () => {
+    fetchCanvassingQueueCounts()
+      .then(setCounts)
+      .catch(() => {});
+  };
+
+  useEffect(loadCounts, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // First time counts arrive: if there's nothing awaiting but RFQs exist,
+  // open the "RFQ Issued" tab so the user lands on populated content.
+  useEffect(() => {
+    if (!viewInitialized && counts) {
+      if (counts.awaiting === 0 && counts.issued > 0) setView('issued');
+      setViewInitialized(true);
+    }
+  }, [counts, viewInitialized]);
+
   const load = () => {
     const offset = (currentPage - 1) * rowsPerPage;
     setLoading(true);
@@ -71,6 +92,7 @@ export default function RFQQueuePage() {
       offset,
       search: appliedSearch.trim() || undefined,
       departmentId: canFilterByDept && selectedDept !== 'all' ? selectedDept : undefined,
+      view,
     })
       .then(result => {
         setRows(result.rows);
@@ -80,11 +102,15 @@ export default function RFQQueuePage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [currentPage, appliedSearch, selectedDept, canFilterByDept]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [currentPage, appliedSearch, selectedDept, canFilterByDept, view]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const noRfq    = rows.filter(r => !r.rfq_id);
-  const hasRfq   = rows.filter(r => !!r.rfq_id);
   const totalPages = Math.ceil(totalCount / rowsPerPage);
+
+  const handleViewChange = (next: 'awaiting' | 'issued') => {
+    if (next === view) return;
+    setView(next);
+    setCurrentPage(1);
+  };
 
   const handleOpenCreate = (row: CanvassingQueueRow) => {
     setSelectedPr1(row);
@@ -102,6 +128,7 @@ export default function RFQQueuePage() {
       const rfqId = await createRfq(selectedPr1.pr1_id, deadline || null, notes, profile);
       setCreating(false);
       setCurrentPage(1);
+      loadCounts();
       window.location.href = `/rfq/${rfqId}`;
     } catch (e: any) {
       setCreateError(e.message ?? 'Failed to create RFQ.');
@@ -166,72 +193,73 @@ export default function RFQQueuePage() {
         className="mb-4"
       />
 
-      {loading ? (
-        <TableSkeleton rows={5} cols={5} />
-      ) : error ? (
+      {error ? (
         <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">{error}</div>
-      ) : rows.length === 0 ? (
-        <div className="bg-white rounded-md border border-pq-neutral-200">
-          <EmptyState
-            title={appliedSearch.trim() ? 'No matching PR1s' : 'No PR1s for canvassing'}
-            description={
-              appliedSearch.trim()
-                ? 'No queue items match your search. Try different keywords or Clear search.'
-                : 'PR1s that have completed the approval workflow will appear here.'
-            }
-            icon={SendHorizonal}
-          />
-        </div>
       ) : (
         <div className="space-y-6">
           <div className={`${KPI_GRID_CLASS} mb-1`}>
             <StatCard
               label="Awaiting RFQ"
-              value={noRfq.length}
+              value={counts?.awaiting ?? 0}
               accent="amber"
               icon={<Clock className="w-5 h-5" />}
             />
             <StatCard
               label="Active RFQs"
-              value={hasRfq.filter(r => r.rfq_status === 'open').length}
+              value={counts?.active ?? 0}
               accent="blue"
               icon={<CircleDot className="w-5 h-5" />}
             />
             <StatCard
               label="Canvassing Complete"
-              value={hasRfq.filter(r => r.rfq_status === 'closed').length}
+              value={counts?.complete ?? 0}
               accent="green"
               icon={<CheckCheck className="w-5 h-5" />}
             />
           </div>
 
-          {noRfq.length > 0 && (
-            <Section title="Awaiting RFQ" accent="amber" count={noRfq.length}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
-                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PR1 No.</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ No.</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ Status</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-pq-neutral-200">
-                    {noRfq.map(row => (
-                      <QueueRow key={row.pr1_id} row={row} onCreateRfq={handleOpenCreate} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Section>
-          )}
+          {/* Segmented tabs: action queue vs. issued history */}
+          <div className="flex items-center gap-1 border-b border-pq-neutral-200">
+            <TabButton
+              active={view === 'awaiting'}
+              onClick={() => handleViewChange('awaiting')}
+              label="Awaiting RFQ"
+              count={counts?.awaiting}
+              accent="amber"
+            />
+            <TabButton
+              active={view === 'issued'}
+              onClick={() => handleViewChange('issued')}
+              label="RFQ Issued"
+              count={counts?.issued}
+              accent="slate"
+            />
+          </div>
 
-          {hasRfq.length > 0 && (
-            <Section title="RFQ Issued" accent="slate" count={hasRfq.length}>
+          {loading ? (
+            <TableSkeleton rows={5} cols={6} />
+          ) : rows.length === 0 ? (
+            <div className="bg-white rounded-md border border-pq-neutral-200">
+              <EmptyState
+                title={
+                  appliedSearch.trim()
+                    ? 'No matching PR1s'
+                    : view === 'awaiting'
+                      ? 'All caught up'
+                      : 'No RFQs issued yet'
+                }
+                description={
+                  appliedSearch.trim()
+                    ? 'No queue items match your search. Try different keywords or Clear search.'
+                    : view === 'awaiting'
+                      ? 'No PR1s are waiting for an RFQ. New PR1s approved for canvassing will appear here.'
+                      : 'RFQs you create will appear here once issued.'
+                }
+                icon={SendHorizonal}
+              />
+            </div>
+          ) : (
+            <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -246,13 +274,13 @@ export default function RFQQueuePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-pq-neutral-200">
-                    {hasRfq.map(row => (
+                    {rows.map(row => (
                       <QueueRow key={row.pr1_id} row={row} onCreateRfq={handleOpenCreate} />
                     ))}
                   </tbody>
                 </table>
               </div>
-            </Section>
+            </div>
           )}
 
           {totalCount > 0 && (
@@ -385,31 +413,38 @@ function QueueRow({
   );
 }
 
-function Section({
-  title,
-  accent,
+function TabButton({
+  active,
+  onClick,
+  label,
   count,
-  children,
+  accent,
 }: {
-  title: string;
-  accent: 'amber' | 'slate' | 'blue' | 'emerald';
-  count: number;
-  children: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count?: number;
+  accent: 'amber' | 'slate';
 }) {
-  const accentClass = {
-    amber:   'border-amber-300 bg-pq-warning-100 text-pq-warning-600',
-    slate:   'border-pq-neutral-200 bg-pq-neutral-50 text-pq-neutral-500',
-    blue:    'border-pq-primary-200 bg-pq-primary-50 text-pq-primary-700',
-    emerald: 'border-pq-success-100 bg-pq-success-100 text-pq-success-600',
-  }[accent];
+  const badgeClass = active
+    ? accent === 'amber'
+      ? 'bg-pq-warning-100 text-pq-warning-600'
+      : 'bg-pq-primary-50 text-pq-primary-700'
+    : 'bg-pq-neutral-100 text-pq-neutral-500';
 
   return (
-    <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
-        <h2 className="text-sm font-semibold text-pq-neutral-900">{title}</h2>
-        <span className={`text-xs font-semibold border rounded-full px-2 py-0.5 ${accentClass}`}>{count}</span>
-      </div>
-      {children}
-    </div>
+    <button
+      onClick={onClick}
+      className={`relative flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition -mb-px border-b-2 ${
+        active
+          ? 'border-pq-primary-600 text-pq-neutral-900'
+          : 'border-transparent text-pq-neutral-500 hover:text-pq-neutral-900'
+      }`}
+    >
+      {label}
+      {typeof count === 'number' && (
+        <span className={`text-xs font-semibold rounded-full px-2 py-0.5 ${badgeClass}`}>{count}</span>
+      )}
+    </button>
   );
 }
