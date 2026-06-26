@@ -1379,7 +1379,8 @@ export async function fetchSubstitutesForRequestor(
   const { data: pr1s, error: pr1Err } = await db
     .from('pr1_requests')
     .select('id, pr1_number, purpose, department_name_snapshot, requisitioner_id')
-    .eq('requisitioner_id', requisitionerId);
+    .eq('requisitioner_id', requisitionerId)
+    .order('created_at', { ascending: false });
 
   if (pr1Err || !pr1s || pr1s.length === 0) return [];
 
