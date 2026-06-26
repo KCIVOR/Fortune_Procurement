@@ -1665,23 +1665,49 @@ export async function fetchSupplierInbox(supplierId: string): Promise<SupplierRf
 
 // ─── Supplier RFQ inbox: paginated ───────────────────────────────────────────
 
+export async function fetchSupplierInboxCounts(supplierId: string): Promise<{
+  invited: number;
+  submitted: number;
+  declined: number;
+  total: number;
+}> {
+  const [invitedRes, submittedRes, declinedRes] = await Promise.all([
+    db.from('rfq_suppliers').select('id', { count: 'exact', head: true }).eq('supplier_id', supplierId).eq('status', 'invited'),
+    db.from('rfq_suppliers').select('id', { count: 'exact', head: true }).eq('supplier_id', supplierId).eq('status', 'submitted'),
+    db.from('rfq_suppliers').select('id', { count: 'exact', head: true }).eq('supplier_id', supplierId).eq('status', 'declined'),
+  ]);
+  const invited   = invitedRes.count   ?? 0;
+  const submitted = submittedRes.count ?? 0;
+  const declined  = declinedRes.count  ?? 0;
+  return { invited, submitted, declined, total: invited + submitted + declined };
+}
+
 export async function fetchSupplierInboxPaged(
   supplierId: string,
-  options: { limit: number; offset: number }
+  options: { limit: number; offset: number; statusFilter?: 'invited' | 'submitted' | 'declined' | 'all' }
 ): Promise<{ inbox: SupplierRfqInboxRow[]; total_count: number }> {
-  const { limit, offset } = options;
+  const { limit, offset, statusFilter = 'all' } = options;
+
+  let assignmentsQuery = (db
+    .from('rfq_suppliers')
+    .select('id, rfq_id, supplier_name_snapshot, status, invited_at, responded_at')
+    .eq('supplier_id', supplierId) as any);
+
+  let countQuery = (db
+    .from('rfq_suppliers')
+    .select('id', { count: 'exact', head: true })
+    .eq('supplier_id', supplierId) as any);
+
+  if (statusFilter !== 'all') {
+    assignmentsQuery = assignmentsQuery.eq('status', statusFilter);
+    countQuery       = countQuery.eq('status', statusFilter);
+  }
 
   const [assignmentsRes, countRes] = await Promise.all([
-    db
-      .from('rfq_suppliers')
-      .select('id, rfq_id, supplier_name_snapshot, status, invited_at, responded_at')
-      .eq('supplier_id', supplierId)
+    assignmentsQuery
       .order('invited_at', { ascending: false })
       .range(offset, offset + limit - 1),
-    db
-      .from('rfq_suppliers')
-      .select('id', { count: 'exact', head: true })
-      .eq('supplier_id', supplierId),
+    countQuery,
   ]);
 
   if (assignmentsRes.error) throw assignmentsRes.error;

@@ -5,15 +5,23 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
-import LoadingState from '@/components/shared/LoadingState';
 import PaginationControls from '@/components/shared/PaginationControls';
 import FilterBar from '@/components/shared/FilterBar';
-import type { FilterConfig } from '@/components/shared/FilterBar.types';
-import { fetchSupplierInboxPaged } from '@/lib/canvassing';
+import type { FilterConfig, TabFilter } from '@/components/shared/FilterBar.types';
+import { fetchSupplierInboxPaged, fetchSupplierInboxCounts } from '@/lib/canvassing';
 import { useAuth } from '@/context/AuthContext';
 import type { SupplierRfqInboxRow } from '@/types/canvassing';
-import { Tag, ArrowRight, Clock, CircleCheck as CheckCircle2, PackageSearch } from 'lucide-react';
+import { Tag, ArrowRight, Clock, CircleCheck as CheckCircle2, PackageSearch, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { TableSkeleton } from '@/components/shared/structural-skeletons';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type InboxTab = 'invited' | 'submitted' | 'declined';
+
+const ROWS_PER_PAGE = 20;
+
+const EMPTY_COUNTS = { invited: 0, submitted: 0, declined: 0, total: 0 };
 
 const SUPPLIER_STATUS_BADGE: Record<string, string> = {
   invited:   'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
@@ -26,68 +34,102 @@ const SUPPLIER_STATUS_LABEL: Record<string, string> = {
   declined:  'Declined',
 };
 
-const RFQ_STATUS_BADGE: Record<string, string> = {
-  open:   'bg-pq-neutral-50 text-pq-neutral-900 border-pq-neutral-200',
-  closed: 'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
-  draft:  'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
-};
-
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All Statuses' },
-  { value: 'invited', label: 'Awaiting Response' },
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'declined', label: 'Declined' },
-];
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SupplierQuotationsPage() {
   const { profile } = useAuth();
-  const [inbox, setInbox]     = useState<SupplierRfqInboxRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 20;
-  const [totalCount, setTotalCount] = useState(0);
-  const [search, setSearch] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
 
+  const [activeTab, setActiveTab]   = useState<InboxTab>('invited');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [inbox, setInbox]           = useState<SupplierRfqInboxRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState('');
+  const [search, setSearch]         = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [tabCounts, setTabCounts]   = useState<typeof EMPTY_COUNTS | null>(null);
+
+  // Load global counts once on mount
   useEffect(() => {
     if (!profile) return;
-    const offset = (currentPage - 1) * rowsPerPage;
+    fetchSupplierInboxCounts(profile.id)
+      .then(setTabCounts)
+      .catch(() => {});
+  }, [profile]);
+
+  // Load current tab's data whenever tab / page / search changes
+  useEffect(() => {
+    if (!profile) return;
     setLoading(true);
-    fetchSupplierInboxPaged(profile.id, { limit: rowsPerPage, offset })
+    setError('');
+    const offset = (currentPage - 1) * ROWS_PER_PAGE;
+    fetchSupplierInboxPaged(profile.id, {
+      limit: ROWS_PER_PAGE,
+      offset,
+      statusFilter: activeTab,
+    })
       .then(result => {
         setInbox(result.inbox);
         setTotalCount(result.total_count);
       })
       .catch(() => setError('Failed to load RFQ inbox.'))
       .finally(() => setLoading(false));
-  }, [profile, currentPage]);
+  }, [profile, activeTab, currentPage]);
 
-  // Filter inbox based on search and status
-  const filteredInbox = inbox.filter((r) => {
-    const matchesSearch = !appliedSearch.trim() || 
-      r.rfq_number.toLowerCase().includes(appliedSearch.toLowerCase()) ||
-      r.purpose.toLowerCase().includes(appliedSearch.toLowerCase()) ||
-      r.department_name.toLowerCase().includes(appliedSearch.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || r.supplier_status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const counts     = tabCounts ?? EMPTY_COUNTS;
+  const totalPages = Math.ceil(totalCount / ROWS_PER_PAGE);
 
-  const pending    = filteredInbox.filter(r => r.supplier_status === 'invited' && r.rfq_status === 'open');
-  const submitted  = filteredInbox.filter(r => r.supplier_status === 'submitted');
-  const other      = filteredInbox.filter(r => r.supplier_status !== 'invited' || r.rfq_status !== 'open').filter(r => r.supplier_status !== 'submitted');
-  const totalPages = Math.ceil(totalCount / rowsPerPage);
+  // Client-side search on current page results
+  const visibleRows = appliedSearch.trim()
+    ? inbox.filter(r =>
+        r.rfq_number.toLowerCase().includes(appliedSearch.toLowerCase()) ||
+        r.purpose.toLowerCase().includes(appliedSearch.toLowerCase()) ||
+        r.department_name.toLowerCase().includes(appliedSearch.toLowerCase())
+      )
+    : inbox;
+
+  const tabs: TabFilter[] = [
+    { value: 'invited',   label: `Awaiting Response (${counts.invited})` },
+    { value: 'submitted', label: `Submitted (${counts.submitted})` },
+    { value: 'declined',  label: `Declined (${counts.declined})` },
+  ];
+
+  const filters: FilterConfig[] = [
+    {
+      type: 'search',
+      id: 'rfq-search',
+      label: 'Search',
+      placeholder: 'Search by RFQ number, purpose, or department...',
+      value: search,
+      onChange: (value) => setSearch(value as string),
+    },
+  ];
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as InboxTab);
+    setCurrentPage(1);
+    setSearch('');
+    setAppliedSearch('');
+  };
 
   const handleApply = () => {
     setAppliedSearch(search);
+    setCurrentPage(1);
   };
 
   const handleClear = () => {
     setSearch('');
     setAppliedSearch('');
-    setStatusFilter('all');
+    setCurrentPage(1);
   };
+
+  if (!profile) {
+    return (
+      <AppShell title="Quotations">
+        <TableSkeleton rows={5} cols={6} />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="Quotations">
@@ -96,92 +138,80 @@ export default function SupplierQuotationsPage() {
         description="Requests for quotation sent to your company. Submit your pricing for each open RFQ."
       />
 
+      {/* KPI Cards — global counts, never page-scoped */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <StatCard label="Awaiting Response" value={counts.invited}   color="amber"   icon={Clock} />
+        <StatCard label="Submitted"          value={counts.submitted} color="emerald" icon={CheckCircle2} />
+        <StatCard label="Total RFQs"         value={counts.total}     color="slate"   icon={PackageSearch} />
+      </div>
+
+      {error && (
+        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600 mb-4">{error}</div>
+      )}
+
+      <FilterBar
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        filters={filters}
+        onApply={handleApply}
+        onClear={handleClear}
+        loading={loading}
+        resultCount={totalCount}
+        resultLabel="RFQ"
+        className="mb-5"
+      />
+
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <LoadingState message="Loading RFQs..." />
-        </div>
-      ) : error ? (
-        <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">{error}</div>
-      ) : inbox.length === 0 ? (
+        <TableSkeleton rows={5} cols={6} />
+      ) : visibleRows.length === 0 ? (
         <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
-            title="No RFQs yet"
-            description="When procurement sends you an RFQ, it will appear here for your response."
-            icon={Tag}
+            icon={activeTab === 'declined' ? XCircle : Tag}
+            title={
+              activeTab === 'invited'   ? 'No RFQs awaiting response' :
+              activeTab === 'submitted' ? 'No submitted quotes yet' :
+                                          'No declined RFQs'
+            }
+            description={
+              activeTab === 'invited'
+                ? 'When procurement sends you an RFQ, it will appear here.'
+                : activeTab === 'submitted'
+                ? 'RFQs you have submitted quotes for will appear here.'
+                : 'RFQs you declined will appear here.'
+            }
           />
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard label="Awaiting Response" value={inbox.filter(r => r.supplier_status === 'invited' && r.rfq_status === 'open').length} color="amber" icon={Clock} />
-            <StatCard label="Submitted" value={inbox.filter(r => r.supplier_status === 'submitted').length} color="emerald" icon={CheckCircle2} />
-            <StatCard label="Total RFQs" value={totalCount} color="slate" icon={PackageSearch} />
-          </div>
-
-          {/* FilterBar */}
-          <FilterBar
-            filters={[
-              {
-                type: 'search',
-                id: 'rfq-search',
-                label: 'Search',
-                placeholder: 'Search by RFQ number, purpose, or department...',
-                value: search,
-                onChange: (value) => setSearch(value as string),
-              },
-              {
-                type: 'select',
-                id: 'rfq-status',
-                label: 'Status',
-                placeholder: 'All statuses',
-                value: statusFilter,
-                onChange: (value) => setStatusFilter(value as string),
-                options: STATUS_OPTIONS,
-              },
-            ] as FilterConfig[]}
-            onApply={handleApply}
-            onClear={handleClear}
-            loading={loading}
-            resultCount={filteredInbox.length}
-            resultLabel="RFQ"
-          />
-
-          {filteredInbox.length === 0 ? (
-            <div className="bg-white rounded-md border border-pq-neutral-200">
-              <EmptyState
-                title="No RFQs match your filters"
-                description="Try adjusting your search or status filter."
-                icon={Tag}
-              />
+        <div className="space-y-4">
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ No.</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Items</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Deadline</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-pq-neutral-200">
+                  {visibleRows.map(row => (
+                    <InboxRow key={row.rfq_supplier_id} row={row} />
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ) : (
-            <>
-              {pending.length > 0 && (
-                <InboxSection title="Awaiting Your Response" accent="amber" count={pending.length}>
-                  {pending.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
-                </InboxSection>
-              )}
-
-              {submitted.length > 0 && (
-                <InboxSection title="Submitted" accent="emerald" count={submitted.length}>
-                  {submitted.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
-                </InboxSection>
-              )}
-
-              {other.length > 0 && (
-                <InboxSection title="Other / Closed" accent="slate" count={other.length}>
-                  {other.map(row => <InboxRow key={row.rfq_supplier_id} row={row} />)}
-                </InboxSection>
-              )}
-            </>
-          )}
+          </div>
 
           {totalCount > 0 && (
             <PaginationControls
               currentPage={currentPage}
               totalPages={totalPages}
-              pageSize={rowsPerPage}
+              pageSize={ROWS_PER_PAGE}
               totalCount={totalCount}
               entityLabel="RFQs"
               loading={loading}
@@ -189,6 +219,7 @@ export default function SupplierQuotationsPage() {
                 if (page < currentPage) setCurrentPage(p => Math.max(1, p - 1));
                 else setCurrentPage(p => Math.min(totalPages, p + 1));
               }}
+              className="rounded-md border border-pq-neutral-200"
             />
           )}
         </div>
@@ -196,6 +227,8 @@ export default function SupplierQuotationsPage() {
     </AppShell>
   );
 }
+
+// ─── Row ──────────────────────────────────────────────────────────────────────
 
 function InboxRow({ row }: { row: SupplierRfqInboxRow }) {
   const canRespond = row.rfq_status === 'open' && row.supplier_status === 'invited';
@@ -239,48 +272,7 @@ function InboxRow({ row }: { row: SupplierRfqInboxRow }) {
   );
 }
 
-function InboxSection({
-  title,
-  accent,
-  count,
-  children,
-}: {
-  title: string;
-  accent: 'amber' | 'emerald' | 'slate';
-  count: number;
-  children: React.ReactNode;
-}) {
-  const accentClass = {
-    amber:   'border-amber-300 bg-pq-warning-100 text-pq-warning-600',
-    emerald: 'border-pq-success-100 bg-pq-success-100 text-pq-success-600',
-    slate:   'border-pq-neutral-200 bg-pq-neutral-50 text-pq-neutral-500',
-  }[accent];
-
-  return (
-    <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-2.5 border-b border-pq-neutral-200 bg-pq-neutral-50">
-        <span className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">{title}</span>
-        <span className={`text-xs font-semibold border rounded-full px-2 py-0.5 ${accentClass}`}>{count}</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
-              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ No.</th>
-              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
-              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
-              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
-              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Items</th>
-              <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Deadline</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-pq-neutral-200">{children}</tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+// ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({
   label,
