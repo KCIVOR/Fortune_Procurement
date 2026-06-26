@@ -220,13 +220,6 @@ export default function POApprovalDetailPage() {
                 </span>
               }
             />
-            {isExternal && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold
-                text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 col-span-full -mt-2">
-                <Store className="w-2.5 h-2.5 shrink-0" />
-                External vendor — quote entered manually by Procurement
-              </span>
-            )}
             <DetailInfoField
               icon={<CalendarDays className="w-3.5 h-3.5 text-pq-neutral-400" />}
               label="PO Date"
