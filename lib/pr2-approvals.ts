@@ -492,10 +492,11 @@ export async function submitPR2ApprovalAction(
       .update({ status: 'rejected', completed_at: now })
       .eq('id', instanceId);
 
-    // Return PR2 to draft for procurement revision
+    // Terminal rejection — PR2 gets a distinct 'rejected' status (mirrors PR1),
+    // instead of collapsing back to 'draft' where it looks like a fresh request.
     await db
       .from('pr2_requests')
-      .update({ status: 'draft', updated_at: now })
+      .update({ status: 'rejected', updated_at: now })
       .eq('id', pr2Id);
   } else {
     // revision_requested — same as rejected: back to draft
@@ -589,7 +590,7 @@ export async function submitPR2ApprovalAction(
       // rejected or revision_requested → notify the person who submitted PR2 for approval
       const [instData, pr2Data] = await Promise.all([
         db.from('approval_instances').select('started_by').eq('id', instanceId).maybeSingle(),
-        db.from('pr2_requests').select('pr2_number').eq('id', pr2Id).maybeSingle(),
+        db.from('pr2_requests').select('pr2_number, requisitioner_id').eq('id', pr2Id).maybeSingle(),
       ]);
       if (instData.data?.started_by && pr2Data.data?.pr2_number) {
         await createNotification({
@@ -599,6 +600,25 @@ export async function submitPR2ApprovalAction(
             ? `PR2 ${pr2Data.data.pr2_number} was rejected.`
             : `Revision requested on PR2 ${pr2Data.data.pr2_number}.`,
           type:          action === 'rejected' ? 'rejected' : 'action_required',
+          document_type: 'pr2',
+          document_id:   pr2Id,
+          action_url:    `/pr2/${pr2Id}`,
+        });
+      }
+
+      // On terminal rejection, also notify the requisitioner if they are someone
+      // other than the submitter, so the rejection surfaces in their requests.
+      if (
+        action === 'rejected' &&
+        pr2Data.data?.requisitioner_id &&
+        pr2Data.data?.pr2_number &&
+        pr2Data.data.requisitioner_id !== instData.data?.started_by
+      ) {
+        await createNotification({
+          user_id:       pr2Data.data.requisitioner_id,
+          title:         'PR2 Rejected',
+          body:          `PR2 ${pr2Data.data.pr2_number} for your request was rejected.`,
+          type:          'rejected',
           document_type: 'pr2',
           document_id:   pr2Id,
           action_url:    `/pr2/${pr2Id}`,

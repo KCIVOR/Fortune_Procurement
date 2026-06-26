@@ -100,8 +100,10 @@ export const PR1_LIFECYCLE_LABELS = {
   DELIVERY_IN_PROGRESS: 'Delivery In Progress',
   PO_SENT:              'PO — Sent to Supplier',
   PARTIAL_PO_SENT:      'Partial PO — Sent to Supplier',
+  PO_REJECTED:          'PO — Rejected',
   PR2_APPROVED:         'PR2 Approved',
   PR2_PENDING:          'PR2 — Pending Approval',
+  PR2_REJECTED:         'PR2 — Rejected',
   CANVASSING_COMPLETE:  'Canvassing Complete',
 } as const;
 
@@ -115,6 +117,12 @@ export function deriveEmployeeLifecycleSummary(
   const nPo = poSummaries.length;
 
   if (nPo > 0) {
+    // Terminal PO rejection surfaces to the employee. If every PO tied to this
+    // PR1 was rejected, the request is dead at the PO stage.
+    if (poSummaries.every(s => s.poStatus === 'rejected')) {
+      return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.PO_REJECTED, lifecycle_display_chip: 'rejected' };
+    }
+
     const closedGrn = poSummaries.filter(s => s.grnStatus === 'closed').length;
     if (closedGrn === nPo) {
       return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.COMPLETED_GRN, lifecycle_display_chip: 'completed' };
@@ -155,6 +163,9 @@ export function deriveEmployeeLifecycleSummary(
     if (allPr2Approved) {
       return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.PR2_APPROVED, lifecycle_display_chip: 'approved' };
     }
+    if (pr2Statuses.every(s => s === 'rejected')) {
+      return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.PR2_REJECTED, lifecycle_display_chip: 'rejected' };
+    }
     return { lifecycle_display_label: PR1_LIFECYCLE_LABELS.PR2_PENDING, lifecycle_display_chip: 'pending' };
   }
 
@@ -185,8 +196,10 @@ export const PR1_LIFECYCLE_FILTER_OPTIONS: ReadonlyArray<{ value: string; label:
   { value: PR1_LIFECYCLE_LABELS.CANVASSING_COMPLETE, label: PR1_LIFECYCLE_LABELS.CANVASSING_COMPLETE },
   { value: PR1_LIFECYCLE_LABELS.PR2_PENDING,         label: PR1_LIFECYCLE_LABELS.PR2_PENDING },
   { value: PR1_LIFECYCLE_LABELS.PR2_APPROVED,        label: PR1_LIFECYCLE_LABELS.PR2_APPROVED },
+  { value: PR1_LIFECYCLE_LABELS.PR2_REJECTED,        label: PR1_LIFECYCLE_LABELS.PR2_REJECTED },
   { value: PR1_LIFECYCLE_LABELS.PARTIAL_PO_SENT,     label: PR1_LIFECYCLE_LABELS.PARTIAL_PO_SENT },
   { value: PR1_LIFECYCLE_LABELS.PO_SENT,             label: PR1_LIFECYCLE_LABELS.PO_SENT },
+  { value: PR1_LIFECYCLE_LABELS.PO_REJECTED,         label: PR1_LIFECYCLE_LABELS.PO_REJECTED },
   { value: PR1_LIFECYCLE_LABELS.DELIVERY_IN_PROGRESS,label: PR1_LIFECYCLE_LABELS.DELIVERY_IN_PROGRESS },
   { value: PR1_LIFECYCLE_LABELS.DELIVERED,           label: PR1_LIFECYCLE_LABELS.DELIVERED },
   { value: PR1_LIFECYCLE_LABELS.PARTIAL_GRN,         label: PR1_LIFECYCLE_LABELS.PARTIAL_GRN },

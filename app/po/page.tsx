@@ -26,6 +26,7 @@ const STATUS_STYLES: Record<string, string> = {
   for_approval: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
   approved:     'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
   sent:         'bg-sky-50 text-sky-700 border-sky-200',
+  rejected:     'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
   cancelled:    'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
 };
 
@@ -34,6 +35,7 @@ const STATUS_DOT: Record<string, string> = {
   for_approval: 'bg-pq-warning-1000 animate-pulse',
   approved:     'bg-pq-success-1000',
   sent:         'bg-sky-500',
+  rejected:     'bg-red-500',
   cancelled:    'bg-red-400',
 };
 
@@ -140,6 +142,7 @@ export default function POListPage() {
         { value: 'for_approval', label: 'For Approval' },
         { value: 'approved', label: 'Approved' },
         { value: 'sent', label: 'Sent' },
+        { value: 'rejected', label: 'Rejected' },
         { value: 'cancelled', label: 'Cancelled' },
       ],
     },

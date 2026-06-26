@@ -42,6 +42,7 @@ const STATUS_STYLES: Record<string, string> = {
   for_approval: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
   approved:     'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
   sent:         'bg-sky-50 text-sky-700 border-sky-200',
+  rejected:     'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
   cancelled:    'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
 };
 

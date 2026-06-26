@@ -76,6 +76,7 @@ const DOCUMENT_STATUS_UI: Partial<Record<DocumentType, Record<string, DocumentSt
     sent:         { label: 'Sent to Supplier', className: 'bg-sky-50 text-sky-700' },
     approved:     { label: 'Approved', className: 'bg-emerald-50 text-emerald-700' },
     draft:        { label: 'Draft', className: 'bg-[#F7F9FC] text-[#40527A]' },
+    rejected:     { label: 'Rejected', className: 'bg-red-50 text-red-600' },
     cancelled:    { label: 'Cancelled', className: 'bg-red-50 text-red-600' },
   },
 

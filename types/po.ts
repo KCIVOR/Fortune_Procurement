@@ -1,6 +1,6 @@
 import type { PR1Attachment } from '@/types/pr1';
 
-export type POStatus = 'draft' | 'for_approval' | 'approved' | 'sent' | 'cancelled';
+export type POStatus = 'draft' | 'for_approval' | 'approved' | 'sent' | 'cancelled' | 'rejected';
 
 export const PO_STATUS_LABELS: Record<POStatus, string> = {
   draft:        'Draft',
@@ -8,6 +8,7 @@ export const PO_STATUS_LABELS: Record<POStatus, string> = {
   approved:     'Approved',
   sent:         'Sent to Supplier',
   cancelled:    'Cancelled',
+  rejected:     'Rejected',
 };
 
 export interface PORequest {

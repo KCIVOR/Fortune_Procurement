@@ -444,13 +444,16 @@ export async function submitPOApprovalAction(
         .eq('id', instanceId);
     }
   } else if (action === 'rejected') {
+    // Terminal rejection — PO gets a distinct 'rejected' status (mirrors PR1).
+    // Keep approval_instance_id so the rejection stays traceable on the detail
+    // page, and so the PO can never be resubmitted (submit requires status='draft').
     await db
       .from('approval_instances')
       .update({ status: 'rejected', completed_at: now })
       .eq('id', instanceId);
     await db
       .from('po_requests')
-      .update({ status: 'draft', updated_at: now, approval_instance_id: null })
+      .update({ status: 'rejected', updated_at: now })
       .eq('id', poId);
   } else {
     // revision_requested — back to draft
@@ -572,8 +575,9 @@ export async function submitPOApprovalAction(
     } else if (action === 'rejected' || action === 'revision_requested') {
       const [instRow, poRow] = await Promise.all([
         db.from('approval_instances').select('started_by').eq('id', instanceId).maybeSingle(),
-        db.from('po_requests').select('po_number').eq('id', poId).maybeSingle(),
+        db.from('po_requests').select('po_number, pr2_id').eq('id', poId).maybeSingle(),
       ]);
+      // Always notify the procurement buyer who submitted the PO.
       if (instRow.data?.started_by && poRow.data?.po_number) {
         await createNotification({
           user_id:       instRow.data.started_by,
@@ -586,6 +590,34 @@ export async function submitPOApprovalAction(
           document_id:   poId,
           action_url:    `/po/${poId}`,
         });
+      }
+
+      // On terminal rejection, also notify the employee requisitioner so the
+      // rejection surfaces in their My Requests view. Resolve via PO → PR2 → PR1.
+      if (action === 'rejected' && poRow.data?.pr2_id && poRow.data?.po_number) {
+        const { data: pr2 } = await db
+          .from('pr2_requests')
+          .select('pr1_id')
+          .eq('id', poRow.data.pr2_id)
+          .maybeSingle();
+        if (pr2?.pr1_id) {
+          const { data: pr1 } = await db
+            .from('pr1_requests')
+            .select('requisitioner_id')
+            .eq('id', pr2.pr1_id)
+            .maybeSingle();
+          if (pr1?.requisitioner_id && pr1.requisitioner_id !== instRow.data?.started_by) {
+            await createNotification({
+              user_id:       pr1.requisitioner_id,
+              title:         'Purchase Order Rejected',
+              body:          `The Purchase Order for your request (${poRow.data.po_number}) was rejected.`,
+              type:          'rejected',
+              document_type: 'po',
+              document_id:   poId,
+              action_url:    `/pr1/${pr2.pr1_id}`,
+            });
+          }
+        }
       }
     }
   } catch (err) {
