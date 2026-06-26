@@ -607,10 +607,13 @@ export async function submitPOApprovalAction(
             .eq('id', pr2.pr1_id)
             .maybeSingle();
           if (pr1?.requisitioner_id && pr1.requisitioner_id !== instRow.data?.started_by) {
+            const trimmedRemark = remarks.trim();
             await createNotification({
               user_id:       pr1.requisitioner_id,
               title:         'Purchase Order Rejected',
-              body:          `The Purchase Order for your request (${poRow.data.po_number}) was rejected.`,
+              body:          trimmedRemark
+                ? `PO ${poRow.data.po_number} was rejected. Reason: "${trimmedRemark}"`
+                : `The Purchase Order for your request (${poRow.data.po_number}) was rejected.`,
               type:          'rejected',
               document_type: 'po',
               document_id:   poId,

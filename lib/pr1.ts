@@ -329,6 +329,111 @@ export async function fetchPR1LifecycleSummaries(
   return out;
 }
 
+// ─── Downstream rejection remark ─────────────────────────────────────────────
+
+export interface DownstreamRejectionRemark {
+  type: 'po' | 'pr2';
+  document_number: string;
+  remarks: string | null;
+  actor_name: string | null;
+  acted_at: string | null;
+}
+
+/**
+ * Fetches the rejection remark from the most recent rejected PO or PR2 linked
+ * to a PR1. Returns null if no downstream rejection exists or no remark was
+ * recorded. PO rejection takes priority over PR2 rejection (more downstream).
+ */
+export async function fetchDownstreamRejectionRemark(
+  pr1Id: string,
+): Promise<DownstreamRejectionRemark | null> {
+  // 1. Find PR2s linked to this PR1
+  const { data: pr2Rows } = await db
+    .from('pr2_requests')
+    .select('id, pr2_number, status')
+    .eq('pr1_id', pr1Id);
+
+  const pr2s = (pr2Rows ?? []) as { id: string; pr2_number: string; status: string }[];
+  if (pr2s.length === 0) return null;
+
+  const pr2Ids = pr2s.map(p => p.id);
+
+  // 2. Find rejected POs linked to those PR2s
+  const { data: poRows } = await db
+    .from('po_requests')
+    .select('id, po_number, status, pr2_id')
+    .in('pr2_id', pr2Ids)
+    .eq('status', 'rejected');
+
+  const rejectedPos = (poRows ?? []) as { id: string; po_number: string; status: string; pr2_id: string }[];
+
+  if (rejectedPos.length > 0) {
+    // Fetch the rejection approval action for the most recently rejected PO
+    const poId = rejectedPos[0].id;
+    const { data: instRows } = await db
+      .from('approval_instances')
+      .select('id')
+      .eq('document_type', 'PO')
+      .eq('document_id', poId)
+      .eq('status', 'rejected')
+      .order('started_at', { ascending: false })
+      .limit(1);
+
+    const instId = (instRows as any[])?.[0]?.id ?? null;
+    if (instId) {
+      const { data: actionRows } = await db
+        .from('approval_actions')
+        .select('remarks, actor_name_snapshot, acted_at')
+        .eq('instance_id', instId)
+        .eq('action', 'rejected')
+        .order('acted_at', { ascending: false })
+        .limit(1);
+
+      const action = (actionRows as any[])?.[0] ?? null;
+      return {
+        type: 'po',
+        document_number: rejectedPos[0].po_number,
+        remarks: action?.remarks ?? null,
+        actor_name: action?.actor_name_snapshot ?? null,
+        acted_at: action?.acted_at ?? null,
+      };
+    }
+  }
+
+  // 3. Fall back to rejected PR2
+  const rejectedPr2 = pr2s.find(p => p.status === 'rejected');
+  if (!rejectedPr2) return null;
+
+  const { data: instRows } = await db
+    .from('approval_instances')
+    .select('id')
+    .eq('document_type', 'PR2')
+    .eq('document_id', rejectedPr2.id)
+    .eq('status', 'rejected')
+    .order('started_at', { ascending: false })
+    .limit(1);
+
+  const instId = (instRows as any[])?.[0]?.id ?? null;
+  if (!instId) return { type: 'pr2', document_number: rejectedPr2.pr2_number, remarks: null, actor_name: null, acted_at: null };
+
+  const { data: actionRows } = await db
+    .from('approval_actions')
+    .select('remarks, actor_name_snapshot, acted_at')
+    .eq('instance_id', instId)
+    .eq('action', 'rejected')
+    .order('acted_at', { ascending: false })
+    .limit(1);
+
+  const action = (actionRows as any[])?.[0] ?? null;
+  return {
+    type: 'pr2',
+    document_number: rejectedPr2.pr2_number,
+    remarks: action?.remarks ?? null,
+    actor_name: action?.actor_name_snapshot ?? null,
+    acted_at: action?.acted_at ?? null,
+  };
+}
+
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
 export async function fetchMyPR1s(

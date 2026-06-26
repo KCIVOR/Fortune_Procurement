@@ -614,10 +614,13 @@ export async function submitPR2ApprovalAction(
         pr2Data.data?.pr2_number &&
         pr2Data.data.requisitioner_id !== instData.data?.started_by
       ) {
+        const trimmedRemark = remarks.trim();
         await createNotification({
           user_id:       pr2Data.data.requisitioner_id,
           title:         'PR2 Rejected',
-          body:          `PR2 ${pr2Data.data.pr2_number} for your request was rejected.`,
+          body:          trimmedRemark
+            ? `PR2 ${pr2Data.data.pr2_number} was rejected. Reason: "${trimmedRemark}"`
+            : `PR2 ${pr2Data.data.pr2_number} for your request was rejected.`,
           type:          'rejected',
           document_type: 'pr2',
           document_id:   pr2Id,

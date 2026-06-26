@@ -9,7 +9,8 @@ import LoadingState from '@/components/shared/LoadingState';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
-import { fetchPR1ById, canUpdatePR1Priority, updatePR1Priority, fetchPR1LifecycleSummaries, deleteDraftPR1 } from '@/lib/pr1';
+import { fetchPR1ById, canUpdatePR1Priority, updatePR1Priority, fetchPR1LifecycleSummaries, fetchDownstreamRejectionRemark, deleteDraftPR1 } from '@/lib/pr1';
+import type { DownstreamRejectionRemark } from '@/lib/pr1';
 import { fetchPR1ApprovalSignatories } from '@/lib/approvals';
 import type { PR1WithItems, PR1LifecycleSummary, PR1Item } from '@/types/pr1';
 import type { PR1ApprovalSignatories } from '@/types/approvals';
@@ -64,6 +65,7 @@ export default function PR1DetailPage() {
   const { handleBack } = useBackNavigation();
   const [pr1, setPR1] = useState<PR1WithItems | null>(null);
   const [lifecycle, setLifecycle] = useState<PR1LifecycleSummary | null>(null);
+  const [rejectionRemark, setRejectionRemark] = useState<DownstreamRejectionRemark | null>(null);
   const [approvalSignatories, setApprovalSignatories] = useState<
     PR1ApprovalSignatories | null | undefined
   >(undefined);
@@ -80,8 +82,12 @@ export default function PR1DetailPage() {
         setPR1(data);
         if (data) {
           try {
-            const map = await fetchPR1LifecycleSummaries([{ id: data.id, status: data.status }]);
+            const [map, remark] = await Promise.all([
+              fetchPR1LifecycleSummaries([{ id: data.id, status: data.status }]),
+              fetchDownstreamRejectionRemark(data.id).catch(() => null),
+            ]);
             setLifecycle(map[data.id] ?? null);
+            setRejectionRemark(remark);
           } catch {
             setLifecycle(null);
           }
@@ -276,6 +282,36 @@ export default function PR1DetailPage() {
               <p className="text-xs text-orange-700 mt-0.5">
                 Warehouse or an approver requested changes. Edit the request and resubmit when ready.
               </p>
+            </div>
+          </div>
+        )}
+
+        {rejectionRemark && (
+          <div className="bg-red-50 border border-red-200 rounded-md px-6 py-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-red-800">
+                {rejectionRemark.type === 'po' ? 'Purchase Order' : 'PR2 Request'} Rejected
+                {rejectionRemark.document_number && (
+                  <span className="ml-1 font-mono font-normal text-red-700">
+                    ({rejectionRemark.document_number})
+                  </span>
+                )}
+              </p>
+              {rejectionRemark.remarks ? (
+                <p className="text-xs text-red-700 mt-1">
+                  <span className="font-medium">Reason: </span>
+                  <span className="italic">&ldquo;{rejectionRemark.remarks}&rdquo;</span>
+                </p>
+              ) : (
+                <p className="text-xs text-red-500 mt-0.5">No reason was provided.</p>
+              )}
+              {(rejectionRemark.actor_name || rejectionRemark.acted_at) && (
+                <p className="text-xs text-red-400 mt-0.5">
+                  {rejectionRemark.actor_name && `Rejected by ${rejectionRemark.actor_name}`}
+                  {rejectionRemark.acted_at && ` · ${format(new Date(rejectionRemark.acted_at), 'MMM d, yyyy h:mm a')}`}
+                </p>
+              )}
             </div>
           </div>
         )}
