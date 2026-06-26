@@ -69,8 +69,8 @@ const STATUS_OPTIONS = [
 const STATUS_FILTER_MAP: Record<StatusFilter, RowStatus[] | null> = {
   pending: ['active'],
   approved: ['approved'],
-  rejected: ['rejected', 'cancelled'],
-  revision: ['revision'],
+  rejected: ['rejected'],
+  revision: ['revision', 'cancelled'],
   all: null,
 };
 
@@ -284,7 +284,7 @@ export default function PR2ApprovalsPage() {
   const stats = useMemo(() => {
     const pending = allRows.filter(r => r.instance_status === 'active').length;
     const approved = allRows.filter(r => r.instance_status === 'approved').length;
-    const rejected = allRows.filter(r => r.instance_status === 'rejected' || r.instance_status === 'cancelled').length;
+    const rejected = allRows.filter(r => r.instance_status === 'rejected').length;
     const revision = allRows.filter(r => r.instance_status === 'revision').length;
     return { pending, approved, rejected, revision, total: allRows.length };
   }, [allRows]);
@@ -496,7 +496,7 @@ function StatusBadge({ status }: { status: RowStatus }) {
     active: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
     approved: 'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
     rejected: 'bg-pq-danger-100 text-pq-danger-600 border-pq-danger-100',
-    cancelled: 'bg-pq-neutral-100 text-pq-neutral-600 border-pq-neutral-200',
+    cancelled: 'bg-pq-warning-50 text-pq-warning-700 border-pq-warning-200',
     revision: 'bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200',
   };
 
@@ -504,7 +504,7 @@ function StatusBadge({ status }: { status: RowStatus }) {
     active: 'Pending',
     approved: 'Approved',
     rejected: 'Rejected',
-    cancelled: 'Cancelled',
+    cancelled: 'Revision Requested',
     revision: 'Needs Revision',
   };
 

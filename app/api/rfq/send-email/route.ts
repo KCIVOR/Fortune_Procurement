@@ -45,59 +45,126 @@ export async function POST(req: NextRequest) {
 
     const results = await Promise.all(
       supplierEmails.map(async (email: string, idx: number) => {
+        const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL}${actionUrls[idx]}`;
         const payload = {
           sender: { name: 'Fortune Procurement', email: 'johndaveb892@gmail.com' },
           to: [{ email }],
           subject: `RFQ Issued: ${rfqNumber}`,
-          htmlContent: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-              <div style="background-color: #0f172a; color: white; padding: 24px; text-align: center;">
-                <h1 style="margin: 0; font-size: 20px;">Request for Quotation</h1>
-                <p style="margin: 4px 0 0; opacity: 0.8; font-size: 14px;">Fortune Procurement System</p>
+          htmlContent: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Request for Quotation | Fortune Procurement</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;color:#111827;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f4f6;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06);max-width:600px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#0a1628 0%,#1a4480 100%);padding:40px 30px;text-align:center;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center">
+                    <div style="display:inline-block;background:#ffffff;width:56px;height:56px;border-radius:12px;text-align:center;line-height:56px;margin-bottom:16px;">
+                      <span style="font-size:24px;font-weight:700;color:#1a4480;letter-spacing:-0.5px;">FPC</span>
+                    </div>
+                    <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:600;letter-spacing:-0.3px;">Fortune Procurement</h1>
+                    <p style="color:#bfdbfe;margin:8px 0 0 0;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Procurement System</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:48px 40px 32px 40px;">
+              <h2 style="margin:0 0 16px 0;color:#111827;font-size:22px;font-weight:600;letter-spacing:-0.3px;">Request for Quotation</h2>
+              <p style="font-size:15px;color:#4b5563;line-height:1.6;margin:0 0 16px 0;">
+                Hello, you have been invited to submit a quotation for the following procurement request. Please review the details below and respond before the deadline.
+              </p>
+
+              <!-- RFQ Details -->
+              <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:0 0 32px 0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;">
+                  <tr>
+                    <td style="padding:6px 0;color:#6b7280;width:130px;font-weight:500;">RFQ Number</td>
+                    <td style="padding:6px 0;color:#111827;font-weight:700;">${rfqNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#6b7280;font-weight:500;">Department</td>
+                    <td style="padding:6px 0;color:#111827;">${department ?? '—'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#6b7280;font-weight:500;">Purpose</td>
+                    <td style="padding:6px 0;color:#111827;">${purpose ?? '—'}</td>
+                  </tr>
+                  ${deadline ? `
+                  <tr>
+                    <td style="padding:6px 0;color:#6b7280;font-weight:500;">Deadline</td>
+                    <td style="padding:6px 0;color:#b91c1c;font-weight:700;">${deadline}</td>
+                  </tr>` : ''}
+                </table>
               </div>
-              <div style="padding: 24px; color: #1e293b;">
-                <p>Hello,</p>
-                <p>You have been invited to submit a quotation for the following request:</p>
-                
-                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;">
-                  <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-                    <tr>
-                      <td style="padding: 4px 0; color: #64748b; width: 120px;">RFQ Number:</td>
-                      <td style="padding: 4px 0; font-weight: 600;">${rfqNumber}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 4px 0; color: #64748b;">Department:</td>
-                      <td style="padding: 4px 0;">${department ?? ''}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 4px 0; color: #64748b;">Purpose:</td>
-                      <td style="padding: 4px 0;">${purpose ?? ''}</td>
-                    </tr>
-                    ${deadline ? `
-                    <tr>
-                      <td style="padding: 4px 0; color: #64748b;">Deadline:</td>
-                      <td style="padding: 4px 0; color: #b91c1c; font-weight: 600;">${deadline}</td>
-                    </tr>
-                    ` : ''}
-                  </table>
-                </div>
 
-                <div style="text-align: center; margin: 32px 0;">
-                  <a href="${process.env.NEXT_PUBLIC_APP_URL}${actionUrls[idx]}" 
-                     style="background-color: #1e4bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px; display: inline-block;">
-                    View & Submit Quotation
-                  </a>
-                </div>
+              <!-- CTA Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="padding:8px 0 32px 0;">
+                    <a href="${actionUrl}" style="background:#1a4480;color:#ffffff;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;display:inline-block;letter-spacing:0.2px;box-shadow:0 1px 3px rgba(0,0,0,.10),0 1px 2px rgba(0,0,0,.06);">
+                      View &amp; Submit Quotation
+                    </a>
+                  </td>
+                </tr>
+              </table>
 
-                <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
-                  Please ensure your quotation is submitted before the deadline. If you have any questions, please contact the procurement department.
+              <!-- Fallback link -->
+              <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:0 0 24px 0;">
+                <p style="font-size:12px;color:#6b7280;line-height:1.5;margin:0 0 8px 0;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Button not working?</p>
+                <p style="font-size:13px;color:#4b5563;line-height:1.5;margin:0;word-break:break-all;">
+                  Copy and paste this link into your browser:<br>
+                  <a href="${actionUrl}" style="color:#1a4480;text-decoration:underline;">${actionUrl}</a>
                 </p>
               </div>
-              <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8;">
-                © ${new Date().getFullYear()} Fortune Procurement. All rights reserved.
+
+              <!-- Notice -->
+              <div style="border-left:3px solid #1a4480;padding:12px 16px;background:#eff6ff;border-radius:0 6px 6px 0;">
+                <p style="font-size:13px;color:#103058;line-height:1.5;margin:0;">
+                  <strong>Notice:</strong> Please ensure your quotation is submitted before the deadline. If you have any questions, contact the procurement department directly.
+                </p>
               </div>
-            </div>
-          `,
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:24px 40px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center">
+                    <p style="font-size:12px;color:#6b7280;margin:0 0 8px 0;line-height:1.5;">
+                      This is an automated message from Fortune Procurement.<br>
+                      Please do not reply to this email.
+                    </p>
+                    <p style="font-size:11px;color:#9ca3af;margin:8px 0 0 0;letter-spacing:0.3px;">
+                      © ${new Date().getFullYear()} Fortune Procurement. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
         };
 
         const res = await fetch('https://api.brevo.com/v3/smtp/email', {

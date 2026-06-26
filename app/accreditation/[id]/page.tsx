@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { toast } from 'sonner';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
@@ -21,7 +20,6 @@ import {
 } from '@/lib/accreditation';
 import {
   getDocumentsByAccreditationId,
-  getAccreditationDocumentSignedUrl,
 } from '@/lib/accreditation-documents';
 import {
   getProductsByAccreditationId,
@@ -806,27 +804,7 @@ function LinkedProductRow({ product }: { product: ProductWithRSESummary }) {
 }
 
 function DocumentRow({ doc }: { doc: SupplierDocument }) {
-  const [loading, setLoading] = useState(false);
-
-  const handleView = async () => {
-    setLoading(true);
-    // Open the tab immediately (before any await) to preserve the user-gesture
-    // context — browsers block window.open called after an async gap on HTTPS.
-    const win = window.open('', '_blank');
-    try {
-      const url = await getAccreditationDocumentSignedUrl(doc.file_path);
-      if (win) {
-        win.location.href = url;
-      } else {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }
-    } catch (e: any) {
-      win?.close();
-      toast.error(e?.message ?? 'Could not open document. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const viewHref = `/api/storage/doc-view?path=${encodeURIComponent(doc.file_path)}`;
 
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
@@ -839,15 +817,15 @@ function DocumentRow({ doc }: { doc: SupplierDocument }) {
           {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={handleView}
-        disabled={loading}
-        className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition disabled:opacity-50"
+      <a
+        href={viewHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition"
       >
         <ExternalLink className="w-3.5 h-3.5" />
-        {loading ? 'Opening…' : 'View'}
-      </button>
+        View
+      </a>
     </div>
   );
 }
