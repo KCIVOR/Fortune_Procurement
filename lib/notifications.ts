@@ -164,21 +164,26 @@ export async function notifyApproversForStep({
 
   const approverIds: string[] = approvers.map((a: any) => a.id as string);
 
-  // 4. Skip users who already have an unread action_required for this document
+  // Compute action URL before the dedup check so we can scope dedup to the
+  // current approval instance. Each instance has a unique URL, which prevents
+  // stale notifications from a prior rejected/revised round blocking new ones.
+  const notifBody      = body      ?? `PR1 ${documentNumber} requires your approval.`;
+  const notifActionUrl = actionUrl ?? `/approvals/${instanceId}`;
+
+  // 4. Skip users who already have an unread action_required for this
+  //    document AND this specific approval instance URL.
   const { data: existing } = await db
     .from('notifications')
     .select('user_id')
     .eq('document_id', documentId)
     .eq('type', 'action_required')
     .eq('read', false)
+    .eq('action_url', notifActionUrl)
     .in('user_id', approverIds);
 
   const notifiedSet = new Set<string>((existing ?? []).map((n: any) => n.user_id as string));
   const targets = approverIds.filter(id => !notifiedSet.has(id));
   if (targets.length === 0) return;
-
-  const notifBody      = body      ?? `PR1 ${documentNumber} requires your approval.`;
-  const notifActionUrl = actionUrl ?? `/approvals/${instanceId}`;
 
   // 5. Insert one notification per target
   const rows = targets.map(userId => ({

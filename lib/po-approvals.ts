@@ -544,8 +544,8 @@ export async function submitPOApprovalAction(
           }
         }
       }
-    } catch {
-      // Notifications are best-effort; do not fail the approval action
+    } catch (err) {
+      console.error('[po-approvals] final-approval notifications error:', err);
     }
   }
 
@@ -588,8 +588,8 @@ export async function submitPOApprovalAction(
         });
       }
     }
-  } catch {
-    // Notifications are best-effort; do not fail the approval action
+  } catch (err) {
+    console.error('[po-approvals] step-advance notifications error:', err);
   }
 }
 
