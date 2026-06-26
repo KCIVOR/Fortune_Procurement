@@ -39,6 +39,9 @@ function normalizeDelivery(row: any): Delivery {
     dr_document_filename:         row.dr_document_filename ?? null,
     dr_document_uploaded_at:      row.dr_document_uploaded_at ?? null,
     request_type:                 (row.request_type ?? 'goods') as 'goods' | 'services',
+    has_grn:                      Array.isArray(row.grn_receipts)
+                                    ? row.grn_receipts.length > 0
+                                    : !!row.grn_receipts,
     created_at:                   row.created_at,
     updated_at:                   row.updated_at,
   };
@@ -91,7 +94,7 @@ export async function fetchDeliveryQueuePaged(params: {
 }): Promise<{ deliveries: Delivery[]; total_count: number }> {
   const { mode, requisitionerId, requisitionerName, statusTab, limit, offset, search } = params;
 
-  let q = db.from('deliveries').select('*', { count: 'exact' });
+  let q = db.from('deliveries').select('*, grn_receipts(id)', { count: 'exact' });
 
   if (mode === 'employee') {
     // Some deliveries are created under supplier context with requisitioner_id unavailable,

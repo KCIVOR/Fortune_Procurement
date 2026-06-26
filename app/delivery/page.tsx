@@ -24,6 +24,7 @@ import {
   Calendar,
   Ban,
   ExternalLink,
+  ClipboardList,
 } from 'lucide-react';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 
@@ -245,10 +246,17 @@ export default function DeliveryQueuePage() {
                           </td>
                         )}
                         <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-0.5 ${STATUS_STYLES[d.status]}`}>
-                            <Icon className="w-3 h-3" />
-                            {DELIVERY_STATUS_LABELS[d.status]}
-                          </span>
+                          {d.status === 'delivered' && !d.has_grn ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-0.5 bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100">
+                              <ClipboardList className="w-3 h-3" />
+                              Awaiting GRN
+                            </span>
+                          ) : (
+                            <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-0.5 ${STATUS_STYLES[d.status]}`}>
+                              <Icon className="w-3 h-3" />
+                              {DELIVERY_STATUS_LABELS[d.status]}
+                            </span>
+                          )}
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <Link

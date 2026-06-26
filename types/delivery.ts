@@ -48,6 +48,7 @@ export interface Delivery {
   dr_document_filename: string | null;
   dr_document_uploaded_at: string | null;
   request_type: 'goods' | 'services';
+  has_grn: boolean;
   created_at: string;
   updated_at: string;
 }
