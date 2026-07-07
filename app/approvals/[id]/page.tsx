@@ -47,6 +47,7 @@ import PriorityChip from '@/components/shared/PriorityChip';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
+import DetailPrintButton from '@/components/shared/DetailPrintButton';
 import DetailCard from '@/components/shared/DetailCard';
 import DetailCardHeader from '@/components/shared/DetailCardHeader';
 import DetailInfoGrid from '@/components/shared/DetailInfoGrid';
@@ -203,7 +204,12 @@ export default function ApprovalDetailPage() {
           </div>
         }
         right={
-          <>
+          <div className="flex items-center gap-2">
+            <DetailPrintButton
+              href={`/pr1/${detail.pr1_id}/print`}
+              label="Print"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-white border border-pq-neutral-200 hover:border-pq-neutral-300 text-pq-neutral-700 text-sm font-medium rounded-md transition"
+            />
             {/* Authority indicator */}
             {canAct ? (
               <div className="inline-flex items-center gap-2 bg-pq-warning-100 border border-pq-warning-100 text-pq-warning-600 text-xs font-semibold px-3 py-2 rounded-md">
@@ -216,7 +222,7 @@ export default function ApprovalDetailPage() {
                 Awaiting Step {detail.current_step}: {currentStepDef?.position_required}
               </div>
             ) : null}
-          </>
+          </div>
         }
       />
 
@@ -607,13 +613,13 @@ function PrioritySelector({
         </SelectItem>
         <SelectItem value="medium">
           <div className="inline-flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-pq-warning-1000" />
+            <div className="w-2 h-2 rounded-full bg-yellow-500" />
             Medium
           </div>
         </SelectItem>
         <SelectItem value="high">
           <div className="inline-flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-pq-danger-1000" />
+            <div className="w-2 h-2 rounded-full bg-red-500" />
             High
           </div>
         </SelectItem>

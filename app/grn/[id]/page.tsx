@@ -7,11 +7,11 @@ import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
-import { fetchGRNById, fetchSuggestedDRSequence, saveGRNProgress, closeGRN } from '@/lib/grn';
+import { fetchGRNById, fetchSuggestedDRSequence, saveGRNProgress, closeGRN, reopenGRN } from '@/lib/grn';
 import type { GRNWithItems, GRNFormValues, GRNItemDraft } from '@/types/grn';
 import { format } from 'date-fns';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
-import { PackageCheck, Building2, Package, CalendarDays, FileText, Save, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, User, MapPin, Hash, Receipt } from 'lucide-react';
+import { PackageCheck, Building2, Package, CalendarDays, FileText, Save, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, User, MapPin, Hash, Receipt, RotateCcw } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
@@ -44,13 +44,16 @@ export default function GRNDetailPage() {
 
   const [saving, setSaving]   = useState(false);
   const [closing, setClosing] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [formError, setFormError] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [suggestedDRSequence, setSuggestedDRSequence] = useState<string | null>(null);
 
   const isWarehouse = profile?.role === 'warehouse';
-  const isReadOnly  = grn?.status === 'closed' || !isWarehouse;
+  const isProcurement = profile?.role === 'procurement';
+  const canHandle   = grn?.request_type === 'services' ? isProcurement : isWarehouse;
+  const isReadOnly  = grn?.status === 'closed' || !canHandle;
 
   // DR No. prefix pattern (matches PR1/PO pattern)
   const currentYear = new Date().getFullYear();
@@ -111,7 +114,7 @@ export default function GRNDetailPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (!grn || grn.status === 'closed' || !isWarehouse) return;
+    if (!grn || grn.status === 'closed' || !canHandle) return;
 
     const yearMatch = drPrefix.match(/^DR-(\d{4})-/i);
     const year = yearMatch ? parseInt(yearMatch[1], 10) : currentYear;
@@ -133,7 +136,7 @@ export default function GRNDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [grn?.id, grn?.status, isWarehouse, drPrefix, currentYear]);
+  }, [grn?.id, grn?.status, canHandle, drPrefix, currentYear]);
 
   const setItemField = useCallback((idx: number, field: keyof GRNItemDraft, value: any) => {
     setForm(f => {
@@ -171,6 +174,21 @@ export default function GRNDetailPage() {
       setFormError(e.message ?? 'Failed to close GRN.');
     } finally {
       setClosing(false);
+    }
+  };
+
+  const handleReopen = async () => {
+    if (!grn || !profile) return;
+    setReopening(true);
+    setFormError('');
+    try {
+      await reopenGRN(grn.id, profile);
+      setLoading(true);
+      load();
+    } catch (e: any) {
+      setFormError(e.message ?? 'Failed to reopen GRN.');
+    } finally {
+      setReopening(false);
     }
   };
 
@@ -220,10 +238,25 @@ export default function GRNDetailPage() {
               <span className="font-mono">PO Ref: {grn.po_number_snapshot}</span>
               <span className="font-mono">PR1 Ref: {grn.pr1_number_snapshot}</span>
             </div>
+            {!isClosed && grn.closed_at && (
+              <p className="text-xs text-pq-warning-600 italic mt-1">
+                Previously closed on {format(new Date(grn.closed_at), 'MMM d, yyyy h:mm a')} by {grn.received_by_name_snapshot} — reopened for correction.
+              </p>
+            )}
           </div>
         }
         right={
           <div className="flex items-center gap-2">
+            {isClosed && canHandle && (
+              <button
+                onClick={handleReopen}
+                disabled={reopening}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
+              >
+                <RotateCcw className="w-4 h-4" />
+                {reopening ? 'Reopening...' : 'Reopen GRN'}
+              </button>
+            )}
             <DetailPrintButton
               href={`/grn/${grn.id}/print`}
               label="Print GRN"
@@ -232,6 +265,14 @@ export default function GRNDetailPage() {
           </div>
         }
       />
+
+      {/* Reopen error (form error banner below only renders while editable) */}
+      {isClosed && formError && (
+        <div className="flex items-start gap-2 bg-pq-danger-100 border border-pq-danger-100 text-pq-danger-600 text-sm rounded-md px-4 py-3 mb-4">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          {formError}
+        </div>
+      )}
 
       {/* Related Records */}
       {profile && (

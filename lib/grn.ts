@@ -88,12 +88,44 @@ export async function fetchGRNQueuePaged(options: {
   limit: number;
   offset: number;
   search?: string;
+  /** Rev #9: priority lives on pr1_requests only — resolved/filtered via ID-based join chain. */
+  priority?: string;
 }): Promise<{ grns: GRNQueueRow[]; total_count: number }> {
-  const { statusFilter, limit, offset, search } = options;
+  const { statusFilter, limit, offset, search, priority } = options;
+
+  // Priority pre-filter: pr1 -> pr2 -> po -> deliveries -> grn_receipts, ID-based.
+  let priorityDeliveryIds: string[] | null = null;
+  if (priority && priority !== 'all') {
+    const { data: pr1Hits } = await db.from('pr1_requests').select('id').eq('priority', priority);
+    const pr1Ids = ((pr1Hits ?? []) as any[]).map(r => r.id);
+    let pr2Ids: string[] = [];
+    if (pr1Ids.length > 0) {
+      const { data: pr2Hits } = await db.from('pr2_requests').select('id').in('pr1_id', pr1Ids);
+      pr2Ids = ((pr2Hits ?? []) as any[]).map(r => r.id);
+    }
+    let poIds: string[] = [];
+    if (pr2Ids.length > 0) {
+      const { data: poHits } = await db.from('po_requests').select('id').in('pr2_id', pr2Ids);
+      poIds = ((poHits ?? []) as any[]).map(r => r.id);
+    }
+    let deliveryIds: string[] = [];
+    if (poIds.length > 0) {
+      const { data: deliveryHits } = await db.from('deliveries').select('id').in('po_id', poIds);
+      deliveryIds = ((deliveryHits ?? []) as any[]).map(r => r.id);
+    }
+    priorityDeliveryIds = deliveryIds;
+  }
 
   const applyFilters = (q: any) => {
     if (statusFilter !== 'all') {
       q = q.eq('status', statusFilter);
+    }
+    if (priorityDeliveryIds !== null) {
+      if (priorityDeliveryIds.length === 0) {
+        q = q.eq('id', '00000000-0000-0000-0000-000000000000');
+      } else {
+        q = q.in('delivery_id', priorityDeliveryIds);
+      }
     }
     const term = search?.trim();
     if (term) {
@@ -114,22 +146,60 @@ export async function fetchGRNQueuePaged(options: {
   if (error) throw error;
 
   const rawRows = (data ?? []) as any[];
-  const pr1Numbers = Array.from(new Set(rawRows.map((r: any) => r.pr1_number_snapshot).filter(Boolean)));
-  const typeMap: Record<string, 'goods' | 'services'> = {};
-  if (pr1Numbers.length > 0) {
-    const { data: pr1TypeData } = await db
-      .from('pr1_requests')
-      .select('pr1_number, request_type')
-      .in('pr1_number', pr1Numbers);
-    for (const r of (pr1TypeData ?? []) as any[]) {
-      typeMap[r.pr1_number] = r.request_type ?? 'goods';
+  // Resolve request_type via the unambiguous FK chain (deliveries -> po_requests ->
+  // pr2_requests -> pr1_requests), not by matching pr1_number_snapshot text — PR1
+  // numbers are not guaranteed unique, and a text match can silently resolve to the
+  // wrong row when a duplicate exists.
+  const typeByDeliveryId: Record<string, 'goods' | 'services'> = {};
+  const priorityByDeliveryId: Record<string, string> = {};
+  const deliveryIds = Array.from(new Set(rawRows.map((r: any) => r.delivery_id).filter(Boolean)));
+  if (deliveryIds.length > 0) {
+    const { data: deliveryData } = await db
+      .from('deliveries')
+      .select('id, po_id')
+      .in('id', deliveryIds);
+    const poIds = Array.from(new Set((deliveryData ?? []).map((d: any) => d.po_id).filter(Boolean)));
+
+    const { data: poData } = poIds.length > 0
+      ? await db.from('po_requests').select('id, pr2_id').in('id', poIds)
+      : { data: [] as any[] };
+    const pr2Ids = Array.from(new Set((poData ?? []).map((p: any) => p.pr2_id).filter(Boolean)));
+
+    const { data: pr2Data } = pr2Ids.length > 0
+      ? await db.from('pr2_requests').select('id, pr1_id').in('id', pr2Ids)
+      : { data: [] as any[] };
+    const pr1Ids = Array.from(new Set((pr2Data ?? []).map((p: any) => p.pr1_id).filter(Boolean)));
+
+    const { data: pr1Data } = pr1Ids.length > 0
+      ? await db.from('pr1_requests').select('id, request_type, priority').in('id', pr1Ids)
+      : { data: [] as any[] };
+
+    const pr1TypeById: Record<string, 'goods' | 'services'> = Object.fromEntries(
+      ((pr1Data ?? []) as any[]).map(p => [p.id, p.request_type ?? 'goods'])
+    );
+    const pr1PriorityById: Record<string, string> = Object.fromEntries(
+      ((pr1Data ?? []) as any[]).map(p => [p.id, p.priority ?? 'normal'])
+    );
+    const pr1IdByPr2Id: Record<string, string> = Object.fromEntries(
+      ((pr2Data ?? []) as any[]).map(p => [p.id, p.pr1_id])
+    );
+    const pr2IdByPoId: Record<string, string> = Object.fromEntries(
+      ((poData ?? []) as any[]).map(p => [p.id, p.pr2_id])
+    );
+    for (const d of (deliveryData ?? []) as any[]) {
+      const pr2Id = pr2IdByPoId[d.po_id];
+      const pr1Id = pr2Id ? pr1IdByPr2Id[pr2Id] : undefined;
+      const resolvedType = pr1Id ? pr1TypeById[pr1Id] : undefined;
+      if (resolvedType) typeByDeliveryId[d.id] = resolvedType;
+      priorityByDeliveryId[d.id] = pr1Id ? (pr1PriorityById[pr1Id] ?? 'normal') : 'normal';
     }
   }
 
   return {
     grns: rawRows.map(r => ({
       ...r,
-      request_type: typeMap[r.pr1_number_snapshot] ?? 'goods',
+      request_type: typeByDeliveryId[r.delivery_id] ?? 'goods',
+      priority: priorityByDeliveryId[r.delivery_id] ?? 'normal',
     })) as GRNQueueRow[],
     total_count: count ?? 0,
   };
@@ -211,15 +281,15 @@ export async function fetchGRNById(id: string): Promise<GRNWithItems | null> {
   }
 
   const grn = normalizeGRN(grnRes.data);
-  const { data: pr1TypeData } = await db
-    .from('pr1_requests')
-    .select('request_type')
-    .eq('pr1_number', grn.pr1_number_snapshot)
-    .maybeSingle();
+  // Resolve request_type via the unambiguous FK chain (grn_receipts -> deliveries ->
+  // po_requests -> pr2_requests -> pr1_requests), not by matching pr1_number_snapshot
+  // text — PR1 numbers are not guaranteed unique, and a text match silently falls back
+  // to 'goods' when a duplicate exists.
+  const { data: resolvedType } = await db.rpc('request_type_for_grn', { p_grn_id: id });
 
   return {
     ...grn,
-    request_type: (pr1TypeData as any)?.request_type ?? 'goods',
+    request_type: (resolvedType as 'goods' | 'services' | null) ?? 'goods',
     items,
   };
 }
@@ -486,7 +556,7 @@ export async function closeGRN(
     delivery_id:    deliveryId,
     actor_id:       profile.id,
     actor_name:     profile.full_name,
-    actor_role:     'warehouse',
+    actor_role:     profile.role,
     status_from:    null,
     status_to:      null,
     note:           `GRN closed by ${profile.full_name}. GRN No: ${grnId}.`,
@@ -541,5 +611,88 @@ export async function closeGRN(
     }
   } catch {
     // Notifications are best-effort; do not fail closeGRN
+  }
+}
+
+// ─── Reopen GRN (closed → open) ──────────────────────────────────────────────
+// Rev #7: closed GRNs can be reopened anytime for correction. Nothing is ever
+// generated from a GRN, so there is no downstream guard (unlike RFQ reopen).
+// `closed_at` / `received_by_*` are intentionally kept as a visible trace of the
+// prior close; re-closing overwrites them with fresh values.
+
+export async function reopenGRN(grnId: string, profile: UserProfile): Promise<void> {
+  const { data: grn, error: fetchErr } = await db
+    .from('grn_receipts')
+    .select('id, grn_number, status, delivery_id')
+    .eq('id', grnId)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!grn) throw new Error('GRN not found.');
+  if (grn.status !== 'closed') throw new Error('Only a closed GRN can be reopened.');
+
+  const now = new Date().toISOString();
+
+  // RLS scopes writes by role + request type (warehouse↔goods, procurement↔services).
+  // An out-of-lane update silently affects 0 rows, so select back the updated id to
+  // surface a friendly error instead of a phantom success.
+  const { data: updated, error } = await db
+    .from('grn_receipts')
+    .update({ status: 'open', updated_at: now })
+    .eq('id', grnId)
+    .select('id');
+  if (error) throw error;
+  if (!updated || updated.length === 0) {
+    throw new Error('You do not have permission to reopen this GRN.');
+  }
+
+  // Delivery history entry — mirrors the "GRN closed by …" entry closeGRN writes
+  await db.from('delivery_status_history').insert({
+    delivery_id:    grn.delivery_id,
+    actor_id:       profile.id,
+    actor_name:     profile.full_name,
+    actor_role:     profile.role,
+    status_from:    null,
+    status_to:      null,
+    note:           `GRN reopened for editing by ${profile.full_name}. GRN No: ${grn.grn_number}.`,
+    scheduled_date: null,
+    created_at:     now,
+  });
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'GRN_REOPENED',
+      document_type: 'GRN',
+      document_id:   grnId,
+      payload: {
+        grn_number:  grn.grn_number,
+        delivery_id: grn.delivery_id,
+        reopened_by: profile.full_name,
+        actor_role:  profile.role,
+      },
+    });
+  } catch {}
+
+  // Notify requestor (best-effort) — their receipt is being revised
+  try {
+    const { data: delivery } = await db
+      .from('deliveries')
+      .select('requisitioner_id')
+      .eq('id', grn.delivery_id)
+      .maybeSingle();
+
+    if (delivery?.requisitioner_id) {
+      await createNotification({
+        user_id:       delivery.requisitioner_id,
+        title:         'GRN Reopened',
+        body:          `Goods receipt ${grn.grn_number} has been reopened for correction. It will be re-closed once updated.`,
+        type:          'info',
+        document_type: 'grn',
+        document_id:   grnId,
+        action_url:    `/grn/${grnId}`,
+      });
+    }
+  } catch {
+    // Notifications are best-effort; do not fail reopen
   }
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPOById, calcPOGrandTotal } from '@/lib/po';
+import { fetchPOById, calcPOVatBreakdown } from '@/lib/po';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 import { fetchPOApprovalDetailByPOId } from '@/lib/po-approvals';
 import { labelForApprovalAction, latestActionForStep } from '@/lib/print-approval-signatures';
@@ -14,18 +14,16 @@ function POApproverSignatureCell({
   title,
   staticHint,
   action,
-  isFirst = false,
 }: {
   title: string;
   staticHint: string;
   action: POApprovalAction | null;
-  isFirst?: boolean;
 }) {
   return (
     <td
       style={{
         border: '1px solid #000',
-        borderLeft: isFirst ? '1px solid #000' : 'none',
+        borderTop: 'none',
         padding: '8px',
         width: '25%',
         textAlign: 'center',
@@ -122,7 +120,7 @@ function POReceivedSignatureCell({
   );
 
   return (
-    <td style={{ border: '1px solid #000', borderLeft: 'none', padding: '8px', width: '25%', textAlign: 'center', verticalAlign: 'top' }}>
+    <td style={{ border: '1px solid #000', borderTop: 'none', borderLeft: 'none', padding: '8px', width: '25%', textAlign: 'center', verticalAlign: 'top' }}>
       <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 8 }}>Received By:</div>
       <div style={{ fontSize: 8, color: '#666', marginBottom: 6 }}>Supplier Representative</div>
       <div style={{ borderTop: '1px solid #000', paddingTop: 6, minHeight: 28 }}>{body}</div>
@@ -157,14 +155,14 @@ export default function POPrintPage() {
 
   if (loading || !po) {
     return (
-      <div style={{ fontFamily: 'Arial, sans-serif', padding: 40, textAlign: 'center', color: '#666' }}>
-        Loading...
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-sm text-pq-neutral-500">Preparing print view...</p>
       </div>
     );
   }
 
   const canViewPrices = canViewCommercialPricing(profile);
-  const grandTotal = canViewPrices ? calcPOGrandTotal(po.items) : null;
+  const vatBreakdown = canViewPrices ? calcPOVatBreakdown(po.items) : null;
 
   const actions = approvalDetail?.actions ?? [];
   const preparedAction = latestActionForStep(actions, 1);
@@ -177,71 +175,85 @@ export default function POPrintPage() {
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 12mm 14mm; }
-          body { margin: 0; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
         }
         body { font-family: Arial, sans-serif; font-size: 10px; color: #000; background: #fff; }
       `}</style>
 
-      {/* Print button — hidden on print */}
-      <div className="no-print" style={{ padding: '12px 20px', background: '#f8f9fa', borderBottom: '1px solid #dee2e6', display: 'flex', gap: 8 }}>
-        <button
-          onClick={() => window.print()}
-          style={{ padding: '6px 16px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-        >
-          Print / Save PDF
-        </button>
-        <button
-          onClick={() => window.close()}
-          style={{ padding: '6px 16px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13 }}
-        >
-          Close
-        </button>
+      {/* Print toolbar */}
+      <div className="no-print fixed top-0 left-0 right-0 bg-pq-neutral-900 text-white px-6 py-3 flex items-center justify-between z-10">
+        <span className="text-sm font-medium">Print Preview — {po.po_number}</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.history.back()}
+            className="text-xs text-pq-neutral-400 hover:text-white transition"
+          >
+            ← Back
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-1.5 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition"
+          >
+            Print / Save PDF
+          </button>
+        </div>
       </div>
+      <div className="no-print pt-12" />
 
       {/* PO Document */}
-      <div style={{ maxWidth: 780, margin: '0 auto', padding: '16px 20px' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '20px 0' }}>
 
         {/* Header */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <tbody>
             <tr>
-              <td style={{ width: '60%', verticalAlign: 'top', paddingBottom: 8 }}>
-                <div style={{ fontWeight: 'bold', fontSize: 16, letterSpacing: 1 }}>Fortune Packaging Corporation</div>
-                <div style={{ fontSize: 9, color: '#444', marginTop: 2 }}>Severina Industrial Subdivision, 20 Main Avenue, Km 16 South Luzon Expy, Parañaque, 1700 Metro Manila</div>
-                <div style={{ fontSize: 9, color: '#444' }}>Tel: (02) 8823 6333</div>
-                <div style={{ fontSize: 8, color: '#666', marginTop: 2 }}>Fortune Procurement System</div>
+              <td style={{ width: '20%', border: '1px solid #000', padding: '6px 8px', verticalAlign: 'middle' }}>
+                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 8, lineHeight: 1.15 }}>
+                  Fortune Packaging Corporation
+                </div>
+                <div style={{ textAlign: 'center', fontSize: 6, lineHeight: 1.2, marginTop: 2, color: '#555' }}>
+                  Severina Industrial Subdivision, 20 Main Avenue, Km 16 South Luzon Expy, Parañaque, 1700 Metro Manila
+                </div>
+                <div style={{ textAlign: 'center', fontSize: 6, color: '#555' }}>
+                  Tel: (02) 8823 6333
+                </div>
               </td>
-              <td style={{ width: '40%', verticalAlign: 'top', textAlign: 'right' }}>
-                <div style={{ fontSize: 18, fontWeight: 'bold', letterSpacing: 2, color: '#1e3a5f' }}>PURCHASE ORDER</div>
-                <div style={{ fontSize: 11, fontWeight: 'bold', marginTop: 4, fontFamily: 'monospace' }}>{po.po_number}</div>
-                <div style={{ fontSize: 9, color: '#666', marginTop: 2 }}>
-                  PO Date: {format(new Date(po.po_date), 'MMMM d, yyyy')}
+              <td style={{ border: '1px solid #000', padding: '6px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
+                <div style={{ fontSize: 15, fontWeight: 'bold', letterSpacing: 1 }}>PURCHASE ORDER</div>
+                <div style={{ fontSize: 9, marginTop: 2 }}>Fortune Procurement System</div>
+              </td>
+              <td style={{ width: '22%', border: '1px solid #000', padding: '4px 8px', verticalAlign: 'top', fontSize: 9 }}>
+                <div style={{ marginBottom: 4 }}>
+                  <span style={{ fontWeight: 'bold' }}>Form No.:</span> PO-v1
+                </div>
+                <div style={{ marginBottom: 4 }}>
+                  <span style={{ fontWeight: 'bold' }}>PO No.:</span>{' '}
+                  <span style={{ fontFamily: 'monospace' }}>{po.po_number}</span>
+                </div>
+                <div>
+                  <span style={{ fontWeight: 'bold' }}>PO Date:</span> {format(new Date(po.po_date), 'MM/dd/yyyy')}
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
 
-        <div style={{ borderTop: '2px solid #1e3a5f', marginBottom: 10 }} />
-
         {/* Supplier + Delivery side by side */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <tbody>
             <tr>
-              {/* Supplier / Vendor */}
-              <td style={{ width: '50%', border: '1px solid #000', padding: '6px 8px', verticalAlign: 'top' }}>
+              <td style={{ width: '50%', border: '1px solid #000', borderTop: 'none', padding: '6px 8px', verticalAlign: 'top' }}>
                 <div style={{ fontWeight: 'bold', fontSize: 9, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   Supplier / Vendor:
                 </div>
-                <div style={{ fontWeight: 'bold', fontSize: 11 }}>{po.supplier_name_snapshot}</div>
+                <div style={{ fontWeight: 'bold', fontSize: 10 }}>{po.supplier_name_snapshot}</div>
                 <div style={{ fontSize: 9, color: '#333', marginTop: 2 }}>
                   {po.payment_terms && <div>Terms: {po.payment_terms}</div>}
                   {po.packing && <div>Packing: {po.packing}</div>}
                 </div>
               </td>
-              {/* Deliver To */}
-              <td style={{ width: '50%', border: '1px solid #000', borderLeft: 'none', padding: '6px 8px', verticalAlign: 'top' }}>
+              <td style={{ width: '50%', border: '1px solid #000', borderTop: 'none', borderLeft: 'none', padding: '6px 8px', verticalAlign: 'top' }}>
                 <div style={{ fontWeight: 'bold', fontSize: 9, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   Deliver To:
                 </div>
@@ -255,18 +267,18 @@ export default function POPrintPage() {
         </table>
 
         {/* References row */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <tbody>
             <tr>
-              <td style={{ border: '1px solid #000', padding: '5px 8px', width: '33%' }}>
+              <td style={{ border: '1px solid #000', borderTop: 'none', padding: '5px 8px', width: '33%' }}>
                 <div style={{ fontSize: 8, color: '#666', textTransform: 'uppercase' }}>PR2 Reference</div>
                 <div style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: 9 }}>{po.pr2_number_snapshot}</div>
               </td>
-              <td style={{ border: '1px solid #000', borderLeft: 'none', padding: '5px 8px', width: '33%' }}>
+              <td style={{ border: '1px solid #000', borderTop: 'none', borderLeft: 'none', padding: '5px 8px', width: '33%' }}>
                 <div style={{ fontSize: 8, color: '#666', textTransform: 'uppercase' }}>PR1 Reference</div>
                 <div style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: 9 }}>{po.pr1_number_snapshot}</div>
               </td>
-              <td style={{ border: '1px solid #000', borderLeft: 'none', padding: '5px 8px', width: '34%' }}>
+              <td style={{ border: '1px solid #000', borderTop: 'none', borderLeft: 'none', padding: '5px 8px', width: '34%' }}>
                 <div style={{ fontSize: 8, color: '#666', textTransform: 'uppercase' }}>Date Required</div>
                 <div style={{ fontWeight: 'bold', fontSize: 9 }}>{format(new Date(po.date_required), 'MMMM d, yyyy')}</div>
               </td>
@@ -276,11 +288,11 @@ export default function POPrintPage() {
                 <div style={{ fontSize: 8, color: '#666', textTransform: 'uppercase' }}>RFQ Reference</div>
                 <div style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: 9 }}>{po.rfq_number_snapshot}</div>
               </td>
-              <td style={{ border: '1px solid #000', borderLeft: 'none', borderTop: 'none', padding: '5px 8px' }}>
+              <td style={{ border: '1px solid #000', borderTop: 'none', borderLeft: 'none', padding: '5px 8px' }}>
                 <div style={{ fontSize: 8, color: '#666', textTransform: 'uppercase' }}>Department</div>
                 <div style={{ fontWeight: 'bold', fontSize: 9 }}>{po.department_name_snapshot}</div>
               </td>
-              <td style={{ border: '1px solid #000', borderLeft: 'none', borderTop: 'none', padding: '5px 8px' }}>
+              <td style={{ border: '1px solid #000', borderTop: 'none', borderLeft: 'none', padding: '5px 8px' }}>
                 <div style={{ fontSize: 8, color: '#666', textTransform: 'uppercase' }}>Requisitioner</div>
                 <div style={{ fontWeight: 'bold', fontSize: 9 }}>{po.requisitioner_name_snapshot}</div>
               </td>
@@ -289,10 +301,10 @@ export default function POPrintPage() {
         </table>
 
         {/* Purpose */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <tbody>
             <tr>
-              <td style={{ border: '1px solid #000', padding: '5px 8px' }}>
+              <td style={{ border: '1px solid #000', borderTop: 'none', padding: '5px 8px' }}>
                 <span style={{ fontSize: 8, color: '#666', textTransform: 'uppercase' }}>Purpose: </span>
                 <span style={{ fontSize: 9 }}>{po.purpose}</span>
               </td>
@@ -301,30 +313,30 @@ export default function POPrintPage() {
         </table>
 
         {/* Items table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: '#1e3a5f', color: '#fff' }}>
-              <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'center', width: 28, fontSize: 8, fontWeight: 'bold' }}>#</th>
-              <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'left', width: 60, fontSize: 8, fontWeight: 'bold' }}>Item Code</th>
-              <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'left', fontSize: 8, fontWeight: 'bold' }}>Description</th>
-              <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'center', width: 40, fontSize: 8, fontWeight: 'bold' }}>Unit</th>
-              <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'right', width: 50, fontSize: 8, fontWeight: 'bold' }}>Qty</th>
+            <tr style={{ backgroundColor: '#f0f0f0' }}>
+              <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'center', width: 28, fontSize: 8, fontWeight: 'bold' }}>#</th>
+              <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'left', width: 60, fontSize: 8, fontWeight: 'bold' }}>Item Code</th>
+              <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'left', fontSize: 8, fontWeight: 'bold' }}>Description</th>
+              <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'center', width: 40, fontSize: 8, fontWeight: 'bold' }}>Unit</th>
+              <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'right', width: 50, fontSize: 8, fontWeight: 'bold' }}>Qty</th>
               {canViewPrices ? (
                 <>
-                  <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'right', width: 80, fontSize: 8, fontWeight: 'bold' }}>Unit Price</th>
-                  <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'right', width: 90, fontSize: 8, fontWeight: 'bold' }}>Amount</th>
+                  <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'right', width: 80, fontSize: 8, fontWeight: 'bold' }}>Unit Price</th>
+                  <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'right', width: 90, fontSize: 8, fontWeight: 'bold' }}>Amount</th>
                 </>
               ) : (
-                <th style={{ border: '1px solid #1e3a5f', padding: '5px 6px', textAlign: 'center', width: 90, fontSize: 8, fontWeight: 'bold' }}>Pricing</th>
+                <th style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'center', width: 90, fontSize: 8, fontWeight: 'bold' }}>Pricing</th>
               )}
             </tr>
           </thead>
           <tbody>
             {po.items.map((item, idx) => (
               <tr key={item.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f9fafb' }}>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'center', fontSize: 8, fontFamily: 'monospace' }}>{item.item_order}</td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px', fontSize: 8, fontFamily: 'monospace' }}>{item.item_code || '—'}</td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px', fontSize: 9 }}>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'center', fontSize: 8, fontFamily: 'monospace' }}>{item.item_order}</td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', fontSize: 8, fontFamily: 'monospace' }}>{item.item_code || '—'}</td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', fontSize: 9 }}>
                   {item.description}
                   {item.is_raw_material && (
                     <span style={{ marginLeft: 4, fontSize: 7, color: '#1e40af', fontWeight: 'bold' }}>[RAW]</span>
@@ -335,21 +347,21 @@ export default function POPrintPage() {
                     </div>
                   )}
                 </td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'center', fontSize: 8 }}>{item.unit_of_measure}</td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right', fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }}>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'center', fontSize: 8 }}>{item.unit_of_measure}</td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'right', fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }}>
                   {Number(item.quantity_to_purchase).toLocaleString()}
                 </td>
                 {canViewPrices ? (
                   <>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right', fontSize: 8 }}>
+                    <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'right', fontSize: 8 }}>
                       {formatCommercialAmount(Number(item.unit_price), true)}
                     </td>
-                    <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right', fontSize: 9, fontWeight: 'bold' }}>
-                      {formatCommercialAmount(Number(item.unit_price) * Number(item.quantity_to_purchase), true)}
+                    <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'right', fontSize: 9, fontWeight: 'bold' }}>
+                      {formatCommercialAmount(Number(item.total_price), true)}
                     </td>
                   </>
                 ) : (
-                  <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'center', fontSize: 8, color: '#94a3b8' }}>
+                  <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'center', fontSize: 8, color: '#94a3b8' }}>
                     {formatCommercialAmount(0, false)}
                   </td>
                 )}
@@ -358,24 +370,44 @@ export default function POPrintPage() {
             {/* Blank rows to fill space */}
             {Array.from({ length: Math.max(0, 8 - po.items.length) }).map((_, i) => (
               <tr key={`blank-${i}`}>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px', height: 18 }}>&nbsp;</td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px' }}></td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px' }}></td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px' }}></td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px' }}></td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px' }}></td>
-                <td style={{ border: '1px solid #ccc', padding: '4px 6px' }}></td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', height: 18 }}>&nbsp;</td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
               </tr>
             ))}
           </tbody>
-          {canViewPrices && (
+          {canViewPrices && vatBreakdown && (
             <tfoot>
-              <tr>
-                <td colSpan={5} style={{ border: '1px solid #ccc', padding: '5px 8px', textAlign: 'right', fontSize: 9, fontWeight: 'bold' }}>
+              {vatBreakdown.vatAmount > 0 && (
+                <>
+                  <tr>
+                    <td colSpan={5} style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', textAlign: 'right', fontSize: 8 }}>
+                      Subtotal
+                    </td>
+                    <td colSpan={2} style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', textAlign: 'right', fontSize: 9 }}>
+                      {formatCommercialAmount(vatBreakdown.subtotal, true)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={5} style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', textAlign: 'right', fontSize: 8 }}>
+                      VAT
+                    </td>
+                    <td colSpan={2} style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', textAlign: 'right', fontSize: 9 }}>
+                      {formatCommercialAmount(vatBreakdown.vatAmount, true)}
+                    </td>
+                  </tr>
+                </>
+              )}
+              <tr style={{ backgroundColor: '#f0f0f0' }}>
+                <td colSpan={5} style={{ border: '1px solid #000', borderTop: 'none', padding: '5px 8px', textAlign: 'right', fontSize: 9, fontWeight: 'bold' }}>
                   GRAND TOTAL
                 </td>
-                <td colSpan={2} style={{ border: '1px solid #ccc', padding: '5px 8px', textAlign: 'right', fontSize: 11, fontWeight: 'bold', background: '#f0f4f8' }}>
-                  {formatCommercialAmount(grandTotal ?? 0, true)}
+                <td colSpan={2} style={{ border: '1px solid #000', borderTop: 'none', padding: '5px 8px', textAlign: 'right', fontSize: 11, fontWeight: 'bold' }}>
+                  {formatCommercialAmount(vatBreakdown.total, true)}
                 </td>
               </tr>
             </tfoot>
@@ -384,10 +416,10 @@ export default function POPrintPage() {
 
         {/* Remarks */}
         {po.remarks && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
-                <td style={{ border: '1px solid #ccc', padding: '5px 8px' }}>
+                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '5px 8px' }}>
                   <span style={{ fontSize: 8, color: '#666', textTransform: 'uppercase' }}>Remarks: </span>
                   <span style={{ fontSize: 9, fontStyle: 'italic' }}>{po.remarks}</span>
                 </td>
@@ -397,15 +429,10 @@ export default function POPrintPage() {
         )}
 
         {/* Signature block */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 20 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <tbody>
             <tr>
-              <POApproverSignatureCell
-                isFirst
-                title="Prepared By:"
-                staticHint="Buyer / Procurement Staff"
-                action={preparedAction}
-              />
+              <POApproverSignatureCell title="Prepared By:" staticHint="Buyer / Procurement Staff" action={preparedAction} />
               <POApproverSignatureCell title="Reviewed By:" staticHint="Procurement Manager" action={reviewedAction} />
               <POApproverSignatureCell title="Approved By:" staticHint="Finance Director" action={approvedAction} />
               <POReceivedSignatureCell receipt={approvalDetail?.receipt ?? null} step4Action={receivedAction} />
@@ -414,10 +441,12 @@ export default function POPrintPage() {
         </table>
 
         {/* Footer note */}
-        <div style={{ marginTop: 10, fontSize: 8, color: '#999', textAlign: 'center', borderTop: '1px solid #eee', paddingTop: 6 }}>
+        <div style={{ fontSize: 8, color: '#999', textAlign: 'center', borderTop: '1px solid #eee', marginTop: 10, paddingTop: 6 }}>
           This Purchase Order is subject to the terms and conditions of Fortune Packaging Corporation.
           Supplier acceptance constitutes agreement to all terms stated herein.
-          · PO No. {po.po_number} · Date: {format(new Date(po.po_date), 'MMMM d, yyyy')}
+        </div>
+        <div style={{ fontSize: 8, color: '#888', textAlign: 'right', marginTop: 6 }}>
+          Printed: {format(new Date(), 'MM/dd/yyyy hh:mm a')} · Fortune Procurement System · PO-v1
         </div>
       </div>
     </>

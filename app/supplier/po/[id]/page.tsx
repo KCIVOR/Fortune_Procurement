@@ -7,6 +7,7 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import { useAuth } from '@/context/AuthContext';
 import { fetchPOApprovalDetailByPOId, acknowledgeSupplierPO } from '@/lib/po-approvals';
+import { calcPOVatBreakdown } from '@/lib/po';
 import type { POApprovalDetail } from '@/types/po';
 import { format } from 'date-fns';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
@@ -77,7 +78,7 @@ export default function SupplierPODetailPage() {
 
   const isAcknowledged = !!detail.receipt;
   const canAcknowledge = detail.po_status === 'approved';
-  const grandTotal     = detail.items.reduce((sum, i) => sum + i.unit_price * i.quantity_to_purchase, 0);
+  const vatBreakdown   = calcPOVatBreakdown(detail.items);
 
   return (
     <AppShell title={`PO ${detail.po_number}`}>
@@ -162,8 +163,14 @@ export default function SupplierPODetailPage() {
                 <Package className="w-3.5 h-3.5 text-pq-neutral-400" />
                 <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Items ({detail.items.length})</h2>
               </div>
-              <div className="text-xs font-semibold text-pq-neutral-900">
-                Total: ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              <div className="flex items-center gap-3 text-xs font-semibold text-pq-neutral-900">
+                {vatBreakdown.vatAmount > 0 && (
+                  <>
+                    <span className="text-pq-neutral-500 font-normal">Subtotal: ₱{vatBreakdown.subtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-pq-neutral-500 font-normal">VAT: ₱{vatBreakdown.vatAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                  </>
+                )}
+                <span>Total: ₱{vatBreakdown.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -192,15 +199,27 @@ export default function SupplierPODetailPage() {
                       <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_to_purchase}</td>
                       <td className="px-4 py-3 text-right text-xs text-pq-neutral-500">₱{item.unit_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
-                      <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">₱{(item.unit_price * item.quantity_to_purchase).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">₱{item.total_price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
+                  {vatBreakdown.vatAmount > 0 && (
+                    <>
+                      <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
+                        <td colSpan={5} className="px-4 py-3 text-right text-xs text-pq-neutral-500">Subtotal</td>
+                        <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">₱{vatBreakdown.subtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                      <tr className="bg-pq-neutral-50">
+                        <td colSpan={5} className="px-4 py-3 text-right text-xs text-pq-neutral-500">VAT</td>
+                        <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">₱{vatBreakdown.vatAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    </>
+                  )}
                   <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
                     <td colSpan={5} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500">Grand Total</td>
                     <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
-                      ₱{grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                      ₱{vatBreakdown.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
                 </tfoot>

@@ -3,6 +3,7 @@ import type { UserProfile } from '@/types/auth';
 import type { PORequest, POWithItems, POFormValues, POGenerationCandidate } from '@/types/po';
 import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
+import { computeLineVat, aggregateVat } from '@/lib/vat';
 
 const db = supabase as any;
 
@@ -26,10 +27,25 @@ export interface POFilters {
   ids?: string[];
   limit?: number;
   offset?: number;
+  /** Rev #9: priority lives on pr1_requests only — resolved via ID-based join chain. */
+  priority?: string;
 }
 
 export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: PORequest[]; total_count: number }> {
-  const { limit = 25, offset = 0, search, status, departmentId, ids } = filters;
+  const { limit = 25, offset = 0, search, status, departmentId, ids, priority } = filters;
+
+  // Priority pre-filter: pr1 -> pr2 -> po, ID-based (never pr1_number/po_number text).
+  let priorityPr2Ids: string[] | null = null;
+  if (priority && priority !== 'all') {
+    const { data: pr1Hits } = await db.from('pr1_requests').select('id').eq('priority', priority);
+    const pr1Ids = ((pr1Hits ?? []) as any[]).map(r => r.id);
+    if (pr1Ids.length > 0) {
+      const { data: pr2Hits } = await db.from('pr2_requests').select('id').in('pr1_id', pr1Ids);
+      priorityPr2Ids = ((pr2Hits ?? []) as any[]).map(r => r.id);
+    } else {
+      priorityPr2Ids = [];
+    }
+  }
 
   const buildBaseQuery = () => {
     let query = db
@@ -39,6 +55,14 @@ export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: 
 
     if (ids && ids.length > 0) {
       query = query.in('id', ids);
+    }
+
+    if (priorityPr2Ids !== null) {
+      if (priorityPr2Ids.length === 0) {
+        query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+      } else {
+        query = query.in('pr2_id', priorityPr2Ids);
+      }
     }
 
     if (search && search.trim()) {
@@ -65,8 +89,25 @@ export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: 
   if (posRes.error) throw posRes.error;
   if (countRes.error) throw countRes.error;
 
+  const rows = (posRes.data ?? []) as any[];
+  const pr2Ids = Array.from(new Set(rows.map(r => r.pr2_id).filter(Boolean)));
+  let priorityByPr2Id: Record<string, string> = {};
+  if (pr2Ids.length > 0) {
+    const { data: pr2s } = await db.from('pr2_requests').select('id, pr1_id').in('id', pr2Ids);
+    const pr1Ids = Array.from(new Set(((pr2s ?? []) as any[]).map(p => p.pr1_id).filter(Boolean)));
+    const { data: pr1s } = pr1Ids.length > 0
+      ? await db.from('pr1_requests').select('id, priority').in('id', pr1Ids)
+      : { data: [] as any[] };
+    const priorityByPr1Id: Record<string, string> = Object.fromEntries(
+      ((pr1s ?? []) as any[]).map(p => [p.id, p.priority ?? 'normal'])
+    );
+    priorityByPr2Id = Object.fromEntries(
+      ((pr2s ?? []) as any[]).map(p => [p.id, priorityByPr1Id[p.pr1_id] ?? 'normal'])
+    );
+  }
+
   return {
-    pos: (posRes.data ?? []).map(normalizePO),
+    pos: rows.map(r => normalizePO({ ...r, pr1_priority: priorityByPr2Id[r.pr2_id] ?? 'normal' })),
     total_count: countRes.count ?? 0,
   };
 }
@@ -151,14 +192,18 @@ export async function fetchPOById(id: string): Promise<POWithItems | null> {
   ]);
 
   let request_type: 'goods' | 'services' = 'goods';
+  let pr1_priority = 'normal';
   if (pr2Res.data?.pr1_id) {
-    const { data: pr1Data } = await db.from('pr1_requests').select('request_type').eq('id', pr2Res.data.pr1_id).maybeSingle();
+    const { data: pr1Data } = await db.from('pr1_requests').select('request_type, priority').eq('id', pr2Res.data.pr1_id).maybeSingle();
     request_type = (pr1Data as any)?.request_type ?? 'goods';
+    pr1_priority = (pr1Data as any)?.priority ?? 'normal';
   }
 
   return {
     ...po,
     request_type,
+    pr1_priority,
+    pr1_id: pr2Res.data?.pr1_id ?? null,
     items: rawItems.map(r => normalizeItem(r, quoteAttachmentsByQuote)),
   };
 }
@@ -496,7 +541,7 @@ export async function generatePOFromPR2(
   const { data: pr2ItemsRaw, error: itemsErr } = await db
     .from('pr2_items')
     .select(
-      'id, item_order, item_code, description, unit_of_measure, quantity_to_purchase, unit_price, total_price, supplier_name_snapshot, selected_rfq_supplier_id'
+      'id, item_order, item_code, description, unit_of_measure, quantity_to_purchase, unit_price, total_price, supplier_name_snapshot, selected_rfq_supplier_id, vat_type, vat_rate_applied'
     )
     .eq('pr2_id', pr2Id)
     .order('item_order', { ascending: true });
@@ -582,6 +627,8 @@ export async function generatePOFromPR2(
   const poItems = pr2Items.map((item: any) => {
     const qty   = Number(item.quantity_to_purchase);
     const price = Number(item.unit_price);
+    const vatType = item.vat_type ?? null;
+    const breakdown = computeLineVat(price, qty, vatType !== null, vatType, item.vat_rate_applied ?? 0);
     return {
       po_id:                  po.id,
       pr2_item_id:            item.id,
@@ -591,7 +638,9 @@ export async function generatePOFromPR2(
       unit_of_measure:        item.unit_of_measure,
       quantity_to_purchase:   qty,
       unit_price:             price,
-      total_price:            qty * price,
+      total_price:            breakdown.total,
+      vat_type:               vatType,
+      vat_rate_applied:       vatType ? item.vat_rate_applied : null,
       supplier_name_snapshot: String(item.supplier_name_snapshot ?? '').trim() || supplierName,
     };
   });
@@ -646,6 +695,8 @@ function normalizePO(row: any): PORequest {
     generated_at:                row.generated_at,
     created_at:                  row.created_at,
     updated_at:                  row.updated_at,
+    // Rev #9: resolved from pr1_requests.priority via ID-based join at read time.
+    pr1_priority:                row.pr1_priority ?? 'normal',
   };
 }
 
@@ -663,6 +714,8 @@ function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuot
     quantity_to_purchase:  Number(row.quantity_to_purchase),
     unit_price:            Number(row.unit_price),
     total_price:           Number(row.total_price),
+    vat_type:              row.vat_type ?? null,
+    vat_rate_applied:      row.vat_rate_applied ?? null,
     supplier_name_snapshot: row.supplier_name_snapshot,
     remarks:               row.remarks,
     is_raw_material:       pr2Item?.is_raw_material === true,
@@ -675,6 +728,20 @@ function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuot
 
 export function calcPOGrandTotal(items: { unit_price: number; quantity_to_purchase: number }[]): number {
   return items.reduce((sum, i) => sum + i.unit_price * i.quantity_to_purchase, 0);
+}
+
+// Rev #1 (VAT): aggregates a PO's line-level VAT snapshots into a Subtotal/VAT/Total split.
+export function calcPOVatBreakdown(
+  items: { unit_price: number; quantity_to_purchase: number; vat_type?: 'vat_inclusive' | 'vat_exclusive' | null; vat_rate_applied?: number | null }[]
+): { subtotal: number; vatAmount: number; total: number } {
+  return aggregateVat(
+    items.map(i => ({
+      unitPrice: Number(i.unit_price) || 0,
+      qty: Number(i.quantity_to_purchase) || 0,
+      vatType: i.vat_type ?? null,
+      vatRateApplied: i.vat_rate_applied ?? null,
+    }))
+  );
 }
 
 export async function updatePODraft(

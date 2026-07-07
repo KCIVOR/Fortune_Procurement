@@ -91,10 +91,38 @@ export async function fetchDeliveryQueuePaged(params: {
   limit: number;
   offset: number;
   search?: string;
+  /** Rev #9: priority lives on pr1_requests only — resolved/filtered via ID-based join chain. */
+  priority?: string;
 }): Promise<{ deliveries: Delivery[]; total_count: number }> {
-  const { mode, requisitionerId, requisitionerName, statusTab, limit, offset, search } = params;
+  const { mode, requisitionerId, requisitionerName, statusTab, limit, offset, search, priority } = params;
+
+  // Priority pre-filter: pr1 -> pr2 -> po -> deliveries, ID-based.
+  let priorityPoIds: string[] | null = null;
+  if (priority && priority !== 'all') {
+    const { data: pr1Hits } = await db.from('pr1_requests').select('id').eq('priority', priority);
+    const pr1Ids = ((pr1Hits ?? []) as any[]).map(r => r.id);
+    let pr2Ids: string[] = [];
+    if (pr1Ids.length > 0) {
+      const { data: pr2Hits } = await db.from('pr2_requests').select('id').in('pr1_id', pr1Ids);
+      pr2Ids = ((pr2Hits ?? []) as any[]).map(r => r.id);
+    }
+    let poIds: string[] = [];
+    if (pr2Ids.length > 0) {
+      const { data: poHits } = await db.from('po_requests').select('id').in('pr2_id', pr2Ids);
+      poIds = ((poHits ?? []) as any[]).map(r => r.id);
+    }
+    priorityPoIds = poIds;
+  }
 
   let q = db.from('deliveries').select('*, grn_receipts(id)', { count: 'exact' });
+
+  if (priorityPoIds !== null) {
+    if (priorityPoIds.length === 0) {
+      q = q.eq('id', '00000000-0000-0000-0000-000000000000');
+    } else {
+      q = q.in('po_id', priorityPoIds);
+    }
+  }
 
   if (mode === 'employee') {
     // Some deliveries are created under supplier context with requisitioner_id unavailable,
@@ -129,18 +157,45 @@ export async function fetchDeliveryQueuePaged(params: {
   if (error) throw error;
 
   const rows = (data ?? []).map(normalizeDelivery);
-  const pr1Numbers = Array.from(new Set(rows.map((d: Delivery) => d.pr1_number_snapshot).filter(Boolean)));
-  if (pr1Numbers.length > 0) {
-    const { data: pr1TypeData } = await db
-      .from('pr1_requests')
-      .select('pr1_number, request_type')
-      .in('pr1_number', pr1Numbers);
-    const typeMap: Record<string, 'goods' | 'services'> = {};
-    for (const r of (pr1TypeData ?? []) as any[]) {
-      typeMap[r.pr1_number] = r.request_type ?? 'goods';
-    }
+  // Resolve request_type via the unambiguous FK chain (po_requests -> pr2_requests ->
+  // pr1_requests), not by matching pr1_number_snapshot text — PR1 numbers are not
+  // guaranteed unique, and a text match can silently resolve to the wrong row.
+  const poIds = Array.from(new Set(rows.map((d: Delivery) => d.po_id).filter(Boolean)));
+  if (poIds.length > 0) {
+    const { data: poData } = await db
+      .from('po_requests')
+      .select('id, pr2_id')
+      .in('id', poIds);
+    const pr2Ids = Array.from(new Set((poData ?? []).map((p: any) => p.pr2_id).filter(Boolean)));
+
+    const { data: pr2Data } = pr2Ids.length > 0
+      ? await db.from('pr2_requests').select('id, pr1_id').in('id', pr2Ids)
+      : { data: [] as any[] };
+    const pr1Ids = Array.from(new Set((pr2Data ?? []).map((p: any) => p.pr1_id).filter(Boolean)));
+
+    const { data: pr1Data } = pr1Ids.length > 0
+      ? await db.from('pr1_requests').select('id, request_type, priority').in('id', pr1Ids)
+      : { data: [] as any[] };
+
+    const pr1TypeById: Record<string, 'goods' | 'services'> = Object.fromEntries(
+      ((pr1Data ?? []) as any[]).map(p => [p.id, p.request_type ?? 'goods'])
+    );
+    const pr1PriorityById: Record<string, string> = Object.fromEntries(
+      ((pr1Data ?? []) as any[]).map(p => [p.id, p.priority ?? 'normal'])
+    );
+    const pr1IdByPr2Id: Record<string, string> = Object.fromEntries(
+      ((pr2Data ?? []) as any[]).map(p => [p.id, p.pr1_id])
+    );
+    const pr2IdByPoId: Record<string, string> = Object.fromEntries(
+      ((poData ?? []) as any[]).map(p => [p.id, p.pr2_id])
+    );
+
     for (const d of rows) {
-      if (typeMap[d.pr1_number_snapshot]) d.request_type = typeMap[d.pr1_number_snapshot];
+      const pr2Id = pr2IdByPoId[d.po_id];
+      const pr1Id = pr2Id ? pr1IdByPr2Id[pr2Id] : undefined;
+      const resolvedType = pr1Id ? pr1TypeById[pr1Id] : undefined;
+      if (resolvedType) d.request_type = resolvedType;
+      (d as any).priority = pr1Id ? (pr1PriorityById[pr1Id] ?? 'normal') : 'normal';
     }
   }
 
@@ -295,15 +350,15 @@ export async function fetchDeliveryById(id: string): Promise<DeliveryWithHistory
   if (!deliveryRes.data) return null;
 
   const delivery = normalizeDelivery(deliveryRes.data);
-  const { data: pr1TypeData } = await db
-    .from('pr1_requests')
-    .select('request_type')
-    .eq('pr1_number', delivery.pr1_number_snapshot)
-    .maybeSingle();
+  // Resolve request_type via the unambiguous FK chain (deliveries -> po_requests ->
+  // pr2_requests -> pr1_requests), not by matching pr1_number_snapshot text — PR1
+  // numbers are not guaranteed unique, and a text match can silently return the
+  // wrong row (or fail ambiguously) if a duplicate exists.
+  const { data: resolvedType } = await db.rpc('request_type_for_delivery', { p_delivery_id: id });
 
   return {
     ...delivery,
-    request_type: (pr1TypeData as any)?.request_type ?? 'goods',
+    request_type: (resolvedType as 'goods' | 'services' | null) ?? 'goods',
     history: (historyRes.data ?? []).map(normalizeHistoryEntry),
   };
 }

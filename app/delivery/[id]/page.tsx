@@ -130,7 +130,9 @@ export default function DeliveryDetailPage() {
   const canViewPrices = canViewCommercialPricing(profile);
   const canMarkDelivered = (isProcurement || isWarehouse) && delivery.status !== 'delivered' && delivery.status !== 'cancelled';
   const canFollowUp      = isProcurement && delivery.status !== 'delivered' && delivery.status !== 'cancelled';
-  const canOpenGRN       = isWarehouse && delivery.status === 'delivered';
+  const canOpenGRN       =
+    delivery.status === 'delivered' &&
+    (delivery.request_type === 'services' ? isProcurement : isWarehouse);
 
   const handleOpenGRN = async () => {
     if (!profile || !delivery) return;

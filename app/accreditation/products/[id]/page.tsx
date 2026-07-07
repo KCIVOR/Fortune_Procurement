@@ -16,6 +16,7 @@ import {
   markProductRejected,
   revokeProductVerification,
   reopenProductForReview,
+  updateProductVerificationExpiry,
 } from '@/lib/supplier-products';
 import {
   createRSEFromSupplierProduct,
@@ -71,7 +72,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 
 // ─── Action panel type ────────────────────────────────────────────────────────
 
-type ActionPanel = 'none' | 'verify' | 'reject' | 'rse' | 'revoke' | 'reopen';
+type ActionPanel = 'none' | 'verify' | 'reject' | 'rse' | 'revoke' | 'reopen' | 'edit_expiry';
 
 /** Radix Select forbids empty string values on SelectItem. */
 const RSE_ASSIGNEE_UNASSIGNED = 'unassigned';
@@ -91,6 +92,8 @@ export default function ProductReviewDetailPage() {
   const [actionSuccess, setActionSuccess]     = useState('');
   const [activePanel, setActivePanel]         = useState<ActionPanel>('none');
   const [noteInput, setNoteInput]             = useState('');
+  const [expiryInput, setExpiryInput]         = useState('');
+  const [expiryError, setExpiryError]         = useState('');
 
   // RSE form state
   const [rseReason, setRseReason]             = useState('');
@@ -169,6 +172,8 @@ export default function ProductReviewDetailPage() {
     if (panel === 'rse') { openRSEPanel(); return; }
     setActivePanel(panel);
     setNoteInput('');
+    setExpiryInput(panel === 'edit_expiry' ? (product?.valid_until ?? '') : '');
+    setExpiryError('');
     setActionError('');
     setActionSuccess('');
   };
@@ -193,11 +198,21 @@ export default function ProductReviewDetailPage() {
 
   const handleVerify = async () => {
     if (!profile || !product) return;
+    setExpiryError('');
+    if (expiryInput) {
+      const chosen = new Date(`${expiryInput}T00:00:00`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (chosen <= today) {
+        setExpiryError('Expiry date must be in the future.');
+        return;
+      }
+    }
     setBusy(true);
     setActionError('');
     setActionSuccess('');
     try {
-      await markProductVerified(product.id, profile, noteInput.trim() || undefined);
+      await markProductVerified(product.id, profile, noteInput.trim() || undefined, expiryInput || null);
       await load();
       setActivePanel('none');
       setActionSuccess('Product verified. Supplier has been notified. Can Offer = Yes.');
@@ -272,6 +287,33 @@ export default function ProductReviewDetailPage() {
       await load();
       setActivePanel('none');
       setActionSuccess('Verification revoked. Product is expired and Can Offer = No.');
+    } catch (err: unknown) {
+      setActionError((err as Error)?.message || 'Action failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleEditExpiry = async () => {
+    if (!profile || !product) return;
+    setExpiryError('');
+    if (expiryInput) {
+      const chosen = new Date(`${expiryInput}T00:00:00`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (chosen <= today) {
+        setExpiryError('Expiry date must be in the future.');
+        return;
+      }
+    }
+    setBusy(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await updateProductVerificationExpiry(product.id, profile, expiryInput || null);
+      await load();
+      setActivePanel('none');
+      setActionSuccess('Expiry date updated.');
     } catch (err: unknown) {
       setActionError((err as Error)?.message || 'Action failed.');
     } finally {
@@ -569,6 +611,18 @@ export default function ProductReviewDetailPage() {
                         placeholder="Optional notes for the supplier."
                         className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                       />
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                        Valid Until <span className="text-pq-neutral-400 font-normal normal-case">(optional — leave blank for no expiry)</span>
+                      </p>
+                      <input
+                        type="date"
+                        value={expiryInput}
+                        onChange={e => { setExpiryInput(e.target.value); setExpiryError(''); }}
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+                      />
+                      {expiryError && (
+                        <p className="text-xs text-pq-danger-600">{expiryError}</p>
+                      )}
                       <div className="flex gap-2">
                         <button
                           onClick={handleVerify}
@@ -750,6 +804,20 @@ export default function ProductReviewDetailPage() {
                     Revoke Verification
                   </button>
                 )}
+
+                {canRevoke && (
+                  <button
+                    onClick={() => openPanel(activePanel === 'edit_expiry' ? 'none' : 'edit_expiry')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                      activePanel === 'edit_expiry'
+                        ? 'bg-pq-neutral-100 text-pq-neutral-900 border-pq-neutral-300'
+                        : 'text-pq-neutral-500 bg-white border-pq-neutral-200 hover:border-pq-neutral-300'
+                    }`}
+                  >
+                    <CalendarClock className="w-3.5 h-3.5" />
+                    Edit Expiry
+                  </button>
+                )}
               </div>
 
               {activePanel !== 'none' && (
@@ -815,6 +883,41 @@ export default function ProductReviewDetailPage() {
                           className="px-4 py-2 bg-pq-danger-600 hover:bg-pq-danger-600 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
                         >
                           {busy ? 'Revoking…' : 'Confirm Revocation'}
+                        </button>
+                        <button
+                          onClick={() => openPanel('none')}
+                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {activePanel === 'edit_expiry' && (
+                    <>
+                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                        Valid Until <span className="text-pq-neutral-400 font-normal normal-case">(optional — leave blank for no expiry)</span>
+                      </p>
+                      <p className="text-xs text-pq-neutral-400">
+                        Changes the expiry date directly. The product stays verified.
+                      </p>
+                      <input
+                        type="date"
+                        value={expiryInput}
+                        onChange={e => { setExpiryInput(e.target.value); setExpiryError(''); }}
+                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+                      />
+                      {expiryError && (
+                        <p className="text-xs text-pq-danger-600">{expiryError}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleEditExpiry}
+                          disabled={busy}
+                          className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
+                        >
+                          {busy ? 'Saving…' : 'Save Expiry'}
                         </button>
                         <button
                           onClick={() => openPanel('none')}

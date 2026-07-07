@@ -6,6 +6,7 @@ import { fetchWarehouseProcurementByPr1Item, fetchRfqQuoteAttachmentsByRfq } fro
 import { fetchPR1Attachments } from './pr1';
 import type { PR1Attachment } from '@/types/pr1';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
+import { getVatSettings, computeLineVat, aggregateVat } from '@/lib/vat';
 
 const db = supabase as any;
 
@@ -27,11 +28,31 @@ export async function fetchPR2s(options: {
   status?: string;
   search?: string;
   departmentId?: string;
+  /** Rev #9: priority lives on pr1_requests only — resolved via ID-based join. */
+  priority?: string;
 }): Promise<{ pr2s: PR2Request[]; total_count: number }> {
-  const { limit, offset, status, search, departmentId } = options;
+  const { limit, offset, status, search, departmentId, priority } = options;
+
+  // Priority pre-filter: resolve matching pr1 ids first (ID-based, never pr1_number text).
+  let priorityPr1Ids: string[] | null = null;
+  if (priority && priority !== 'all') {
+    const { data: pr1Hits } = await db
+      .from('pr1_requests')
+      .select('id')
+      .eq('priority', priority);
+    priorityPr1Ids = ((pr1Hits ?? []) as any[]).map(r => r.id);
+  }
 
   const buildBaseQuery = () => {
     let q = db.from('pr2_requests').select('*');
+
+    if (priorityPr1Ids !== null) {
+      if (priorityPr1Ids.length === 0) {
+        q = q.eq('id', '00000000-0000-0000-0000-000000000000');
+      } else {
+        q = q.in('pr1_id', priorityPr1Ids);
+      }
+    }
 
     if (status && status !== 'all') {
       q = q.eq('status', status);
@@ -59,8 +80,19 @@ export async function fetchPR2s(options: {
   if (listRes.error) throw listRes.error;
   if (countRes.error) throw countRes.error;
 
+  const rows = (listRes.data ?? []) as any[];
+  const pr1Ids = Array.from(new Set(rows.map(r => r.pr1_id).filter(Boolean)));
+  let priorityByPr1Id: Record<string, string> = {};
+  if (pr1Ids.length > 0) {
+    const { data: pr1s } = await db
+      .from('pr1_requests')
+      .select('id, priority')
+      .in('id', pr1Ids);
+    priorityByPr1Id = Object.fromEntries(((pr1s ?? []) as any[]).map(p => [p.id, p.priority ?? 'normal']));
+  }
+
   return {
-    pr2s:        (listRes.data ?? []) as PR2Request[],
+    pr2s:        rows.map(r => ({ ...r, pr1_priority: priorityByPr1Id[r.pr1_id] ?? 'normal' })) as PR2Request[],
     total_count: countRes.count ?? 0,
   };
 }
@@ -88,7 +120,7 @@ export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
     pr2.rfq_id
       ? fetchRfqQuoteAttachmentsByRfq(pr2.rfq_id).catch(() => ({} as Record<string, RfqQuoteAttachment[]>))
       : Promise.resolve({} as Record<string, RfqQuoteAttachment[]>),
-    db.from('pr1_requests').select('request_type').eq('id', pr2.pr1_id).maybeSingle(),
+    db.from('pr1_requests').select('request_type, priority').eq('id', pr2.pr1_id).maybeSingle(),
   ]);
 
   const attachmentsByItem: Record<string, PR1Attachment[]> = {};
@@ -104,7 +136,8 @@ export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
   }));
 
   const request_type = (pr1TypeRes.data as any)?.request_type ?? 'goods';
-  return { ...pr2, request_type, items: itemsWithAttachments } as PR2WithItems;
+  const pr1_priority = (pr1TypeRes.data as any)?.priority ?? 'normal';
+  return { ...pr2, request_type, pr1_priority, items: itemsWithAttachments } as PR2WithItems;
 }
 
 export async function fetchPR2ByRfqId(rfqId: string): Promise<PR2Request | null> {
@@ -191,20 +224,35 @@ export async function generatePR2FromRfq(
   const winningSupplierIds = Array.from(new Set((selections as any[]).map((s: any) => s.selected_rfq_supplier_id)));
   const { data: quotes, error: quotesErr } = await db
     .from('rfq_item_quotes')
-    .select('id, rfq_supplier_id, pr1_item_id, quoted_description, is_alternative, unit_price, lead_time_days, remarks')
+    .select('id, rfq_supplier_id, pr1_item_id, quoted_description, is_alternative, unit_price, lead_time_days, remarks, vat_type')
     .in('rfq_supplier_id', winningSupplierIds);
   if (quotesErr) throw quotesErr;
 
-  // Fetch rfq_supplier names
+  // Fetch rfq_supplier names + underlying supplier_id (to check VAT registration)
   const { data: rfqSuppliers, error: rsErr } = await db
     .from('rfq_suppliers')
-    .select('id, supplier_name_snapshot')
+    .select('id, supplier_name_snapshot, supplier_id')
     .in('id', winningSupplierIds);
   if (rsErr) throw rsErr;
 
   const supplierNameMap: Record<string, string> = Object.fromEntries(
     ((rfqSuppliers ?? []) as any[]).map((rs: any) => [rs.id, rs.supplier_name_snapshot])
   );
+
+  // Rev #1 (VAT): resolve is_vat_registered per rfq_supplier_id via the underlying supplier profile.
+  const supplierIdsForVat = Array.from(
+    new Set(((rfqSuppliers ?? []) as any[]).map((rs: any) => rs.supplier_id).filter(Boolean))
+  );
+  const { data: vatProfiles } = supplierIdsForVat.length > 0
+    ? await db.from('profiles').select('id, is_vat_registered').in('id', supplierIdsForVat)
+    : { data: [] as any[] };
+  const vatRegisteredBySupplierId: Record<string, boolean> = Object.fromEntries(
+    ((vatProfiles ?? []) as any[]).map((p: any) => [p.id, Boolean(p.is_vat_registered)])
+  );
+  const isRfqSupplierVatRegistered: Record<string, boolean> = Object.fromEntries(
+    ((rfqSuppliers ?? []) as any[]).map((rs: any) => [rs.id, rs.supplier_id ? Boolean(vatRegisteredBySupplierId[rs.supplier_id]) : false])
+  );
+  const vatSettings = await getVatSettings();
   const quoteMap: Record<string, any> = {};
   for (const q of (quotes ?? []) as any[]) {
     quoteMap[`${q.rfq_supplier_id}:${q.pr1_item_id}`] = q;
@@ -282,6 +330,8 @@ export async function generatePR2FromRfq(
       const quote = quoteMap[`${sel.selected_rfq_supplier_id}:${item.id}`] ?? null;
       const unitPrice = quote ? Number(quote.unit_price) : 0;
       const qty = pr2QtyForPr1Line(item.id, item.quantity_requested);
+      const isVatRegistered = isRfqSupplierVatRegistered[sel.selected_rfq_supplier_id] ?? false;
+      const vatBreakdown = computeLineVat(unitPrice, qty, isVatRegistered, quote?.vat_type ?? null, vatSettings.vat_rate);
 
       return {
         pr2_id:                  pr2Id,
@@ -300,7 +350,9 @@ export async function generatePR2FromRfq(
         is_alternative:          quote?.is_alternative ?? false,
         unit_price:              unitPrice,
         lead_time_days:          quote?.lead_time_days ?? 0,
-        total_price:             unitPrice * qty,
+        total_price:             vatBreakdown.total,
+        vat_type:                vatBreakdown.vatType,
+        vat_rate_applied:        vatBreakdown.vatType ? vatSettings.vat_rate : null,
         remarks:                 sel.selection_notes ?? null,
         // Phase 8 (Raw Mats): snapshot the requestor's classification (from
         // pr1_items) and procurement's award-time justification (from
@@ -350,6 +402,20 @@ export async function generatePR2FromRfq(
   return pr2Id;
 }
 
+// Rev #1 (VAT): aggregates a PR2's line-level VAT snapshots into a Subtotal/VAT/Total split.
+export function calcPR2VatBreakdown(
+  items: { unit_price: number; quantity_to_purchase: number; vat_type?: 'vat_inclusive' | 'vat_exclusive' | null; vat_rate_applied?: number | null }[]
+): { subtotal: number; vatAmount: number; total: number } {
+  return aggregateVat(
+    items.map(i => ({
+      unitPrice: Number(i.unit_price) || 0,
+      qty: Number(i.quantity_to_purchase) || 0,
+      vatType: i.vat_type ?? null,
+      vatRateApplied: i.vat_rate_applied ?? null,
+    }))
+  );
+}
+
 // ─── Update PR2 items (procurement edits qty_on_hand / qty_incoming / remarks) ─
 
 export async function savePR2Items(
@@ -363,11 +429,13 @@ export async function savePR2Items(
   // Update quantity_to_purchase and remarks only — SOH and in-transit come from warehouse validation
   for (const item of items) {
     const qtyToPurchase = Math.max(0, Number(item.quantity_to_purchase) || 0);
+    const vatType = item.vat_type ?? null;
+    const breakdown = computeLineVat(item.unit_price, qtyToPurchase, vatType !== null, vatType, item.vat_rate_applied ?? 0);
     await db
       .from('pr2_items')
       .update({
         quantity_to_purchase: qtyToPurchase,
-        total_price:          item.unit_price * qtyToPurchase,
+        total_price:          breakdown.total,
         remarks:              item.remarks?.trim() || null,
       })
       .eq('pr2_id', pr2Id)

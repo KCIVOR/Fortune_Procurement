@@ -16,6 +16,8 @@ export interface SupplierAccount {
   email: string;
   active: boolean;
   payment_terms: string | null;
+  /** Rev #1 (VAT): whether this supplier is VAT-registered; toggled by procurement/admin. */
+  is_vat_registered: boolean;
   created_at: string;
   accreditation_status: SupplierAccreditationStatus;
   accreditation_id: string | null;
@@ -30,7 +32,7 @@ export interface SupplierAccountFilters {
   offset?: number;
 }
 
-const PROFILE_SELECT = 'id, full_name, email, payment_terms, created_at, active, role_id, roles(name)';
+const PROFILE_SELECT = 'id, full_name, email, payment_terms, is_vat_registered, created_at, active, role_id, roles(name)';
 
 const PENDING_ACCREDITATION = new Set(['submitted', 'under_review', 'missing_documents']);
 const REJECTED_ACCREDITATION = new Set(['rejected', 'withdrawn']);
@@ -55,6 +57,7 @@ type ProfileRow = {
   full_name: string;
   email: string;
   payment_terms?: string | null;
+  is_vat_registered?: boolean;
   created_at: string;
   active?: boolean;
   role_id: string | null;
@@ -181,6 +184,7 @@ async function enrichProfiles(profiles: ProfileRow[]): Promise<SupplierAccount[]
       email: p.email,
       active: p.active ?? true,
       payment_terms: p.payment_terms ?? null,
+      is_vat_registered: p.is_vat_registered === true,
       created_at: p.created_at,
       accreditation_status,
       accreditation_id:

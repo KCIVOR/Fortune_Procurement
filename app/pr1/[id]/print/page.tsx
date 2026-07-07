@@ -215,7 +215,7 @@ export default function PR1PrintPage() {
 
       {/* Print body */}
       <div className="no-print pt-12" />
-      <div style={{ maxWidth: 740, margin: '0 auto', padding: '20px 0' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '20px 0' }}>
 
         {/* Header */}
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0 }}>

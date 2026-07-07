@@ -93,6 +93,8 @@ export interface GRNQueueRow {
   closed_at: string | null;
   received_by_name_snapshot: string;
   request_type: 'goods' | 'services';
+  /** Rev #9: resolved from pr1_requests.priority via ID-based join at read time. */
+  priority?: string;
 }
 
 // Editable form state per item

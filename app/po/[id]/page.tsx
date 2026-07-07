@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPOById, calcPOGrandTotal, updatePODraft } from '@/lib/po';
+import { fetchPOById, calcPOVatBreakdown, updatePODraft } from '@/lib/po';
 import {
   submitPOForApproval,
   fetchPOApprovalDetailByPOId,
@@ -36,6 +36,9 @@ import DetailInfoField from '@/components/shared/DetailInfoField';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
+import PriorityChip from '@/components/shared/PriorityChip';
+import PrioritySelector from '@/components/shared/PrioritySelector';
+import { canUpdatePR1Priority, updatePR1Priority } from '@/lib/pr1';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:        'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
@@ -62,6 +65,9 @@ export default function PODetailPage() {
   const [editForm, setEditForm]               = useState({ po_date: '', delivery_address: '', warehouse: '', payment_terms: '', packing: '', remarks: '' });
   const [saving, setSaving]                   = useState(false);
   const [saveError, setSaveError]             = useState('');
+
+  const [priorityUpdating, setPriorityUpdating] = useState(false);
+  const [priorityError, setPriorityError]       = useState('');
 
   const load = () => {
     if (!id) return;
@@ -155,7 +161,22 @@ export default function PODetailPage() {
   );
 
   const canViewPrices = canViewCommercialPricing(profile);
-  const grandTotal = canViewPrices ? calcPOGrandTotal(po.items) : null;
+  const vatBreakdown = canViewPrices ? calcPOVatBreakdown(po.items) : null;
+
+  const canUpdatePriority = profile && canUpdatePR1Priority(profile);
+  const handlePriorityChange = async (newPriority: 'normal' | 'medium' | 'high') => {
+    if (!po.pr1_id || !profile || newPriority === po.pr1_priority) return;
+    setPriorityUpdating(true);
+    setPriorityError('');
+    try {
+      await updatePR1Priority(po.pr1_id, newPriority, profile);
+      setPO({ ...po, pr1_priority: newPriority });
+    } catch (err) {
+      setPriorityError(err instanceof Error ? err.message : 'Failed to update priority.');
+    } finally {
+      setPriorityUpdating(false);
+    }
+  };
 
   return (
     <AppShell title={`PO ${po.po_number}`}>
@@ -172,7 +193,19 @@ export default function PODetailPage() {
                 {PO_STATUS_LABELS[po.status] ?? po.status}
               </span>
               <RequestTypeBadge type={po.request_type ?? 'goods'} />
+              {canUpdatePriority ? (
+                <PrioritySelector
+                  value={po.pr1_priority ?? 'normal'}
+                  onChange={handlePriorityChange}
+                  isUpdating={priorityUpdating}
+                />
+              ) : (
+                <PriorityChip priority={po.pr1_priority ?? 'normal'} />
+              )}
             </DetailTitleRow>
+            {priorityError && (
+              <p className="text-xs text-pq-danger-600 mb-1">{priorityError}</p>
+            )}
             <p className="text-sm text-pq-neutral-500">{po.department_name_snapshot} · {po.purpose}</p>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-xs text-pq-neutral-400 font-mono">PR2 Ref: {po.pr2_number_snapshot}</span>
@@ -456,9 +489,19 @@ export default function PODetailPage() {
           <div className="bg-pq-primary-600 rounded-md p-5 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-pq-primary-200">Grand Total</p>
+                {vatBreakdown && vatBreakdown.vatAmount > 0 ? (
+                  <>
+                    <div className="flex items-center gap-4 text-xs text-pq-primary-200">
+                      <span>Subtotal: {formatCommercialAmount(vatBreakdown.subtotal, canViewPrices)}</span>
+                      <span>VAT: {formatCommercialAmount(vatBreakdown.vatAmount, canViewPrices)}</span>
+                    </div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-pq-primary-200 mt-2">Total</p>
+                  </>
+                ) : (
+                  <p className="text-xs font-semibold uppercase tracking-wide text-pq-primary-200">Grand Total</p>
+                )}
                 <p className="text-3xl font-bold mt-1">
-                  {formatCommercialAmount(grandTotal ?? 0, canViewPrices)}
+                  {formatCommercialAmount(vatBreakdown?.total ?? 0, canViewPrices)}
                 </p>
                 <p className="text-xs text-pq-primary-200 mt-1">
                   {po.items.length} line item{po.items.length !== 1 ? 's' : ''} · {po.supplier_name_snapshot}
@@ -532,7 +575,7 @@ export default function PODetailPage() {
                             {formatCommercialAmount(item.unit_price, true)}
                           </td>
                           <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">
-                            {formatCommercialAmount(item.unit_price * item.quantity_to_purchase, true)}
+                            {formatCommercialAmount(item.total_price, true)}
                           </td>
                         </>
                       ) : (
@@ -543,12 +586,24 @@ export default function PODetailPage() {
                     </tr>
                   ))}
                 </tbody>
-                {canViewPrices && (
+                {canViewPrices && vatBreakdown && (
                   <tfoot>
+                    {vatBreakdown.vatAmount > 0 && (
+                      <>
+                        <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
+                          <td colSpan={7} className="px-4 py-3 text-right text-xs text-pq-neutral-500">Subtotal</td>
+                          <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">{formatCommercialAmount(vatBreakdown.subtotal, true)}</td>
+                        </tr>
+                        <tr className="bg-pq-neutral-50">
+                          <td colSpan={7} className="px-4 py-3 text-right text-xs text-pq-neutral-500">VAT</td>
+                          <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">{formatCommercialAmount(vatBreakdown.vatAmount, true)}</td>
+                        </tr>
+                      </>
+                    )}
                     <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
                       <td colSpan={7} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
                       <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
-                        {formatCommercialAmount(grandTotal ?? 0, true)}
+                        {formatCommercialAmount(vatBreakdown.total, true)}
                       </td>
                     </tr>
                   </tfoot>

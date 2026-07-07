@@ -37,6 +37,10 @@ export interface PORequest {
   generated_at: string;
   created_at: string;
   updated_at: string;
+  /** Rev #9: resolved from pr1_requests.priority via ID-based join at read time. */
+  pr1_priority?: string;
+  /** Rev #9: resolved po -> pr2 -> pr1 via ID-based join; needed to edit priority from the PO detail page. */
+  pr1_id?: string | null;
 }
 
 export interface POItem {
@@ -50,6 +54,9 @@ export interface POItem {
   quantity_to_purchase: number;
   unit_price: number;
   total_price: number;
+  /** Rev #1 (VAT): snapshotted from the PR2 line at PO generation time; null when not VAT-registered. */
+  vat_type?: 'vat_inclusive' | 'vat_exclusive' | null;
+  vat_rate_applied?: number | null;
   supplier_name_snapshot: string;
   remarks: string | null;
   /**
@@ -212,6 +219,8 @@ export interface POApprovalDetail {
   po_status:                   string;
   pr1_priority?:               'normal' | 'medium' | 'high';
   request_type?:               'goods' | 'services';
+  /** Rev #9: needed to edit priority from the approval detail page. */
+  pr1_id?:                     string | null;
   items:                       POItem[];
   instance_id:                 string;
   current_step:                number;

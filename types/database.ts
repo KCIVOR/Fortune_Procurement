@@ -565,29 +565,6 @@ export interface Database {
         };
       };
 
-      system_expiry_settings: {
-        Row: {
-          id: boolean;
-          accreditation_validity_days: number;
-          product_validity_days: number;
-          updated_by: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          id?: boolean;
-          accreditation_validity_days?: number;
-          product_validity_days?: number;
-          updated_by?: string | null;
-          updated_at?: string;
-        };
-        Update: {
-          accreditation_validity_days?: number;
-          product_validity_days?: number;
-          updated_by?: string | null;
-          updated_at?: string;
-        };
-      };
-
       supplier_products: {
         Row: {
           id: string;
@@ -928,7 +905,6 @@ export type ControlledFormTemplate = Database['public']['Tables']['controlled_fo
 // ── Phase 1: Supplier Accreditation + RSE + TSQA convenience types ───────────
 export type SupplierAccreditation  = Database['public']['Tables']['supplier_accreditations']['Row'];
 export type SupplierProduct        = Database['public']['Tables']['supplier_products']['Row'];
-export type SystemExpirySettings   = Database['public']['Tables']['system_expiry_settings']['Row'];
 export type SupplierDocument       = Database['public']['Tables']['supplier_documents']['Row'];
 export type RseRecord              = Database['public']['Tables']['rse_records']['Row'];
 export type TsqaReview             = Database['public']['Tables']['tsqa_reviews']['Row'];

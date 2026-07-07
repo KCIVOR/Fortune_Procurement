@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import SupplierPaymentTermsForm from '@/components/admin/SupplierPaymentTermsForm';
+import SupplierVatStatusForm from '@/components/admin/SupplierVatStatusForm';
 import UserDeactivateDialog from '@/components/admin/UserDeactivateDialog';
 import UserReactivateDialog from '@/components/admin/UserReactivateDialog';
 import { setUserActiveStatus } from '@/lib/admin-users';
@@ -16,6 +17,7 @@ import { ArrowRight, ExternalLink, Power, PowerOff } from 'lucide-react';
 interface SupplierAccountDetailProps {
   supplier: SupplierAccount;
   onPaymentTermsUpdated?: (paymentTerms: string | null) => void;
+  onVatStatusUpdated?: (isVatRegistered: boolean) => void;
   onStatusChanged?: (active: boolean) => void;
 }
 
@@ -50,6 +52,7 @@ function toDialogUser(supplier: SupplierAccount): AdminUser {
 export default function SupplierAccountDetail({
   supplier,
   onPaymentTermsUpdated,
+  onVatStatusUpdated,
   onStatusChanged,
 }: SupplierAccountDetailProps) {
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
@@ -208,6 +211,18 @@ export default function SupplierAccountDetail({
           userId={supplier.id}
           initialPaymentTerms={supplier.payment_terms}
           onSuccess={onPaymentTermsUpdated}
+        />
+      </Card>
+
+      <Card className="bg-white rounded-lg border border-pq-neutral-200 p-6">
+        <h3 className="text-sm font-semibold text-pq-neutral-900 mb-1">VAT Registration</h3>
+        <p className="text-xs text-pq-neutral-500 mb-4">
+          Controls whether this supplier can select VAT-Inclusive / VAT-Exclusive on quotations.
+        </p>
+        <SupplierVatStatusForm
+          userId={supplier.id}
+          initialIsVatRegistered={supplier.is_vat_registered}
+          onSuccess={onVatStatusUpdated}
         />
       </Card>
     </div>

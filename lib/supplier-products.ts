@@ -2,7 +2,6 @@ import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import type { SupplierProduct } from '@/types/database';
 import { createNotification } from '@/lib/notifications';
-import { getExpirySettings, addDays } from '@/lib/system-settings';
 
 const db = supabase as any;
 
@@ -316,7 +315,9 @@ export async function markProductUnderReview(
 export async function markProductVerified(
   productId: string,
   profile:   UserProfile,
-  notes?:    string
+  notes?:    string,
+  /** Rev #3: manually entered by procurement. Optional — null/undefined means no expiry set. */
+  validUntil?: string | null
 ): Promise<void> {
   const { data: product, error: fetchErr } = await db
     .from('supplier_products')
@@ -329,9 +330,19 @@ export async function markProductVerified(
     throw new Error('This product was withdrawn by the supplier and cannot be verified.');
   }
 
+  // Rev #3: expiry is now a manual, optional field. If provided, it must be a future date.
+  let validUntilValue: string | null = null;
+  if (validUntil) {
+    const chosen = new Date(`${validUntil}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (Number.isNaN(chosen.getTime()) || chosen <= today) {
+      throw new Error('Expiry date must be a valid date in the future.');
+    }
+    validUntilValue = validUntil;
+  }
+
   const now = new Date().toISOString();
-  const settings  = await getExpirySettings();
-  const validUntil = addDays(new Date(now), settings.product_validity_days);
 
   const { error } = await db
     .from('supplier_products')
@@ -341,7 +352,7 @@ export async function markProductVerified(
       reviewed_by:  profile.id,
       reviewed_at:  now,
       review_notes: notes ?? null,
-      valid_until:  validUntil,
+      valid_until:  validUntilValue,
       updated_at:   now,
     })
     .eq('id', productId);
@@ -354,7 +365,7 @@ export async function markProductVerified(
       action:        'SUPPLIER_PRODUCT_VERIFIED',
       document_type: 'SUPPLIER_PRODUCT',
       document_id:   productId,
-      payload:       { reviewer: profile.full_name, review_notes: notes ?? null },
+      payload:       { reviewer: profile.full_name, review_notes: notes ?? null, valid_until: validUntilValue },
     });
     if (auditErr) console.warn(auditErr);
   } catch {
@@ -375,6 +386,61 @@ export async function markProductVerified(
       action_url:    null,
     });
   } catch { /* non-blocking */ }
+}
+
+// ─── Procurement: edit expiry on an already-verified product ─────────────────
+// Scoped to status = 'verified' only. Does not touch 'expired'/'inactive' —
+// those go through reopenProductForReview() -> markProductVerified() so an
+// un-expiry is a deliberate re-review, not a quiet date edit.
+
+export async function updateProductVerificationExpiry(
+  productId: string,
+  profile:   UserProfile,
+  validUntil: string | null
+): Promise<void> {
+  const { data: product, error: fetchErr } = await db
+    .from('supplier_products')
+    .select('status, valid_until')
+    .eq('id', productId)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!product) throw new Error('Product not found.');
+  if ((product as any).status !== 'verified') {
+    throw new Error('Only a verified product\'s expiry can be edited directly.');
+  }
+
+  let validUntilValue: string | null = null;
+  if (validUntil) {
+    const chosen = new Date(`${validUntil}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (Number.isNaN(chosen.getTime()) || chosen <= today) {
+      throw new Error('Expiry date must be a valid date in the future.');
+    }
+    validUntilValue = validUntil;
+  }
+
+  const now = new Date().toISOString();
+  const oldValidUntil = (product as any).valid_until ?? null;
+
+  const { error } = await db
+    .from('supplier_products')
+    .update({ valid_until: validUntilValue, updated_at: now })
+    .eq('id', productId);
+  if (error) throw error;
+
+  try {
+    const { error: auditErr } = await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'SUPPLIER_PRODUCT_EXPIRY_UPDATED',
+      document_type: 'SUPPLIER_PRODUCT',
+      document_id:   productId,
+      payload:       { updated_by: profile.full_name, old_valid_until: oldValidUntil, new_valid_until: validUntilValue },
+    });
+    if (auditErr) console.warn(auditErr);
+  } catch {
+    /* best-effort audit */
+  }
 }
 
 // ─── Procurement: reject product ─────────────────────────────────────────────

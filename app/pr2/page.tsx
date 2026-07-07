@@ -15,6 +15,7 @@ import type { PR2Request } from '@/types/pr2';
 import { PR2_STATUS_LABELS, type PR2Status } from '@/types/pr2';
 import { format } from 'date-fns';
 import { ClipboardList, ArrowRight } from 'lucide-react';
+import PriorityChip from '@/components/shared/PriorityChip';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:              'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
@@ -38,6 +39,7 @@ export default function PR2ListPage() {
   const [deptOptions, setDeptOptions] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [selectedPriority, setSelectedPriority] = useState('all');
 
   const canFilterByDept = profile?.role === 'admin' || profile?.role === 'procurement';
 
@@ -58,6 +60,7 @@ export default function PR2ListPage() {
       status: selectedStatus,
       search: appliedSearch.trim() || undefined,
       departmentId: canFilterByDept && selectedDept !== 'all' ? selectedDept : undefined,
+      priority: selectedPriority,
     })
       .then((result) => {
         setPR2s(result.pr2s);
@@ -65,7 +68,7 @@ export default function PR2ListPage() {
       })
       .catch(() => setError('Failed to load purchase requests.'))
       .finally(() => setLoading(false));
-  }, [currentPage, rowsPerPage, selectedStatus, appliedSearch, selectedDept, canFilterByDept]);
+  }, [currentPage, rowsPerPage, selectedStatus, appliedSearch, selectedDept, canFilterByDept, selectedPriority]);
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
@@ -112,6 +115,23 @@ export default function PR2ListPage() {
         ...deptOptions.map(d => ({ value: d.id, label: d.name })),
       ],
     }] : []),
+    {
+      type: 'select',
+      id: 'pr2-priority',
+      label: 'Priority',
+      placeholder: 'All priorities',
+      value: selectedPriority,
+      onChange: (value) => {
+        setSelectedPriority(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',    label: 'All Priorities' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high',   label: 'High' },
+      ],
+    },
   ];
 
   const handleApply = () => {
@@ -124,6 +144,7 @@ export default function PR2ListPage() {
     setAppliedSearch('');
     setSelectedStatus('all');
     setSelectedDept('all');
+    setSelectedPriority('all');
     setCurrentPage(1);
   };
 
@@ -145,7 +166,7 @@ export default function PR2ListPage() {
       />
 
       {loading ? (
-        <TableSkeleton rows={5} cols={5} />
+        <TableSkeleton rows={5} cols={6} />
       ) : error ? (
         <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">{error}</div>
       ) : totalCount === 0 ? (
@@ -178,6 +199,7 @@ export default function PR2ListPage() {
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Priority</th>
                     <th />
                   </tr>
                 </thead>
@@ -193,6 +215,7 @@ export default function PR2ListPage() {
                       <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[220px] truncate">{pr2.purpose}</td>
                       <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{pr2.department_name_snapshot}</td>
                       <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{format(new Date(pr2.date_required), 'MMM d, yyyy')}</td>
+                      <td className="px-5 py-3.5"><PriorityChip priority={pr2.pr1_priority ?? 'normal'} /></td>
                       <td className="px-5 py-3.5 text-right">
                         <Link href={`/pr2/${pr2.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition">
                           View <ArrowRight className="w-3.5 h-3.5" />

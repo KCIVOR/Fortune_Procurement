@@ -16,7 +16,7 @@ import type {
 } from '@/types/pr1';
 import type { WarehouseItemRoute } from '@/types/warehouse';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
-import { notifyByRole, notifyApproversForStep } from '@/lib/notifications';
+import { notifyByRole, notifyApproversForStep, createNotification } from '@/lib/notifications';
 
 const db = supabase as any;
 
@@ -446,9 +446,11 @@ export async function fetchMyPR1s(
     dateFrom?:     string;
     dateTo?:       string;
     request_type?: string;
+    /** Rev #9: 'all' | 'normal' | 'medium' | 'high'. */
+    priority?:     string;
   } = {}
 ): Promise<{ requests: PR1Request[]; total_count: number }> {
-  const { limit, offset = 0, status, search, dateFrom, dateTo, request_type } = options;
+  const { limit, offset = 0, status, search, dateFrom, dateTo, request_type, priority } = options;
 
   // The status filter targets the *derived* lifecycle label (e.g. "Completed
   // (GRN Closed)"), which is computed from downstream PO/GRN/PR2 state — not a
@@ -464,6 +466,10 @@ export async function fetchMyPR1s(
 
     if (request_type && request_type !== 'all') {
       q = q.eq('request_type', request_type);
+    }
+
+    if (priority && priority !== 'all') {
+      q = q.eq('priority', priority);
     }
 
     if (search && search.trim()) {
@@ -647,46 +653,33 @@ export async function fetchPR1ById(id: string): Promise<PR1WithItems | null> {
 export const PR1_NUMBER_DUPLICATE_ERROR =
   'This PR1 number is already in use. Please choose a different number.';
 
+/**
+ * Duplicate check via SECURITY DEFINER RPC — runs across ALL pr1 rows regardless of
+ * the caller's RLS. A direct table query here is blind to other users' PR1s (employees
+ * only see their own), which is exactly how the PR1-2026-0019 duplicate slipped through.
+ */
 export async function checkPR1NumberExists(
   pr1Number: string,
   excludeId?: string
 ): Promise<boolean> {
-  let query = db
-    .from('pr1_requests')
-    .select('id')
-    .eq('pr1_number', pr1Number.trim());
-
-  if (excludeId) {
-    query = query.neq('id', excludeId);
-  }
-
-  const { data } = await query;
-  return (data?.length ?? 0) > 0;
+  const { data, error } = await db.rpc('pr1_number_exists', {
+    p_number:     pr1Number.trim(),
+    p_exclude_id: excludeId ?? null,
+  });
+  if (error) throw error;
+  return data === true;
 }
 
-/** Next 4-digit suffix for PR1-{year}-#### (e.g. 0001). Guide only — not reserved. */
+/**
+ * Next 4-digit suffix for PR1-{year}-#### (e.g. 0001). Guide only — not reserved;
+ * the UNIQUE constraint on pr1_number is the hard guarantee. Computed via SECURITY
+ * DEFINER RPC so the sequence sees ALL rows, not just those visible under RLS.
+ */
 export async function fetchSuggestedPR1Sequence(year?: number): Promise<string> {
   const y = year ?? new Date().getFullYear();
-  const prefix = `PR1-${y}-`;
-
-  const { data, error } = await db
-    .from('pr1_requests')
-    .select('pr1_number')
-    .ilike('pr1_number', `${prefix}%`);
-
+  const { data, error } = await db.rpc('next_pr1_sequence', { p_year: y });
   if (error) throw error;
-
-  let max = 0;
-  const re = new RegExp(`^PR1-${y}-(\\d+)`, 'i');
-  for (const row of data ?? []) {
-    const num = String((row as { pr1_number?: string }).pr1_number ?? '');
-    const match = num.match(re);
-    if (!match) continue;
-    const parsed = parseInt(match[1], 10);
-    if (!Number.isNaN(parsed) && parsed > max) max = parsed;
-  }
-
-  return String(max + 1).padStart(4, '0');
+  return String(data ?? '0001');
 }
 
 export async function fetchDownstreamStage(pr1Id: string): Promise<DownstreamStage> {
@@ -763,6 +756,14 @@ export async function saveDraftPR1(
 
   let pr1Id: string;
 
+  // Race window: two users can both be told the same suggested number is free.
+  // The UNIQUE constraint on pr1_number catches the loser — surface it as the
+  // same friendly message the pre-submit check uses.
+  const asDuplicateError = (error: any) =>
+    error?.code === '23505' && String(error.message ?? '').includes('pr1_number')
+      ? new Error(PR1_NUMBER_DUPLICATE_ERROR)
+      : error;
+
   if (existingId) {
     await clearWarehouseValidationBeforeItemSync(existingId);
     const { error } = await db
@@ -770,7 +771,7 @@ export async function saveDraftPR1(
       .update(headerFields)
       .eq('id', existingId)
       .in('status', ['draft', 'revision_requested']);
-    if (error) throw error;
+    if (error) throw asDuplicateError(error);
     pr1Id = existingId;
   } else {
     const { data, error } = await db
@@ -778,7 +779,7 @@ export async function saveDraftPR1(
       .insert({ ...headerFields, status: 'draft' as const })
       .select('id')
       .single();
-    if (error) throw error;
+    if (error) throw asDuplicateError(error);
     pr1Id = data.id;
   }
 
@@ -897,39 +898,44 @@ export async function submitPR1(
 }
 
 // canUpdatePR1Priority checks if a user is authorized to update PR1 priority.
-// Only procurement and approver roles are allowed.
-export function canUpdatePR1Priority(profile: UserProfile): boolean {
-  return profile.role === 'procurement' || profile.role === 'approver';
+// Rev #9: procurement and approver roles (any position) can update any PR1;
+// employees can update priority on their OWN PR1s only, at any status.
+export function canUpdatePR1Priority(profile: UserProfile, requisitionerId?: string): boolean {
+  if (profile.role === 'procurement' || profile.role === 'approver') return true;
+  if (profile.role === 'employee' && requisitionerId) return profile.id === requisitionerId;
+  return false;
 }
 
 // updatePR1Priority updates the priority of a PR1 request.
-// Authorized users (procurement or approver) can set priority to normal, medium, or high.
+// Rev #9: requestor (own PR1), approver, and procurement can set priority to
+// normal, medium, or high at any status. Notifies the assigned buyer (or the
+// procurement role if unassigned) so in-flight work re-sorts by urgency.
 // The update includes audit logging (best-effort; audit failures do not fail the update).
 export async function updatePR1Priority(
   pr1Id: string,
   priority: 'normal' | 'medium' | 'high',
   profile: UserProfile
 ): Promise<void> {
-  // 1. Authorization check
-  if (!canUpdatePR1Priority(profile)) {
-    throw new Error(`User role '${profile.role}' is not authorized to update PR1 priority.`);
-  }
-
-  // 2. Validate priority value
+  // 1. Validate priority value
   const validPriorities = ['normal', 'medium', 'high'];
   if (!validPriorities.includes(priority)) {
     throw new Error(`Invalid priority value: '${priority}'. Must be one of: ${validPriorities.join(', ')}`);
   }
 
-  // 3. Fetch current PR1 to verify it exists and get old priority
+  // 2. Fetch current PR1 (needed for the ownership check + notification targets)
   const { data: pr1, error: fetchErr } = await db
     .from('pr1_requests')
-    .select('id, pr1_number, priority')
+    .select('id, pr1_number, priority, requisitioner_id, assigned_buyer_id')
     .eq('id', pr1Id)
     .maybeSingle();
 
   if (fetchErr) throw fetchErr;
   if (!pr1) throw new Error(`PR1 not found (id: ${pr1Id}).`);
+
+  // 3. Authorization check
+  if (!canUpdatePR1Priority(profile, pr1.requisitioner_id)) {
+    throw new Error(`User role '${profile.role}' is not authorized to update this PR1's priority.`);
+  }
 
   const oldPriority = pr1.priority;
 
@@ -965,6 +971,41 @@ export async function updatePR1Priority(
     }
   } catch (auditError) {
     console.warn('Failed to write priority audit log:', auditError);
+  }
+
+  // 6. Notify the assigned buyer (Rev #2), or procurement generally, so the
+  //    change actually reaches whoever is processing the request (best-effort).
+  if (oldPriority === priority) return;
+  try {
+    const title = 'PR1 Priority Changed';
+    const body  = `${profile.full_name} changed priority of ${pr1.pr1_number} from ${oldPriority ?? 'normal'} to ${priority}.`;
+
+    if (pr1.assigned_buyer_id && pr1.assigned_buyer_id !== profile.id) {
+      await createNotification({
+        user_id:       pr1.assigned_buyer_id,
+        title,
+        body,
+        type:          'info',
+        document_type: 'PR1',
+        document_id:   pr1Id,
+        action_url:    '/rfq',
+      });
+    } else if (!pr1.assigned_buyer_id) {
+      await notifyByRole(
+        'procurement',
+        {
+          title,
+          body,
+          type:          'info',
+          document_type: 'PR1',
+          document_id:   pr1Id,
+          action_url:    '/rfq',
+        },
+        { dedupeUnreadForDocument: true }
+      );
+    }
+  } catch {
+    // Notifications are best-effort; do not fail the priority update
   }
 }
 

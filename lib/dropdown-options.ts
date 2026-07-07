@@ -55,10 +55,11 @@ export async function createDropdownOption(
   return data as DropdownOption;
 }
 
-/** Update an existing dropdown option (label, sort_order, or is_active). */
+/** Update an existing dropdown option (value, label, sort_order, or is_active). */
 export async function updateDropdownOption(
   id: string,
   updates: {
+    option_value?: string;
     option_label?: string;
     sort_order?: number;
     is_active?: boolean;

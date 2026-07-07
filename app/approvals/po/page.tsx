@@ -80,6 +80,7 @@ export default function POApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -263,6 +264,10 @@ export default function POApprovalsPage() {
       rows = rows.filter(r => (statusValues as RowStatus[]).includes(r.instance_status));
     }
 
+    if (priorityFilter !== 'all') {
+      rows = rows.filter(r => (r.pr1_priority ?? 'normal') === priorityFilter);
+    }
+
     if (appliedSearch) {
       const term = appliedSearch.toLowerCase();
       rows = rows.filter(r =>
@@ -273,7 +278,7 @@ export default function POApprovalsPage() {
     }
 
     return rows;
-  }, [allRows, statusFilter, appliedSearch]);
+  }, [allRows, statusFilter, priorityFilter, appliedSearch]);
 
   const stats = useMemo(() => {
     const pending = allRows.filter(r => r.instance_status === 'active').length;
@@ -311,6 +316,23 @@ export default function POApprovalsPage() {
       },
       options: STATUS_OPTIONS,
     },
+    {
+      type: 'select',
+      id: 'po-priority',
+      label: 'Priority',
+      placeholder: 'All priorities',
+      value: priorityFilter,
+      onChange: (value) => {
+        setPriorityFilter(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',    label: 'All Priorities' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high',   label: 'High' },
+      ],
+    },
   ];
 
   const handleApply = () => {
@@ -322,6 +344,7 @@ export default function POApprovalsPage() {
     setSearch('');
     setAppliedSearch('');
     setStatusFilter('pending');
+    setPriorityFilter('all');
     setCurrentPage(1);
   };
 

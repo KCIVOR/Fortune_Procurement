@@ -10,9 +10,10 @@ import PaginationControls from '@/components/shared/PaginationControls';
 import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { useAuth } from '@/context/AuthContext';
-import { fetchSubstitutesForRequestor } from '@/lib/canvassing';
+import { fetchSubstituteReviewBundles } from '@/lib/canvassing';
 import type { SubstituteReviewBundle } from '@/types/canvassing';
 import { ArrowRight, Replace, CircleCheck as CheckCircle2, Circle as XCircle, Clock } from 'lucide-react';
+import PriorityChip from '@/components/shared/PriorityChip';
 
 export default function SubstitutesIndexPage() {
   const { profile } = useAuth();
@@ -23,10 +24,13 @@ export default function SubstitutesIndexPage() {
   const [search, setSearch]               = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'decided'>('all');
+  const [selectedPriority, setSelectedPriority] = useState('all');
+
+  const isProcurement = profile?.role === 'procurement';
 
   useEffect(() => {
     if (!profile) return;
-    fetchSubstitutesForRequestor(profile.id)
+    fetchSubstituteReviewBundles()
       .then(setBundles)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -42,6 +46,7 @@ export default function SubstitutesIndexPage() {
   const filteredBundles = bundles.filter(b => {
     if (selectedStatus === 'pending' && !b.substitutes.some(s => s.decision === null)) return false;
     if (selectedStatus === 'decided' && !b.substitutes.every(s => s.decision !== null)) return false;
+    if (selectedPriority !== 'all' && (b.pr1.priority ?? 'normal') !== selectedPriority) return false;
     const term = appliedSearch.trim().toLowerCase();
     if (term) {
       const matchesPr1 =
@@ -84,6 +89,23 @@ export default function SubstitutesIndexPage() {
         { value: 'decided', label: 'All decided' },
       ],
     },
+    {
+      type: 'select',
+      id: 'sub-priority',
+      label: 'Priority',
+      placeholder: 'All priorities',
+      value: selectedPriority,
+      onChange: (value) => {
+        setSelectedPriority(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',    label: 'All Priorities' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high',   label: 'High' },
+      ],
+    },
   ];
 
   const handleApply = () => {
@@ -95,6 +117,7 @@ export default function SubstitutesIndexPage() {
     setSearch('');
     setAppliedSearch('');
     setSelectedStatus('all');
+    setSelectedPriority('all');
     setCurrentPage(1);
   };
 
@@ -102,7 +125,11 @@ export default function SubstitutesIndexPage() {
     <AppShell title="Substitute Review">
       <PageHeader
         title="Substitute Item Review"
-        description="Suppliers sometimes offer alternatives to what you requested. Review and decide before procurement finalises selection."
+        description={
+          isProcurement
+            ? 'Suppliers have proposed alternatives across these PR1s. You can decide on behalf of the requestor, but they will be notified and can still change it.'
+            : 'Suppliers sometimes offer alternatives to what you requested. Review and decide before procurement finalises selection.'
+        }
       />
 
       {/* Filter bar */}
@@ -162,7 +189,11 @@ export default function SubstitutesIndexPage() {
                   <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PR1 No.</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+                    {isProcurement && (
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Requestor</th>
+                    )}
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Priority</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Substitutes</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Decision</th>
                     <th />
@@ -176,7 +207,11 @@ export default function SubstitutesIndexPage() {
                       <tr key={bundle.pr1.id} className="hover:bg-pq-neutral-50 transition">
                         <td className="px-5 py-3.5 font-mono font-bold text-pq-neutral-900 whitespace-nowrap">{bundle.pr1.pr1_number}</td>
                         <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[200px] truncate">{bundle.pr1.purpose}</td>
+                        {isProcurement && (
+                          <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{bundle.pr1.requisitioner_name_snapshot}</td>
+                        )}
                         <td className="px-5 py-3.5 text-pq-neutral-500 text-xs whitespace-nowrap">{bundle.pr1.department_name_snapshot}</td>
+                        <td className="px-5 py-3.5"><PriorityChip priority={bundle.pr1.priority ?? 'normal'} /></td>
                         <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{total} substitute{total !== 1 ? 's' : ''}</td>
                         <td className="px-5 py-3.5">
                           {pending > 0 ? (

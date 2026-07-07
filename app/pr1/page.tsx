@@ -46,6 +46,7 @@ export default function PR1ListPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedRequestType, setSelectedRequestType] = useState('all');
+  const [selectedPriority, setSelectedPriority] = useState('all');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
@@ -67,6 +68,7 @@ export default function PR1ListPage() {
       dateFrom:     appliedDateRange[0] || undefined,
       dateTo:       appliedDateRange[1] || undefined,
       request_type: selectedRequestType,
+      priority:     selectedPriority,
     })
       .then((result) => {
         setRequests(result.requests);
@@ -74,7 +76,7 @@ export default function PR1ListPage() {
       })
       .catch(() => setError('Failed to load requests.'))
       .finally(() => setLoading(false));
-  }, [profile, currentPage, rowsPerPage, router, selectedStatus, selectedRequestType, appliedSearch, appliedDateRange]);
+  }, [profile, currentPage, rowsPerPage, router, selectedStatus, selectedRequestType, selectedPriority, appliedSearch, appliedDateRange]);
 
   // Filter configuration for FilterBar
   const filters: FilterConfig[] = [
@@ -121,6 +123,23 @@ export default function PR1ListPage() {
       ],
     },
     {
+      type: 'select',
+      id: 'pr1-priority',
+      label: 'Priority',
+      placeholder: 'All priorities',
+      value: selectedPriority,
+      onChange: (value) => {
+        setSelectedPriority(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',    label: 'All Priorities' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high',   label: 'High' },
+      ],
+    },
+    {
       type: 'dateRange',
       id: 'pr1-date',
       label: 'Date Created',
@@ -140,6 +159,7 @@ export default function PR1ListPage() {
     setAppliedSearch('');
     setSelectedStatus('all');
     setSelectedRequestType('all');
+    setSelectedPriority('all');
     setDateRange(['', '']);
     setAppliedDateRange(['', '']);
     setCurrentPage(1);

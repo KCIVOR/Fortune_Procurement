@@ -2,7 +2,6 @@ import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import type { SupplierAccreditation } from '@/types/database';
 import { createNotification, type NotificationInsert } from '@/lib/notifications';
-import { getExpirySettings, addDays } from '@/lib/system-settings';
 
 const db = supabase as any;
 
@@ -365,7 +364,9 @@ export async function requestMissingDocuments(
 export async function approveAccreditation(
   accreditationId: string,
   profile:         UserProfile,
-  reviewNotes?:    string
+  reviewNotes?:    string,
+  /** Rev #3: manually entered by procurement. Optional — null/undefined means no expiry set. */
+  validUntil?:     string | null
 ): Promise<void> {
   const { data: acc, error: fetchErr } = await db
     .from('supplier_accreditations')
@@ -379,9 +380,19 @@ export async function approveAccreditation(
     throw new Error('This application was withdrawn and cannot be approved.');
   }
 
+  // Rev #3: expiry is now a manual, optional field. If provided, it must be a future date.
+  let validUntilValue: string | null = null;
+  if (validUntil) {
+    const chosen = new Date(`${validUntil}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (Number.isNaN(chosen.getTime()) || chosen <= today) {
+      throw new Error('Expiry date must be a valid date in the future.');
+    }
+    validUntilValue = validUntil;
+  }
+
   const now = new Date().toISOString();
-  const settings  = await getExpirySettings();
-  const validUntil = addDays(new Date(now), settings.accreditation_validity_days);
 
   const { error } = await db
     .from('supplier_accreditations')
@@ -391,7 +402,7 @@ export async function approveAccreditation(
       reviewed_by:  profile.id,
       reviewed_at:  now,
       review_notes: reviewNotes ?? null,
-      valid_until:  validUntil,
+      valid_until:  validUntilValue,
       updated_at:   now,
     })
     .eq('id', accreditationId);
@@ -404,7 +415,7 @@ export async function approveAccreditation(
       action:        'ACCREDITATION_APPROVED',
       document_type: 'ACCREDITATION',
       document_id:   accreditationId,
-      payload:       { reviewer: profile.full_name, review_notes: reviewNotes ?? null },
+      payload:       { reviewer: profile.full_name, review_notes: reviewNotes ?? null, valid_until: validUntilValue },
     });
     if (auditErr) console.warn(auditErr);
   } catch {
@@ -425,6 +436,61 @@ export async function approveAccreditation(
       action_url:    null,
     });
   } catch { /* non-blocking */ }
+}
+
+// ─── Procurement: edit expiry on an already-approved accreditation ───────────
+// Scoped to status = 'approved' only. Does not touch 'expired' records — those
+// go through reopenAccreditationForReview() -> approveAccreditation() so an
+// un-expiry is a deliberate re-review, not a quiet date edit.
+
+export async function updateAccreditationExpiry(
+  accreditationId: string,
+  profile:         UserProfile,
+  validUntil:      string | null
+): Promise<void> {
+  const { data: acc, error: fetchErr } = await db
+    .from('supplier_accreditations')
+    .select('status, valid_until')
+    .eq('id', accreditationId)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!acc) throw new Error('Accreditation not found.');
+  if ((acc as any).status !== 'approved') {
+    throw new Error('Only an approved accreditation\'s expiry can be edited directly.');
+  }
+
+  let validUntilValue: string | null = null;
+  if (validUntil) {
+    const chosen = new Date(`${validUntil}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (Number.isNaN(chosen.getTime()) || chosen <= today) {
+      throw new Error('Expiry date must be a valid date in the future.');
+    }
+    validUntilValue = validUntil;
+  }
+
+  const now = new Date().toISOString();
+  const oldValidUntil = (acc as any).valid_until ?? null;
+
+  const { error } = await db
+    .from('supplier_accreditations')
+    .update({ valid_until: validUntilValue, updated_at: now })
+    .eq('id', accreditationId);
+  if (error) throw error;
+
+  try {
+    const { error: auditErr } = await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'ACCREDITATION_EXPIRY_UPDATED',
+      document_type: 'ACCREDITATION',
+      document_id:   accreditationId,
+      payload:       { updated_by: profile.full_name, old_valid_until: oldValidUntil, new_valid_until: validUntilValue },
+    });
+    if (auditErr) console.warn(auditErr);
+  } catch {
+    /* best-effort audit */
+  }
 }
 
 // ─── Procurement: reject accreditation ───────────────────────────────────────

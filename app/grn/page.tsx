@@ -16,6 +16,7 @@ import { GRN_STATUS_LABELS } from '@/types/grn';
 import { format } from 'date-fns';
 import { PackageCheck, Clock, CircleCheck as CheckCircle2, ExternalLink } from 'lucide-react';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
+import PriorityChip from '@/components/shared/PriorityChip';
 
 const STATUS_STYLES: Record<GRNStatus, string> = {
   open:   'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
@@ -39,6 +40,7 @@ export default function GRNListPage() {
   const [tabCounts, setTabCounts] = useState<Record<GRNListTab, number> | null>(null);
   const [search, setSearch]               = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [selectedPriority, setSelectedPriority] = useState('all');
 
   useEffect(() => {
     if (!profile) return;
@@ -59,6 +61,7 @@ export default function GRNListPage() {
       limit: rowsPerPage,
       offset,
       search: appliedSearch.trim() || undefined,
+      priority: selectedPriority,
     })
       .then((page) => {
         setGRNs(page.grns);
@@ -66,7 +69,7 @@ export default function GRNListPage() {
       })
       .catch(() => setError('Failed to load GRNs.'))
       .finally(() => setLoading(false));
-  }, [profile, filter, currentPage, rowsPerPage, appliedSearch]);
+  }, [profile, filter, currentPage, rowsPerPage, appliedSearch, selectedPriority]);
 
   const counts = tabCounts ?? { all: 0, open: 0, closed: 0 };
   const totalPages = Math.ceil(totalCount / rowsPerPage);
@@ -86,6 +89,23 @@ export default function GRNListPage() {
       value: search,
       onChange: (value) => setSearch(value as string),
     },
+    {
+      type: 'select',
+      id: 'grn-priority',
+      label: 'Priority',
+      placeholder: 'All priorities',
+      value: selectedPriority,
+      onChange: (value) => {
+        setSelectedPriority(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',    label: 'All Priorities' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high',   label: 'High' },
+      ],
+    },
   ];
 
   const handleTabChange = (value: string) => {
@@ -102,6 +122,7 @@ export default function GRNListPage() {
     setSearch('');
     setAppliedSearch('');
     setFilter('all');
+    setSelectedPriority('all');
     setCurrentPage(1);
   };
 
@@ -171,6 +192,7 @@ export default function GRNListPage() {
                     <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Warehouse</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Date</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Received By</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Priority</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Status</th>
                     <th className="px-5 py-3" />
                   </tr>
@@ -194,6 +216,7 @@ export default function GRNListPage() {
                         <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">
                           {g.received_by_name_snapshot || '—'}
                         </td>
+                        <td className="px-5 py-3.5"><PriorityChip priority={g.priority ?? 'normal'} /></td>
                         <td className="px-5 py-3.5">
                           <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-0.5 ${STATUS_STYLES[g.status]}`}>
                             <Icon className="w-3 h-3" />

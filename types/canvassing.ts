@@ -49,6 +49,8 @@ export interface SubstituteReviewItem {
   decision:              SubstituteDecision | null;
   decided_at:            string | null;
   decision_notes:        string | null;
+  /** Role of whoever recorded `decision` — 'employee' (requestor) or 'procurement'. Null if undecided. */
+  decided_by_role:       string | null;
   /** Supplier-uploaded attachments for this substitute quote line. */
   attachments:           RfqQuoteAttachment[];
   rfq_status:            RfqBatchStatus;
@@ -63,6 +65,9 @@ export interface SubstituteReviewBundle {
     purpose:                     string;
     department_name_snapshot:    string;
     requisitioner_id:            string;
+    requisitioner_name_snapshot: string;
+    /** Rev #9: PR1 priority, selected directly (pr1_requests is the source of truth). */
+    priority?:                   string;
   };
   substitutes: SubstituteReviewItem[];
 }
@@ -97,6 +102,8 @@ export interface RfqSupplier {
   invited_at:             string;
   responded_at:           string | null;
   created_at:             string;
+  /** Rev #1 (VAT): resolved from the linked supplier profile at read time; false for external vendors. */
+  is_vat_registered?:     boolean;
 }
 
 export type RfqQuoteResponseStatus = 'quoted' | 'no_quote';
@@ -120,6 +127,8 @@ export interface RfqItemQuote {
   no_quote_reason?:    string | null;
   /** Supplier-uploaded attachments for this quote line. Loaded at read time. */
   attachments?:         RfqQuoteAttachment[];
+  /** Rev #1: set by the supplier per line; only meaningful when they're VAT-registered. */
+  vat_type?:            'vat_inclusive' | 'vat_exclusive' | null;
 }
 
 export interface SupplierItemSelection {
@@ -148,6 +157,8 @@ export interface CanvassingQueueRow {
   rfq_number:                  string | null;
   rfq_status:                  RfqBatchStatus | null;
   request_type:                'goods' | 'services';
+  assigned_buyer_id:            string | null;
+  assigned_buyer_name_snapshot: string | null;
 }
 
 /** Phase 7: catalog product summary keyed by supplier_product_id. */
@@ -211,6 +222,8 @@ export interface RfqDetailView {
   allSuppliers: CanvassSupplierCandidate[];
   /** Phase 7: map of supplier_product_id → product summary for all linked products. */
   productLookup: Record<string, CatalogProductSummary>;
+  /** Rev #1 (VAT): system VAT rate at read time, used to compute per-quote totals in the matrix. */
+  vatRate: number;
 }
 
 // Per-item quotation row used in comparison matrix
@@ -262,6 +275,8 @@ export interface QuoteMatrixRow {
     no_quote_reason:        string | null;
     /** Supplier-uploaded attachments for this quote cell. */
     attachments:            RfqQuoteAttachment[];
+    /** Rev #1: set by the supplier per line; only meaningful when they're VAT-registered. */
+    vat_type?:               'vat_inclusive' | 'vat_exclusive' | null;
   }[];
   selected_rfq_supplier_id: string | null;
 }

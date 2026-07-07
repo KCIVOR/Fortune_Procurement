@@ -18,12 +18,16 @@ import {
 import type { PR2ApprovalDetail, ApprovalAction, WorkflowStep, ApprovalActionRecord } from '@/types/approvals';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
+import PrioritySelector from '@/components/shared/PrioritySelector';
+import { canUpdatePR1Priority, updatePR1Priority } from '@/lib/pr1';
+import { calcPR2VatBreakdown } from '@/lib/pr2';
 import DocumentStatusChip from '@/components/shared/DocumentStatusChip';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import ActionPill from '@/components/shared/ActionPill';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
+import DetailPrintButton from '@/components/shared/DetailPrintButton';
 import DetailCard from '@/components/shared/DetailCard';
 import DetailCardHeader from '@/components/shared/DetailCardHeader';
 import DetailInfoGrid from '@/components/shared/DetailInfoGrid';
@@ -58,6 +62,8 @@ export default function PR2ApprovalDetailPage() {
   const [submitError, setSubmitError] = useState('');
   const [pendingAction, setPendingAction] = useState<ApprovalAction | null>(null);
   const [quotesMap, setQuotesMap]   = useState<Record<string, Array<{ supplier: string; unit_price: number; lead_time: number; is_external: boolean }>>>({});
+  const [priorityUpdating, setPriorityUpdating] = useState(false);
+  const [priorityError, setPriorityError]       = useState('');
 
   useEffect(() => {
     if (!instanceId) return;
@@ -175,14 +181,27 @@ export default function PR2ApprovalDetailPage() {
     </AppShell>
   );
 
+  const canUpdatePriority = profile && canUpdatePR1Priority(profile);
+  const handlePriorityChange = async (newPriority: 'normal' | 'medium' | 'high') => {
+    if (!detail.pr1_id || !profile || newPriority === detail.pr1_priority) return;
+    setPriorityUpdating(true);
+    setPriorityError('');
+    try {
+      await updatePR1Priority(detail.pr1_id, newPriority, profile);
+      setDetail({ ...detail, pr1_priority: newPriority });
+    } catch (err) {
+      setPriorityError(err instanceof Error ? err.message : 'Failed to update priority.');
+    } finally {
+      setPriorityUpdating(false);
+    }
+  };
+
   const isFullyClosed = detail.active_instance_status !== 'active' || !detail.active_instance_id;
   const isClosed = isFullyClosed || detail.active_instance_id !== instanceId;
 
   const canViewPrice = canViewCommercialPricing(profile);
   const canViewCanvass = canViewCanvassPricing(profile);
-  const grandTotal = canViewPrice
-    ? detail.items.reduce((sum, i) => sum + i.unit_price * i.quantity_to_purchase, 0)
-    : null;
+  const vatBreakdown = canViewPrice ? calcPR2VatBreakdown(detail.items) : null;
 
   return (
     <AppShell title="PR2 Approval">
@@ -196,9 +215,20 @@ export default function PR2ApprovalDetailPage() {
             <DetailTitleRow wrap>
               <h1 className="text-xl font-bold text-pq-neutral-900 font-mono">{detail.pr2_number}</h1>
               <DocumentStatusChip docType="PR2" status={detail.pr2_status} />
-              <PriorityChip priority={detail.pr1_priority} />
+              {canUpdatePriority ? (
+                <PrioritySelector
+                  value={detail.pr1_priority ?? 'normal'}
+                  onChange={handlePriorityChange}
+                  isUpdating={priorityUpdating}
+                />
+              ) : (
+                <PriorityChip priority={detail.pr1_priority} />
+              )}
               <RequestTypeBadge type={detail.request_type ?? 'goods'} />
             </DetailTitleRow>
+            {priorityError && (
+              <p className="text-xs text-pq-danger-600 mt-1">{priorityError}</p>
+            )}
             <p className="text-sm text-pq-neutral-500 mt-1">
               {detail.department_name_snapshot} · {detail.purpose}
             </p>
@@ -209,7 +239,12 @@ export default function PR2ApprovalDetailPage() {
           </div>
         }
         right={
-          <>
+          <div className="flex items-center gap-2">
+            <DetailPrintButton
+              href={`/pr2/${detail.pr2_id}/print`}
+              label="Print"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-white border border-pq-neutral-200 hover:border-pq-neutral-300 text-pq-neutral-700 text-sm font-medium rounded-md transition"
+            />
             {canAct ? (
               <div className="inline-flex items-center gap-2 bg-pq-warning-100 border border-pq-warning-100 text-pq-warning-600 text-xs font-semibold px-3 py-2 rounded-md">
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -221,7 +256,7 @@ export default function PR2ApprovalDetailPage() {
                 Awaiting Step {detail.active_current_step}: {activeStepDef?.position_required}
               </div>
             ) : null}
-          </>
+          </div>
         }
       />
 
@@ -287,10 +322,18 @@ export default function PR2ApprovalDetailPage() {
               <Package className="w-3.5 h-3.5 text-pq-neutral-400" />
               <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Items ({detail.items.length})</h2>
             </div>
-            {canViewPrice && (
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-pq-neutral-900">
-                <DollarSign className="w-3.5 h-3.5 text-pq-neutral-400" />
-                Grand Total: {formatCommercialAmount(grandTotal ?? 0, true)}
+            {canViewPrice && vatBreakdown && (
+              <div className="flex items-center gap-3 text-xs font-semibold text-pq-neutral-900">
+                {vatBreakdown.vatAmount > 0 && (
+                  <>
+                    <span className="text-pq-neutral-500 font-normal">Subtotal: {formatCommercialAmount(vatBreakdown.subtotal, true)}</span>
+                    <span className="text-pq-neutral-500 font-normal">VAT: {formatCommercialAmount(vatBreakdown.vatAmount, true)}</span>
+                  </>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5 text-pq-neutral-400" />
+                  Total: {formatCommercialAmount(vatBreakdown.total, true)}
+                </div>
               </div>
             )}
           </div>
@@ -394,7 +437,7 @@ export default function PR2ApprovalDetailPage() {
                         {canViewPrice ? (
                           <>
                             <td className="px-4 py-3 text-right text-xs text-pq-neutral-500">{formatCommercialAmount(item.unit_price, true)}</td>
-                            <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">{formatCommercialAmount(item.unit_price * item.quantity_to_purchase, true)}</td>
+                            <td className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">{formatCommercialAmount(item.total_price, true)}</td>
                           </>
                         ) : (
                           <td className="px-4 py-3 text-center text-xs text-pq-neutral-400">{PRICE_HIDDEN_LABEL}</td>
@@ -436,13 +479,27 @@ export default function PR2ApprovalDetailPage() {
                 })}
               </tbody>
               <tfoot>
-                {canViewPrice ? (
-                  <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                    <td colSpan={11} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
-                    <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
-                      {formatCommercialAmount(grandTotal ?? 0, true)}
-                    </td>
-                  </tr>
+                {canViewPrice && vatBreakdown ? (
+                  <>
+                    {vatBreakdown.vatAmount > 0 && (
+                      <>
+                        <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
+                          <td colSpan={11} className="px-4 py-3 text-right text-xs text-pq-neutral-500">Subtotal</td>
+                          <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">{formatCommercialAmount(vatBreakdown.subtotal, true)}</td>
+                        </tr>
+                        <tr className="bg-pq-neutral-50">
+                          <td colSpan={11} className="px-4 py-3 text-right text-xs text-pq-neutral-500">VAT</td>
+                          <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">{formatCommercialAmount(vatBreakdown.vatAmount, true)}</td>
+                        </tr>
+                      </>
+                    )}
+                    <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
+                      <td colSpan={11} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
+                      <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
+                        {formatCommercialAmount(vatBreakdown.total, true)}
+                      </td>
+                    </tr>
+                  </>
                 ) : (
                   <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
                     <td colSpan={11} className="px-4 py-3 text-center text-xs text-pq-neutral-400">Pricing hidden</td>

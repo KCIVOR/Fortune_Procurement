@@ -23,6 +23,18 @@ function isDirectorLogisticsPath(pathname: string): boolean {
   );
 }
 
+/**
+ * Read-only print routes for documents an approver already reviews in full on
+ * their approval detail page (/approvals/po/[id], /approvals/pr2/[id]). These
+ * don't grant the broader Director-only logistics-module bypass — they only
+ * let any approver print a document they can already see, regardless of
+ * position (so e.g. Finance Director can print the PO they just approved).
+ */
+function isApproverPrintPath(pathname: string): boolean {
+  const path = normalizePathname(pathname);
+  return /^\/(po|pr2)\/[^/]+\/print$/.test(path);
+}
+
 /** All application roles — any authenticated user on open routes. */
 export const ALL_APP_ROLES: readonly AppRole[] = [
   'employee',
@@ -88,7 +100,7 @@ export const ROUTE_ACCESS_RULES: readonly RouteAccessRule[] = [
   },
   { prefix: '/suppliers', decision: { kind: 'roles', roles: ['procurement', 'admin'] } },
   { prefix: '/tsqa', decision: { kind: 'roles', roles: ['tsqa', 'admin'] } },
-  { prefix: '/substitutes', decision: { kind: 'roles', roles: ['employee'] } },
+  { prefix: '/substitutes', decision: { kind: 'roles', roles: ['employee', 'procurement'] } },
   {
     prefix: '/delivery',
     decision: { kind: 'roles', roles: ['employee', 'warehouse', 'procurement'] },
@@ -167,6 +179,9 @@ export function isRoleAllowedForPath(
       if (role === 'admin' && decision.adminBypass !== false) return true;
       if (decision.roles?.includes(role)) return true;
       if (isDirectorApprover(role, position) && isDirectorLogisticsPath(pathname)) {
+        return true;
+      }
+      if (role === 'approver' && isApproverPrintPath(pathname)) {
         return true;
       }
       return false;

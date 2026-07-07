@@ -20,6 +20,7 @@ import {
   ShoppingCart, Plus, FileText, CalendarDays, Clock, CircleCheck as CheckCircle2,
   RotateCcw,
 } from 'lucide-react';
+import PriorityChip from '@/components/shared/PriorityChip';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:        'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
@@ -58,6 +59,7 @@ export default function POListPage() {
     for_approval: 0,
     approved: 0,
   });
+  const [selectedPriority, setSelectedPriority] = useState('all');
   const [revisionIds, setRevisionIds] = useState<string[]>([]);
   const revisionIdSet = useMemo(() => new Set(revisionIds), [revisionIds]);
 
@@ -87,6 +89,7 @@ export default function POListPage() {
       status: !isRevisionFilter && selectedStatus !== 'all' ? selectedStatus : undefined,
       ids: isRevisionFilter ? revisionIds : undefined,
       departmentId: canFilterByDept && selectedDept !== 'all' ? selectedDept : undefined,
+      priority: selectedPriority,
       limit: rowsPerPage,
       offset,
     })
@@ -96,7 +99,7 @@ export default function POListPage() {
       })
       .catch(() => setError('Failed to load purchase orders.'))
       .finally(() => setLoading(false));
-  }, [currentPage, appliedSearch, selectedStatus, selectedDept, canFilterByDept, revisionIds]);
+  }, [currentPage, appliedSearch, selectedStatus, selectedDept, canFilterByDept, revisionIds, selectedPriority]);
 
   // Allow PO creation for procurement role users OR users with Buyer position (regardless of role)
   const canCreatePO = profile?.role === 'procurement' || profile?.position === 'Buyer';
@@ -161,6 +164,23 @@ export default function POListPage() {
         ...deptOptions.map(d => ({ value: d.id, label: d.name })),
       ],
     }] : []),
+    {
+      type: 'select',
+      id: 'po-priority',
+      label: 'Priority',
+      placeholder: 'All priorities',
+      value: selectedPriority,
+      onChange: (value) => {
+        setSelectedPriority(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',    label: 'All Priorities' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high',   label: 'High' },
+      ],
+    },
   ];
 
   const handleApply = () => {
@@ -173,6 +193,7 @@ export default function POListPage() {
     setAppliedSearch('');
     setSelectedStatus('all');
     setSelectedDept('all');
+    setSelectedPriority('all');
     setCurrentPage(1);
   };
 
@@ -282,6 +303,7 @@ export default function POListPage() {
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PR2 Ref.</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Priority</th>
                     <th />
                   </tr>
                 </thead>
@@ -307,6 +329,7 @@ export default function POListPage() {
                       <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{po.department_name_snapshot}</td>
                       <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{format(new Date(po.date_required), 'MMM d, yyyy')}</td>
                       <td className="px-5 py-3.5 font-mono text-xs text-pq-neutral-400 whitespace-nowrap">{po.pr2_number_snapshot}</td>
+                      <td className="px-5 py-3.5"><PriorityChip priority={po.pr1_priority ?? 'normal'} /></td>
                       <td className="px-5 py-3.5 text-right">
                         <Link href={`/po/${po.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition">
                           View <FileText className="w-3.5 h-3.5" />

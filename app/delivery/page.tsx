@@ -27,6 +27,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
+import PriorityChip from '@/components/shared/PriorityChip';
 
 const STATUS_STYLES: Record<DeliveryStatus, string> = {
   pending:    'bg-pq-neutral-100 text-pq-neutral-600 border-pq-neutral-200',
@@ -62,6 +63,7 @@ export default function DeliveryQueuePage() {
   const [tabCounts, setTabCounts] = useState<Record<DeliveryListTab, number> | null>(null);
   const [search, setSearch]               = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [selectedPriority, setSelectedPriority] = useState('all');
 
   const isEmployee = profile?.role === 'employee';
 
@@ -93,6 +95,7 @@ export default function DeliveryQueuePage() {
       limit: rowsPerPage,
       offset,
       search: appliedSearch.trim() || undefined,
+      priority: selectedPriority,
     })
       .then((page) => {
         setDeliveries(page.deliveries);
@@ -100,7 +103,7 @@ export default function DeliveryQueuePage() {
       })
       .catch(() => setError('Failed to load deliveries.'))
       .finally(() => setLoading(false));
-  }, [profile, isEmployee, filter, currentPage, rowsPerPage, appliedSearch]);
+  }, [profile, isEmployee, filter, currentPage, rowsPerPage, appliedSearch, selectedPriority]);
 
   const counts = tabCounts ?? EMPTY_TAB_COUNTS;
   const totalPages = Math.ceil(totalCount / rowsPerPage);
@@ -124,6 +127,23 @@ export default function DeliveryQueuePage() {
       value: search,
       onChange: (value) => setSearch(value as string),
     },
+    {
+      type: 'select',
+      id: 'delivery-priority',
+      label: 'Priority',
+      placeholder: 'All priorities',
+      value: selectedPriority,
+      onChange: (value) => {
+        setSelectedPriority(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',    label: 'All Priorities' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high',   label: 'High' },
+      ],
+    },
   ];
 
   const handleTabChange = (value: string) => {
@@ -140,6 +160,7 @@ export default function DeliveryQueuePage() {
     setSearch('');
     setAppliedSearch('');
     setFilter('all');
+    setSelectedPriority('all');
     setCurrentPage(1);
   };
 
@@ -212,6 +233,7 @@ export default function DeliveryQueuePage() {
                     <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Department</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Purpose</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Delivery Date</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Priority</th>
                     {canViewPrices && (
                       <th className="text-right px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">Amount</th>
                     )}
@@ -240,6 +262,7 @@ export default function DeliveryQueuePage() {
                         <td className="px-5 py-3.5 text-pq-neutral-500">{d.department_name_snapshot}</td>
                         <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[160px] truncate">{d.purpose}</td>
                         <td className="px-5 py-3.5 text-pq-neutral-500 text-xs">{dateLabel}</td>
+                        <td className="px-5 py-3.5"><PriorityChip priority={d.priority ?? 'normal'} /></td>
                         {canViewPrices && (
                           <td className="px-5 py-3.5 text-right font-mono text-xs font-semibold text-pq-neutral-900">
                             {formatCommercialAmount(d.grand_total, true)}

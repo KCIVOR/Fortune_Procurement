@@ -130,7 +130,7 @@ export default function PR1DetailPage() {
   const canEdit =
     isOwner && (pr1.status === 'draft' || pr1.status === 'revision_requested');
   const canDeleteDraft = isOwner && pr1.status === 'draft';
-  const canUpdatePriority = pr1 && profile && canUpdatePR1Priority(profile);
+  const canUpdatePriority = pr1 && profile && canUpdatePR1Priority(profile, pr1.requisitioner_id);
 
   const handlePriorityChange = async (newPriority: 'normal' | 'medium' | 'high') => {
     if (!pr1 || !profile || newPriority === pr1.priority) return;
@@ -806,13 +806,13 @@ function PrioritySelector({
         </SelectItem>
         <SelectItem value="medium">
           <div className="inline-flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-pq-warning-50" />
+            <div className="w-2 h-2 rounded-full bg-yellow-500" />
             Medium
           </div>
         </SelectItem>
         <SelectItem value="high">
           <div className="inline-flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-pq-danger-50" />
+            <div className="w-2 h-2 rounded-full bg-red-500" />
             High
           </div>
         </SelectItem>

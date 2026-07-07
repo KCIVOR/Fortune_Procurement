@@ -9,7 +9,8 @@ import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
 import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
-import { fetchCanvassingQueuePaged, fetchCanvassingQueueCounts, createRfq } from '@/lib/canvassing';
+import { fetchCanvassingQueuePaged, fetchCanvassingQueueCounts, createRfq, listProcurementUsers, assignPr1ToBuyer, unassignPr1FromBuyer } from '@/lib/canvassing';
+import type { ProcurementUserOption } from '@/lib/canvassing';
 import { fetchDepartmentOptions } from '@/lib/pr2';
 import { useAuth } from '@/context/AuthContext';
 import type { CanvassingQueueRow } from '@/types/canvassing';
@@ -53,6 +54,15 @@ export default function RFQQueuePage() {
 
   const canFilterByDept = profile?.role === 'admin' || profile?.role === 'procurement';
 
+  const [assignedFilter, setAssignedFilter] = useState<'all' | 'mine' | 'unassigned'>('all');
+  const [buyerOptions, setBuyerOptions] = useState<ProcurementUserOption[]>([]);
+  const [selectedPriority, setSelectedPriority] = useState('all');
+
+  const [assigning, setAssigning]             = useState<CanvassingQueueRow | null>(null);
+  const [selectedBuyerId, setSelectedBuyerId] = useState('');
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
+  const [assignError, setAssignError]         = useState('');
+
   const [creating, setCreating]       = useState(false);
   const [selectedPr1, setSelectedPr1] = useState<CanvassingQueueRow | null>(null);
   const [deadline, setDeadline]       = useState('');
@@ -66,6 +76,10 @@ export default function RFQQueuePage() {
       .then(setDeptOptions)
       .catch(() => {});
   }, [canFilterByDept]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    listProcurementUsers().then(setBuyerOptions).catch(() => {});
+  }, []);
 
   const loadCounts = () => {
     fetchCanvassingQueueCounts()
@@ -93,6 +107,9 @@ export default function RFQQueuePage() {
       search: appliedSearch.trim() || undefined,
       departmentId: canFilterByDept && selectedDept !== 'all' ? selectedDept : undefined,
       view,
+      assignedFilter,
+      viewerId: profile?.id,
+      priorityFilter: selectedPriority,
     })
       .then(result => {
         setRows(result.rows);
@@ -102,7 +119,7 @@ export default function RFQQueuePage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [currentPage, appliedSearch, selectedDept, canFilterByDept, view]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [currentPage, appliedSearch, selectedDept, canFilterByDept, view, assignedFilter, profile?.id, selectedPriority]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
@@ -118,6 +135,42 @@ export default function RFQQueuePage() {
     setNotes('');
     setCreateError('');
     setCreating(true);
+  };
+
+  const handleOpenAssign = (row: CanvassingQueueRow) => {
+    setAssigning(row);
+    setSelectedBuyerId(row.assigned_buyer_id ?? '');
+    setAssignError('');
+  };
+
+  const handleAssign = async () => {
+    if (!assigning || !profile || !selectedBuyerId) return;
+    setAssignSubmitting(true);
+    setAssignError('');
+    try {
+      await assignPr1ToBuyer(assigning.pr1_id, selectedBuyerId, profile);
+      setAssigning(null);
+      load();
+    } catch (e: any) {
+      setAssignError(e.message ?? 'Failed to assign PR1.');
+    } finally {
+      setAssignSubmitting(false);
+    }
+  };
+
+  const handleUnassign = async () => {
+    if (!assigning || !profile) return;
+    setAssignSubmitting(true);
+    setAssignError('');
+    try {
+      await unassignPr1FromBuyer(assigning.pr1_id, profile);
+      setAssigning(null);
+      load();
+    } catch (e: any) {
+      setAssignError(e.message ?? 'Failed to remove assignment.');
+    } finally {
+      setAssignSubmitting(false);
+    }
   };
 
   const handleCreate = async () => {
@@ -147,6 +200,22 @@ export default function RFQQueuePage() {
       value: search,
       onChange: (value) => setSearch(value as string),
     },
+    {
+      type: 'select',
+      id: 'rfq-assigned',
+      label: 'Assigned',
+      placeholder: 'All',
+      value: assignedFilter,
+      onChange: (value) => {
+        setAssignedFilter(value as 'all' | 'mine' | 'unassigned');
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all', label: 'All' },
+        { value: 'mine', label: 'Assigned to Me' },
+        { value: 'unassigned', label: 'Unassigned' },
+      ],
+    },
     ...(canFilterByDept ? [{
       type: 'select' as const,
       id: 'rfq-dept',
@@ -162,6 +231,23 @@ export default function RFQQueuePage() {
         ...deptOptions.map(d => ({ value: d.id, label: d.name })),
       ],
     }] : []),
+    {
+      type: 'select',
+      id: 'rfq-priority',
+      label: 'Priority',
+      placeholder: 'All priorities',
+      value: selectedPriority,
+      onChange: (value) => {
+        setSelectedPriority(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',    label: 'All Priorities' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high',   label: 'High' },
+      ],
+    },
   ];
 
   const handleApply = () => {
@@ -173,6 +259,8 @@ export default function RFQQueuePage() {
     setSearch('');
     setAppliedSearch('');
     setSelectedDept('all');
+    setAssignedFilter('all');
+    setSelectedPriority('all');
     setCurrentPage(1);
   };
 
@@ -237,7 +325,7 @@ export default function RFQQueuePage() {
           </div>
 
           {loading ? (
-            <TableSkeleton rows={5} cols={6} />
+            <TableSkeleton rows={5} cols={9} />
           ) : rows.length === 0 ? (
             <div className="bg-white rounded-md border border-pq-neutral-200">
               <EmptyState
@@ -265,17 +353,20 @@ export default function RFQQueuePage() {
                   <thead>
                     <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
                       <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PR1 No.</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Type</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Priority</th>
                       <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ No.</th>
                       <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
                       <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
                       <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
                       <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ Status</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Assigned To</th>
                       <th />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-pq-neutral-200">
                     {rows.map(row => (
-                      <QueueRow key={row.pr1_id} row={row} onCreateRfq={handleOpenCreate} />
+                      <QueueRow key={row.pr1_id} row={row} onCreateRfq={handleOpenCreate} onAssign={handleOpenAssign} />
                     ))}
                   </tbody>
                 </table>
@@ -357,6 +448,67 @@ export default function RFQQueuePage() {
           </div>
         </div>
       )}
+
+      {assigning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-md w-full max-w-md mx-4 overflow-hidden">
+            <div className="px-6 py-5 border-b border-pq-neutral-200">
+              <h2 className="text-base font-semibold text-pq-neutral-900">Assign Buyer</h2>
+              <p className="text-xs text-pq-neutral-500 mt-0.5">
+                For PR1 <span className="font-mono font-semibold">{assigning.pr1_number}</span>
+                {' '}— {assigning.purpose}
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                  Procurement Staff
+                </label>
+                <select
+                  value={selectedBuyerId}
+                  onChange={e => setSelectedBuyerId(e.target.value)}
+                  className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
+                >
+                  <option value="">Select a staff member...</option>
+                  {buyerOptions.map(b => (
+                    <option key={b.id} value={b.id}>{b.full_name}</option>
+                  ))}
+                </select>
+              </div>
+              {assignError && (
+                <p className="text-sm text-pq-danger-600">{assignError}</p>
+              )}
+            </div>
+            <div className="px-6 pb-5 flex items-center justify-between gap-3">
+              {assigning.assigned_buyer_id ? (
+                <button
+                  onClick={handleUnassign}
+                  disabled={assignSubmitting}
+                  className="px-4 py-2 text-sm text-pq-danger-600 hover:text-pq-danger-700 transition disabled:opacity-50"
+                >
+                  Remove Assignment
+                </button>
+              ) : <span />}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setAssigning(null)}
+                  disabled={assignSubmitting}
+                  className="px-4 py-2 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAssign}
+                  disabled={assignSubmitting || !selectedBuyerId}
+                  className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
+                >
+                  {assignSubmitting ? 'Assigning...' : 'Assign'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
@@ -364,18 +516,22 @@ export default function RFQQueuePage() {
 function QueueRow({
   row,
   onCreateRfq,
+  onAssign,
 }: {
   row: CanvassingQueueRow;
   onCreateRfq: (row: CanvassingQueueRow) => void;
+  onAssign: (row: CanvassingQueueRow) => void;
 }) {
   return (
     <tr className="hover:bg-pq-neutral-50 transition">
       <td className="px-5 py-3.5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-xs font-bold text-pq-neutral-900">{row.pr1_number}</span>
-          <PriorityChip priority={row.priority || 'normal'} />
-          <RequestTypeBadge type={row.request_type ?? 'goods'} />
-        </div>
+        <span className="font-mono text-xs font-bold text-pq-neutral-900">{row.pr1_number}</span>
+      </td>
+      <td className="px-5 py-3.5">
+        <RequestTypeBadge type={row.request_type ?? 'goods'} />
+      </td>
+      <td className="px-5 py-3.5">
+        <PriorityChip priority={row.priority || 'normal'} />
       </td>
       <td className="px-5 py-3.5 font-mono text-xs font-semibold text-pq-primary-600 whitespace-nowrap">
         {row.rfq_number ?? '—'}
@@ -389,6 +545,18 @@ function QueueRow({
             {RFQ_STATUS_LABEL[row.rfq_status] ?? row.rfq_status}
           </span>
         )}
+      </td>
+      <td className="px-5 py-3.5">
+        <button
+          onClick={() => onAssign(row)}
+          className={`inline-flex items-center text-xs font-medium border rounded-full px-2.5 py-0.5 transition ${
+            row.assigned_buyer_name_snapshot
+              ? 'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-100 hover:border-pq-primary-600'
+              : 'bg-pq-neutral-50 text-pq-neutral-400 border-pq-neutral-200 hover:border-pq-primary-600 hover:text-pq-neutral-900'
+          }`}
+        >
+          {row.assigned_buyer_name_snapshot ?? 'Unassigned'}
+        </button>
       </td>
       <td className="px-5 py-3.5 text-right">
         {!row.rfq_id ? (

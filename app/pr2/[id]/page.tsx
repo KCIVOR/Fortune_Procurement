@@ -8,7 +8,8 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPR2ById, savePR2Items, calcPR2GrandTotal, updatePR2ItemRawMaterial } from '@/lib/pr2';
+import { fetchPR2ById, savePR2Items, calcPR2VatBreakdown, updatePR2ItemRawMaterial } from '@/lib/pr2';
+import { computeLineVat } from '@/lib/vat';
 import { submitPR2ForApproval, canActOnPR2Step, fetchPR2ApprovalDetail } from '@/lib/pr2-approvals';
 import { fetchPOsByPR2Id } from '@/lib/po';
 import { supabase } from '@/lib/supabase';
@@ -31,6 +32,9 @@ import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
+import PriorityChip from '@/components/shared/PriorityChip';
+import PrioritySelector from '@/components/shared/PrioritySelector';
+import { canUpdatePR1Priority, updatePR1Priority } from '@/lib/pr1';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:              'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
@@ -57,6 +61,8 @@ interface EditableItem {
   unit_price:       number;
   lead_time_days:   number;
   total_price:      number;
+  vat_type?:        'vat_inclusive' | 'vat_exclusive' | null;
+  vat_rate_applied?: number | null;
   remarks:          string;
   pr1_item_id:      string | null;
   selected_rfq_supplier_id: string | null;
@@ -84,6 +90,8 @@ function toEditableItem(item: PR2Item): EditableItem {
     unit_price:       Number(item.unit_price),
     lead_time_days:   item.lead_time_days,
     total_price:      Number(item.total_price),
+    vat_type:         item.vat_type ?? null,
+    vat_rate_applied: item.vat_rate_applied ?? null,
     remarks:          item.remarks ?? '',
     pr1_item_id:      item.pr1_item_id,
     selected_rfq_supplier_id: item.selected_rfq_supplier_id,
@@ -110,6 +118,9 @@ export default function PR2DetailPage() {
   const [editRemarks, setEditRemarks] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  const [priorityUpdating, setPriorityUpdating] = useState(false);
+  const [priorityError, setPriorityError] = useState('');
 
   const load = useCallback(() => {
     if (!id) return;
@@ -234,7 +245,13 @@ export default function PR2DetailPage() {
       const next = [...prev];
       const item = { ...next[idx] };
       item[field] = Number(val) || 0;
-      item.total_price = item.unit_price * item.quantity_to_purchase;
+      item.total_price = computeLineVat(
+        item.unit_price,
+        item.quantity_to_purchase,
+        item.vat_type != null,
+        item.vat_type ?? null,
+        item.vat_rate_applied ?? 0
+      ).total;
       next[idx] = item;
       return next;
     });
@@ -309,7 +326,22 @@ export default function PR2DetailPage() {
 
   const displayItems = editing ? editItems : pr2.items.map(toEditableItem);
   const canViewPrices = canViewCommercialPricing(profile);
-  const grandTotal = canViewPrices ? calcPR2GrandTotal(displayItems) : null;
+  const vatBreakdown = canViewPrices ? calcPR2VatBreakdown(displayItems) : null;
+
+  const canUpdatePriority = profile && canUpdatePR1Priority(profile, pr2.requisitioner_id);
+  const handlePriorityChange = async (newPriority: 'normal' | 'medium' | 'high') => {
+    if (!pr2.pr1_id || !profile || newPriority === pr2.pr1_priority) return;
+    setPriorityUpdating(true);
+    setPriorityError('');
+    try {
+      await updatePR1Priority(pr2.pr1_id, newPriority, profile);
+      setPR2({ ...pr2, pr1_priority: newPriority });
+    } catch (err) {
+      setPriorityError(err instanceof Error ? err.message : 'Failed to update priority.');
+    } finally {
+      setPriorityUpdating(false);
+    }
+  };
 
   const userCanActNow = !!(
     profile &&
@@ -333,7 +365,19 @@ export default function PR2DetailPage() {
                 {PR2_STATUS_LABELS[pr2.status]}
               </span>
               <RequestTypeBadge type={pr2.request_type ?? 'goods'} />
+              {canUpdatePriority ? (
+                <PrioritySelector
+                  value={pr2.pr1_priority ?? 'normal'}
+                  onChange={handlePriorityChange}
+                  isUpdating={priorityUpdating}
+                />
+              ) : (
+                <PriorityChip priority={pr2.pr1_priority ?? 'normal'} />
+              )}
             </DetailTitleRow>
+            {priorityError && (
+              <p className="text-xs text-pq-danger-600 mb-1">{priorityError}</p>
+            )}
             <p className="text-sm text-pq-neutral-500">
               {pr2.department_name_snapshot} · {pr2.purpose}
             </p>
@@ -522,10 +566,31 @@ export default function PR2DetailPage() {
 
           {/* Grand total */}
           <div className="bg-pq-neutral-900 rounded-md p-5">
-            <p className="text-xs font-bold text-pq-neutral-400 uppercase tracking-wide mb-1">Grand Total</p>
-            <p className="text-2xl font-bold text-white">
-              {formatCommercialAmount(grandTotal ?? 0, canViewPrices)}
-            </p>
+            {vatBreakdown && vatBreakdown.vatAmount > 0 ? (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-sm text-pq-neutral-400">
+                  <span>Subtotal</span>
+                  <span>{formatCommercialAmount(vatBreakdown.subtotal, canViewPrices)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-pq-neutral-400">
+                  <span>VAT</span>
+                  <span>{formatCommercialAmount(vatBreakdown.vatAmount, canViewPrices)}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-pq-neutral-700">
+                  <p className="text-xs font-bold text-pq-neutral-400 uppercase tracking-wide">Total</p>
+                  <p className="text-2xl font-bold text-white">
+                    {formatCommercialAmount(vatBreakdown.total, canViewPrices)}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs font-bold text-pq-neutral-400 uppercase tracking-wide mb-1">Grand Total</p>
+                <p className="text-2xl font-bold text-white">
+                  {formatCommercialAmount(vatBreakdown?.total ?? 0, canViewPrices)}
+                </p>
+              </>
+            )}
             <p className="text-xs text-pq-neutral-400 mt-1">{displayItems.length} item{displayItems.length !== 1 ? 's' : ''}</p>
           </div>
 
@@ -655,7 +720,7 @@ export default function PR2DetailPage() {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <span className="text-sm font-semibold text-pq-neutral-900">
-                              {formatCommercialAmount(item.unit_price * item.quantity_to_purchase, true)}
+                              {formatCommercialAmount(item.total_price, true)}
                             </span>
                           </td>
                         </>
@@ -688,12 +753,34 @@ export default function PR2DetailPage() {
                 </tbody>
                 {canViewPrices && (
                   <tfoot>
+                    {vatBreakdown && vatBreakdown.vatAmount > 0 && (
+                      <>
+                        <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
+                          <td colSpan={10} className="px-4 py-3 text-right text-sm text-pq-neutral-500">
+                            Subtotal
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">
+                            {formatCommercialAmount(vatBreakdown.subtotal, true)}
+                          </td>
+                          <td className="px-4 py-3"></td>
+                        </tr>
+                        <tr className="bg-pq-neutral-50">
+                          <td colSpan={10} className="px-4 py-3 text-right text-sm text-pq-neutral-500">
+                            VAT
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">
+                            {formatCommercialAmount(vatBreakdown.vatAmount, true)}
+                          </td>
+                          <td className="px-4 py-3"></td>
+                        </tr>
+                      </>
+                    )}
                     <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
                       <td colSpan={10} className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">
                         Grand Total
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
-                        {formatCommercialAmount(grandTotal ?? 0, true)}
+                        {formatCommercialAmount(vatBreakdown?.total ?? 0, true)}
                       </td>
                       <td className="px-4 py-3"></td>
                     </tr>

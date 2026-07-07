@@ -80,6 +80,7 @@ export default function PR1ApprovalsPage() {
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
   const [requestTypeFilter, setRequestTypeFilter] = useState<RequestTypeFilter>('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -230,6 +231,11 @@ export default function PR1ApprovalsPage() {
       rows = rows.filter(r => r.request_type === requestTypeFilter);
     }
 
+    // Apply priority filter
+    if (priorityFilter !== 'all') {
+      rows = rows.filter(r => (r.priority ?? 'normal') === priorityFilter);
+    }
+
     // Apply search filter
     if (appliedSearch) {
       const term = appliedSearch.toLowerCase();
@@ -241,7 +247,7 @@ export default function PR1ApprovalsPage() {
     }
 
     return rows;
-  }, [allRows, statusFilter, requestTypeFilter, appliedSearch]);
+  }, [allRows, statusFilter, requestTypeFilter, priorityFilter, appliedSearch]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -296,6 +302,23 @@ export default function PR1ApprovalsPage() {
         { value: 'services', label: 'Services' },
       ],
     },
+    {
+      type: 'select',
+      id: 'pr1-priority',
+      label: 'Priority',
+      placeholder: 'All priorities',
+      value: priorityFilter,
+      onChange: (value) => {
+        setPriorityFilter(value as string);
+        setCurrentPage(1);
+      },
+      options: [
+        { value: 'all',    label: 'All Priorities' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high',   label: 'High' },
+      ],
+    },
   ];
 
   const handleApply = () => {
@@ -308,6 +331,7 @@ export default function PR1ApprovalsPage() {
     setAppliedSearch('');
     setStatusFilter('pending');
     setRequestTypeFilter('all');
+    setPriorityFilter('all');
     setCurrentPage(1);
   };
 

@@ -63,6 +63,8 @@ export default function SubstituteReviewPage() {
   );
 
   const isOwner = profile && bundle.pr1.requisitioner_id === profile.id;
+  const isProcurement = profile?.role === 'procurement';
+  const canAct = !!isOwner || isProcurement;
   const pending = bundle.substitutes.filter(s => s.decision === null).length;
 
   return (
@@ -92,10 +94,10 @@ export default function SubstituteReviewPage() {
         </p>
       </div>
 
-      {!isOwner && (
+      {!canAct && (
         <div className="flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-6">
           <AlertTriangle className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-pq-warning-600">Only the original requestor can accept or reject substitutes for this PR1.</p>
+          <p className="text-sm text-pq-warning-600">Only the requestor or procurement can accept or reject substitutes for this PR1.</p>
         </div>
       )}
 
@@ -115,10 +117,11 @@ export default function SubstituteReviewPage() {
             <SubstituteCard
               key={sub.quote_id}
               substitute={sub}
-              canDecide={!!isOwner && !rfqDone && !sub.is_awarded}
+              canDecide={canAct && !rfqDone && !sub.is_awarded}
               locked={rfqDone || sub.is_awarded}
               onDecided={load}
               pr1Id={bundle.pr1.id}
+              actingAsProcurement={isProcurement && !isOwner}
             />
             );
           })}
@@ -134,12 +137,14 @@ function SubstituteCard({
   locked,
   onDecided,
   pr1Id,
+  actingAsProcurement,
 }: {
   substitute: SubstituteReviewItem;
   canDecide: boolean;
   locked: boolean;
   onDecided: () => void;
   pr1Id: string;
+  actingAsProcurement: boolean;
 }) {
   const { profile } = useAuth();
   const [notes, setNotes]           = useState('');
@@ -249,7 +254,14 @@ function SubstituteCard({
         {decided ? (
           <div className="text-xs text-pq-neutral-500">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <span>Decided on {substitute.decided_at ? format(new Date(substitute.decided_at), 'MMM d, yyyy · h:mm a') : '—'}</span>
+              <span>
+                Decided on {substitute.decided_at ? format(new Date(substitute.decided_at), 'MMM d, yyyy · h:mm a') : '—'}
+                {substitute.decided_by_role === 'procurement' && (
+                  <span className="ml-1.5 inline-flex items-center text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-pq-neutral-100 text-pq-neutral-500 border-pq-neutral-200">
+                    Decided by procurement on your behalf
+                  </span>
+                )}
+              </span>
               {canDecide && (
                 <button
                   onClick={() => decide(substitute.decision === 'accepted' ? 'rejected' : 'accepted')}
@@ -275,6 +287,11 @@ function SubstituteCard({
           </div>
         ) : canDecide ? (
           <div className="space-y-3">
+            {actingAsProcurement && (
+              <p className="text-[11px] text-pq-neutral-400 italic">
+                You are deciding on behalf of the requestor. They will be notified either way.
+              </p>
+            )}
             <div>
               <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
                 Notes <span className="text-pq-neutral-400 font-normal normal-case">(optional)</span>

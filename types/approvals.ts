@@ -41,6 +41,8 @@ export interface PR2ApprovalDetail {
   remarks:                     string | null;
   pr1_priority?:               'normal' | 'medium' | 'high';
   request_type?:               'goods' | 'services';
+  /** Rev #9: needed to edit priority from the approval detail page. */
+  pr1_id?:                     string | null;
   /** Intersection ensures `pr1_item_id` for canvass lookups even if tooling resolves an older PR2ApprovalItem shape */
   items: Array<PR2ApprovalItem & { pr1_item_id: string | null }>;
   // Phase 1 instance (always present once submitted)
@@ -80,6 +82,9 @@ export interface PR2ApprovalItem {
   supplier_name_snapshot:  string;
   unit_price:              number;
   total_price:             number;
+  /** Rev #1 (VAT): forwarded from `pr2_items` snapshot. */
+  vat_type?:               'vat_inclusive' | 'vat_exclusive' | null;
+  vat_rate_applied?:       number | null;
   /** Phase 9 (Raw Mats): forwarded from `pr2_items.is_raw_material` snapshot. */
   is_raw_material?:        boolean;
   /** Phase 9 (Raw Mats): forwarded from `pr2_items.quote_justification`. */

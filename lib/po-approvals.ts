@@ -321,6 +321,7 @@ export async function fetchPOApprovalDetail(
     po_status:                   po.status,
     pr1_priority:                pr1Priority,
     request_type:                pr1RequestType,
+    pr1_id:                      pr1IdFetch,
     items: rawItems.map((i: any) => {
       const rfqItemQuoteId: string | null = i.pr2_items?.rfq_item_quote_id ?? null;
       return {
@@ -334,6 +335,8 @@ export async function fetchPOApprovalDetail(
         quantity_to_purchase: Number(i.quantity_to_purchase),
         unit_price:           Number(i.unit_price),
         total_price:          Number(i.total_price),
+        vat_type:             i.vat_type ?? null,
+        vat_rate_applied:     i.vat_rate_applied ?? null,
         supplier_name_snapshot: i.supplier_name_snapshot,
         remarks:              i.remarks,
         is_raw_material:      i.pr2_items?.is_raw_material === true,

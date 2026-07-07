@@ -41,13 +41,6 @@ export interface NavItem {
   href: string;
   icon: string;
   module_key: ModuleKey;
-  /**
-   * Optional anchor used only when this item is borrowed into another role's sidebar
-   * via the "Added Modules from Other Roles" feature. When set, the borrowed item is
-   * inserted immediately after the host role's item with this module_key. If the
-   * anchor is not present in the host role's nav, the item falls back to the end.
-   */
-  insertAfter?: ModuleKey;
 }
 
 export interface NavGroup {
@@ -230,7 +223,6 @@ export const ALL_NAV: Record<string, NavItem> = {
     href: '/approvals/pr2',
     icon: 'ClipboardList',
     module_key: 'approver_pr2',
-    insertAfter: 'purchase_requests',
   },
   approverPO: {
     label: 'Purchase Orders',
@@ -309,6 +301,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     ALL_NAV.supplierAccounts,
     ALL_NAV.supplierAccredQueue,
     ALL_NAV.productReviewQueue,
+    ALL_NAV.substitutes, // Rev #5: accept/reject substitutes on behalf of requestor
     // Approvals (secondary task for procurement, moved to bottom)
     ALL_NAV.approvalQueue,
     ALL_NAV.approvalHistory,

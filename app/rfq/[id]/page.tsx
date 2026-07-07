@@ -20,13 +20,14 @@ import {
   deleteRfqQuoteAttachment,
   issueRfq,
   closeRfq,
+  reopenRfq,
   saveItemSelection,
   clearItemSelection,
 } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
 import type { RfqDetailView, QuoteMatrixRow, CanvassSupplierCandidate } from '@/types/canvassing';
-import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail, Info, Store, Trash2, X, Paperclip } from 'lucide-react';
+import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail, Info, Store, Trash2, X, Paperclip, RotateCcw } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
@@ -103,6 +104,8 @@ export default function RfqDetailPage() {
     remarks: string;
     existingAttachments: RfqQuoteAttachment[];
     pendingFiles: File[];
+    vatType: 'vat_inclusive' | 'vat_exclusive' | null;
+    isVatRegistered: boolean;
   } | null>(null);
   const [extQuoteBusy, setExtQuoteBusy] = useState(false);
   const [extQuoteError, setExtQuoteError] = useState('');
@@ -111,7 +114,7 @@ export default function RfqDetailPage() {
     pr1ItemId: string;
     rfqSupplierId: string;
     itemDescription: string;
-    existing: { unit_price: number; quoted_description: string; lead_time_days: number; remarks?: string | null; attachments?: RfqQuoteAttachment[] } | null;
+    existing: { unit_price: number; quoted_description: string; lead_time_days: number; remarks?: string | null; attachments?: RfqQuoteAttachment[]; vat_type?: 'vat_inclusive' | 'vat_exclusive' | null } | null;
   }) => {
     setExtQuoteError('');
     setExtQuote({
@@ -124,7 +127,28 @@ export default function RfqDetailPage() {
       remarks: args.existing?.remarks ?? '',
       existingAttachments: args.existing?.attachments ?? [],
       pendingFiles: [],
+      vatType: args.existing?.vat_type ?? null,
+      isVatRegistered: false,
     });
+
+    // Rev #1: resolve whether this external vendor is VAT-registered (async,
+    // since it requires a lookup through rfq_suppliers -> profiles).
+    (async () => {
+      const { data: rs } = await db
+        .from('rfq_suppliers')
+        .select('supplier_id')
+        .eq('id', args.rfqSupplierId)
+        .maybeSingle();
+      if (!rs?.supplier_id) return;
+      const { data: p } = await db
+        .from('profiles')
+        .select('is_vat_registered')
+        .eq('id', rs.supplier_id)
+        .maybeSingle();
+      setExtQuote(prev => (prev && prev.rfqSupplierId === args.rfqSupplierId
+        ? { ...prev, isVatRegistered: Boolean(p?.is_vat_registered) }
+        : prev));
+    })();
   };
 
   const handleSaveExternalQuote = async () => {
@@ -134,6 +158,10 @@ export default function RfqDetailPage() {
     if (!extQuote.quotedDescription.trim()) { setExtQuoteError('Description is required.'); return; }
     if (!Number.isFinite(price) || price <= 0) { setExtQuoteError('Enter a valid unit price.'); return; }
     if (!Number.isFinite(lead) || lead < 0) { setExtQuoteError('Enter a valid lead time.'); return; }
+    if (extQuote.isVatRegistered && !extQuote.vatType) {
+      setExtQuoteError('Select VAT-Inclusive or VAT-Exclusive for this vendor.');
+      return;
+    }
 
     setExtQuoteBusy(true);
     setExtQuoteError('');
@@ -146,6 +174,7 @@ export default function RfqDetailPage() {
         lead_time_days:     lead,
         remarks:            extQuote.remarks.trim(),
         response_status:    'quoted',
+        vat_type:           extQuote.isVatRegistered ? extQuote.vatType : null,
       }]);
 
       if (extQuote.pendingFiles.length > 0) {
@@ -378,6 +407,21 @@ export default function RfqDetailPage() {
     }
   };
 
+  const handleReopen = async () => {
+    if (!profile) return;
+    setWorking(true);
+    setActionError('');
+    try {
+      await reopenRfq(rfq.id, profile);
+      setLoading(true);
+      load();
+    } catch (e: any) {
+      setActionError(e.message ?? 'Failed to reopen RFQ.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const handleGeneratePR2 = async () => {
     if (!profile) return;
     if (existingPR2Id) { router.push(`/pr2/${existingPR2Id}`); return; }
@@ -559,6 +603,11 @@ export default function RfqDetailPage() {
               PR1 <span className="font-semibold text-pq-neutral-900">{pr1.pr1_number}</span>
               {' '}· {pr1.department_name_snapshot} · {pr1.purpose}
             </p>
+            {isClosed && existingPR2Id && (
+              <p className="text-xs text-pq-neutral-400 italic mt-1">
+                A PR2 has already been generated from this RFQ — it can no longer be reopened.
+              </p>
+            )}
           </div>
         }
         right={
@@ -569,6 +618,15 @@ export default function RfqDetailPage() {
                 label={existingPR2Id ? 'View PR2' : 'Generate PR2'}
                 color="emerald"
                 onClick={handleGeneratePR2}
+                disabled={working}
+              />
+            )}
+            {isClosed && !existingPR2Id && (
+              <ActionButton
+                icon={RotateCcw}
+                label="Reopen RFQ"
+                color="amber"
+                onClick={handleReopen}
                 disabled={working}
               />
             )}
@@ -978,6 +1036,37 @@ export default function RfqDetailPage() {
                   />
                 </div>
               </div>
+              {extQuote.isVatRegistered && (
+                <div>
+                  <label className="block text-xs font-semibold text-pq-neutral-600 mb-1">VAT Type</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setExtQuote(prev => prev && { ...prev, vatType: 'vat_inclusive' })}
+                      disabled={extQuoteBusy}
+                      className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                        extQuote.vatType === 'vat_inclusive'
+                          ? 'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200'
+                          : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:border-pq-neutral-300'
+                      }`}
+                    >
+                      VAT-Inclusive
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExtQuote(prev => prev && { ...prev, vatType: 'vat_exclusive' })}
+                      disabled={extQuoteBusy}
+                      className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                        extQuote.vatType === 'vat_exclusive'
+                          ? 'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200'
+                          : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:border-pq-neutral-300'
+                      }`}
+                    >
+                      VAT-Exclusive
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* Notes / Remarks */}
               <div>
                 <label className="block text-xs font-semibold text-pq-neutral-600 mb-1">
@@ -1144,7 +1233,7 @@ function MatrixRow({
     pr1ItemId: string;
     rfqSupplierId: string;
     itemDescription: string;
-    existing: { unit_price: number; quoted_description: string; lead_time_days: number; remarks?: string | null; attachments?: RfqQuoteAttachment[] } | null;
+    existing: { unit_price: number; quoted_description: string; lead_time_days: number; remarks?: string | null; attachments?: RfqQuoteAttachment[]; vat_type?: 'vat_inclusive' | 'vat_exclusive' | null } | null;
   }) => void;
 }) {
   return (
@@ -1468,6 +1557,7 @@ function MatrixRow({
                         lead_time_days: quote.lead_time_days,
                         remarks: quote.remarks ?? null,
                         attachments: quote.attachments ?? [],
+                        vat_type: quote.vat_type ?? null,
                       },
                     })}
                     className="mt-1 ml-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 hover:text-amber-900 underline transition"
@@ -1495,7 +1585,7 @@ function ActionButton({
 }: {
   icon: React.ElementType;
   label: string;
-  color: 'blue' | 'emerald' | 'slate';
+  color: 'blue' | 'emerald' | 'slate' | 'amber';
   onClick: () => void;
   disabled?: boolean;
 }) {
@@ -1503,6 +1593,7 @@ function ActionButton({
     blue:    'bg-pq-primary-600 hover:bg-pq-neutral-900 text-white',
     emerald: 'bg-pq-success-600 hover:bg-pq-success-600 text-white',
     slate:   'bg-white border border-pq-neutral-200 text-pq-neutral-900 hover:bg-pq-neutral-50',
+    amber:   'bg-amber-500 hover:bg-amber-600 text-white',
   }[color];
 
   return (

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPR2ById } from '@/lib/pr2';
+import { fetchPR2ById, calcPR2VatBreakdown } from '@/lib/pr2';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 import { fetchPR2ApprovalDetailByPR2Id } from '@/lib/pr2-approvals';
 import { labelForApprovalAction, latestActionForStep } from '@/lib/print-approval-signatures';
@@ -17,29 +17,17 @@ interface SignatureSlot {
   action: ApprovalActionRecord | null;
 }
 
-function buildPhase1Slots(
+// Labels come from each workflow step's own action_label so the print stays
+// correct if the workflow is ever restructured (a stale hardcoded label array
+// previously mislabeled cells after the workflow was reduced to 3 steps).
+function buildSignatureSlots(
   steps: WorkflowStep[],
   actions: ApprovalActionRecord[]
 ): SignatureSlot[] {
-  const labels = ['Prepared By', 'Certified By', 'Reviewed By', 'Approved By'];
-  return steps
+  return [...steps]
     .sort((a, b) => a.step_order - b.step_order)
-    .map((step, idx) => ({
-      label: labels[idx] ?? `Step ${step.step_order}`,
-      hint: step.position_required,
-      action: latestActionForStep(actions, step.step_order),
-    }));
-}
-
-function buildPhase2Slots(
-  steps: WorkflowStep[],
-  actions: ApprovalActionRecord[]
-): SignatureSlot[] {
-  const labels = ['Prepared By', 'Reviewed By', 'Approved By'];
-  return steps
-    .sort((a, b) => a.step_order - b.step_order)
-    .map((step, idx) => ({
-      label: labels[idx] ?? `Step ${step.step_order}`,
+    .map((step) => ({
+      label: step.action_label || `Step ${step.step_order}`,
       hint: step.position_required,
       action: latestActionForStep(actions, step.step_order),
     }));
@@ -141,32 +129,18 @@ export default function PR2PrintPage() {
   ];
 
   const canViewPrices = canViewCommercialPricing(profile);
-  const grandTotal = canViewPrices
-    ? pr2.items.reduce(
-        (sum, item) => sum + Number(item.unit_price) * Number(item.quantity_to_purchase),
-        0
-      )
-    : null;
+  const vatBreakdown = canViewPrices ? calcPR2VatBreakdown(pr2.items) : null;
 
   // Build signature slots from fetched detail, or fallback to static hints
-  const phase1Slots: SignatureSlot[] = detail
-    ? buildPhase1Slots(detail.phase1_steps, detail.phase1_actions)
+  // matching the current single-phase PR2 workflow.
+  const signatureSlots: SignatureSlot[] = detail
+    ? buildSignatureSlots(detail.phase1_steps, detail.phase1_actions)
     : [
         { label: 'Prepared By', hint: 'Procurement Staff', action: null },
-        { label: 'Certified By', hint: 'Department Head', action: null },
         { label: 'Reviewed By', hint: 'Procurement Manager', action: null },
         { label: 'Approved By', hint: 'Director', action: null },
       ];
-
-  const phase2Slots: SignatureSlot[] = detail
-    ? buildPhase2Slots(detail.phase2_steps, detail.phase2_actions)
-    : [
-        { label: 'Prepared By', hint: 'Buyer', action: null },
-        { label: 'Reviewed By', hint: 'Procurement Manager', action: null },
-        { label: 'Approved By', hint: 'Director', action: null },
-      ];
-
-  const phase2Started = detail ? detail.phase2_instance_id !== null : false;
+  const slotWidth = `${(100 / Math.max(signatureSlots.length, 1)).toFixed(2)}%`;
 
   return (
     <>
@@ -187,7 +161,7 @@ export default function PR2PrintPage() {
             onClick={() => window.history.back()}
             className="text-xs text-pq-neutral-400 hover:text-white transition"
           >
-            Back
+            ← Back
           </button>
           <button
             onClick={() => window.print()}
@@ -296,9 +270,7 @@ export default function PR2PrintPage() {
           </thead>
           <tbody>
             {paddedItems.map((item, idx) => {
-              const total = item
-                ? Number(item.unit_price) * Number(item.quantity_to_purchase)
-                : 0;
+              const total = item ? Number(item.total_price) : 0;
               return (
                 <tr key={idx} style={{ height: 20 }}>
                   <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8, textAlign: 'center' }}>
@@ -357,54 +329,51 @@ export default function PR2PrintPage() {
               );
             })}
           </tbody>
-          {canViewPrices && (
+          {canViewPrices && vatBreakdown && (
             <tfoot>
+              {vatBreakdown.vatAmount > 0 && (
+                <>
+                  <tr>
+                    <td colSpan={10} style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 8px', fontSize: 8, textAlign: 'right' }}>
+                      Subtotal
+                    </td>
+                    <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 8px', fontSize: 8, textAlign: 'right' }}>
+                      {formatCommercialAmount(vatBreakdown.subtotal, true)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={10} style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 8px', fontSize: 8, textAlign: 'right' }}>
+                      VAT
+                    </td>
+                    <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 8px', fontSize: 8, textAlign: 'right' }}>
+                      {formatCommercialAmount(vatBreakdown.vatAmount, true)}
+                    </td>
+                  </tr>
+                </>
+              )}
               <tr style={{ backgroundColor: '#f0f0f0' }}>
                 <td colSpan={10} style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', fontSize: 9, textAlign: 'right', fontWeight: 'bold' }}>
                   Grand Total
                 </td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', fontSize: 9, textAlign: 'right', fontWeight: 'bold' }}>
-                  {formatCommercialAmount(grandTotal ?? 0, true)}
+                  {formatCommercialAmount(vatBreakdown.total, true)}
                 </td>
               </tr>
             </tfoot>
           )}
         </table>
 
-        {/* ── Phase 1 Signature Block ── */}
+        {/* ── Signature Block (single-phase PR2 approval) ── */}
         <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: 'none', marginTop: 0 }}>
           <tbody>
             <tr>
-              <td colSpan={4} style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 8px', fontSize: 8, fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>
-                PHASE 1 APPROVAL
+              <td colSpan={signatureSlots.length} style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 8px', fontSize: 8, fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>
+                APPROVAL
               </td>
             </tr>
             <tr>
-              {phase1Slots.map((slot, i) => (
-                <SignatureCell key={i} slot={slot} width="25%" />
-              ))}
-              {/* Pad to 4 cells if fewer steps */}
-              {phase1Slots.length < 4 && Array(4 - phase1Slots.length).fill(null).map((_, i) => (
-                <td key={`pad-${i}`} style={{ width: '25%', border: '1px solid #000', borderTop: 'none' }} />
-              ))}
-            </tr>
-          </tbody>
-        </table>
-
-        {/* ── Phase 2 Signature Block ── */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: 'none', marginTop: 0 }}>
-          <tbody>
-            <tr>
-              <td colSpan={3} style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 8px', fontSize: 8, fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>
-                PHASE 2 APPROVAL{!phase2Started ? ' — Not yet started' : ''}
-              </td>
-            </tr>
-            <tr>
-              {phase2Slots.map((slot, i) => (
-                <SignatureCell key={i} slot={slot} width="33.33%" />
-              ))}
-              {phase2Slots.length < 3 && Array(3 - phase2Slots.length).fill(null).map((_, i) => (
-                <td key={`pad-${i}`} style={{ width: '33.33%', border: '1px solid #000', borderTop: 'none' }} />
+              {signatureSlots.map((slot, i) => (
+                <SignatureCell key={i} slot={slot} width={slotWidth} />
               ))}
             </tr>
           </tbody>

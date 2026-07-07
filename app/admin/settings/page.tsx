@@ -8,7 +8,8 @@ import LoadingState from '@/components/shared/LoadingState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/AuthContext';
-import { getExpirySettings, updateExpirySettings } from '@/lib/system-settings';
+import { getVatSettings, updateVatSettings } from '@/lib/vat';
+import type { VatSettings } from '@/lib/vat';
 import {
   fetchDropdownOptions,
   createDropdownOption,
@@ -17,12 +18,10 @@ import {
   reorderDropdownOptions,
 } from '@/lib/dropdown-options';
 import { invalidateDropdownCache } from '@/hooks/useDropdownOptions';
-import type { SystemExpirySettings } from '@/types/database';
 import type { DropdownCategory, DropdownOption } from '@/types/dropdown-options';
 import { DROPDOWN_CATEGORIES, DROPDOWN_CATEGORY_LABELS } from '@/types/dropdown-options';
-import { format } from 'date-fns';
 import {
-  CalendarClock,
+  Percent,
   CheckCircle2,
   AlertCircle,
   List,
@@ -35,51 +34,40 @@ import {
   Save,
 } from 'lucide-react';
 
-// ─── Expiry Settings Card (unchanged logic, extracted for readability) ────────
+// ─── VAT Rate Card ────────────────────────────────────────────────────────────
 
-function ExpirySettingsCard({
+function VatSettingsCard({
   settings,
   onSettingsUpdate,
   profile,
 }: {
-  settings: SystemExpirySettings;
-  onSettingsUpdate: (s: SystemExpirySettings) => void;
+  settings: VatSettings;
+  onSettingsUpdate: (s: VatSettings) => void;
   profile: { id: string };
 }) {
-  const [saving, setSaving]           = useState(false);
-  const [error, setError]             = useState('');
-  const [successMsg, setSuccessMsg]   = useState('');
-  const [accDays, setAccDays]         = useState(String(settings.accreditation_validity_days));
-  const [productDays, setProductDays] = useState(String(settings.product_validity_days));
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [vatRate, setVatRate]       = useState(String(settings.vat_rate));
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
 
-    const acc     = parseInt(accDays, 10);
-    const product = parseInt(productDays, 10);
-
-    if (isNaN(acc) || acc < 1 || acc > 3650) {
-      setError('Accreditation validity must be between 1 and 3650 days.');
-      return;
-    }
-    if (isNaN(product) || product < 1 || product > 3650) {
-      setError('Product verification validity must be between 1 and 3650 days.');
+    const rate = parseFloat(vatRate);
+    if (isNaN(rate) || rate < 0 || rate > 100) {
+      setError('VAT rate must be between 0 and 100.');
       return;
     }
 
     setSaving(true);
     try {
-      await updateExpirySettings(profile as any, {
-        accreditation_validity_days: acc,
-        product_validity_days:       product,
-      });
-      const updated = { ...settings, accreditation_validity_days: acc, product_validity_days: product, updated_at: new Date().toISOString() };
-      onSettingsUpdate(updated);
-      setSuccessMsg('Settings saved. Changes apply to new approvals only — existing records are unaffected.');
+      await updateVatSettings(profile as any, rate);
+      onSettingsUpdate({ vat_rate: rate });
+      setSuccessMsg('VAT rate saved. New quotations and generated PR2/PO lines will snapshot this rate.');
     } catch (err) {
-      setError((err as Error)?.message || 'Failed to save settings.');
+      setError((err as Error)?.message || 'Failed to save VAT rate.');
     } finally {
       setSaving(false);
     }
@@ -88,66 +76,34 @@ function ExpirySettingsCard({
   return (
     <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
       <div className="px-4 py-3 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center gap-2">
-        <CalendarClock className="w-3.5 h-3.5 text-pq-neutral-400" />
+        <Percent className="w-3.5 h-3.5 text-pq-neutral-400" />
         <span className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-          Expiry Settings
+          VAT Rate
         </span>
       </div>
 
       <form onSubmit={handleSave} className="p-4 space-y-4">
         <p className="text-xs text-pq-neutral-400 leading-relaxed">
-          Days after approval before a record is marked expired. Applies to <span className="font-medium text-pq-neutral-500">new approvals only</span>.
+          Applied to VAT-registered suppliers' quotations. Rate is snapshotted at generation time,
+          so changing it here does not affect existing PR2/PO lines.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
-          {/* Accreditation */}
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-pq-neutral-600">
-              Supplier Accreditation
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={1}
-                max={3650}
-                value={accDays}
-                onChange={e => setAccDays(e.target.value)}
-                className="w-20 rounded-md border border-pq-neutral-300 px-2.5 py-1.5 text-sm text-pq-neutral-900 focus:outline-none focus:ring-2 focus:ring-pq-primary-500"
-              />
-              <span className="text-xs text-pq-neutral-500">days</span>
-              <span className="text-xs text-pq-neutral-400">
-                {!isNaN(parseInt(accDays)) && parseInt(accDays) > 0
-                  ? `(${(parseInt(accDays) / 365).toFixed(1)} yrs)`
-                  : ''}
-              </span>
-            </div>
-          </div>
-
-          {/* Product / Service */}
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-pq-neutral-600">
-              Product / Service Verification
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={1}
-                max={3650}
-                value={productDays}
-                onChange={e => setProductDays(e.target.value)}
-                className="w-20 rounded-md border border-pq-neutral-300 px-2.5 py-1.5 text-sm text-pq-neutral-900 focus:outline-none focus:ring-2 focus:ring-pq-primary-500"
-              />
-              <span className="text-xs text-pq-neutral-500">days</span>
-              <span className="text-xs text-pq-neutral-400">
-                {!isNaN(parseInt(productDays)) && parseInt(productDays) > 0
-                  ? `(${(parseInt(productDays) / 365).toFixed(1)} yrs)`
-                  : ''}
-              </span>
-            </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-pq-neutral-600">VAT Rate</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step="0.01"
+              value={vatRate}
+              onChange={e => setVatRate(e.target.value)}
+              className="w-20 rounded-md border border-pq-neutral-300 px-2.5 py-1.5 text-sm text-pq-neutral-900 focus:outline-none focus:ring-2 focus:ring-pq-primary-500"
+            />
+            <span className="text-xs text-pq-neutral-500">%</span>
           </div>
         </div>
 
-        {/* Feedback */}
         {error && (
           <div className="flex items-start gap-2 text-xs text-pq-danger-600 bg-pq-danger-50 border border-pq-danger-100 rounded-md px-3 py-2">
             <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
@@ -161,16 +117,9 @@ function ExpirySettingsCard({
           </div>
         )}
 
-        <div className="pt-1 space-y-2">
-          <Button type="submit" disabled={saving} className="w-full text-xs">
-            {saving ? 'Saving…' : 'Save Settings'}
-          </Button>
-          {settings?.updated_at && (
-            <p className="text-center text-xs text-pq-neutral-400">
-              Updated {format(new Date(settings.updated_at), 'MMM d, yyyy')}
-            </p>
-          )}
-        </div>
+        <Button type="submit" disabled={saving} className="w-full text-xs">
+          {saving ? 'Saving…' : 'Save VAT Rate'}
+        </Button>
       </form>
     </div>
   );
@@ -270,11 +219,21 @@ function DropdownOptionsManager() {
     clearFeedback();
     const lbl = editLabel.trim();
     if (!lbl) { setError('Label is required.'); return; }
+    // Plain-string categories render option_value everywhere (forms display the
+    // value, not the label), so renaming must update both fields together.
+    // Doc-type categories keep value as a stable key — label-only edit there.
+    if (!isDocTypeCategory && options.some(o => o.id !== id && o.option_value === lbl)) {
+      setError('This value already exists in this category.');
+      return;
+    }
+    const updates = isDocTypeCategory
+      ? { option_label: lbl }
+      : { option_label: lbl, option_value: lbl };
     setEditSaving(true);
     try {
-      await updateDropdownOption(id, { option_label: lbl });
+      await updateDropdownOption(id, updates);
       invalidateDropdownCache(activeCategory);
-      setOptions(prev => prev.map(o => o.id === id ? { ...o, option_label: lbl } : o));
+      setOptions(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
       setEditingId(null);
       setSuccessMsg('Option updated.');
     } catch (err) {
@@ -548,9 +507,9 @@ export default function AdminSettingsPage() {
   const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
 
-  const [settings, setSettings] = useState<SystemExpirySettings | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState('');
+  const [vatSettings, setVatSettings] = useState<VatSettings | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState('');
 
   const isAdmin = profile?.role === 'admin';
 
@@ -560,8 +519,8 @@ export default function AdminSettingsPage() {
       router.push('/dashboard');
       return;
     }
-    getExpirySettings()
-      .then(s => setSettings(s))
+    getVatSettings()
+      .then(v => setVatSettings(v))
       .catch(err => setError((err as Error)?.message || 'Failed to load settings.'))
       .finally(() => setLoading(false));
   }, [authLoading, profile, isAdmin, router]);
@@ -585,16 +544,16 @@ export default function AdminSettingsPage() {
 
       <div className="mt-6 flex flex-col lg:flex-row gap-5 lg:items-start">
 
-        {/* Expiry Settings — full width on mobile/tablet, sidebar on desktop */}
-        <div className="w-full lg:w-64 lg:shrink-0 lg:sticky lg:top-6">
-          {settings && (
-            <ExpirySettingsCard
-              settings={settings}
-              onSettingsUpdate={setSettings}
+        {/* VAT Rate — full width on mobile/tablet, sidebar on desktop */}
+        <div className="w-full lg:w-64 lg:shrink-0 lg:sticky lg:top-6 space-y-5">
+          {vatSettings && (
+            <VatSettingsCard
+              settings={vatSettings}
+              onSettingsUpdate={setVatSettings}
               profile={profile!}
             />
           )}
-          {error && !settings && (
+          {error && !vatSettings && (
             <div className="flex items-start gap-2 text-xs text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded-md px-3 py-2.5">
               <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               {error}

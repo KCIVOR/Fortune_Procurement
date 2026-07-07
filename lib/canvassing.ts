@@ -4,6 +4,7 @@ import type { UserProfile } from '@/types/auth';
 import { fetchPR1Attachments } from './pr1';
 import type { PR1Attachment } from '@/types/pr1';
 import { createNotification, notifyByRole } from '@/lib/notifications';
+import { getVatSettings, computeLineVat } from '@/lib/vat';
 import type {
   RfqBatch,
   RfqSupplier,
@@ -202,10 +203,13 @@ async function fetchRfqLineCountsByPr1Id(pr1Ids: string[]): Promise<Record<strin
 // ─── Canvassing queue (procurement) ──────────────────────────────────────────
 // Returns PR1s with status=for_canvassing, joined with their RFQ if one exists.
 
+const CANVASSING_QUEUE_PR1_SELECT =
+  'id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, request_type, date_required, submitted_at, assigned_buyer_id, assigned_buyer_name_snapshot';
+
 export async function fetchCanvassingQueue(): Promise<CanvassingQueueRow[]> {
   const { data: pr1s, error: pr1Err } = await db
     .from('pr1_requests')
-    .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, request_type, date_required, submitted_at')
+    .select(CANVASSING_QUEUE_PR1_SELECT)
     .in('status', ['for_canvassing', 'canvassing_complete'])
     .order('submitted_at', { ascending: false });
 
@@ -241,14 +245,13 @@ export async function fetchCanvassingQueue(): Promise<CanvassingQueueRow[]> {
       rfq_number:                  rfq?.rfq_number ?? null,
       rfq_status:                  rfq?.status ?? null,
       request_type:                (pr1.request_type ?? 'goods') as 'goods' | 'services',
+      assigned_buyer_id:            pr1.assigned_buyer_id ?? null,
+      assigned_buyer_name_snapshot: pr1.assigned_buyer_name_snapshot ?? null,
     };
   });
 }
 
 // ─── Canvassing queue: paginated ─────────────────────────────────────────────
-
-const CANVASSING_QUEUE_PR1_SELECT =
-  'id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, priority, request_type, date_required, submitted_at';
 
 export async function fetchCanvassingQueuePaged(options: {
   limit: number;
@@ -257,8 +260,13 @@ export async function fetchCanvassingQueuePaged(options: {
   departmentId?: string;
   /** 'awaiting' = PR1s with no RFQ yet; 'issued' = PR1s that already have an RFQ; 'all' = both. */
   view?: 'awaiting' | 'issued' | 'all';
+  /** 'mine' = assigned to viewerId; 'unassigned' = no buyer set; 'all' = no filter. */
+  assignedFilter?: 'all' | 'mine' | 'unassigned';
+  viewerId?: string;
+  /** Rev #9: 'all' | 'normal' | 'medium' | 'high'. */
+  priorityFilter?: string;
 }): Promise<{ rows: CanvassingQueueRow[]; total_count: number }> {
-  const { limit, offset, search, departmentId, view = 'all' } = options;
+  const { limit, offset, search, departmentId, view = 'all', assignedFilter = 'all', viewerId, priorityFilter } = options;
   const term = search?.trim();
 
   let pr1IdsMatchingRfqNumber: string[] = [];
@@ -288,6 +296,14 @@ export async function fetchCanvassingQueuePaged(options: {
 
   const applyFilters = (q: any) => {
     q = q.in('status', ['for_canvassing', 'canvassing_complete']);
+    if (assignedFilter === 'mine' && viewerId) {
+      q = q.eq('assigned_buyer_id', viewerId);
+    } else if (assignedFilter === 'unassigned') {
+      q = q.is('assigned_buyer_id', null);
+    }
+    if (priorityFilter && priorityFilter !== 'all') {
+      q = q.eq('priority', priorityFilter);
+    }
     if (view === 'awaiting' && rfqPr1Ids.length > 0) {
       q = q.not('id', 'in', `(${rfqPr1Ids.join(',')})`);
     } else if (view === 'issued') {
@@ -360,10 +376,144 @@ export async function fetchCanvassingQueuePaged(options: {
         rfq_number:                  rfq?.rfq_number ?? null,
         rfq_status:                  rfq?.status ?? null,
         request_type:                (pr1.request_type ?? 'goods') as 'goods' | 'services',
+        assigned_buyer_id:            pr1.assigned_buyer_id ?? null,
+        assigned_buyer_name_snapshot: pr1.assigned_buyer_name_snapshot ?? null,
       };
     }),
     total_count: countRes.count ?? 0,
   };
+}
+
+// ─── Canvassing queue: assign a buyer ────────────────────────────────────────
+
+export interface ProcurementUserOption {
+  id:        string;
+  full_name: string;
+}
+
+export async function listProcurementUsers(): Promise<ProcurementUserOption[]> {
+  const { data: role } = await db
+    .from('roles')
+    .select('id')
+    .eq('name', 'procurement')
+    .maybeSingle();
+  if (!role?.id) return [];
+
+  const { data, error } = await db
+    .from('profiles')
+    .select('id, full_name')
+    .eq('role_id', role.id)
+    .order('full_name', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ProcurementUserOption[];
+}
+
+export async function assignPr1ToBuyer(
+  pr1Id:   string,
+  buyerId: string,
+  profile: UserProfile
+): Promise<void> {
+  const { data: buyer, error: buyerErr } = await db
+    .from('profiles')
+    .select('full_name')
+    .eq('id', buyerId)
+    .maybeSingle();
+  if (buyerErr) throw buyerErr;
+  if (!buyer) throw new Error('Selected buyer not found.');
+
+  const { data: pr1, error: pr1Err } = await db
+    .from('pr1_requests')
+    .select('pr1_number')
+    .eq('id', pr1Id)
+    .maybeSingle();
+  if (pr1Err) throw pr1Err;
+  if (!pr1) throw new Error('PR1 not found.');
+
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from('pr1_requests')
+    .update({
+      assigned_buyer_id:            buyerId,
+      assigned_buyer_name_snapshot: (buyer as any).full_name,
+      assigned_at:                  now,
+      assigned_by:                  profile.id,
+      updated_at:                   now,
+    })
+    .eq('id', pr1Id);
+  if (error) throw error;
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'PR1_ASSIGNED_TO_BUYER',
+      document_type: 'PR1',
+      document_id:   pr1Id,
+      payload: {
+        pr1_number:       (pr1 as any).pr1_number,
+        assigned_to:      buyerId,
+        assigned_to_name: (buyer as any).full_name,
+        by:               profile.full_name,
+      },
+    });
+  } catch {
+    /* best-effort audit */
+  }
+
+  try {
+    await createNotification({
+      user_id:       buyerId,
+      title:         'PR1 Assigned to You',
+      body:          `PR1 ${(pr1 as any).pr1_number} has been assigned to you for canvassing/RFQ processing.`,
+      type:          'action_required',
+      document_type: 'PR1',
+      document_id:   pr1Id,
+      action_url:    '/rfq',
+    });
+  } catch {
+    /* non-blocking */
+  }
+}
+
+export async function unassignPr1FromBuyer(
+  pr1Id:   string,
+  profile: UserProfile
+): Promise<void> {
+  const { data: pr1, error: pr1Err } = await db
+    .from('pr1_requests')
+    .select('pr1_number, assigned_buyer_id')
+    .eq('id', pr1Id)
+    .maybeSingle();
+  if (pr1Err) throw pr1Err;
+  if (!pr1) throw new Error('PR1 not found.');
+
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from('pr1_requests')
+    .update({
+      assigned_buyer_id:            null,
+      assigned_buyer_name_snapshot: null,
+      assigned_at:                  null,
+      assigned_by:                  null,
+      updated_at:                   now,
+    })
+    .eq('id', pr1Id);
+  if (error) throw error;
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'PR1_UNASSIGNED',
+      document_type: 'PR1',
+      document_id:   pr1Id,
+      payload: {
+        pr1_number:          (pr1 as any).pr1_number,
+        previous_buyer_id:   (pr1 as any).assigned_buyer_id,
+        by:                  profile.full_name,
+      },
+    });
+  } catch {
+    /* best-effort audit */
+  }
 }
 
 // ─── Canvassing queue: global KPI counts ─────────────────────────────────────
@@ -612,16 +762,33 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
     }
   }
 
+  // Rev #1 (VAT): resolve is_vat_registered per assigned supplier (external vendors default to false).
+  const vatSupplierIds = Array.from(
+    new Set(assignedSuppliers.map((s: any) => s.supplier_id).filter(Boolean))
+  ) as string[];
+  const { data: vatProfiles } = vatSupplierIds.length > 0
+    ? await db.from('profiles').select('id, is_vat_registered').in('id', vatSupplierIds)
+    : { data: [] as any[] };
+  const vatRegisteredBySupplierId: Record<string, boolean> = Object.fromEntries(
+    ((vatProfiles ?? []) as any[]).map((p: any) => [p.id, Boolean(p.is_vat_registered)])
+  );
+  const suppliersWithVat = assignedSuppliers.map((s: any) => ({
+    ...s,
+    is_vat_registered: s.supplier_id ? Boolean(vatRegisteredBySupplierId[s.supplier_id]) : false,
+  }));
+  const vatSettings = await getVatSettings().catch(() => ({ vat_rate: 12 }));
+
   return {
     rfq,
     pr1:        pr1Res.data,
     items,
-    suppliers:  assignedSuppliers,
+    suppliers:  suppliersWithVat,
     quotes,
     selections,
     substituteDecisions,
     allSuppliers,
     productLookup,
+    vatRate: Number(vatSettings.vat_rate),
   };
 }
 
@@ -663,6 +830,17 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
         }
       }
 
+      const isVatRegistered = supplier.is_vat_registered === true;
+      const totalPrice = quote
+        ? computeLineVat(
+            Number(quote.unit_price),
+            item.quantity_requested,
+            isVatRegistered,
+            quote.vat_type ?? null,
+            detail.vatRate
+          ).total
+        : 0;
+
       return {
         rfq_supplier_id:         supplier.id,
         quote_id:                quote?.id ?? null,
@@ -672,7 +850,7 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
         unit_price:              quote ? Number(quote.unit_price) : 0,
         lead_time_days:          quote?.lead_time_days ?? 0,
         remarks:                 quote?.remarks ?? null,
-        total_price:             quote ? Number(quote.unit_price) * item.quantity_requested : 0,
+        total_price:             totalPrice,
         is_selected:             selection?.selected_rfq_supplier_id === supplier.id,
         substitute_decision:     quote ? decisionByQuoteId[quote.id] ?? null : null,
         supplier_product_id:        productId,
@@ -684,6 +862,7 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
         response_status:         responseStatus,
         no_quote_reason:         noQuoteReason,
         attachments:             quote?.attachments ?? [],
+        vat_type:                quote?.vat_type ?? null,
       };
     });
 
@@ -1168,6 +1347,87 @@ export async function closeRfq(rfqId: string, pr1Id: string, profile: UserProfil
   }
 }
 
+// ─── Reopen RFQ ───────────────────────────────────────────────────────────────
+
+export async function reopenRfq(rfqId: string, profile: UserProfile): Promise<void> {
+  const { data: rfq, error: rfqFetchErr } = await db
+    .from('rfq_batches')
+    .select('id, rfq_number, pr1_id, status')
+    .eq('id', rfqId)
+    .maybeSingle();
+  if (rfqFetchErr) throw rfqFetchErr;
+  if (!rfq) throw new Error('RFQ not found.');
+  if (rfq.status !== 'closed') throw new Error('Only a closed RFQ can be reopened.');
+
+  const { data: existingPR2 } = await db
+    .from('pr2_requests')
+    .select('id')
+    .eq('rfq_id', rfqId)
+    .maybeSingle();
+  if (existingPR2?.id) {
+    throw new Error('A PR2 has already been generated from this RFQ. It can no longer be reopened.');
+  }
+
+  const now = new Date().toISOString();
+
+  const { error: rfqErr } = await db
+    .from('rfq_batches')
+    .update({ status: 'open', updated_at: now })
+    .eq('id', rfqId);
+  if (rfqErr) throw rfqErr;
+
+  const { error: pr1Err } = await db
+    .from('pr1_requests')
+    .update({ status: 'for_canvassing', updated_at: now })
+    .eq('id', rfq.pr1_id);
+  if (pr1Err) throw pr1Err;
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'RFQ_REOPENED',
+    document_type: 'RFQ',
+    document_id:   rfqId,
+    payload:       { rfq_number: rfq.rfq_number, reopened_by: profile.full_name, pr1_id: rfq.pr1_id },
+  });
+
+  try {
+    const { data: pr1 } = await db
+      .from('pr1_requests')
+      .select('pr1_number, requisitioner_id')
+      .eq('id', rfq.pr1_id)
+      .maybeSingle();
+
+    const pr1Label = pr1?.pr1_number ?? 'PR1';
+
+    await notifyByRole(
+      'procurement',
+      {
+        title:         'RFQ Reopened',
+        body:          `RFQ ${rfq.rfq_number} for ${pr1Label} has been reopened by ${profile.full_name}.`,
+        type:          'info',
+        document_type: 'rfq',
+        document_id:   rfqId,
+        action_url:    `/rfq/${rfqId}`,
+      },
+      { dedupeUnreadForDocument: true }
+    );
+
+    if (pr1?.requisitioner_id) {
+      await createNotification({
+        user_id:       pr1.requisitioner_id,
+        title:         'RFQ Reopened',
+        body:          `Canvassing for your request ${pr1Label} has been reopened for further supplier changes.`,
+        type:          'info',
+        document_type: 'pr1',
+        document_id:   rfq.pr1_id,
+        action_url:    `/pr1/${rfq.pr1_id}`,
+      });
+    }
+  } catch {
+    // Notifications are best-effort; do not fail reopenRfq
+  }
+}
+
 // ─── Save supplier selection ──────────────────────────────────────────────────
 
 /**
@@ -1367,42 +1627,162 @@ export async function clearItemSelection(
   });
 }
 
-// ─── Substitute item review (requestor) ─────────────────────────────────────
+// ─── Substitute item review (requestor + procurement) ───────────────────────
+
+/** Maps `decided_by` profile id → role name, for attributing who made a substitute decision. */
+async function buildDeciderRoleMap(decisionRows: SubstituteDecisionRow[]): Promise<Record<string, string>> {
+  const decidedByIds = Array.from(new Set(decisionRows.map(d => d.decided_by).filter(Boolean)));
+  if (decidedByIds.length === 0) return {};
+
+  const [{ data: deciderProfiles }, { data: allRoles }] = await Promise.all([
+    db.from('profiles').select('id, role_id').in('id', decidedByIds),
+    db.from('roles').select('id, name'),
+  ]);
+
+  const roleNameById = Object.fromEntries(((allRoles ?? []) as any[]).map((r: any) => [r.id, r.name]));
+  return Object.fromEntries(
+    ((deciderProfiles ?? []) as any[]).map((p: any) => [p.id, roleNameById[p.role_id] ?? ''])
+  );
+}
 
 /**
- * Fetch all alternative-flagged quotes across every PR1 the given requestor owns,
- * plus each decision state. Used by the requestor inbox / notification count.
+ * All alternative-flagged quotes visible to the caller, grouped by PR1. RLS does the
+ * scoping: employees see only their own PR1s (`is_own_rfq_supplier`); procurement sees
+ * every PR1 system-wide (`Procurement can view all quotes`, etc). Used by both the
+ * employee and procurement substitute inboxes — no role branching needed here.
  */
-export async function fetchSubstitutesForRequestor(
-  requisitionerId: string
-): Promise<SubstituteReviewBundle[]> {
-  const { data: pr1s, error: pr1Err } = await db
+export async function fetchSubstituteReviewBundles(): Promise<SubstituteReviewBundle[]> {
+  const { data: quotes } = await db
+    .from('rfq_item_quotes')
+    .select('*')
+    .eq('is_alternative', true)
+    .not('submitted_at', 'is', null);
+
+  const quoteArr: any[] = quotes ?? [];
+  if (quoteArr.length === 0) return [];
+
+  const rfqSupplierIds = Array.from(new Set(quoteArr.map(q => q.rfq_supplier_id)));
+  const { data: rfqSuppliers } = await db
+    .from('rfq_suppliers')
+    .select('id, rfq_id, supplier_name_snapshot')
+    .in('id', rfqSupplierIds);
+  const supplierArr: any[] = rfqSuppliers ?? [];
+  if (supplierArr.length === 0) return [];
+
+  const rfqIds = Array.from(new Set(supplierArr.map(rs => rs.rfq_id)));
+  const { data: rfqs } = await db
+    .from('rfq_batches')
+    .select('id, rfq_number, status, pr1_id')
+    .in('id', rfqIds);
+  const rfqArr: any[] = rfqs ?? [];
+  if (rfqArr.length === 0) return [];
+
+  const pr1Ids = Array.from(new Set(rfqArr.map(r => r.pr1_id)));
+  const { data: pr1s } = await db
     .from('pr1_requests')
-    .select('id, pr1_number, purpose, department_name_snapshot, requisitioner_id')
-    .eq('requisitioner_id', requisitionerId)
+    .select('id, pr1_number, purpose, department_name_snapshot, requisitioner_id, requisitioner_name_snapshot, priority')
+    .in('id', pr1Ids)
     .order('created_at', { ascending: false });
+  const pr1Arr: any[] = pr1s ?? [];
+  if (pr1Arr.length === 0) return [];
 
-  if (pr1Err || !pr1s || pr1s.length === 0) return [];
+  const itemIds  = Array.from(new Set(quoteArr.map(q => q.pr1_item_id)));
+  const quoteIds = quoteArr.map(q => q.id);
 
-  const pr1Ids = (pr1s as any[]).map((r: any) => r.id);
+  const [itemsRes, decisionsRes, attachmentsByQuote, selectionsRes] = await Promise.all([
+    db.from('pr1_items')
+      .select('id, item_order, item_code, description, unit_of_measure, quantity_requested')
+      .in('id', itemIds),
+    db.from('substitute_decisions').select('*').in('rfq_item_quote_id', quoteIds),
+    fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({} as Record<string, RfqQuoteAttachment[]>)),
+    db.from('supplier_item_selections').select('rfq_id, pr1_item_id').in('rfq_id', rfqIds),
+  ]);
 
-  const bundles = await Promise.all(
-    (pr1s as any[]).map((pr1: any) => loadSubstitutesForPr1(pr1))
+  const itemMap: Record<string, any>     = Object.fromEntries(((itemsRes.data ?? []) as any[]).map((i: any) => [i.id, i]));
+  const supplierMap: Record<string, any> = Object.fromEntries(supplierArr.map(rs => [rs.id, rs]));
+  const rfqMap: Record<string, any>      = Object.fromEntries(rfqArr.map(r => [r.id, r]));
+  const decisionRows = (decisionsRes.data ?? []) as SubstituteDecisionRow[];
+  const decisionMap: Record<string, SubstituteDecisionRow> = Object.fromEntries(
+    decisionRows.map(d => [d.rfq_item_quote_id, d])
   );
+  const awardedKeys = new Set<string>(
+    ((selectionsRes.data ?? []) as any[]).map((s: any) => `${s.rfq_id}|${s.pr1_item_id}`)
+  );
+  const deciderRoleMap = await buildDeciderRoleMap(decisionRows);
 
-  return bundles.filter(b => b !== null && b.substitutes.length > 0) as SubstituteReviewBundle[];
+  const whByPr1: Record<string, Awaited<ReturnType<typeof fetchWarehouseProcurementByPr1Item>>> = {};
+  await Promise.all(pr1Ids.map(async id => { whByPr1[id] = await fetchWarehouseProcurementByPr1Item(id); }));
+
+  const bundlesByPr1: Record<string, SubstituteReviewItem[]> = Object.fromEntries(pr1Ids.map(id => [id, []]));
+
+  for (const q of quoteArr) {
+    const item     = itemMap[q.pr1_item_id];
+    const supplier = supplierMap[q.rfq_supplier_id];
+    if (!item || !supplier) continue;
+    const rfq = rfqMap[supplier.rfq_id];
+    if (!rfq || !bundlesByPr1[rfq.pr1_id]) continue;
+
+    const decision = decisionMap[q.id] ?? null;
+    const wh = whByPr1[rfq.pr1_id];
+    const rfqQty = !wh?.validated
+      ? Number(item.quantity_requested) || 0
+      : (wh.byPr1ItemId[item.id] !== undefined && wh.byPr1ItemId[item.id] > 0
+          ? wh.byPr1ItemId[item.id]
+          : Number(item.quantity_requested) || 0);
+
+    bundlesByPr1[rfq.pr1_id].push({
+      quote_id:             q.id,
+      rfq_id:               supplier.rfq_id,
+      rfq_number:           rfq.rfq_number ?? '',
+      rfq_supplier_id:      supplier.id,
+      supplier_name:        supplier.supplier_name_snapshot,
+      pr1_item_id:          item.id,
+      item_order:           item.item_order,
+      item_code:            item.item_code,
+      original_description: item.description,
+      original_quantity:    rfqQty,
+      unit_of_measure:      item.unit_of_measure,
+      quoted_description:   q.quoted_description,
+      unit_price:           Number(q.unit_price),
+      lead_time_days:       q.lead_time_days,
+      remarks:              q.remarks,
+      submitted_at:         q.submitted_at,
+      decision:             decision?.decision ?? null,
+      decided_at:           decision?.decided_at ?? null,
+      decision_notes:       decision?.notes ?? null,
+      decided_by_role:      decision ? (deciderRoleMap[decision.decided_by] ?? null) : null,
+      attachments:          attachmentsByQuote[q.id] ?? [],
+      rfq_status:           rfq.status ?? 'open',
+      is_awarded:           awardedKeys.has(`${supplier.rfq_id}|${item.id}`),
+    });
+  }
+
+  return pr1Arr
+    .map(pr1 => ({
+      pr1,
+      substitutes: (bundlesByPr1[pr1.id] ?? []).sort((a, b) => a.item_order - b.item_order),
+    }))
+    .filter(b => b.substitutes.length > 0);
+}
+
+/**
+ * Backward-compatible wrapper — RLS already scopes `fetchSubstituteReviewBundles` to
+ * whatever the caller can see, so the requestor id is not needed for filtering anymore.
+ */
+export async function fetchSubstitutesForRequestor(_requisitionerId: string): Promise<SubstituteReviewBundle[]> {
+  return fetchSubstituteReviewBundles();
 }
 
 /**
  * Load the substitute-review bundle for a single PR1. Returns null if the
- * requestor has no permission (RLS will zero-fill), or no PR1 exists.
+ * caller has no permission (RLS will zero-fill), or no PR1 exists.
  */
 export async function fetchSubstituteBundleForPr1(
   pr1Id: string
 ): Promise<SubstituteReviewBundle | null> {
   const { data: pr1 } = await db
     .from('pr1_requests')
-    .select('id, pr1_number, purpose, department_name_snapshot, requisitioner_id')
+    .select('id, pr1_number, purpose, department_name_snapshot, requisitioner_id, requisitioner_name_snapshot, priority')
     .eq('id', pr1Id)
     .maybeSingle();
 
@@ -1470,13 +1850,15 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
   const itemMap: Record<string, any> = Object.fromEntries(((itemsRes.data ?? []) as any[]).map((i: any) => [i.id, i]));
   const supplierMap: Record<string, any> = Object.fromEntries(supplierArr.map(rs => [rs.id, rs]));
   const rfqMap: Record<string, any> = Object.fromEntries(rfqArr.map(r => [r.id, r]));
+  const decisionRows = (decisionsRes.data ?? []) as SubstituteDecisionRow[];
   const decisionMap: Record<string, SubstituteDecisionRow> = Object.fromEntries(
-    ((decisionsRes.data ?? []) as SubstituteDecisionRow[]).map(d => [d.rfq_item_quote_id, d])
+    decisionRows.map(d => [d.rfq_item_quote_id, d])
   );
   // Set of "rfqId|pr1ItemId" keys that have an award recorded
   const awardedKeys = new Set<string>(
     ((selectionsRes.data ?? []) as any[]).map((s: any) => `${s.rfq_id}|${s.pr1_item_id}`)
   );
+  const deciderRoleMap = await buildDeciderRoleMap(decisionRows);
 
   const wh = await fetchWarehouseProcurementByPr1Item(pr1.id);
   const rfqQtyForItem = (pr1ItemId: string, pr1LineQty: number) => {
@@ -1512,6 +1894,7 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
         decision:             decision?.decision ?? null,
         decided_at:           decision?.decided_at ?? null,
         decision_notes:       decision?.notes ?? null,
+        decided_by_role:      decision ? (deciderRoleMap[decision.decided_by] ?? null) : null,
         attachments:          attachmentsByQuote[q.id] ?? [],
         rfq_status:           rfq?.status ?? 'open',
         is_awarded:           awardedKeys.has(`${supplier.rfq_id}|${item.id}`),
@@ -1531,6 +1914,7 @@ export async function saveSubstituteDecision(
   profile: UserProfile
 ): Promise<void> {
   const now = new Date().toISOString();
+  const actingAsProcurement = profile.role === 'procurement';
 
   const { error } = await db
     .from('substitute_decisions')
@@ -1553,7 +1937,12 @@ export async function saveSubstituteDecision(
     action:        decision === 'accepted' ? 'SUBSTITUTE_ACCEPTED' : 'SUBSTITUTE_REJECTED',
     document_type: 'RFQ_QUOTE',
     document_id:   quoteId,
-    payload:       { pr1_id: pr1Id, notes },
+    payload:       {
+      pr1_id:     pr1Id,
+      notes,
+      actor_role: profile.role,
+      on_behalf:  actingAsProcurement,
+    },
   });
 
   try {
@@ -1564,7 +1953,7 @@ export async function saveSubstituteDecision(
       .maybeSingle();
 
     const [{ data: pr1 }, { data: rs }] = await Promise.all([
-      db.from('pr1_requests').select('pr1_number').eq('id', pr1Id).maybeSingle(),
+      db.from('pr1_requests').select('pr1_number, requisitioner_id').eq('id', pr1Id).maybeSingle(),
       quote?.rfq_supplier_id
         ? db
             .from('rfq_suppliers')
@@ -1581,14 +1970,31 @@ export async function saveSubstituteDecision(
     const itemDesc     = (quote?.quoted_description ?? 'substitute item').trim();
     const accepted     = decision === 'accepted';
 
-    await notifyByRole('procurement', {
-      title:         accepted ? 'Substitute Item Accepted' : 'Substitute Item Rejected',
-      body:          `Requestor ${accepted ? 'accepted' : 'rejected'} ${supplierName}'s substitute offer "${itemDesc}" for ${pr1Label}.`,
-      type:          'info',
-      document_type: 'rfq',
-      document_id:   rs.rfq_id,
-      action_url:    `/rfq/${rs.rfq_id}`,
-    });
+    if (actingAsProcurement) {
+      // Procurement decided on the requestor's behalf — notify the requestor,
+      // not procurement (they already know, they made the decision).
+      if (pr1?.requisitioner_id) {
+        await db.from('notifications').insert({
+          user_id:       pr1.requisitioner_id,
+          title:         accepted ? 'Substitute Item Accepted On Your Behalf' : 'Substitute Item Rejected On Your Behalf',
+          body:          `Procurement ${accepted ? 'accepted' : 'rejected'} ${supplierName}'s substitute offer "${itemDesc}" for ${pr1Label} on your behalf.`,
+          type:          'info',
+          document_type: 'rfq',
+          document_id:   rs.rfq_id,
+          action_url:    `/substitutes/${pr1Id}`,
+          read:          false,
+        });
+      }
+    } else {
+      await notifyByRole('procurement', {
+        title:         accepted ? 'Substitute Item Accepted' : 'Substitute Item Rejected',
+        body:          `Requestor ${accepted ? 'accepted' : 'rejected'} ${supplierName}'s substitute offer "${itemDesc}" for ${pr1Label}.`,
+        type:          'info',
+        document_type: 'rfq',
+        document_id:   rs.rfq_id,
+        action_url:    `/rfq/${rs.rfq_id}`,
+      });
+    }
   } catch {
     // Notifications are best-effort; do not fail substitute decision
   }
@@ -1901,6 +2307,8 @@ export interface QuoteDraft {
   /** Omitted or `quoted` = priced/product response; `no_quote` = cannot supply (reason required). */
   response_status?:     RfqQuoteResponseStatus;
   no_quote_reason?:     string | null;
+  /** Rev #1: required when the quoting supplier is VAT-registered; null/omitted otherwise. */
+  vat_type?:            'vat_inclusive' | 'vat_exclusive' | null;
 }
 
 export async function submitSupplierQuotation(
@@ -1927,6 +2335,7 @@ export async function submitSupplierQuotation(
         supplier_product_id: null,
         response_status:     'no_quote' as const,
         no_quote_reason:     reason,
+        vat_type:            null,
       };
     }
     return {
@@ -1942,6 +2351,7 @@ export async function submitSupplierQuotation(
       supplier_product_id: q.supplier_product_id ?? null,
       response_status:     'quoted' as const,
       no_quote_reason:     null,
+      vat_type:            q.vat_type ?? null,
     };
   });
 

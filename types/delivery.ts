@@ -51,6 +51,8 @@ export interface Delivery {
   has_grn: boolean;
   created_at: string;
   updated_at: string;
+  /** Rev #9: resolved from pr1_requests.priority via ID-based join at read time. */
+  priority?: string;
 }
 
 export interface DeliveryHistoryEntry {

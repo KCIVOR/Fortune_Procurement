@@ -133,6 +133,9 @@ export default function SupplierAccountDetailPage() {
           onPaymentTermsUpdated={(paymentTerms) =>
             setSupplier((prev) => (prev ? { ...prev, payment_terms: paymentTerms } : prev))
           }
+          onVatStatusUpdated={(isVatRegistered) =>
+            setSupplier((prev) => (prev ? { ...prev, is_vat_registered: isVatRegistered } : prev))
+          }
           onStatusChanged={(active) =>
             setSupplier((prev) => (prev ? { ...prev, active } : prev))
           }

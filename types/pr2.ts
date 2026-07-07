@@ -38,6 +38,8 @@ export interface PR2Request {
   generated_at:                string;
   created_at:                  string;
   updated_at:                  string;
+  /** Rev #9: resolved from pr1_requests.priority via ID-based join at read time. */
+  pr1_priority?:               string;
 }
 
 export interface PR2Item {
@@ -59,6 +61,10 @@ export interface PR2Item {
   unit_price:              number;
   lead_time_days:          number;
   total_price:             number;
+  /** Rev #1 (VAT): snapshotted at PR2 generation time; null when the winning quote's supplier is not VAT-registered. */
+  vat_type?:               'vat_inclusive' | 'vat_exclusive' | null;
+  /** Rev #1 (VAT): system VAT rate at the time this line was generated; null alongside a null vat_type. */
+  vat_rate_applied?:       number | null;
   remarks:                 string | null;
   /**
    * Phase 1 (Raw Mats): snapshot of pr1_items.is_raw_material at PR2
@@ -103,6 +109,9 @@ export interface PR2ItemDraft {
   unit_price:              number;
   lead_time_days:          number;
   total_price:             number;
+  /** Rev #1 (VAT): carried through from the PR2 item row so edits can recompute total_price without losing the VAT snapshot. */
+  vat_type?:               'vat_inclusive' | 'vat_exclusive' | null;
+  vat_rate_applied?:       number | null;
   remarks:                 string;
   /**
    * Phase 1 (Raw Mats): optional in drafts — Phase 8 wires the snapshot

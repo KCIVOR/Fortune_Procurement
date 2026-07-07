@@ -6,6 +6,8 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { getVatSettings, computeLineVat } from '@/lib/vat';
 import {
   fetchSupplierQuoteDetail,
   submitSupplierQuotation,
@@ -163,6 +165,9 @@ export default function SupplierQuotationPage() {
   const [submitted, setSubmitted]   = useState(false);
   /** Files staged per item (by pr1_item_id) before the first submit. */
   const [stagedFilesByItem, setStagedFilesByItem] = useState<Record<string, File[]>>({});
+  /** Rev #1: whether this supplier is VAT-registered — gates the VAT-IN/VAT-EX control. */
+  const [isVatRegistered, setIsVatRegistered] = useState(false);
+  const [vatRate, setVatRate] = useState(12);
 
   // Phase 5 (Raw Mats): renamed from `verifiedProducts`. Now contains
   // verified AND in-flight catalog products (submitted / under_review /
@@ -194,12 +199,16 @@ export default function SupplierQuotationPage() {
     Promise.all([
       fetchSupplierQuoteDetail(rfqSupplierId, profile.id),
       getActiveProductsForCurrentSupplier(profile),
+      supabase.from('profiles').select('is_vat_registered').eq('id', profile.id).maybeSingle(),
+      getVatSettings().catch(() => ({ vat_rate: 12 })),
     ])
-      .then(([d, products]) => {
+      .then(([d, products, vatRes, vatSettings]) => {
         if (!d) { setError('RFQ not found or access denied.'); return; }
         setDetail(d);
         setAvailableProducts(products);
         setProductsLoaded(true);
+        setIsVatRegistered(Boolean((vatRes.data as any)?.is_vat_registered));
+        setVatRate(Number(vatSettings.vat_rate));
 
         const initialDrafts: QuoteDraft[] = d.items.map(item => {
           const existing = d.quotes.find(q => q.pr1_item_id === item.id);
@@ -216,6 +225,7 @@ export default function SupplierQuotationPage() {
             supplier_product_id: isNoQuote ? null : (existing?.supplier_product_id ?? null),
             response_status:     isNoQuote ? 'no_quote' : 'quoted',
             no_quote_reason:     isNoQuote ? (existing?.no_quote_reason ?? null) : null,
+            vat_type:            isNoQuote ? null : (existing?.vat_type ?? null),
           };
         });
         setDrafts(initialDrafts);
@@ -558,6 +568,10 @@ export default function SupplierQuotationPage() {
       }
       if (d.unit_price <= 0) {
         setSubmitError('Please enter a unit price greater than 0 for each quoted line.');
+        return;
+      }
+      if (isVatRegistered && !d.vat_type) {
+        setSubmitError('Please select VAT-Inclusive or VAT-Exclusive for each quoted line.');
         return;
       }
     }
@@ -1227,9 +1241,53 @@ export default function SupplierQuotationPage() {
                           className="w-full pl-7 pr-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-pq-neutral-50"
                         />
                       </div>
+                      {isVatRegistered && (
+                        <div className="mt-2">
+                          <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                            VAT Type <span className="text-pq-danger-600">*</span>
+                          </label>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateDraft(index, 'vat_type', 'vat_inclusive')}
+                              disabled={isReadOnly}
+                              className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                                draft.vat_type === 'vat_inclusive'
+                                  ? 'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200'
+                                  : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:border-pq-neutral-300'
+                              }`}
+                            >
+                              VAT-Inclusive
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateDraft(index, 'vat_type', 'vat_exclusive')}
+                              disabled={isReadOnly}
+                              className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                                draft.vat_type === 'vat_exclusive'
+                                  ? 'bg-pq-primary-50 text-pq-primary-700 border-pq-primary-200'
+                                  : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:border-pq-neutral-300'
+                              }`}
+                            >
+                              VAT-Exclusive
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {draft.unit_price > 0 && (
                         <p className="text-xs text-pq-neutral-400 mt-1">
-                          Total: ₱{(draft.unit_price * item.quantity_requested).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                          {(() => {
+                            const b = computeLineVat(
+                              draft.unit_price,
+                              item.quantity_requested,
+                              isVatRegistered,
+                              draft.vat_type ?? null,
+                              vatRate
+                            );
+                            return isVatRegistered && draft.vat_type
+                              ? `Subtotal: ₱${b.subtotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })} · VAT: ₱${b.vatAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })} · Total: ₱${b.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                              : `Total: ₱${b.total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+                          })()}
                         </p>
                       )}
                     </div>
