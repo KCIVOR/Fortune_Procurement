@@ -1141,6 +1141,7 @@ async function syncItems(pr1Id: string, items: PR1ItemDraft[]): Promise<Array<{ 
         stock_on_hand:      Number(item.stock_on_hand) || 0,
         quantity_requested: Number(item.quantity_requested) || 1,
         is_raw_material:    item.is_raw_material === true,
+        remarks:            item.remarks?.trim() || null,
       };
       if (item.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id)) {
         row.id = item.id;

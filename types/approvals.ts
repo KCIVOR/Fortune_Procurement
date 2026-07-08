@@ -89,6 +89,8 @@ export interface PR2ApprovalItem {
   is_raw_material?:        boolean;
   /** Phase 9 (Raw Mats): forwarded from `pr2_items.quote_justification`. */
   quote_justification?:    string | null;
+  /** Read-only, forwarded from `pr2_items.pr1_remarks_snapshot`. */
+  pr1_remarks_snapshot?:   string | null;
   /** Supplier quote attachments loaded at read time via rfq_item_quote_id. */
   quote_attachments?:      import('./canvassing').RfqQuoteAttachment[];
   /** Requestor PR1 item attachments, forwarded via pr1_item_id at read time. */
@@ -182,6 +184,8 @@ export interface PR1ApprovalItem {
   validated_soh?: number | null;
   /** Phase 4 (Raw Mats): forwarded from `pr1_items.is_raw_material` for badge rendering. */
   is_raw_material?: boolean;
+  /** Forwarded from `pr1_items.remarks`. */
+  remarks?: string | null;
   /** Phase 5: attachments uploaded by the requisitioner for this item. */
   attachments?: PR1Attachment[];
 }

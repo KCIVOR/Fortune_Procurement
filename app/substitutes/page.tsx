@@ -10,7 +10,7 @@ import PaginationControls from '@/components/shared/PaginationControls';
 import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import { useAuth } from '@/context/AuthContext';
-import { fetchSubstituteReviewBundles } from '@/lib/canvassing';
+import { fetchSubstituteReviewBundles, isSubstituteActionable } from '@/lib/canvassing';
 import type { SubstituteReviewBundle } from '@/types/canvassing';
 import { ArrowRight, Replace, CircleCheck as CheckCircle2, Circle as XCircle, Clock } from 'lucide-react';
 import PriorityChip from '@/components/shared/PriorityChip';
@@ -38,14 +38,14 @@ export default function SubstitutesIndexPage() {
 
   // Global stat counts — always from full unfiltered bundles
   const totalPending = bundles.reduce(
-    (sum, b) => sum + b.substitutes.filter(s => s.decision === null).length,
+    (sum, b) => sum + b.substitutes.filter(isSubstituteActionable).length,
     0
   );
 
   // Client-side filtering
   const filteredBundles = bundles.filter(b => {
-    if (selectedStatus === 'pending' && !b.substitutes.some(s => s.decision === null)) return false;
-    if (selectedStatus === 'decided' && !b.substitutes.every(s => s.decision !== null)) return false;
+    if (selectedStatus === 'pending' && !b.substitutes.some(isSubstituteActionable)) return false;
+    if (selectedStatus === 'decided' && b.substitutes.some(isSubstituteActionable)) return false;
     if (selectedPriority !== 'all' && (b.pr1.priority ?? 'normal') !== selectedPriority) return false;
     const term = appliedSearch.trim().toLowerCase();
     if (term) {
@@ -201,7 +201,7 @@ export default function SubstitutesIndexPage() {
                 </thead>
                 <tbody className="divide-y divide-pq-neutral-200">
                   {bundlePage.map(bundle => {
-                    const pending = bundle.substitutes.filter(s => s.decision === null).length;
+                    const pending = bundle.substitutes.filter(isSubstituteActionable).length;
                     const total   = bundle.substitutes.length;
                     return (
                       <tr key={bundle.pr1.id} className="hover:bg-pq-neutral-50 transition">

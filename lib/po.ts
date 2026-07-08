@@ -170,7 +170,7 @@ export async function fetchPOById(id: string): Promise<POWithItems | null> {
   const [poRes, itemsRes] = await Promise.all([
     db.from('po_requests').select('*').eq('id', id).maybeSingle(),
     db.from('po_items')
-      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification, rfq_item_quote_id )')
+      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification, pr1_remarks_snapshot, rfq_item_quote_id )')
       .eq('po_id', id)
       .order('item_order', { ascending: true }),
   ]);
@@ -720,6 +720,7 @@ function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuot
     remarks:               row.remarks,
     is_raw_material:       pr2Item?.is_raw_material === true,
     quote_justification:   pr2Item?.quote_justification ?? null,
+    pr1_remarks_snapshot:  pr2Item?.pr1_remarks_snapshot ?? null,
     rfq_item_quote_id:     rfqItemQuoteId,
     quote_attachments:     rfqItemQuoteId ? (quoteAttachmentsByQuote[rfqItemQuoteId] ?? []) : [],
     created_at:            row.created_at,

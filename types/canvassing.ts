@@ -212,6 +212,8 @@ export interface RfqDetailView {
      * legacy callers that don't select the column still compile.
      */
     is_raw_material?:   boolean;
+    /** Forwarded from `pr1_items.remarks` — the requestor's note on this line. */
+    remarks?:           string | null;
     attachments?:       PR1Attachment[];
   }[];
   suppliers:  RfqSupplier[];
@@ -242,6 +244,8 @@ export interface QuoteMatrixRow {
      * widens the canvassing query.
      */
     is_raw_material?:   boolean;
+    /** Forwarded from `RfqDetailView.items[].remarks`. */
+    remarks?:           string | null;
     attachments?:       PR1Attachment[];
   };
   quotes: {

@@ -72,6 +72,12 @@ export interface POItem {
    * (raw-mats line awarded against unverified or manual quote).
    */
   quote_justification?: string | null;
+  /**
+   * Read-only, forwarded from `pr2_items.pr1_remarks_snapshot` via join —
+   * the requestor's original PR1 line remarks. Distinct from this row's own
+   * `remarks` (buyer-entered).
+   */
+  pr1_remarks_snapshot?: string | null;
   /** FK to the winning rfq_item_quotes row, forwarded from pr2_items via join. */
   rfq_item_quote_id?: string | null;
   /** Supplier quote attachments loaded at read time via rfq_item_quote_id. */

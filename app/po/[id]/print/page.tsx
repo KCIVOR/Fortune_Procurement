@@ -346,6 +346,11 @@ export default function POPrintPage() {
                       Justification: {item.quote_justification}
                     </div>
                   )}
+                  {item.pr1_remarks_snapshot && (
+                    <div style={{ marginTop: 2, fontSize: 7, color: '#555', fontStyle: 'italic' }}>
+                      Requestor remarks: {item.pr1_remarks_snapshot}
+                    </div>
+                  )}
                 </td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'center', fontSize: 8 }}>{item.unit_of_measure}</td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'right', fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }}>

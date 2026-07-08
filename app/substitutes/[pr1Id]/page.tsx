@@ -7,7 +7,7 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import EmptyState from '@/components/shared/EmptyState';
 import { useAuth } from '@/context/AuthContext';
-import { fetchSubstituteBundleForPr1, saveSubstituteDecision } from '@/lib/canvassing';
+import { fetchSubstituteBundleForPr1, saveSubstituteDecision, isSubstituteActionable } from '@/lib/canvassing';
 import type { SubstituteReviewBundle, SubstituteReviewItem } from '@/types/canvassing';
 import {
   ChevronLeft,
@@ -65,7 +65,7 @@ export default function SubstituteReviewPage() {
   const isOwner = profile && bundle.pr1.requisitioner_id === profile.id;
   const isProcurement = profile?.role === 'procurement';
   const canAct = !!isOwner || isProcurement;
-  const pending = bundle.substitutes.filter(s => s.decision === null).length;
+  const pending = bundle.substitutes.filter(isSubstituteActionable).length;
 
   return (
     <AppShell title="Substitute Review">

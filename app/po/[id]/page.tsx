@@ -561,6 +561,11 @@ export default function PODetailPage() {
                             </span>
                           </p>
                         )}
+                        {item.pr1_remarks_snapshot && (
+                          <p className="text-xs text-pq-neutral-400 italic mt-0.5 font-normal">
+                            Requestor remarks: {item.pr1_remarks_snapshot}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         {(item.quote_attachments?.length ?? 0) > 0

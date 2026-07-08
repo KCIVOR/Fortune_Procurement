@@ -383,7 +383,12 @@ export default function PR1DetailPage() {
                   <tr key={item.id}>
                     <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
                     <td className="px-4 py-3 font-mono text-xs text-pq-neutral-700">{item.item_code || '—'}</td>
-                    <td className="px-4 py-3 text-pq-neutral-900">{item.description}</td>
+                    <td className="px-4 py-3 text-pq-neutral-900">
+                      {item.description}
+                      {item.remarks && (
+                        <p className="text-xs text-pq-neutral-400 italic mt-0.5">{item.remarks}</p>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       {pr1.request_type === 'services' ? (
                         <span className="text-xs text-pq-neutral-300">—</span>

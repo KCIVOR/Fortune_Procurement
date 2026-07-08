@@ -292,6 +292,11 @@ export default function PR2PrintPage() {
                         Justification: {item.quote_justification}
                       </div>
                     )}
+                    {item?.pr1_remarks_snapshot && (
+                      <div style={{ marginTop: 2, fontSize: 7, color: '#555', fontStyle: 'italic' }}>
+                        Requestor remarks: {item.pr1_remarks_snapshot}
+                      </div>
+                    )}
                   </td>
                   <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8, textAlign: 'center' }}>
                     {item?.unit_of_measure || ''}

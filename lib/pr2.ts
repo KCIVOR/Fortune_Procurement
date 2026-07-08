@@ -202,7 +202,7 @@ export async function generatePR2FromRfq(
   // classification snapshot through PO / GRN / delivery downstream.
   const { data: pr1Items, error: pr1ItemsErr } = await db
     .from('pr1_items')
-    .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, stock_on_hand, is_raw_material')
+    .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, stock_on_hand, is_raw_material, remarks')
     .eq('pr1_id', rfq.pr1_id)
     .order('item_order', { ascending: true });
   if (pr1ItemsErr) throw pr1ItemsErr;
@@ -362,6 +362,9 @@ export async function generatePR2FromRfq(
         quote_justification:     sel.requires_justification === true
           ? (sel.quote_justification ?? null)
           : null,
+        // Read-only snapshot of the requestor's PR1 line remarks. Distinct
+        // from this row's own `remarks` (procurement's selection notes).
+        pr1_remarks_snapshot:    item.remarks ?? null,
         rfq_item_quote_id:       quote?.id ?? null,
       };
     })

@@ -169,6 +169,7 @@ export async function fetchApprovalDetail(
         validated_soh:      validatedSohMap[i.id] ?? null,
         // Phase 4 (Raw Mats): forwarded so approver UI can render the badge.
         is_raw_material:    i.is_raw_material === true,
+        remarks:            i.remarks ?? null,
         attachments:        attachmentsByItem[i.id] ?? [],
       })),
     instance_id:     inst.id,

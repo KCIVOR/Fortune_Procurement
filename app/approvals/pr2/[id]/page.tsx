@@ -392,6 +392,11 @@ export default function PR2ApprovalDetailPage() {
                               </span>
                             </p>
                           )}
+                          {item.pr1_remarks_snapshot && (
+                            <p className="text-xs text-pq-neutral-400 italic mt-0.5 font-normal">
+                              Requestor remarks: {item.pr1_remarks_snapshot}
+                            </p>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-1.5 items-start">

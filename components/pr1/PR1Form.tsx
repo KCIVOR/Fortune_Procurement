@@ -58,6 +58,7 @@ function buildInitialValues(existing?: PR1WithItems): PR1FormValues {
             quantity_requested: i.quantity_requested,
             // Phase 3 (Raw Mats): preserve flag when re-loading a draft for edit.
             is_raw_material:    i.is_raw_material === true,
+            remarks:            i.remarks ?? '',
           }))
         : [{ ...EMPTY_ITEM(), id: `temp-${Math.random().toString(36).substring(2, 9)}` }],
     };
@@ -742,6 +743,13 @@ export default function PR1Form({ existing }: PR1FormProps) {
                         onChange={e => setItem(idx, 'description', e.target.value)}
                         placeholder="Item description"
                         className="w-full h-8 px-2 py-1 text-xs"
+                      />
+                      <Input
+                        type="text"
+                        value={item.remarks ?? ''}
+                        onChange={e => setItem(idx, 'remarks', e.target.value)}
+                        placeholder="Remarks (optional) — e.g. preferred brand, urgency note"
+                        className="w-full h-7 px-2 py-1 text-xs mt-1 text-pq-neutral-500 placeholder:text-pq-neutral-300"
                       />
                     </TableCell>
                     <TableCell className="px-2 py-2 align-middle">

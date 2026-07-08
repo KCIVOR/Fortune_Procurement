@@ -292,7 +292,12 @@ export default function ApprovalDetailPage() {
                     <tr key={item.id} className="hover:bg-pq-neutral-50">
                       <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
                       <td className="px-4 py-3 font-mono text-xs text-pq-neutral-500">{item.item_code || '—'}</td>
-                      <td className="px-4 py-3 text-pq-neutral-900 font-medium">{item.description}</td>
+                      <td className="px-4 py-3 text-pq-neutral-900 font-medium">
+                        {item.description}
+                        {item.remarks && (
+                          <p className="text-xs text-pq-neutral-400 italic mt-0.5 font-normal">{item.remarks}</p>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-center">
                         {detail.request_type === 'services' ? (
                           <span className="text-xs text-pq-neutral-300">—</span>

@@ -227,7 +227,7 @@ export async function fetchPOApprovalDetail(
   const [poRes, itemsRes, stepsRes, actionsRes, receiptRes] = await Promise.all([
     db.from('po_requests').select('*').eq('id', inst.document_id).maybeSingle(),
     db.from('po_items')
-      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification, rfq_item_quote_id, pr1_item_id )')
+      .select('*, pr2_items:pr2_item_id ( is_raw_material, quote_justification, pr1_remarks_snapshot, rfq_item_quote_id, pr1_item_id )')
       .eq('po_id', inst.document_id)
       .order('item_order', { ascending: true }),
     db.from('approval_steps')
@@ -341,6 +341,7 @@ export async function fetchPOApprovalDetail(
         remarks:              i.remarks,
         is_raw_material:      i.pr2_items?.is_raw_material === true,
         quote_justification:  i.pr2_items?.quote_justification ?? null,
+        pr1_remarks_snapshot: i.pr2_items?.pr1_remarks_snapshot ?? null,
         rfq_item_quote_id:    rfqItemQuoteId,
         quote_attachments:    rfqItemQuoteId ? (quoteAttachmentsByQuote[rfqItemQuoteId] ?? []) : [],
         attachments:          i.pr2_items?.pr1_item_id ? (pr1AttachmentsByItem[i.pr2_items.pr1_item_id] ?? []) : [],

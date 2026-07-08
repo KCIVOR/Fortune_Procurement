@@ -798,6 +798,9 @@ export default function RfqDetailPage() {
                           {item.item_code && <span className="font-mono">{item.item_code} · </span>}
                           {item.quantity_requested} {item.unit_of_measure}
                         </p>
+                        {item.remarks && (
+                          <p className="text-xs text-pq-neutral-400 italic mt-0.5">Requestor remarks: {item.remarks}</p>
+                        )}
                       </div>
                     </div>
                     {item.attachments && item.attachments.length > 0 && (
@@ -1248,6 +1251,9 @@ function MatrixRow({
             <p className="text-xs text-pq-neutral-400 mt-0.5">
               {row.item.quantity_requested} {row.item.unit_of_measure}
             </p>
+            {row.item.remarks && (
+              <p className="text-xs text-pq-neutral-400 italic mt-0.5">Requestor remarks: {row.item.remarks}</p>
+            )}
           </div>
           {row.item.attachments && row.item.attachments.length > 0 && (
             <div className="shrink-0 mt-0.5">

@@ -40,6 +40,8 @@ type Pr1ItemRfqRow = {
   quantity_requested: number;
   /** Phase 4 (Raw Mats): forwarded from pr1_items so RFQ surfaces can render the badge. */
   is_raw_material?: boolean;
+  /** Forwarded from pr1_items.remarks so procurement sees the requestor's note while canvassing. */
+  remarks?: string | null;
   attachments?: PR1Attachment[];
 };
 
@@ -84,6 +86,7 @@ function buildRfqLineItems(
       unit_of_measure:    i.unit_of_measure,
       quantity_requested: pr1Qty(i),
       is_raw_material:    i.is_raw_material === true,
+      remarks:            i.remarks ?? null,
       attachments:        i.attachments,
     }));
   }
@@ -106,6 +109,7 @@ function buildRfqLineItems(
         quantity_requested:      procQty,
         pr1_quantity_requested: pr1Qty(i),
         is_raw_material:        i.is_raw_material === true,
+        remarks:                i.remarks ?? null,
         attachments:            i.attachments,
       });
     }
@@ -123,6 +127,7 @@ function buildRfqLineItems(
         quantity_requested:      q,
         pr1_quantity_requested: q,
         is_raw_material:        i.is_raw_material === true,
+        remarks:                i.remarks ?? null,
         attachments:            i.attachments,
       });
     }
@@ -577,7 +582,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
       .eq('id', rfq.pr1_id)
       .maybeSingle(),
     db.from('pr1_items')
-      .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material')
+      .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material, remarks')
       .eq('pr1_id', rfq.pr1_id)
       .order('item_order', { ascending: true }),
     db.from('rfq_suppliers')
@@ -2000,10 +2005,20 @@ export async function saveSubstituteDecision(
   }
 }
 
+/**
+ * A substitute only needs a decision if it's undecided AND still actionable —
+ * once its RFQ closes/cancels or the line gets awarded, the decision UI locks
+ * and an undecided item would otherwise count as "pending" forever with no
+ * way to resolve it.
+ */
+export function isSubstituteActionable(s: Pick<SubstituteReviewItem, 'decision' | 'rfq_status' | 'is_awarded'>): boolean {
+  return s.decision === null && s.rfq_status !== 'closed' && s.rfq_status !== 'cancelled' && !s.is_awarded;
+}
+
 export async function fetchPendingSubstituteCount(requisitionerId: string): Promise<number> {
   const bundles = await fetchSubstitutesForRequestor(requisitionerId);
   return bundles.reduce(
-    (sum, b) => sum + b.substitutes.filter(s => s.decision === null).length,
+    (sum, b) => sum + b.substitutes.filter(isSubstituteActionable).length,
     0
   );
 }

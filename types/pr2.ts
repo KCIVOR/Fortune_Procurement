@@ -78,6 +78,12 @@ export interface PR2Item {
    * NULL when not required (verified product OR non-raw-mats line).
    */
   quote_justification:     string | null;
+  /**
+   * Read-only snapshot of pr1_items.remarks at PR2 generation time.
+   * Distinct from this row's own `remarks` (procurement's selection notes) —
+   * never edited on PR2; PR1 remains the source of truth.
+   */
+  pr1_remarks_snapshot?:   string | null;
   /** FK back to the winning rfq_item_quotes row. Null for manually-created PR2s. */
   rfq_item_quote_id?:      string | null;
   created_at:              string;

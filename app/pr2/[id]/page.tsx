@@ -71,6 +71,7 @@ interface EditableItem {
   attachments?: PR1Attachment[];
   quote_justification?: string | null;
   quote_attachments?: import('@/types/canvassing').RfqQuoteAttachment[];
+  pr1_remarks_snapshot?: string | null;
 }
 
 function toEditableItem(item: PR2Item): EditableItem {
@@ -99,6 +100,7 @@ function toEditableItem(item: PR2Item): EditableItem {
     attachments:      item.attachments,
     quote_justification: item.quote_justification ?? null,
     quote_attachments: item.quote_attachments,
+    pr1_remarks_snapshot: item.pr1_remarks_snapshot ?? null,
   };
 }
 
@@ -670,6 +672,11 @@ export default function PR2DetailPage() {
                             <span>
                               <strong>Award justification:</strong> {item.quote_justification}
                             </span>
+                          </p>
+                        )}
+                        {item.pr1_remarks_snapshot && (
+                          <p className="text-xs text-pq-neutral-400 italic mt-0.5">
+                            Requestor remarks: {item.pr1_remarks_snapshot}
                           </p>
                         )}
                         {item.lead_time_days > 0 && (

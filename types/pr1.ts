@@ -36,6 +36,8 @@ export interface PR1Item {
    * DB column is NOT NULL DEFAULT false, so this is always present.
    */
   is_raw_material: boolean;
+  /** Optional per-line remarks entered by the requestor at PR1 creation. */
+  remarks: string | null;
   created_at: string;
   validated_soh?: number | null;
   warehouse_decision?: string | null;
@@ -122,6 +124,8 @@ export interface PR1ItemDraft {
    * compiles; persistence relies on the DB default until Phase 3 lands.
    */
   is_raw_material?: boolean;
+  /** Optional per-line remarks entered by the requestor. */
+  remarks?: string;
 }
 
 export interface PR1FormValues {
@@ -156,6 +160,7 @@ export const EMPTY_ITEM = (): PR1ItemDraft => ({
   quantity_requested: '',
   // Phase 3 (Raw Mats): default unchecked per decision D5.
   is_raw_material: false,
+  remarks: '',
 });
 
 /** Fallback defaults — dynamic options are now served from system_dropdown_options table. */

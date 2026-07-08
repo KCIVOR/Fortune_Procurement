@@ -103,6 +103,7 @@ export default function GRNDetailPage() {
             remarks:           i.remarks,
             is_raw_material:     i.is_raw_material === true,
             quote_justification: i.quote_justification ?? null,
+            pr1_remarks_snapshot: i.pr1_remarks_snapshot ?? null,
             quote_attachments:   i.quote_attachments,
           } as GRNItemDraft)),
         });
@@ -469,6 +470,11 @@ export default function GRNDetailPage() {
                               <span>
                                 <strong>Award justification:</strong> {item.quote_justification}
                               </span>
+                            </p>
+                          )}
+                          {item.pr1_remarks_snapshot && (
+                            <p className="text-xs text-pq-neutral-400 italic mt-0.5">
+                              Requestor remarks: {item.pr1_remarks_snapshot}
                             </p>
                           )}
                         </td>
