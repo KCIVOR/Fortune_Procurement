@@ -31,6 +31,7 @@ import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle a
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import RequestorRemarks from '@/components/shared/RequestorRemarks';
 import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 import JustificationModal, { type JustificationContext } from '@/components/canvassing/JustificationModal';
 import { format } from 'date-fns';
@@ -799,7 +800,7 @@ export default function RfqDetailPage() {
                           {item.quantity_requested} {item.unit_of_measure}
                         </p>
                         {item.remarks && (
-                          <p className="text-xs text-pq-neutral-400 italic mt-0.5">Requestor remarks: {item.remarks}</p>
+                          <RequestorRemarks text={item.remarks} />
                         )}
                       </div>
                     </div>
@@ -1252,7 +1253,7 @@ function MatrixRow({
               {row.item.quantity_requested} {row.item.unit_of_measure}
             </p>
             {row.item.remarks && (
-              <p className="text-xs text-pq-neutral-400 italic mt-0.5">Requestor remarks: {row.item.remarks}</p>
+              <RequestorRemarks text={row.item.remarks} />
             )}
           </div>
           {row.item.attachments && row.item.attachments.length > 0 && (

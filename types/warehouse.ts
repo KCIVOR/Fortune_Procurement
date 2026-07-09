@@ -40,6 +40,11 @@ export interface WarehouseValidationItem {
   procurement_qty: number;
   item_notes: string;
   created_at: string;
+  /** Set when warehouse changes quantity_requested away from the PR1 original. */
+  quantity_override_reason: string | null;
+  quantity_overridden_by: string | null;
+  quantity_overridden_by_name_snapshot: string | null;
+  quantity_overridden_at: string | null;
 }
 
 export interface WarehouseValidationWithItems extends WarehouseValidation {
@@ -58,6 +63,8 @@ export interface ValidationItemDraft {
   quantity_requested: number;
   validated_soh: number | '';
   item_notes: string;
+  /** Reason for changing quantity_requested away from the PR1 original; required when overridden. */
+  quantity_override_reason: string;
 }
 
 export interface ValidationFormValues {

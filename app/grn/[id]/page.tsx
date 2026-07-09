@@ -11,6 +11,8 @@ import { fetchGRNById, fetchSuggestedDRSequence, saveGRNProgress, closeGRN, reop
 import type { GRNWithItems, GRNFormValues, GRNItemDraft } from '@/types/grn';
 import { format } from 'date-fns';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import RequestorRemarks from '@/components/shared/RequestorRemarks';
+import WarehouseQtyOverrideNote from '@/components/shared/WarehouseQtyOverrideNote';
 import { PackageCheck, Building2, Package, CalendarDays, FileText, Save, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, User, MapPin, Hash, Receipt, RotateCcw } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import DetailBackButton from '@/components/shared/DetailBackButton';
@@ -104,6 +106,9 @@ export default function GRNDetailPage() {
             is_raw_material:     i.is_raw_material === true,
             quote_justification: i.quote_justification ?? null,
             pr1_remarks_snapshot: i.pr1_remarks_snapshot ?? null,
+            pr1_quantity_requested_snapshot:      i.pr1_quantity_requested_snapshot ?? null,
+            quantity_override_reason_snapshot:    i.quantity_override_reason_snapshot ?? null,
+            quantity_overridden_by_name_snapshot: i.quantity_overridden_by_name_snapshot ?? null,
             quote_attachments:   i.quote_attachments,
           } as GRNItemDraft)),
         });
@@ -473,10 +478,17 @@ export default function GRNDetailPage() {
                             </p>
                           )}
                           {item.pr1_remarks_snapshot && (
-                            <p className="text-xs text-pq-neutral-400 italic mt-0.5">
-                              Requestor remarks: {item.pr1_remarks_snapshot}
-                            </p>
+                            <RequestorRemarks text={item.pr1_remarks_snapshot} />
                           )}
+                          {item.pr1_quantity_requested_snapshot != null &&
+                            item.pr1_quantity_requested_snapshot !== item.quantity_ordered && (
+                              <WarehouseQtyOverrideNote
+                                originalQty={item.pr1_quantity_requested_snapshot}
+                                currentQty={item.quantity_ordered}
+                                reason={item.quantity_override_reason_snapshot}
+                                overriddenBy={item.quantity_overridden_by_name_snapshot}
+                              />
+                            )}
                         </td>
                         <td className="px-3 py-3 text-center">
                           {(item.quote_attachments?.length ?? 0) > 0

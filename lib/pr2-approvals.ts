@@ -328,7 +328,7 @@ export async function fetchPR2ApprovalDetail(
   // Fetch PR2 items (include rfq_item_quote_id for quote attachment lookup)
   const [itemRowsRes, pr1Res] = await Promise.all([
     db.from('pr2_items')
-      .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, qty_on_hand, qty_incoming, quantity_to_purchase, supplier_name_snapshot, unit_price, total_price, vat_type, vat_rate_applied, pr1_item_id, is_raw_material, quote_justification, pr1_remarks_snapshot, rfq_item_quote_id')
+      .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, qty_on_hand, qty_incoming, quantity_to_purchase, supplier_name_snapshot, unit_price, total_price, vat_type, vat_rate_applied, pr1_item_id, is_raw_material, quote_justification, pr1_remarks_snapshot, pr1_quantity_requested_snapshot, quantity_override_reason_snapshot, quantity_overridden_by_name_snapshot, rfq_item_quote_id')
       .eq('pr2_id', pr2.id)
       .order('item_order', { ascending: true }),
     pr2.pr1_id
@@ -396,6 +396,9 @@ export async function fetchPR2ApprovalDetail(
       is_raw_material:      i.is_raw_material === true,
       quote_justification:  i.quote_justification ?? null,
       pr1_remarks_snapshot: i.pr1_remarks_snapshot ?? null,
+      pr1_quantity_requested_snapshot:      i.pr1_quantity_requested_snapshot ?? null,
+      quantity_override_reason_snapshot:    i.quantity_override_reason_snapshot ?? null,
+      quantity_overridden_by_name_snapshot: i.quantity_overridden_by_name_snapshot ?? null,
       quote_attachments:    i.rfq_item_quote_id ? (quoteAttachmentsByQuote[i.rfq_item_quote_id] ?? []) : [],
       attachments:          i.pr1_item_id ? (pr1AttachmentsByItem[i.pr1_item_id] ?? []) : [],
     })),

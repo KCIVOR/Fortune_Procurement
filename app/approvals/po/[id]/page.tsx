@@ -8,6 +8,8 @@ import AppShell from '@/components/layout/AppShell';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import RequestorRemarks from '@/components/shared/RequestorRemarks';
+import WarehouseQtyOverrideNote from '@/components/shared/WarehouseQtyOverrideNote';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchPOApprovalDetail,
@@ -360,10 +362,17 @@ export default function POApprovalDetailPage() {
                         </p>
                       )}
                       {item.pr1_remarks_snapshot && (
-                        <p className="text-xs text-pq-neutral-400 italic mt-0.5 font-normal">
-                          Requestor remarks: {item.pr1_remarks_snapshot}
-                        </p>
+                        <RequestorRemarks text={item.pr1_remarks_snapshot} />
                       )}
+                      {item.pr1_quantity_requested_snapshot != null &&
+                        item.pr1_quantity_requested_snapshot !== item.quantity_to_purchase && (
+                          <WarehouseQtyOverrideNote
+                            originalQty={item.pr1_quantity_requested_snapshot}
+                            currentQty={item.quantity_to_purchase}
+                            reason={item.quantity_override_reason_snapshot}
+                            overriddenBy={item.quantity_overridden_by_name_snapshot}
+                          />
+                        )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1.5 items-start">

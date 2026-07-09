@@ -84,6 +84,16 @@ export interface PR2Item {
    * never edited on PR2; PR1 remains the source of truth.
    */
   pr1_remarks_snapshot?:   string | null;
+  /**
+   * Read-only snapshot of the original pr1_items.quantity_requested at PR2
+   * generation time — differs from `quantity_requested` above only when
+   * warehouse overrode the line during validation.
+   */
+  pr1_quantity_requested_snapshot?:      number | null;
+  /** Read-only, forwarded from warehouse_validation_items.quantity_override_reason. */
+  quantity_override_reason_snapshot?:    string | null;
+  /** Read-only, forwarded from warehouse_validation_items.quantity_overridden_by_name_snapshot. */
+  quantity_overridden_by_name_snapshot?: string | null;
   /** FK back to the winning rfq_item_quotes row. Null for manually-created PR2s. */
   rfq_item_quote_id?:      string | null;
   created_at:              string;

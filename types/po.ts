@@ -78,6 +78,16 @@ export interface POItem {
    * `remarks` (buyer-entered).
    */
   pr1_remarks_snapshot?: string | null;
+  /**
+   * Read-only, forwarded from `pr2_items.pr1_quantity_requested_snapshot` via
+   * join — the original PR1 ask. Differs from `quantity_to_purchase` only
+   * when warehouse overrode the line during validation.
+   */
+  pr1_quantity_requested_snapshot?: number | null;
+  /** Read-only, forwarded from `pr2_items.quantity_override_reason_snapshot`. */
+  quantity_override_reason_snapshot?: string | null;
+  /** Read-only, forwarded from `pr2_items.quantity_overridden_by_name_snapshot`. */
+  quantity_overridden_by_name_snapshot?: string | null;
   /** FK to the winning rfq_item_quotes row, forwarded from pr2_items via join. */
   rfq_item_quote_id?: string | null;
   /** Supplier quote attachments loaded at read time via rfq_item_quote_id. */

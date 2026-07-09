@@ -314,7 +314,7 @@ export default function PR1PrintPage() {
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '3px 6px', fontSize: 9 }}>
                   <div>{item?.description || ''}</div>
                   {item?.remarks && (
-                    <div style={{ fontSize: 7, color: '#555', marginTop: 2, fontStyle: 'italic' }}>
+                    <div style={{ fontSize: 7, color: '#555', marginTop: 2, fontStyle: 'italic', wordBreak: 'break-word' }}>
                       Remarks: {item.remarks}
                     </div>
                   )}

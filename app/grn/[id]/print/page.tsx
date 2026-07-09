@@ -246,10 +246,17 @@ export default function GRNPrintPage() {
                       </div>
                     )}
                     {item.pr1_remarks_snapshot && (
-                      <div style={{ marginTop: 2, fontSize: 7, color: '#555', fontStyle: 'italic' }}>
+                      <div style={{ marginTop: 2, fontSize: 7, color: '#555', fontStyle: 'italic', wordBreak: 'break-word' }}>
                         Requestor remarks: {item.pr1_remarks_snapshot}
                       </div>
                     )}
+                    {item.pr1_quantity_requested_snapshot != null &&
+                      item.pr1_quantity_requested_snapshot !== item.quantity_ordered && (
+                        <div style={{ marginTop: 2, fontSize: 7, color: '#c2410c', fontStyle: 'italic', wordBreak: 'break-word' }}>
+                          Qty adjusted by warehouse: {item.pr1_quantity_requested_snapshot} → {item.quantity_ordered}
+                          {item.quantity_override_reason_snapshot ? ` — ${item.quantity_override_reason_snapshot}` : ''}
+                        </div>
+                      )}
                   </td>
                   <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'center', fontSize: 8 }}>{item.unit_of_measure}</td>
                   <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px', textAlign: 'right', fontSize: 9, fontFamily: 'monospace' }}>

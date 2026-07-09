@@ -140,6 +140,33 @@ export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
   return { ...pr2, request_type, pr1_priority, items: itemsWithAttachments } as PR2WithItems;
 }
 
+/** Per-line warehouse quantity override reason/actor, keyed by pr1_item_id — forwarded onto pr2_items as a read-only snapshot at generation time. */
+async function fetchWarehouseOverridesByPr1Item(
+  pr1Id: string
+): Promise<Record<string, { reason: string; overridden_by_name: string | null }>> {
+  const { data: wv } = await db
+    .from('warehouse_validations')
+    .select('id')
+    .eq('pr1_id', pr1Id)
+    .maybeSingle();
+  if (!wv?.id) return {};
+
+  const { data: rows } = await db
+    .from('warehouse_validation_items')
+    .select('pr1_item_id, quantity_override_reason, quantity_overridden_by_name_snapshot')
+    .eq('validation_id', wv.id)
+    .not('quantity_overridden_by', 'is', null);
+
+  const map: Record<string, { reason: string; overridden_by_name: string | null }> = {};
+  for (const r of (rows ?? []) as any[]) {
+    map[r.pr1_item_id] = {
+      reason:              r.quantity_override_reason ?? '',
+      overridden_by_name:  r.quantity_overridden_by_name_snapshot ?? null,
+    };
+  }
+  return map;
+}
+
 export async function fetchPR2ByRfqId(rfqId: string): Promise<PR2Request | null> {
   const { data, error } = await db
     .from('pr2_requests')
@@ -208,6 +235,7 @@ export async function generatePR2FromRfq(
   if (pr1ItemsErr) throw pr1ItemsErr;
 
   const wh = await fetchWarehouseProcurementByPr1Item(pr1.id);
+  const whOverrides = await fetchWarehouseOverridesByPr1Item(pr1.id);
 
   const pr2QtyForPr1Line = (pr1ItemId: string, pr1LineQty: number) => {
     if (!wh.validated) return Number(pr1LineQty) || 0;
@@ -365,6 +393,12 @@ export async function generatePR2FromRfq(
         // Read-only snapshot of the requestor's PR1 line remarks. Distinct
         // from this row's own `remarks` (procurement's selection notes).
         pr1_remarks_snapshot:    item.remarks ?? null,
+        // Read-only snapshot of a warehouse quantity override, if any —
+        // original PR1 ask vs what's actually being procured (`qty` above),
+        // plus who changed it and why.
+        pr1_quantity_requested_snapshot:      Number(item.quantity_requested),
+        quantity_override_reason_snapshot:    whOverrides[item.id]?.reason || null,
+        quantity_overridden_by_name_snapshot: whOverrides[item.id]?.overridden_by_name || null,
         rfq_item_quote_id:       quote?.id ?? null,
       };
     })

@@ -434,6 +434,64 @@ export async function fetchDownstreamRejectionRemark(
   };
 }
 
+// ─── Warehouse quantity overrides ────────────────────────────────────────────
+
+export interface WarehouseQtyOverrideLine {
+  pr1_item_id: string;
+  item_code: string;
+  description: string;
+  original_quantity_requested: number;
+  quantity_requested: number;
+  reason: string;
+  overridden_by_name: string | null;
+  overridden_at: string | null;
+}
+
+/**
+ * Lines where warehouse changed the requested quantity away from what the
+ * requestor originally asked for. Empty array if no validation exists yet or
+ * nothing was overridden.
+ */
+export async function fetchWarehouseQtyOverrides(
+  pr1Id: string,
+): Promise<WarehouseQtyOverrideLine[]> {
+  const { data: wv } = await db
+    .from('warehouse_validations')
+    .select('id')
+    .eq('pr1_id', pr1Id)
+    .maybeSingle();
+  if (!wv?.id) return [];
+
+  const { data: items } = await db
+    .from('warehouse_validation_items')
+    .select('pr1_item_id, item_order, item_code, description, quantity_requested, quantity_override_reason, quantity_overridden_by_name_snapshot, quantity_overridden_at')
+    .eq('validation_id', wv.id)
+    .not('quantity_overridden_by', 'is', null)
+    .order('item_order', { ascending: true });
+
+  if (!items || items.length === 0) return [];
+
+  const pr1ItemIds = (items as any[]).map(i => i.pr1_item_id);
+  const { data: pr1Items } = await db
+    .from('pr1_items')
+    .select('id, quantity_requested')
+    .in('id', pr1ItemIds);
+  const originalMap: Record<string, number> = Object.fromEntries(
+    ((pr1Items ?? []) as any[]).map(r => [r.id, Number(r.quantity_requested)])
+  );
+
+  return (items as any[]).map(i => ({
+    pr1_item_id:                  i.pr1_item_id,
+    item_code:                    i.item_code,
+    description:                  i.description,
+    original_quantity_requested: originalMap[i.pr1_item_id] ?? 0,
+    quantity_requested:           Number(i.quantity_requested),
+    reason:                       i.quantity_override_reason ?? '',
+    overridden_by_name:           i.quantity_overridden_by_name_snapshot ?? null,
+    overridden_at:                i.quantity_overridden_at ?? null,
+  }));
+}
+
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
 export async function fetchMyPR1s(

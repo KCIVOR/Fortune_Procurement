@@ -73,6 +73,15 @@ export interface GRNItem {
    * line remarks. Distinct from this row's own `remarks` (warehouse-entered).
    */
   pr1_remarks_snapshot?: string | null;
+  /**
+   * Read-only, forwarded from `pr2_items.pr1_quantity_requested_snapshot` via
+   * the same `grn_items → po_items → pr2_items` join — the original PR1 ask.
+   */
+  pr1_quantity_requested_snapshot?: number | null;
+  /** Read-only, forwarded from `pr2_items.quantity_override_reason_snapshot`. */
+  quantity_override_reason_snapshot?: string | null;
+  /** Read-only, forwarded from `pr2_items.quantity_overridden_by_name_snapshot`. */
+  quantity_overridden_by_name_snapshot?: string | null;
   /** Supplier quote attachments loaded at read time via the grn→po→pr2 join. */
   quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
 
@@ -121,6 +130,12 @@ export interface GRNItemDraft {
   quote_justification?: string | null;
   /** Read-only, forwarded from `pr2_items.pr1_remarks_snapshot`. */
   pr1_remarks_snapshot?: string | null;
+  /** Read-only, forwarded from `pr2_items.pr1_quantity_requested_snapshot`. */
+  pr1_quantity_requested_snapshot?: number | null;
+  /** Read-only, forwarded from `pr2_items.quantity_override_reason_snapshot`. */
+  quantity_override_reason_snapshot?: string | null;
+  /** Read-only, forwarded from `pr2_items.quantity_overridden_by_name_snapshot`. */
+  quantity_overridden_by_name_snapshot?: string | null;
   quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
 }
 

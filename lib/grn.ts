@@ -62,6 +62,9 @@ function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuot
     is_raw_material:   pr2Item?.is_raw_material === true,
     quote_justification: pr2Item?.quote_justification ?? null,
     pr1_remarks_snapshot: pr2Item?.pr1_remarks_snapshot ?? null,
+    pr1_quantity_requested_snapshot:      pr2Item?.pr1_quantity_requested_snapshot ?? null,
+    quantity_override_reason_snapshot:    pr2Item?.quantity_override_reason_snapshot ?? null,
+    quantity_overridden_by_name_snapshot: pr2Item?.quantity_overridden_by_name_snapshot ?? null,
     quote_attachments: rfqItemQuoteId ? (quoteAttachmentsByQuote[rfqItemQuoteId] ?? []) : [],
     created_at:        row.created_at,
     updated_at:        row.updated_at,
@@ -229,7 +232,7 @@ export async function fetchGRNById(id: string): Promise<GRNWithItems | null> {
   const [grnRes, itemsRes] = await Promise.all([
     db.from('grn_receipts').select('*').eq('id', id).maybeSingle(),
     db.from('grn_items')
-      .select('*, po_items:po_item_id ( pr2_items:pr2_item_id ( is_raw_material, quote_justification, pr1_remarks_snapshot, rfq_item_quote_id ) )')
+      .select('*, po_items:po_item_id ( pr2_items:pr2_item_id ( is_raw_material, quote_justification, pr1_remarks_snapshot, pr1_quantity_requested_snapshot, quantity_override_reason_snapshot, quantity_overridden_by_name_snapshot, rfq_item_quote_id ) )')
       .eq('grn_id', id)
       .order('item_order', { ascending: true }),
   ]);

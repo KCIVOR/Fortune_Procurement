@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import RequestorRemarks from '@/components/shared/RequestorRemarks';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 import RelatedRecords from '@/components/shared/RelatedRecords';
@@ -95,6 +96,7 @@ export default function WarehouseValidationPage() {
       quantity_requested: i.quantity_requested,
       validated_soh:      i.validated_soh ?? '',
       item_notes:         i.item_notes,
+      quantity_override_reason: i.quantity_override_reason ?? '',
     })),
   });
 
@@ -110,12 +112,17 @@ export default function WarehouseValidationPage() {
     setItem(idx, 'validated_soh', num);
   };
 
+  const handleQuantityRequestedChange = (idx: number, rawVal: string) => {
+    const num = rawVal === '' ? 0 : Number(rawVal);
+    setItem(idx, 'quantity_requested', num);
+  };
+
   const handleSaveProgress = async () => {
     if (!validation || !profile) return;
     setSaving(true);
     setGlobalError('');
     try {
-      await saveValidationProgress(validation.id, formValues);
+      await saveValidationProgress(validation.id, formValues, profile);
     } catch (err: unknown) {
       setGlobalError(err instanceof Error ? err.message : 'Failed to save progress.');
     } finally {
@@ -203,6 +210,23 @@ export default function WarehouseValidationPage() {
   for (const it of pr1.items ?? []) {
     pr1RawMatMap[it.id] = it.is_raw_material === true;
   }
+
+  // Original per-line quantity as the requestor submitted it — used to detect
+  // and flag warehouse overrides. `pr1.items` is immutable, unlike the
+  // working `quantity_requested` copy on the validation row.
+  const pr1QtyMap: Record<string, number> = {};
+  for (const it of pr1.items ?? []) {
+    pr1QtyMap[it.id] = it.quantity_requested;
+  }
+
+  const isQtyOverridden = (item: ValidationItemDraft) => {
+    const original = pr1QtyMap[item.pr1_item_id];
+    return typeof original === 'number' && Number(item.quantity_requested) !== original;
+  };
+
+  const overriddenItemsMissingReason = formValues.items.filter(
+    item => isQtyOverridden(item) && !item.quantity_override_reason.trim()
+  );
 
   const allItemsHaveSoh =
     formValues.items.length > 0 && routingRows.every(r => r !== null);
@@ -302,7 +326,7 @@ export default function WarehouseValidationPage() {
                   <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-16">Unit</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">Req. SOH</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-28">Available Qty</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-24">Req. Qty</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-40">Req. Qty</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide min-w-[200px]">Outcome</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">Notes</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide w-32">Attachments</th>
@@ -320,7 +344,13 @@ export default function WarehouseValidationPage() {
                     <tr key={item.id} className={`${rowClass} transition-colors`}>
                       <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
                       <td className="px-4 py-3 font-mono text-xs text-pq-neutral-700">{item.item_code || '—'}</td>
-                      <td className="px-4 py-3 text-pq-neutral-900 font-medium">{item.description}</td>
+                      <td className="px-4 py-3 text-pq-neutral-900 font-medium">
+                        {item.description}
+                        {(() => {
+                          const remarks = pr1.items?.find(i => i.id === item.pr1_item_id)?.remarks;
+                          return remarks ? <RequestorRemarks text={remarks} /> : null;
+                        })()}
+                      </td>
                       <td className="px-4 py-3 text-center">
                         {isServices ? (
                           <span className="text-xs text-pq-neutral-300">—</span>
@@ -363,8 +393,44 @@ export default function WarehouseValidationPage() {
                           />
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">
-                        {item.quantity_requested.toLocaleString()}
+                      <td className="px-3 py-2">
+                        {isReadOnly ? (
+                          <div className="text-right">
+                            <span className="block font-mono text-sm font-semibold text-pq-neutral-900">
+                              {item.quantity_requested.toLocaleString()}
+                            </span>
+                            {isQtyOverridden(item) && (() => {
+                              const raw = validation.items.find(vi => vi.id === item.id);
+                              return (
+                                <p className="text-xs text-orange-700 italic mt-0.5 text-left">
+                                  Adjusted from {pr1QtyMap[item.pr1_item_id]?.toLocaleString()}
+                                  {raw?.quantity_overridden_by_name_snapshot ? ` by ${raw.quantity_overridden_by_name_snapshot}` : ''}
+                                  {raw?.quantity_override_reason ? ` — ${raw.quantity_override_reason}` : ''}
+                                </p>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.quantity_requested}
+                              onChange={e => handleQuantityRequestedChange(idx, e.target.value)}
+                              className="w-full px-2.5 py-1.5 border border-pq-neutral-200 bg-pq-neutral-50 rounded-md text-xs text-right focus:outline-none focus:ring-1 focus:ring-pq-primary-600 focus:border-pq-neutral-200 transition font-mono"
+                            />
+                            {isQtyOverridden(item) && (
+                              <input
+                                type="text"
+                                value={item.quantity_override_reason}
+                                onChange={e => setItem(idx, 'quantity_override_reason', e.target.value)}
+                                placeholder={`Reason for changing from ${pr1QtyMap[item.pr1_item_id]?.toLocaleString()} (required)`}
+                                className="w-full px-2 py-1 border border-orange-300 bg-orange-50 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-pq-primary-600 transition"
+                              />
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <ItemOutcomeText route={rowRoute} />
@@ -529,6 +595,13 @@ export default function WarehouseValidationPage() {
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   <p className="text-sm">
                     Enter verified SOH for every line before submitting warehouse validation.
+                  </p>
+                </div>
+              ) : overriddenItemsMissingReason.length > 0 ? (
+                <div className="flex items-center gap-3 text-orange-800 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <p className="text-sm">
+                    Enter a reason for every line where the requested quantity was changed.
                   </p>
                 </div>
               ) : (

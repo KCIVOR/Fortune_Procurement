@@ -22,6 +22,8 @@ import { format } from 'date-fns';
 import { FileText, Building2, CalendarDays, User, Package, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, Pencil, Save, X as XIcon, RefreshCw, Send, ArrowRight, ShoppingCart, ClipboardList, Lock, RotateCcw, Circle as XCircle, CheckCheck, FlaskConical, Store } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import RequestorRemarks from '@/components/shared/RequestorRemarks';
+import WarehouseQtyOverrideNote from '@/components/shared/WarehouseQtyOverrideNote';
 import ActionPill from '@/components/shared/ActionPill';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
@@ -72,6 +74,9 @@ interface EditableItem {
   quote_justification?: string | null;
   quote_attachments?: import('@/types/canvassing').RfqQuoteAttachment[];
   pr1_remarks_snapshot?: string | null;
+  pr1_quantity_requested_snapshot?: number | null;
+  quantity_override_reason_snapshot?: string | null;
+  quantity_overridden_by_name_snapshot?: string | null;
 }
 
 function toEditableItem(item: PR2Item): EditableItem {
@@ -101,6 +106,9 @@ function toEditableItem(item: PR2Item): EditableItem {
     quote_justification: item.quote_justification ?? null,
     quote_attachments: item.quote_attachments,
     pr1_remarks_snapshot: item.pr1_remarks_snapshot ?? null,
+    pr1_quantity_requested_snapshot: item.pr1_quantity_requested_snapshot ?? null,
+    quantity_override_reason_snapshot: item.quantity_override_reason_snapshot ?? null,
+    quantity_overridden_by_name_snapshot: item.quantity_overridden_by_name_snapshot ?? null,
   };
 }
 
@@ -675,10 +683,17 @@ export default function PR2DetailPage() {
                           </p>
                         )}
                         {item.pr1_remarks_snapshot && (
-                          <p className="text-xs text-pq-neutral-400 italic mt-0.5">
-                            Requestor remarks: {item.pr1_remarks_snapshot}
-                          </p>
+                          <RequestorRemarks text={item.pr1_remarks_snapshot} />
                         )}
+                        {item.pr1_quantity_requested_snapshot != null &&
+                          item.pr1_quantity_requested_snapshot !== item.quantity_requested && (
+                            <WarehouseQtyOverrideNote
+                              originalQty={item.pr1_quantity_requested_snapshot}
+                              currentQty={item.quantity_requested}
+                              reason={item.quantity_override_reason_snapshot}
+                              overriddenBy={item.quantity_overridden_by_name_snapshot}
+                            />
+                          )}
                         {item.lead_time_days > 0 && (
                           <p className="text-xs text-pq-neutral-400 mt-0.5">Lead: {item.lead_time_days}d</p>
                         )}

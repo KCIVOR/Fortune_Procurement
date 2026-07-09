@@ -9,20 +9,21 @@ import LoadingState from '@/components/shared/LoadingState';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
-import { fetchPR1ById, canUpdatePR1Priority, updatePR1Priority, fetchPR1LifecycleSummaries, fetchDownstreamRejectionRemark, deleteDraftPR1 } from '@/lib/pr1';
-import type { DownstreamRejectionRemark } from '@/lib/pr1';
+import { fetchPR1ById, canUpdatePR1Priority, updatePR1Priority, fetchPR1LifecycleSummaries, fetchDownstreamRejectionRemark, fetchWarehouseQtyOverrides, deleteDraftPR1 } from '@/lib/pr1';
+import type { DownstreamRejectionRemark, WarehouseQtyOverrideLine } from '@/lib/pr1';
 import { fetchPR1ApprovalSignatories } from '@/lib/approvals';
 import type { PR1WithItems, PR1LifecycleSummary, PR1Item } from '@/types/pr1';
 import type { PR1ApprovalSignatories } from '@/types/approvals';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import PriorityChip from '@/components/shared/PriorityChip';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import RequestorRemarks from '@/components/shared/RequestorRemarks';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
 import { useAuth } from '@/context/AuthContext';
 import AccessDenied from '@/components/layout/AccessDenied';
 import { canViewPr1Detail } from '@/lib/pr1-access';
-import { Pencil, Clock, CircleCheck as CheckCircle2, User, Building2, FileText, CalendarDays, CircleAlert as AlertCircle, Circle as XCircle, RotateCcw, Trash2 } from 'lucide-react';
+import { Pencil, Clock, CircleCheck as CheckCircle2, User, Building2, FileText, CalendarDays, CircleAlert as AlertCircle, Circle as XCircle, RotateCcw, Trash2, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import ActionPill from '@/components/shared/ActionPill';
 import DetailBackButton from '@/components/shared/DetailBackButton';
@@ -66,6 +67,7 @@ export default function PR1DetailPage() {
   const [pr1, setPR1] = useState<PR1WithItems | null>(null);
   const [lifecycle, setLifecycle] = useState<PR1LifecycleSummary | null>(null);
   const [rejectionRemark, setRejectionRemark] = useState<DownstreamRejectionRemark | null>(null);
+  const [qtyOverrides, setQtyOverrides] = useState<WarehouseQtyOverrideLine[]>([]);
   const [approvalSignatories, setApprovalSignatories] = useState<
     PR1ApprovalSignatories | null | undefined
   >(undefined);
@@ -82,12 +84,14 @@ export default function PR1DetailPage() {
         setPR1(data);
         if (data) {
           try {
-            const [map, remark] = await Promise.all([
+            const [map, remark, overrides] = await Promise.all([
               fetchPR1LifecycleSummaries([{ id: data.id, status: data.status }]),
               fetchDownstreamRejectionRemark(data.id).catch(() => null),
+              fetchWarehouseQtyOverrides(data.id).catch(() => []),
             ]);
             setLifecycle(map[data.id] ?? null);
             setRejectionRemark(remark);
+            setQtyOverrides(overrides);
           } catch {
             setLifecycle(null);
           }
@@ -316,6 +320,31 @@ export default function PR1DetailPage() {
           </div>
         )}
 
+        {qtyOverrides.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-md px-6 py-4 flex items-start gap-3">
+            <Info className="w-5 h-5 text-orange-600 mt-0.5 shrink-0" />
+            <div className="min-w-0 space-y-2">
+              <p className="text-sm font-semibold text-orange-800">
+                Warehouse Adjusted Requested Quantity
+              </p>
+              {qtyOverrides.map(o => (
+                <div key={o.pr1_item_id} className="text-xs text-orange-700">
+                  <span className="font-medium">{o.item_code ? `${o.item_code} — ` : ''}{o.description}:</span>{' '}
+                  {o.original_quantity_requested.toLocaleString()} → {o.quantity_requested.toLocaleString()}
+                  {o.reason && <span className="italic"> — &ldquo;{o.reason}&rdquo;</span>}
+                  {(o.overridden_by_name || o.overridden_at) && (
+                    <span className="text-orange-400">
+                      {' '}
+                      ({o.overridden_by_name}
+                      {o.overridden_at && `, ${format(new Date(o.overridden_at), 'MMM d, yyyy h:mm a')}`})
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Header card */}
         <DetailCard overflow>
           <DetailCardHeader
@@ -386,7 +415,7 @@ export default function PR1DetailPage() {
                     <td className="px-4 py-3 text-pq-neutral-900">
                       {item.description}
                       {item.remarks && (
-                        <p className="text-xs text-pq-neutral-400 italic mt-0.5">{item.remarks}</p>
+                        <RequestorRemarks text={item.remarks} label={null} />
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">

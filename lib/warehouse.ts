@@ -282,12 +282,31 @@ export async function openValidation(
   return result;
 }
 
+/** PR1's original per-line quantity_requested, keyed by pr1_item_id — the
+ *  immutable baseline used to detect whether warehouse has overridden a line. */
+async function fetchOriginalQuantitiesByPr1Item(
+  pr1ItemIds: string[]
+): Promise<Record<string, number>> {
+  if (pr1ItemIds.length === 0) return {};
+  const { data, error } = await db
+    .from('pr1_items')
+    .select('id, quantity_requested')
+    .in('id', pr1ItemIds);
+  if (error) throw error;
+  const map: Record<string, number> = {};
+  for (const row of data ?? []) {
+    map[(row as any).id] = Number((row as any).quantity_requested);
+  }
+  return map;
+}
+
 // ─── Save in-progress validation ─────────────────────────────────────────────
 // Not restricted to the original validator_id — any warehouse user can save.
 
 export async function saveValidationProgress(
   validationId: string,
   values: ValidationFormValues,
+  profile: UserProfile,
 ): Promise<void> {
   const { error: hErr } = await db
     .from('warehouse_validations')
@@ -299,6 +318,11 @@ export async function saveValidationProgress(
 
   if (hErr) throw hErr;
 
+  const originalQtyByPr1Item = await fetchOriginalQuantitiesByPr1Item(
+    values.items.map(i => i.pr1_item_id)
+  );
+  const now = new Date().toISOString();
+
   for (const item of values.items) {
     const sohRaw = item.validated_soh;
     const soh =
@@ -306,10 +330,14 @@ export async function saveValidationProgress(
         ? null
         : Number(sohRaw);
 
+    const qty = Number(item.quantity_requested);
+    const original = originalQtyByPr1Item[item.pr1_item_id];
+    const isOverridden = Number.isFinite(original) && qty !== original;
+
     let availability: ItemAvailability | null = null;
     if (soh !== null && Number.isFinite(soh) && soh >= 0) {
       try {
-        availability = computeWarehouseItemRouting(soh, item.quantity_requested).availability;
+        availability = computeWarehouseItemRouting(soh, qty).availability;
       } catch {
         availability = null;
       }
@@ -321,6 +349,11 @@ export async function saveValidationProgress(
         validated_soh: soh,
         availability,
         item_notes:    item.item_notes,
+        quantity_requested:                   qty,
+        quantity_override_reason:             isOverridden ? (item.quantity_override_reason.trim() || null) : null,
+        quantity_overridden_by:               isOverridden ? profile.id : null,
+        quantity_overridden_by_name_snapshot: isOverridden ? profile.full_name : null,
+        quantity_overridden_at:               isOverridden ? now : null,
       })
       .eq('id', item.id)
       .eq('validation_id', validationId);
@@ -440,12 +473,19 @@ export async function submitValidationDecision(
 ): Promise<void> {
   const now = new Date().toISOString();
 
+  const originalQtyByPr1Item = await fetchOriginalQuantitiesByPr1Item(
+    values.items.map(i => i.pr1_item_id)
+  );
+
   const itemPayloads: Array<{
     item_route: WarehouseItemRoute;
     internal_fulfilled_qty: number;
     procurement_qty: number;
     availability: ItemAvailability;
     validated_soh: number;
+    quantity_requested: number;
+    isOverridden: boolean;
+    original_quantity_requested: number | null;
   }> = [];
 
   for (const item of values.items) {
@@ -459,13 +499,26 @@ export async function submitValidationDecision(
         `Invalid verified SOH for item ${item.item_code || `#${item.item_order}`}.`
       );
     }
-    const r = computeWarehouseItemRouting(soh, item.quantity_requested);
+
+    const qty = Number(item.quantity_requested);
+    const original = originalQtyByPr1Item[item.pr1_item_id];
+    const isOverridden = Number.isFinite(original) && qty !== original;
+    if (isOverridden && !item.quantity_override_reason.trim()) {
+      throw new Error(
+        `Reason required for adjusted quantity on item ${item.item_code || `#${item.item_order}`}.`
+      );
+    }
+
+    const r = computeWarehouseItemRouting(soh, qty);
     itemPayloads.push({
       item_route:            r.item_route,
       internal_fulfilled_qty: r.internal_fulfilled_qty,
       procurement_qty:      r.procurement_qty,
       availability:          r.availability,
       validated_soh:         soh,
+      quantity_requested:    qty,
+      isOverridden,
+      original_quantity_requested: Number.isFinite(original) ? original : null,
     });
   }
 
@@ -497,6 +550,11 @@ export async function submitValidationDecision(
         item_route:             p.item_route,
         internal_fulfilled_qty: p.internal_fulfilled_qty,
         procurement_qty:      p.procurement_qty,
+        quantity_requested:                   p.quantity_requested,
+        quantity_override_reason:             p.isOverridden ? item.quantity_override_reason.trim() : null,
+        quantity_overridden_by:               p.isOverridden ? profile.id : null,
+        quantity_overridden_by_name_snapshot: p.isOverridden ? profile.full_name : null,
+        quantity_overridden_at:               p.isOverridden ? now : null,
       })
       .eq('id', item.id)
       .eq('validation_id', validationId);
@@ -540,6 +598,60 @@ export async function submitValidationDecision(
   if (pr1Err) throw pr1Err;
   if (!updatedRows || updatedRows.length === 0) {
     throw new Error('PR1 status could not be updated. It may have already been processed.');
+  }
+
+  // Quantity overrides: dedicated audit entry + requestor notice, separate
+  // from the general validation audit log below so it's easy to filter/render.
+  const overriddenLines = values.items
+    .map((item, idx) => ({ item, p: itemPayloads[idx] }))
+    .filter(({ p }) => p.isOverridden);
+
+  if (overriddenLines.length > 0) {
+    try {
+      await db.from('audit_logs').insert({
+        actor_id:      profile.id,
+        action:        'WAREHOUSE_QTY_OVERRIDDEN',
+        document_type: 'PR1',
+        document_id:   pr1Id,
+        payload: {
+          validation_id: validationId,
+          overridden_by: profile.full_name,
+          position:      profile.position,
+          items: overriddenLines.map(({ item, p }) => ({
+            pr1_item_id:                  item.pr1_item_id,
+            item_code:                    item.item_code,
+            description:                  item.description,
+            original_quantity_requested: p.original_quantity_requested,
+            quantity_requested:           p.quantity_requested,
+            reason:                       item.quantity_override_reason.trim(),
+          })),
+        },
+      });
+    } catch {
+      // Audit logging is best-effort
+    }
+
+    try {
+      const { data: pr1Row } = await db
+        .from('pr1_requests')
+        .select('pr1_number, requisitioner_id')
+        .eq('id', pr1Id)
+        .maybeSingle();
+
+      if (pr1Row?.requisitioner_id) {
+        await createNotification({
+          user_id:       pr1Row.requisitioner_id,
+          title:         'Requested Quantity Adjusted by Warehouse',
+          body:          `Warehouse adjusted the requested quantity on ${overriddenLines.length} line${overriddenLines.length !== 1 ? 's' : ''} of PR1 ${pr1Row.pr1_number}.`,
+          type:          'info',
+          document_type: 'pr1',
+          document_id:   pr1Id,
+          action_url:    `/pr1/${pr1Id}`,
+        });
+      }
+    } catch {
+      // Notifications are best-effort
+    }
   }
 
   // For insufficient decisions: notify procurement to begin canvassing

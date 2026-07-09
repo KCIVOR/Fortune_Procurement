@@ -91,6 +91,12 @@ export interface PR2ApprovalItem {
   quote_justification?:    string | null;
   /** Read-only, forwarded from `pr2_items.pr1_remarks_snapshot`. */
   pr1_remarks_snapshot?:   string | null;
+  /** Read-only, forwarded from `pr2_items.pr1_quantity_requested_snapshot`. */
+  pr1_quantity_requested_snapshot?:      number | null;
+  /** Read-only, forwarded from `pr2_items.quantity_override_reason_snapshot`. */
+  quantity_override_reason_snapshot?:    string | null;
+  /** Read-only, forwarded from `pr2_items.quantity_overridden_by_name_snapshot`. */
+  quantity_overridden_by_name_snapshot?: string | null;
   /** Supplier quote attachments loaded at read time via rfq_item_quote_id. */
   quote_attachments?:      import('./canvassing').RfqQuoteAttachment[];
   /** Requestor PR1 item attachments, forwarded via pr1_item_id at read time. */

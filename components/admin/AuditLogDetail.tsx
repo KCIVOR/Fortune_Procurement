@@ -43,6 +43,8 @@ export default function AuditLogDetail({ log, isOpen, onClose }: AuditLogDetailP
     log.action === 'USER_DEACTIVATED' ||
     log.action === 'USER_REACTIVATED';
 
+  const showFriendlyQtyOverridePayload = log.action === 'WAREHOUSE_QTY_OVERRIDDEN';
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -116,6 +118,38 @@ export default function AuditLogDetail({ log, isOpen, onClose }: AuditLogDetailP
                   {formatAccountStatus(payload.old_active)} → {formatAccountStatus(payload.new_active)}
                 </span>
               </div>
+            </div>
+          )}
+
+          {log.action === 'WAREHOUSE_QTY_OVERRIDDEN' && payload && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-3">
+              <p className="text-sm font-semibold text-orange-800">Warehouse Quantity Override</p>
+
+              {payload.overridden_by && (
+                <div className="text-sm text-pq-neutral-500">
+                  <span className="font-medium">Overridden By:</span> {payload.overridden_by}
+                  {payload.position && <span className="text-pq-neutral-400"> ({payload.position})</span>}
+                </div>
+              )}
+
+              {Array.isArray(payload.items) && payload.items.length > 0 && (
+                <div className="space-y-2">
+                  {payload.items.map((it: any, idx: number) => (
+                    <div key={idx} className="text-sm text-pq-neutral-700 ml-4 py-2 px-3 bg-white rounded border border-pq-neutral-200">
+                      <p className="font-medium">
+                        {it.item_code ? `${it.item_code} — ` : ''}
+                        {it.description}
+                      </p>
+                      <p className="text-xs text-pq-neutral-500 mt-0.5">
+                        Qty: {it.original_quantity_requested} → {it.quantity_requested}
+                      </p>
+                      {it.reason && (
+                        <p className="text-xs text-pq-neutral-500 italic mt-0.5">Reason: {it.reason}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -197,7 +231,7 @@ export default function AuditLogDetail({ log, isOpen, onClose }: AuditLogDetailP
                 </div>
               )}
               {/* Fallback: Raw JSON for other payload types */}
-              {!(log.action?.includes('APPROVAL_') || log.action?.includes('PR2_') || log.action?.includes('PO_') || showFriendlyUserPayload) && payload && (
+              {!(log.action?.includes('APPROVAL_') || log.action?.includes('PR2_') || log.action?.includes('PO_') || showFriendlyUserPayload || showFriendlyQtyOverridePayload) && payload && (
                 <pre className="bg-pq-neutral-50 border border-pq-neutral-200 rounded p-3 text-xs text-pq-neutral-900 overflow-x-auto max-h-64 overflow-y-auto">
                   {JSON.stringify(log.payload, null, 2)}
                 </pre>

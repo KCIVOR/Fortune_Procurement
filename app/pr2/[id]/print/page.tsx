@@ -293,10 +293,17 @@ export default function PR2PrintPage() {
                       </div>
                     )}
                     {item?.pr1_remarks_snapshot && (
-                      <div style={{ marginTop: 2, fontSize: 7, color: '#555', fontStyle: 'italic' }}>
+                      <div style={{ marginTop: 2, fontSize: 7, color: '#555', fontStyle: 'italic', wordBreak: 'break-word' }}>
                         Requestor remarks: {item.pr1_remarks_snapshot}
                       </div>
                     )}
+                    {item?.pr1_quantity_requested_snapshot != null &&
+                      item.pr1_quantity_requested_snapshot !== item.quantity_requested && (
+                        <div style={{ marginTop: 2, fontSize: 7, color: '#c2410c', fontStyle: 'italic', wordBreak: 'break-word' }}>
+                          Qty adjusted by warehouse: {item.pr1_quantity_requested_snapshot} → {item.quantity_requested}
+                          {item.quantity_override_reason_snapshot ? ` — ${item.quantity_override_reason_snapshot}` : ''}
+                        </div>
+                      )}
                   </td>
                   <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8, textAlign: 'center' }}>
                     {item?.unit_of_measure || ''}

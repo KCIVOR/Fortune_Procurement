@@ -9,6 +9,7 @@ import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import ApprovalInstanceStatusChip from '@/components/shared/ApprovalInstanceStatusChip';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import RequestorRemarks from '@/components/shared/RequestorRemarks';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -295,7 +296,7 @@ export default function ApprovalDetailPage() {
                       <td className="px-4 py-3 text-pq-neutral-900 font-medium">
                         {item.description}
                         {item.remarks && (
-                          <p className="text-xs text-pq-neutral-400 italic mt-0.5 font-normal">{item.remarks}</p>
+                          <RequestorRemarks text={item.remarks} label={null} />
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
