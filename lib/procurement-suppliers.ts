@@ -10,6 +10,8 @@ export type SupplierAccreditationStatus =
   | 'rejected'
   | 'withdrawn';
 
+export type SupplierSupplyType = 'raw_material' | 'normal' | 'service';
+
 export interface SupplierAccount {
   id: string;
   full_name: string;
@@ -18,6 +20,8 @@ export interface SupplierAccount {
   payment_terms: string | null;
   /** Rev #1 (VAT): whether this supplier is VAT-registered; toggled by procurement/admin. */
   is_vat_registered: boolean;
+  /** Exclusive supply classification; null until procurement sets it. */
+  supplier_supply_type: SupplierSupplyType | null;
   created_at: string;
   accreditation_status: SupplierAccreditationStatus;
   accreditation_id: string | null;
@@ -32,7 +36,8 @@ export interface SupplierAccountFilters {
   offset?: number;
 }
 
-const PROFILE_SELECT = 'id, full_name, email, payment_terms, is_vat_registered, created_at, active, role_id, roles(name)';
+const PROFILE_SELECT =
+  'id, full_name, email, payment_terms, is_vat_registered, supplier_supply_type, created_at, active, role_id, roles(name)';
 
 const PENDING_ACCREDITATION = new Set(['submitted', 'under_review', 'missing_documents']);
 const REJECTED_ACCREDITATION = new Set(['rejected', 'withdrawn']);
@@ -58,6 +63,7 @@ type ProfileRow = {
   email: string;
   payment_terms?: string | null;
   is_vat_registered?: boolean;
+  supplier_supply_type?: string | null;
   created_at: string;
   active?: boolean;
   role_id: string | null;
@@ -185,6 +191,11 @@ async function enrichProfiles(profiles: ProfileRow[]): Promise<SupplierAccount[]
       active: p.active ?? true,
       payment_terms: p.payment_terms ?? null,
       is_vat_registered: p.is_vat_registered === true,
+      supplier_supply_type: (() => {
+        const v = p.supplier_supply_type;
+        if (v === 'raw_material' || v === 'normal' || v === 'service') return v;
+        return null;
+      })(),
       created_at: p.created_at,
       accreditation_status,
       accreditation_id:

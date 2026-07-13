@@ -78,6 +78,8 @@ export interface Database {
           position_id: string | null;
           department_id: string | null;
           payment_terms: string | null;
+          is_vat_registered: boolean;
+          supplier_supply_type: 'raw_material' | 'normal' | 'service' | null;
           created_at: string;
         };
         Insert: {
@@ -88,6 +90,8 @@ export interface Database {
           position_id?: string | null;
           department_id?: string | null;
           payment_terms?: string | null;
+          is_vat_registered?: boolean;
+          supplier_supply_type?: 'raw_material' | 'normal' | 'service' | null;
           created_at?: string;
         };
         Update: {
@@ -98,6 +102,8 @@ export interface Database {
           position_id?: string | null;
           department_id?: string | null;
           payment_terms?: string | null;
+          is_vat_registered?: boolean;
+          supplier_supply_type?: 'raw_material' | 'normal' | 'service' | null;
           created_at?: string;
         };
       };
