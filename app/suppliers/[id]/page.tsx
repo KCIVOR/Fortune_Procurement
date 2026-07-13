@@ -136,6 +136,9 @@ export default function SupplierAccountDetailPage() {
           onVatStatusUpdated={(isVatRegistered) =>
             setSupplier((prev) => (prev ? { ...prev, is_vat_registered: isVatRegistered } : prev))
           }
+          onSupplyTypeUpdated={(supplyType) =>
+            setSupplier((prev) => (prev ? { ...prev, supplier_supply_type: supplyType } : prev))
+          }
           onStatusChanged={(active) =>
             setSupplier((prev) => (prev ? { ...prev, active } : prev))
           }

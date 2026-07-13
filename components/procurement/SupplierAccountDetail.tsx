@@ -6,18 +6,24 @@ import { format } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import SupplierPaymentTermsForm from '@/components/admin/SupplierPaymentTermsForm';
+import SupplierSupplyTypeForm from '@/components/admin/SupplierSupplyTypeForm';
 import SupplierVatStatusForm from '@/components/admin/SupplierVatStatusForm';
 import UserDeactivateDialog from '@/components/admin/UserDeactivateDialog';
 import UserReactivateDialog from '@/components/admin/UserReactivateDialog';
 import { setUserActiveStatus } from '@/lib/admin-users';
 import type { AdminUser } from '@/lib/admin-users';
-import type { SupplierAccount, SupplierAccreditationStatus } from '@/lib/procurement-suppliers';
+import type {
+  SupplierAccount,
+  SupplierAccreditationStatus,
+  SupplierSupplyType,
+} from '@/lib/procurement-suppliers';
 import { ArrowRight, ExternalLink, Power, PowerOff } from 'lucide-react';
 
 interface SupplierAccountDetailProps {
   supplier: SupplierAccount;
   onPaymentTermsUpdated?: (paymentTerms: string | null) => void;
   onVatStatusUpdated?: (isVatRegistered: boolean) => void;
+  onSupplyTypeUpdated?: (supplyType: SupplierSupplyType | null) => void;
   onStatusChanged?: (active: boolean) => void;
 }
 
@@ -53,6 +59,7 @@ export default function SupplierAccountDetail({
   supplier,
   onPaymentTermsUpdated,
   onVatStatusUpdated,
+  onSupplyTypeUpdated,
   onStatusChanged,
 }: SupplierAccountDetailProps) {
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
@@ -223,6 +230,18 @@ export default function SupplierAccountDetail({
           userId={supplier.id}
           initialIsVatRegistered={supplier.is_vat_registered}
           onSuccess={onVatStatusUpdated}
+        />
+      </Card>
+
+      <Card className="bg-white rounded-lg border border-pq-neutral-200 p-6">
+        <h3 className="text-sm font-semibold text-pq-neutral-900 mb-1">Supplier Supply Type</h3>
+        <p className="text-xs text-pq-neutral-500 mb-4">
+          Marks whether this account is a raw material, normal goods, or service supplier.
+        </p>
+        <SupplierSupplyTypeForm
+          userId={supplier.id}
+          initialSupplyType={supplier.supplier_supply_type}
+          onSuccess={onSupplyTypeUpdated}
         />
       </Card>
     </div>
