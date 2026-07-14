@@ -202,48 +202,6 @@ export async function markProductVerified(
   if (error) throw error;
 }
 
-// ─── Procurement: edit expiry on an already-verified product ─────────────────
-// Scoped to status = 'verified' only. Does not touch 'expired'/'inactive' —
-// those go through reopenProductForReview() -> markProductVerified() so an
-// un-expiry is a deliberate re-review, not a quiet date edit.
-// Product expiry UI should be unwired; audit/notify stripped.
-
-export async function updateProductVerificationExpiry(
-  productId: string,
-  profile:   UserProfile,
-  validUntil: string | null
-): Promise<void> {
-  const { data: product, error: fetchErr } = await db
-    .from('supplier_products')
-    .select('status, valid_until')
-    .eq('id', productId)
-    .maybeSingle();
-  if (fetchErr) throw fetchErr;
-  if (!product) throw new Error('Product not found.');
-  if ((product as any).status !== 'verified') {
-    throw new Error('Only a verified product\'s expiry can be edited directly.');
-  }
-
-  let validUntilValue: string | null = null;
-  if (validUntil) {
-    const chosen = new Date(`${validUntil}T00:00:00`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (Number.isNaN(chosen.getTime()) || chosen <= today) {
-      throw new Error('Expiry date must be a valid date in the future.');
-    }
-    validUntilValue = validUntil;
-  }
-
-  const now = new Date().toISOString();
-
-  const { error } = await db
-    .from('supplier_products')
-    .update({ valid_until: validUntilValue, updated_at: now })
-    .eq('id', productId);
-  if (error) throw error;
-}
-
 // ─── Procurement: reject product ─────────────────────────────────────────────
 
 export async function markProductRejected(
@@ -277,48 +235,90 @@ export async function markProductRejected(
   if (error) throw error;
 }
 
-// ─── Procurement: revoke/expire a verified product ────────────────────────────
-// verified → expired. verified_at is retained for audit; Can Offer becomes No.
-// Audit/notify stripped; product expiry UI should be unwired.
+// ─── Procurement: deactivate a verified catalog product ─────────────────────
+// verified → inactive. Keeps the row (quotes may still reference it).
+// Does not appear in quote catalog picker; award path unchanged (soft).
 
-export async function revokeProductVerification(
+export async function deactivateProduct(
   productId: string,
   profile:   UserProfile,
-  reason:    string
+  notes?:    string
 ): Promise<void> {
-  if (!reason.trim()) {
-    throw new Error('A reason is required to revoke verification.');
-  }
-
   const { data: product, error: fetchErr } = await db
     .from('supplier_products')
-    .select('supplier_id, status, product_name')
+    .select('id, status')
     .eq('id', productId)
     .maybeSingle();
   if (fetchErr) throw fetchErr;
   if (!product) throw new Error('Product not found.');
-  if ((product as any).status !== 'verified') {
-    throw new Error('Only verified products can have verification revoked.');
+  if ((product as { status: string }).status !== 'verified') {
+    throw new Error('Only verified products can be deactivated.');
   }
 
   const now = new Date().toISOString();
-  const { error } = await db
+  const { data: updated, error } = await db
     .from('supplier_products')
     .update({
-      status:       'expired',
-      valid_until:  null,
+      status:       'inactive',
       reviewed_by:  profile.id,
       reviewed_at:  now,
-      review_notes: reason.trim(),
+      review_notes: notes?.trim() || null,
       updated_at:   now,
     })
     .eq('id', productId)
-    .eq('status', 'verified');
+    .eq('status', 'verified')
+    .select('id')
+    .maybeSingle();
   if (error) throw error;
+  if (!updated) {
+    throw new Error('Product could not be deactivated. It may no longer be verified.');
+  }
+}
+
+// ─── Procurement: reactivate an inactive catalog product ────────────────────
+// inactive → verified. Direct restore for catalog ownership model.
+
+export async function reactivateProduct(
+  productId: string,
+  profile:   UserProfile,
+  notes?:    string
+): Promise<void> {
+  const { data: product, error: fetchErr } = await db
+    .from('supplier_products')
+    .select('id, status')
+    .eq('id', productId)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (!product) throw new Error('Product not found.');
+  if ((product as { status: string }).status !== 'inactive') {
+    throw new Error('Only inactive products can be reactivated.');
+  }
+
+  const now = new Date().toISOString();
+  const { data: updated, error } = await db
+    .from('supplier_products')
+    .update({
+      status:       'verified',
+      verified_at:  now,
+      reviewed_by:  profile.id,
+      reviewed_at:  now,
+      review_notes: notes?.trim() || null,
+      valid_until:  null,
+      updated_at:   now,
+    })
+    .eq('id', productId)
+    .eq('status', 'inactive')
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!updated) {
+    throw new Error('Product could not be reactivated. It may no longer be inactive.');
+  }
 }
 
 // ─── Procurement: reopen a verified, inactive, or expired product for review ───
 // verified | inactive | expired → under_review. Clears verified_at + valid_until.
+// Product expiry edit/revoke helpers removed; cron no longer auto-expires products.
 
 export async function reopenProductForReview(
   productId: string,
@@ -380,7 +380,7 @@ export async function getVerifiedProductsForCurrentSupplier(
   return (data ?? []) as SupplierProduct[];
 }
 
-// ─── Quote picker: verified catalog products only (excludes expired) ─────────
+// ─── Quote picker: verified goods catalog products only ─────────────────────
 
 export async function getActiveProductsForCurrentSupplier(
   profile: UserProfile
@@ -389,7 +389,8 @@ export async function getActiveProductsForCurrentSupplier(
     .from('supplier_products')
     .select('*')
     .eq('supplier_id', profile.id)
-    .in('status', ['verified'])
+    .eq('status', 'verified')
+    .eq('item_type', 'goods')
     .order('verified_at', { ascending: false, nullsFirst: false });
   if (error) throw error;
   return (data ?? []) as SupplierProduct[];

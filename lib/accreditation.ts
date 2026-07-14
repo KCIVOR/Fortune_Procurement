@@ -37,6 +37,7 @@ async function notifyByRole(
 export interface AccreditationQueueRow extends SupplierAccreditation {
   supplier_full_name: string | null;
   supplier_email:     string | null;
+  supplier_supply_type: 'raw_material' | 'normal' | 'service' | null;
 }
 
 // ─── Supplier: get own most-recent accreditation ──────────────────────────────
@@ -218,17 +219,27 @@ export async function getAccreditationQueueForProcurement(): Promise<Accreditati
   );
   const { data: profiles } = await db
     .from('profiles')
-    .select('id, full_name, email')
+    .select('id, full_name, email, supplier_supply_type')
     .in('id', supplierIds);
-  const profileMap: Record<string, { full_name: string; email: string }> = Object.fromEntries(
+  const profileMap: Record<
+    string,
+    { full_name: string; email: string; supplier_supply_type: string | null }
+  > = Object.fromEntries(
     ((profiles ?? []) as any[]).map(p => [p.id as string, p])
   );
 
-  return (data as any[]).map(row => ({
-    ...row,
-    supplier_full_name: profileMap[row.supplier_id as string]?.full_name ?? null,
-    supplier_email:     profileMap[row.supplier_id as string]?.email     ?? null,
-  })) as AccreditationQueueRow[];
+  return (data as any[]).map(row => {
+    const profile = profileMap[row.supplier_id as string];
+    const st = profile?.supplier_supply_type ?? null;
+    const supplier_supply_type =
+      st === 'raw_material' || st === 'normal' || st === 'service' ? st : null;
+    return {
+      ...row,
+      supplier_full_name: profile?.full_name ?? null,
+      supplier_email:     profile?.email     ?? null,
+      supplier_supply_type,
+    };
+  }) as AccreditationQueueRow[];
 }
 
 // ─── Procurement / admin: get ALL accreditations (for filtering) ──────────────
@@ -248,17 +259,27 @@ export async function getAllAccreditationsForProcurement(): Promise<Accreditatio
   );
   const { data: profiles } = await db
     .from('profiles')
-    .select('id, full_name, email')
+    .select('id, full_name, email, supplier_supply_type')
     .in('id', supplierIds);
-  const profileMap: Record<string, { full_name: string; email: string }> = Object.fromEntries(
+  const profileMap: Record<
+    string,
+    { full_name: string; email: string; supplier_supply_type: string | null }
+  > = Object.fromEntries(
     ((profiles ?? []) as any[]).map(p => [p.id as string, p])
   );
 
-  return (data as any[]).map(row => ({
-    ...row,
-    supplier_full_name: profileMap[row.supplier_id as string]?.full_name ?? null,
-    supplier_email:     profileMap[row.supplier_id as string]?.email     ?? null,
-  })) as AccreditationQueueRow[];
+  return (data as any[]).map(row => {
+    const profile = profileMap[row.supplier_id as string];
+    const st = profile?.supplier_supply_type ?? null;
+    const supplier_supply_type =
+      st === 'raw_material' || st === 'normal' || st === 'service' ? st : null;
+    return {
+      ...row,
+      supplier_full_name: profile?.full_name ?? null,
+      supplier_email:     profile?.email     ?? null,
+      supplier_supply_type,
+    };
+  }) as AccreditationQueueRow[];
 }
 
 // ─── Procurement / admin: fetch single accreditation by id ───────────────────

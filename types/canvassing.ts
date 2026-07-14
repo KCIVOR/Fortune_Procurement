@@ -174,6 +174,8 @@ export interface CanvassSupplierCandidate {
   id:                        string;
   full_name:                 string;
   email:                     string | null;
+  /** Exclusive supply classification from `profiles.supplier_supply_type`. */
+  supplier_supply_type:      'raw_material' | 'normal' | 'service' | null;
   /** Latest `supplier_accreditations.status` by `created_at` DESC, or null if none. */
   accreditation_status:      string | null;
   /** Total verified (goods + services). Used for readiness checks. */

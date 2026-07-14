@@ -5,6 +5,7 @@ import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import PaginationControls from '@/components/shared/PaginationControls';
 import type { CanvassSupplierCandidate } from '@/types/canvassing';
+import { supplyTypeLabel } from '@/lib/supplier-supply-type';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -196,6 +197,7 @@ export default function AssignSuppliersModal({
                       <th className="w-10 px-3 py-2.5" aria-label="Select" />
                       <th className="px-3 py-2.5 min-w-[8rem]">Supplier</th>
                       <th className="px-3 py-2.5 min-w-[10rem]">Email</th>
+                      <th className="px-3 py-2.5 min-w-[6rem]">Supply type</th>
                       <th className="px-3 py-2.5 min-w-[7rem]">Accreditation</th>
                       <th className="px-3 py-2.5 text-center whitespace-nowrap text-blue-600">Goods ✓</th>
                       <th className="px-3 py-2.5 text-center whitespace-nowrap text-purple-600">Services ✓</th>
@@ -336,6 +338,9 @@ function SupplierAssignCard({
             ) : null}
           </div>
           <div className="flex flex-wrap gap-1">
+            <span className="inline-flex items-center text-[10px] font-medium border rounded px-1.5 py-0.5 text-pq-neutral-700 bg-white border-pq-neutral-200">
+              {supplyTypeLabel(c.supplier_supply_type)}
+            </span>
             <span
               className={`inline-flex items-center gap-0.5 text-[10px] font-medium border rounded px-1.5 py-0.5 ${acc.className}`}
             >
@@ -410,6 +415,9 @@ function SupplierAssignTableRow({
       </td>
       <td className="px-3 py-2.5 align-top text-xs text-pq-neutral-500 hidden lg:table-cell">
         <span className="break-all">{c.email?.trim() ? c.email : '—'}</span>
+      </td>
+      <td className="px-3 py-2.5 align-top text-xs text-pq-neutral-700 whitespace-nowrap">
+        {supplyTypeLabel(c.supplier_supply_type)}
       </td>
       <td className="px-3 py-2.5 align-top">
         <div className="flex flex-wrap gap-1">

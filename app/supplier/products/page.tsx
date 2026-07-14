@@ -36,12 +36,9 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 }
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'All Statuses' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'under_review', label: 'Under Review' },
-  { value: 'pending_tsqa', label: 'Under Technical Evaluation' },
+  { value: 'all', label: 'All statuses' },
   { value: 'verified', label: 'Verified' },
+  { value: 'inactive', label: 'Inactive' },
   { value: 'rejected', label: 'Rejected' },
 ];
 
@@ -259,13 +256,22 @@ function ProductRow({ product }: { product: SupplierProduct }) {
   const canOffer  = product.status === 'verified';
   const isService = (product.item_type ?? 'goods') === 'services';
 
-  const dateNote = product.verified_at
+  const dateNote = product.status === 'inactive' && product.reviewed_at
+    ? <span className="text-pq-neutral-400">Updated {format(new Date(product.reviewed_at), 'MMM d, yyyy')}</span>
+    : product.verified_at
     ? <span className="text-pq-success-600">Verified {format(new Date(product.verified_at), 'MMM d, yyyy')}</span>
     : product.rejected_at
     ? <span className="text-pq-danger-600">Rejected {format(new Date(product.rejected_at), 'MMM d, yyyy')}</span>
     : product.submitted_at
-    ? <span className="text-pq-neutral-400">Submitted {format(new Date(product.submitted_at), 'MMM d, yyyy')}</span>
+    ? <span className="text-pq-neutral-400">Added {format(new Date(product.submitted_at), 'MMM d, yyyy')}</span>
     : null;
+
+  const cannotOfferLabel =
+    product.status === 'inactive'
+      ? 'Deactivated'
+      : product.status === 'rejected'
+        ? 'Rejected'
+        : 'Cannot Offer';
 
   return (
     <tr className="hover:bg-pq-neutral-50 transition">
@@ -298,7 +304,7 @@ function ProductRow({ product }: { product: SupplierProduct }) {
         ) : (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-neutral-400 bg-pq-neutral-50 border border-pq-neutral-200 rounded-full px-2.5 py-1">
             <Circle className="w-3 h-3 shrink-0" />
-            Not Verified
+            {cannotOfferLabel}
           </span>
         )}
       </td>

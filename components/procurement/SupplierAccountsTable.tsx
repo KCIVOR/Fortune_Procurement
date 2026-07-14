@@ -8,6 +8,7 @@ import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import { format } from 'date-fns';
 import { Eye } from 'lucide-react';
 import type { SupplierAccount, SupplierAccreditationStatus } from '@/lib/procurement-suppliers';
+import { supplyTypeLabel } from '@/lib/supplier-supply-type';
 
 interface SupplierAccountsTableProps {
   suppliers: SupplierAccount[];
@@ -37,7 +38,7 @@ export default function SupplierAccountsTable({
   isLoading = false,
 }: SupplierAccountsTableProps) {
   if (isLoading) {
-    return <TableSkeleton rows={5} cols={8} />;
+    return <TableSkeleton rows={5} cols={9} />;
   }
 
   if (suppliers.length === 0) {
@@ -56,6 +57,7 @@ export default function SupplierAccountsTable({
             <TableRow className="border-b border-pq-neutral-200 bg-pq-neutral-50">
               <TableHead className="text-xs font-semibold text-pq-neutral-500">Company</TableHead>
               <TableHead className="text-xs font-semibold text-pq-neutral-500">Email</TableHead>
+              <TableHead className="text-xs font-semibold text-pq-neutral-500">Supply type</TableHead>
               <TableHead className="text-xs font-semibold text-pq-neutral-500">Status</TableHead>
               <TableHead className="text-xs font-semibold text-pq-neutral-500">Accreditation</TableHead>
               <TableHead className="text-xs font-semibold text-pq-neutral-500">Products</TableHead>
@@ -74,6 +76,9 @@ export default function SupplierAccountsTable({
                   {supplier.full_name}
                 </TableCell>
                 <TableCell className="text-xs text-pq-neutral-500 font-mono">{supplier.email}</TableCell>
+                <TableCell className="text-xs text-pq-neutral-700 whitespace-nowrap">
+                  {supplyTypeLabel(supplier.supplier_supply_type)}
+                </TableCell>
                 <TableCell className="text-xs">
                   {supplier.active ? (
                     <span className="px-2 py-1 bg-pq-success-100 text-pq-success-600 rounded text-xs font-medium">

@@ -14,6 +14,7 @@ import BulkImportSupplierModal from '@/components/procurement/BulkImportSupplier
 import { Button } from '@/components/ui/button';
 import { listSupplierAccountsWithCount } from '@/lib/procurement-suppliers';
 import type { SupplierAccount } from '@/lib/procurement-suppliers';
+import { SUPPLY_TYPE_FILTER_OPTIONS } from '@/lib/supplier-supply-type';
 import { Plus, Upload } from 'lucide-react';
 
 function canManageSuppliers(role: string | undefined): boolean {
@@ -31,6 +32,7 @@ export default function SupplierAccountsPage() {
   const [selectedAccreditation, setSelectedAccreditation] = useState<
     'all' | 'approved' | 'pending' | 'none' | 'rejected'
   >('all');
+  const [selectedSupplyType, setSelectedSupplyType] = useState<'all' | 'raw_material' | 'normal' | 'service'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
@@ -61,6 +63,7 @@ export default function SupplierAccountsPage() {
     appliedSearch,
     selectedStatus,
     selectedAccreditation,
+    selectedSupplyType,
   ]);
 
   async function loadData() {
@@ -73,6 +76,7 @@ export default function SupplierAccountsPage() {
         search: appliedSearch || undefined,
         status: selectedStatus,
         accreditation: selectedAccreditation,
+        supply_type: selectedSupplyType,
         limit: rowsPerPage,
         offset,
       });
@@ -97,6 +101,7 @@ export default function SupplierAccountsPage() {
     setAppliedSearch('');
     setSelectedStatus('all');
     setSelectedAccreditation('all');
+    setSelectedSupplyType('all');
     setCurrentPage(1);
   }
 
@@ -224,6 +229,18 @@ export default function SupplierAccountsPage() {
                 { value: 'none', label: 'No application' },
                 { value: 'rejected', label: 'Rejected / withdrawn' },
               ],
+            },
+            {
+              type: 'select',
+              id: 'supplier-supply-type',
+              label: 'Supply type',
+              placeholder: 'All supply types',
+              value: selectedSupplyType,
+              onChange: (value) =>
+                setSelectedSupplyType(
+                  value as 'all' | 'raw_material' | 'normal' | 'service',
+                ),
+              options: SUPPLY_TYPE_FILTER_OPTIONS,
             },
           ] as FilterConfig[]}
           onApply={handleApplyFilters}

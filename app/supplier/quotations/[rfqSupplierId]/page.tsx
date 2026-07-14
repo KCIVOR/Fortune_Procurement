@@ -594,7 +594,8 @@ export default function SupplierQuotationPage() {
                   Per item, choose:{' '}
                   {canUseCatalog ? (
                     <>
-                      <strong>catalog product</strong>, <strong>manual entry</strong>, or <strong>No Quote</strong>
+                      <strong>catalog product</strong> (goods), <strong>manual entry</strong>
+                      {isServiceRfq ? ' — preferred for services RFQs' : ''}, or <strong>No Quote</strong>
                     </>
                   ) : (
                     <>
@@ -604,7 +605,7 @@ export default function SupplierQuotationPage() {
                 </li>
                 <li>Quoted lines need price and lead time</li>
                 {canUseCatalog && (
-                  <li>Catalog products may be verified or pending — procurement sees the status during canvassing</li>
+                  <li>Catalog products are verified goods — deactivated items cannot be offered</li>
                 )}
                 <li>Mark &ldquo;Alternative item&rdquo; when offering a substitute — requestor must approve before award</li>
               </ul>
@@ -616,11 +617,12 @@ export default function SupplierQuotationPage() {
               <div className="flex items-center gap-1.5 mb-1">
                 <Package className="w-3.5 h-3.5 text-pq-neutral-400" />
                 <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                  {isServiceRfq ? 'Catalog Services' : 'Catalog Products'}
+                  Catalog Products
                 </p>
               </div>
               <p className="text-xs text-pq-neutral-400">
-                {availableProducts.length} {isServiceRfq ? 'service offering' : 'product'}{availableProducts.length !== 1 ? 's' : ''} available
+                {availableProducts.length} goods product{availableProducts.length !== 1 ? 's' : ''} available
+                {isServiceRfq ? ' · Services RFQs typically use Manual Entry' : ''}
                 {(() => {
                   const verifiedCount = availableProducts.filter(p => p.status === 'verified').length;
                   const pendingCount = availableProducts.length - verifiedCount;
@@ -710,7 +712,7 @@ export default function SupplierQuotationPage() {
                             }`}
                           >
                             <Package className="inline w-3 h-3 mr-1" />
-                            {isServiceRfq ? 'Select Catalog Service' : 'Select Catalog Product'}
+                            {isServiceRfq ? 'Select Catalog Product' : 'Select Catalog Product'}
                           </button>
                         )}
                         <button
@@ -768,8 +770,9 @@ export default function SupplierQuotationPage() {
                           {availableProducts.length === 0 ? (
                             <div className="flex items-center gap-2 px-3 py-2 border border-pq-neutral-200 bg-pq-neutral-50 rounded-md text-xs text-pq-neutral-600">
                               <Info className="w-3.5 h-3.5 shrink-0" />
-                              {isServiceRfq ? 'No catalog services yet.' : 'No catalog products yet.'}{' '}
-                              Use &ldquo;Manual Entry&rdquo; or &ldquo;No Quote&rdquo; above.
+                              {isServiceRfq
+                                ? 'No goods catalog products to link. Use “Manual Entry” for this services RFQ, or “No Quote”.'
+                                : 'No catalog products yet. Use “Manual Entry” or “No Quote” above.'}
                             </div>
                           ) : (
                             <div className="space-y-3">
@@ -1131,12 +1134,13 @@ export default function SupplierQuotationPage() {
         <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden sm:rounded-lg border-pq-neutral-200 bg-white">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-pq-neutral-200 shrink-0 text-left space-y-1.5">
             <DialogTitle className="text-lg font-semibold text-pq-neutral-900">
-              {isServiceRfq ? 'Select Catalog Service' : 'Select Catalog Product'}
+              Select Catalog Product
             </DialogTitle>
             <DialogDescription className="text-sm text-pq-neutral-500">
+              Choose a verified goods product from your catalog.
               {isServiceRfq
-                ? 'Choose a verified or in-flight service offering from your catalog. Procurement will see the verification state during canvassing.'
-                : 'Choose a verified or in-flight product from your catalog. Procurement will see the verification state during canvassing.'}
+                ? ' For services RFQs, Manual Entry is the usual path; linking a goods catalog product will show a type mismatch to procurement.'
+                : ''}
             </DialogDescription>
           </DialogHeader>
 
@@ -1156,7 +1160,6 @@ export default function SupplierQuotationPage() {
             >
               <option value="__all__">All types</option>
               <option value="goods">Goods</option>
-              <option value="services">Services</option>
             </select>
             <select
               value={pickerCategory}

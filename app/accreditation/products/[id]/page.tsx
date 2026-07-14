@@ -15,6 +15,8 @@ import {
   markProductVerified,
   markProductRejected,
   reopenProductForReview,
+  deactivateProduct,
+  reactivateProduct,
 } from '@/lib/supplier-products';
 import {
   getRSERecordsByProductId,
@@ -36,6 +38,8 @@ import {
   Circle,
   AlertCircle,
   RotateCcw,
+  Ban,
+  CircleCheck as CheckCircle,
 } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
@@ -57,7 +61,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 
 // ─── Action panel type ────────────────────────────────────────────────────────
 
-type ActionPanel = 'none' | 'verify' | 'reject' | 'reopen';
+type ActionPanel = 'none' | 'verify' | 'reject' | 'reopen' | 'deactivate' | 'reactivate';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -143,7 +147,7 @@ export default function ProductReviewDetailPage() {
       await markProductVerified(product.id, profile, noteInput.trim() || undefined);
       await load();
       setActivePanel('none');
-      setActionSuccess('Product verified. Supplier has been notified. Can Offer = Yes.');
+      setActionSuccess('Product verified. Can Offer = Yes.');
     } catch (err: unknown) {
       setActionError((err as Error)?.message || 'Action failed.');
     } finally {
@@ -160,7 +164,7 @@ export default function ProductReviewDetailPage() {
       await markProductRejected(product.id, profile, noteInput.trim() || undefined);
       await load();
       setActivePanel('none');
-      setActionSuccess('Product rejected. Supplier has been notified.');
+      setActionSuccess('Product rejected.');
     } catch (err: unknown) {
       setActionError((err as Error)?.message || 'Action failed.');
     } finally {
@@ -177,7 +181,41 @@ export default function ProductReviewDetailPage() {
       await reopenProductForReview(product.id, profile, noteInput.trim() || undefined);
       await load();
       setActivePanel('none');
-      setActionSuccess('Product reopened for review. Supplier has been notified.');
+      setActionSuccess('Product reopened for review.');
+    } catch (err: unknown) {
+      setActionError((err as Error)?.message || 'Action failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (!profile || !product) return;
+    setBusy(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await deactivateProduct(product.id, profile, noteInput.trim() || undefined);
+      await load();
+      setActivePanel('none');
+      setActionSuccess('Product deactivated. It cannot be offered on new quotes.');
+    } catch (err: unknown) {
+      setActionError((err as Error)?.message || 'Action failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!profile || !product) return;
+    setBusy(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await reactivateProduct(product.id, profile, noteInput.trim() || undefined);
+      await load();
+      setActivePanel('none');
+      setActionSuccess('Product reactivated. Can Offer = Yes.');
     } catch (err: unknown) {
       setActionError((err as Error)?.message || 'Action failed.');
     } finally {
@@ -193,16 +231,18 @@ export default function ProductReviewDetailPage() {
   const canVerify      = status === 'submitted' || status === 'under_review';
   const canRejectProd  = status === 'submitted' || status === 'under_review';
   const isClosed       = status === 'rejected' || status === 'withdrawn';
+  const canDeactivate  = status === 'verified';
+  const canReactivate  = status === 'inactive';
   const canReopen      = status === 'verified' || status === 'inactive' || status === 'expired';
   const showReviewActions = status === 'submitted' || status === 'under_review';
-  const showPostVerifyActions = status === 'verified' || status === 'expired' || status === 'inactive';
+  const showCatalogActions = status === 'verified' || status === 'expired' || status === 'inactive';
   const canOffer       = status === 'verified';
   const chip           = product ? productChip(status) : null;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <AppShell title="Product Review">
+    <AppShell title="Product Catalog">
       {/* Back */}
       <div className="mb-4">
         <Link
@@ -210,7 +250,7 @@ export default function ProductReviewDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
         >
           <ChevronLeft className="w-4 h-4" />
-          Back to Product Queue
+          Back to Product Catalog
         </Link>
       </div>
 
@@ -260,8 +300,10 @@ export default function ProductReviewDetailPage() {
             )}
             <span className="font-medium">
               {canOffer
-                ? 'Verified — this product can be offered and awarded on RFQ quotes when substitute rules are met.'
-                : 'Unverified — this product can still be offered and awarded on RFQ quotes, but Procurement will see a notice that it is pending validation. Verification is recommended before award.'
+                ? 'Verified — this product can be offered on RFQ quotes.'
+                : status === 'inactive'
+                  ? 'Inactive — this product cannot be offered on new quotes until reactivated.'
+                  : 'Not offerable — only verified catalog products can be newly linked on quotes.'
               }
             </span>
           </div>
@@ -280,8 +322,8 @@ export default function ProductReviewDetailPage() {
             )}
             {status === 'inactive' && (
               <div className="rounded-md border border-pq-warning-100 bg-pq-warning-100 px-4 py-3 text-sm text-pq-warning-600">
-                <span className="font-semibold">Verification revoked.</span>{' '}
-                This product is inactive and cannot be offered in RFQ until re-verified.
+                <span className="font-semibold">Deactivated.</span>{' '}
+                This product is inactive and cannot be offered on new quotes until reactivated.
               </div>
             )}
 
@@ -469,14 +511,45 @@ export default function ProductReviewDetailPage() {
             </div>
           )}
 
-          {/* ── Post-verification actions ── */}
-          {showPostVerifyActions && (
+          {/* ── Catalog actions ── */}
+          {showCatalogActions && (
             <div className="bg-white rounded-md border border-pq-neutral-200">
               <div className="flex items-center gap-2 px-5 py-3.5 border-b border-pq-neutral-200 flex-wrap">
-                <p className="text-sm font-semibold text-pq-neutral-900 mr-2">Post-Verification Actions</p>
+                <p className="text-sm font-semibold text-pq-neutral-900 mr-2">Catalog Actions</p>
+
+                {canDeactivate && (
+                  <button
+                    type="button"
+                    onClick={() => openPanel(activePanel === 'deactivate' ? 'none' : 'deactivate')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                      activePanel === 'deactivate'
+                        ? 'bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200'
+                        : 'text-pq-warning-700 bg-pq-warning-100 border-pq-warning-100 hover:bg-pq-warning-100'
+                    }`}
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    Deactivate
+                  </button>
+                )}
+
+                {canReactivate && (
+                  <button
+                    type="button"
+                    onClick={() => openPanel(activePanel === 'reactivate' ? 'none' : 'reactivate')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                      activePanel === 'reactivate'
+                        ? 'bg-pq-success-100 text-pq-success-600 border-pq-success-200'
+                        : 'text-pq-success-600 bg-pq-success-100 border-pq-success-100 hover:bg-pq-success-100'
+                    }`}
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Reactivate
+                  </button>
+                )}
 
                 {canReopen && (
                   <button
+                    type="button"
                     onClick={() => openPanel(activePanel === 'reopen' ? 'none' : 'reopen')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
                       activePanel === 'reopen'
@@ -489,6 +562,87 @@ export default function ProductReviewDetailPage() {
                   </button>
                 )}
               </div>
+
+              {activePanel === 'deactivate' && (
+                <div className="p-5 space-y-3 border-b border-pq-neutral-200">
+                  {actionError && (
+                    <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
+                      {actionError}
+                    </div>
+                  )}
+                  <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                    Deactivate Notes (optional)
+                  </p>
+                  <p className="text-xs text-pq-neutral-400">
+                    Sets status to Inactive. The product stays in history and cannot be offered on new quotes.
+                    Existing quotes that already linked this product are not deleted.
+                  </p>
+                  <textarea
+                    value={noteInput}
+                    onChange={e => setNoteInput(e.target.value)}
+                    rows={2}
+                    placeholder="Optional reason for deactivation."
+                    className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDeactivate}
+                      disabled={busy}
+                      className="px-4 py-2 bg-pq-warning-600 hover:bg-pq-warning-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
+                    >
+                      {busy ? 'Deactivating…' : 'Confirm Deactivate'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openPanel('none')}
+                      className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {activePanel === 'reactivate' && (
+                <div className="p-5 space-y-3 border-b border-pq-neutral-200">
+                  {actionError && (
+                    <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
+                      {actionError}
+                    </div>
+                  )}
+                  <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                    Reactivate Notes (optional)
+                  </p>
+                  <p className="text-xs text-pq-neutral-400">
+                    Restores status to Verified. Can Offer becomes Yes for new quotes.
+                  </p>
+                  <textarea
+                    value={noteInput}
+                    onChange={e => setNoteInput(e.target.value)}
+                    rows={2}
+                    placeholder="Optional notes."
+                    className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleReactivate}
+                      disabled={busy}
+                      className="px-4 py-2 bg-pq-success-600 hover:bg-pq-success-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
+                    >
+                      {busy ? 'Reactivating…' : 'Confirm Reactivate'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openPanel('none')}
+                      className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {activePanel === 'reopen' && (
                 <div className="p-5 space-y-3 border-b border-pq-neutral-200">
@@ -508,11 +662,12 @@ export default function ProductReviewDetailPage() {
                     value={noteInput}
                     onChange={e => setNoteInput(e.target.value)}
                     rows={2}
-                    placeholder="Optional notes for the supplier."
+                    placeholder="Optional notes."
                     className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                   />
                   <div className="flex gap-2">
                     <button
+                      type="button"
                       onClick={handleReopenForReview}
                       disabled={busy}
                       className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
@@ -520,6 +675,7 @@ export default function ProductReviewDetailPage() {
                       {busy ? 'Reopening…' : 'Confirm Reopen'}
                     </button>
                     <button
+                      type="button"
                       onClick={() => openPanel('none')}
                       className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
                     >

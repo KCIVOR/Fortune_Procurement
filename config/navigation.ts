@@ -123,7 +123,7 @@ export const ALL_NAV: Record<string, NavItem> = {
     module_key: 'supplier_accreditation',
   },
   productReviewQueue: {
-    label: 'Product Review',
+    label: 'Product Catalog',
     href: '/accreditation/products',
     icon: 'PackageSearch',
     module_key: 'product_review',

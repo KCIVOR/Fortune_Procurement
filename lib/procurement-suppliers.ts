@@ -32,6 +32,7 @@ export interface SupplierAccountFilters {
   search?: string;
   status?: 'all' | 'active' | 'inactive';
   accreditation?: 'all' | 'approved' | 'pending' | 'none' | 'rejected';
+  supply_type?: 'all' | SupplierSupplyType;
   limit?: number;
   offset?: number;
 }
@@ -77,7 +78,7 @@ function mapProfileRow(user: ProfileRow): ProfileRow & { roles?: { name: string 
 }
 
 function buildProfileQuery(supplierRoleId: string, filters: SupplierAccountFilters) {
-  const { search, status = 'all' } = filters;
+  const { search, status = 'all', supply_type = 'all' } = filters;
 
   let query = supabase
     .from('profiles')
@@ -94,6 +95,10 @@ function buildProfileQuery(supplierRoleId: string, filters: SupplierAccountFilte
     query = query.eq('active', true);
   } else if (status === 'inactive') {
     query = query.eq('active', false);
+  }
+
+  if (supply_type !== 'all') {
+    query = query.eq('supplier_supply_type', supply_type);
   }
 
   return query;

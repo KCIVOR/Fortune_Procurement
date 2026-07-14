@@ -641,7 +641,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
   if (supplierRoleId) {
     const { data: profileRows } = await db
       .from('profiles')
-      .select('id, full_name, email')
+      .select('id, full_name, email, supplier_supply_type')
       .eq('role_id', supplierRoleId)
       .order('full_name', { ascending: true });
 
@@ -649,6 +649,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
       id: string;
       full_name: string;
       email: string | null;
+      supplier_supply_type: string | null;
     }[];
 
     const candidateUserIds = profiles.map(p => p.id);
@@ -722,18 +723,24 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
       }
     }
 
-    allSuppliers = profiles.map(p => ({
-      id:                      p.id,
-      full_name:               p.full_name,
-      email:                   p.email ?? null,
-      accreditation_status:    latestAccBySupplier[p.id] ?? null,
-      verified_product_count:  countsBySupplier[p.id]?.v  ?? 0,
-      verified_goods_count:    countsBySupplier[p.id]?.vg ?? 0,
-      verified_service_count:  countsBySupplier[p.id]?.vs ?? 0,
-      pending_product_count:   countsBySupplier[p.id]?.p  ?? 0,
-      rejected_product_count:  countsBySupplier[p.id]?.r  ?? 0,
-      withdrawn_product_count: countsBySupplier[p.id]?.w  ?? 0,
-    }));
+    allSuppliers = profiles.map(p => {
+      const st = p.supplier_supply_type;
+      const supplier_supply_type =
+        st === 'raw_material' || st === 'normal' || st === 'service' ? st : null;
+      return {
+        id:                      p.id,
+        full_name:               p.full_name,
+        email:                   p.email ?? null,
+        supplier_supply_type,
+        accreditation_status:    latestAccBySupplier[p.id] ?? null,
+        verified_product_count:  countsBySupplier[p.id]?.v  ?? 0,
+        verified_goods_count:    countsBySupplier[p.id]?.vg ?? 0,
+        verified_service_count:  countsBySupplier[p.id]?.vs ?? 0,
+        pending_product_count:   countsBySupplier[p.id]?.p  ?? 0,
+        rejected_product_count:  countsBySupplier[p.id]?.r  ?? 0,
+        withdrawn_product_count: countsBySupplier[p.id]?.w  ?? 0,
+      };
+    });
   }
 
   // Enrich quotes with supplier-uploaded attachments
@@ -2331,6 +2338,64 @@ export async function submitSupplierQuotation(
   quotes: QuoteDraft[]
 ): Promise<void> {
   const now = new Date().toISOString();
+
+  const { data: assignment, error: assignErr } = await db
+    .from('rfq_suppliers')
+    .select('id, supplier_id')
+    .eq('id', rfqSupplierId)
+    .maybeSingle();
+  if (assignErr) throw assignErr;
+  if (!assignment) throw new Error('RFQ assignment not found.');
+
+  const supplierId = (assignment as { supplier_id: string | null }).supplier_id;
+  const productIds = Array.from(
+    new Set(
+      quotes
+        .map(q => q.supplier_product_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    )
+  );
+
+  if (productIds.length > 0) {
+    if (!supplierId) {
+      throw new Error('Catalog products cannot be linked on this RFQ assignment.');
+    }
+
+    const { data: products, error: prodErr } = await db
+      .from('supplier_products')
+      .select('id, supplier_id, status, item_type')
+      .in('id', productIds);
+    if (prodErr) throw prodErr;
+
+    const byId = new Map(
+      ((products ?? []) as {
+        id: string;
+        supplier_id: string;
+        status: string;
+        item_type: string | null;
+      }[]).map(p => [p.id, p])
+    );
+
+    for (const productId of productIds) {
+      const product = byId.get(productId);
+      if (!product) {
+        throw new Error('One or more selected catalog products were not found.');
+      }
+      if (product.supplier_id !== supplierId) {
+        throw new Error('Catalog products must belong to the quoting supplier.');
+      }
+      if (product.status !== 'verified') {
+        throw new Error(
+          'Only verified catalog products can be linked on a quote. Deactivated or inactive products cannot be offered.'
+        );
+      }
+      if (product.item_type !== 'goods') {
+        throw new Error(
+          'Only goods catalog products can be linked on a quote. Services RFQs use manual entry.'
+        );
+      }
+    }
+  }
 
   const rows = quotes.map(q => {
     const status: RfqQuoteResponseStatus =

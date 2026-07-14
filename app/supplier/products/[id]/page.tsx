@@ -85,6 +85,8 @@ export default function SupplierProductDetailPage() {
   }, [load, isRawMatSupplier]);
 
   const isWithdrawn = product?.status === 'withdrawn';
+  const isInactive  = product?.status === 'inactive';
+  const isRejected  = product?.status === 'rejected';
   const chip        = product ? productChip(product.status) : null;
   const canOffer    = product?.status === 'verified';
   const isService   = (product?.item_type ?? 'goods') === 'services';
@@ -122,7 +124,7 @@ export default function SupplierProductDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
         >
           <ChevronLeft className="w-4 h-4" />
-          Back to Products
+          Back to Product Catalog
         </Link>
       </div>
 
@@ -163,10 +165,14 @@ export default function SupplierProductDetailPage() {
             )}
             <span>
               {canOffer
-                ? 'Verified — this product can be offered and awarded on RFQ quotes when substitute rules are met.'
+                ? 'Verified — this product can be offered on RFQ quotes.'
                 : isWithdrawn
-                  ? 'This product was withdrawn and cannot be offered in procurement.'
-                  : 'Pending validation — this product can still be offered and awarded on RFQ quotes, but Procurement will see a notice that it is pending validation.'}
+                  ? 'This product was withdrawn and cannot be offered.'
+                  : isInactive
+                    ? 'Deactivated — this product cannot be offered on new quotes until Procurement reactivates it.'
+                    : isRejected
+                      ? 'Rejected — this product cannot be offered on quotes.'
+                      : 'Cannot offer — only verified catalog products can be linked on new quotes.'}
             </span>
           </div>
 

@@ -36,17 +36,12 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 
 // ─── Filter tab definitions ───────────────────────────────────────────────────
 
-type FilterKey = 'pending' | 'tsqa' | 'verified' | 'inactive' | 'rejected' | 'all';
+type FilterKey = 'verified' | 'inactive' | 'rejected' | 'all';
 
-const PENDING_STATUSES = ['submitted', 'under_review'];
 const PAGE_SIZE = 20;
 
 function getFilteredRows(rows: ProductQueueRow[], filter: FilterKey): ProductQueueRow[] {
   switch (filter) {
-    case 'pending':
-      return rows.filter(r => PENDING_STATUSES.includes(r.status));
-    case 'tsqa':
-      return rows.filter(r => r.status === 'pending_tsqa');
     case 'verified':
       return rows.filter(r => r.status === 'verified');
     case 'inactive':
@@ -61,11 +56,11 @@ function getFilteredRows(rows: ProductQueueRow[], filter: FilterKey): ProductQue
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function ProductReviewQueuePage() {
+export default function ProductCatalogPage() {
   const [allRows, setAllRows] = useState<ProductQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
-  const [activeTab, setActiveTab] = useState<FilterKey>('pending');
+  const [activeTab, setActiveTab] = useState<FilterKey>('verified');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -77,22 +72,18 @@ export default function ProductReviewQueuePage() {
     getAllProductsForProcurement()
       .then(setAllRows)
       .catch((err: unknown) =>
-        setError((err as Error)?.message || 'Failed to load product review queue.')
+        setError((err as Error)?.message || 'Failed to load product catalog.')
       )
       .finally(() => setLoading(false));
   }, []);
 
-  // Compute counts for tabs
   const counts = useMemo(() => ({
-    pending:  allRows.filter(r => PENDING_STATUSES.includes(r.status)).length,
-    tsqa:     allRows.filter(r => r.status === 'pending_tsqa').length,
     verified: allRows.filter(r => r.status === 'verified').length,
     inactive: allRows.filter(r => r.status === 'inactive').length,
     rejected: allRows.filter(r => r.status === 'rejected').length,
     all:      allRows.length,
   }), [allRows]);
 
-  // Filter rows based on active tab, type, and search
   const filteredRows = useMemo(() => {
     let rows = getFilteredRows(allRows, activeTab);
     if (typeFilter !== 'all') {
@@ -110,7 +101,6 @@ export default function ProductReviewQueuePage() {
     return rows;
   }, [allRows, activeTab, typeFilter, appliedSearch]);
 
-  // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const paginatedRows = filteredRows.slice(
     (currentPage - 1) * PAGE_SIZE,
@@ -118,8 +108,6 @@ export default function ProductReviewQueuePage() {
   );
 
   const tabs: TabFilter[] = [
-    { value: 'pending',  label: `Pending (${counts.pending})` },
-    { value: 'tsqa',     label: `Under TSQA (${counts.tsqa})` },
     { value: 'verified', label: `Verified (${counts.verified})` },
     { value: 'inactive', label: `Inactive (${counts.inactive})` },
     { value: 'rejected', label: `Rejected (${counts.rejected})` },
@@ -130,21 +118,20 @@ export default function ProductReviewQueuePage() {
     setSearch('');
     setAppliedSearch('');
     setTypeFilter('all');
-    setActiveTab('pending');
+    setActiveTab('verified');
     setCurrentPage(1);
   };
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, typeFilter, appliedSearch]);
 
   return (
-    <AppShell title="Product Review">
+    <AppShell title="Product Catalog">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <PageHeader
-          title="Supplier Product Review"
-          description="Add verified catalog products for raw-material suppliers, or review legacy submissions that still need verification."
+          title="Product Catalog"
+          description="Verified catalog products for raw-material suppliers. Deactivated products cannot be offered on new quotes."
           className="mb-0"
         />
         <Button
@@ -158,7 +145,6 @@ export default function ProductReviewQueuePage() {
         </Button>
       </div>
 
-      {/* FilterBar with tabs and search */}
       {!loading && !error && (
         <FilterBar
           tabs={tabs}
@@ -197,7 +183,7 @@ export default function ProductReviewQueuePage() {
       )}
 
       {loading ? (
-        <ProductQueueSkeleton />
+        <ProductCatalogSkeleton />
       ) : error ? (
         <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">
           {error}
@@ -205,10 +191,18 @@ export default function ProductReviewQueuePage() {
       ) : filteredRows.length === 0 ? (
         <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
-            title={activeTab === 'pending' ? 'No products pending review' : `No ${activeTab} products`}
+            title={
+              activeTab === 'verified'
+                ? 'No verified products'
+                : activeTab === 'inactive'
+                  ? 'No inactive products'
+                  : activeTab === 'rejected'
+                    ? 'No rejected products'
+                    : 'No products'
+            }
             description={
-              activeTab === 'pending'
-                ? 'Supplier product submissions will appear here when they are ready for Procurement review.'
+              activeTab === 'verified'
+                ? 'Add a verified catalog product for a raw-material supplier to get started.'
                 : 'No products match this filter.'
             }
             icon={PackageSearch}
@@ -231,14 +225,13 @@ export default function ProductReviewQueuePage() {
                 </thead>
                 <tbody className="divide-y divide-pq-neutral-200">
                   {paginatedRows.map(row => (
-                    <ProductQueueRowItem key={row.id} row={row} />
+                    <ProductCatalogRowItem key={row.id} row={row} />
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* Pagination */}
           <PaginationControls
             currentPage={currentPage}
             totalPages={totalPages}
@@ -254,11 +247,8 @@ export default function ProductReviewQueuePage() {
   );
 }
 
-// ─── Product queue row ────────────────────────────────────────────────────────
-
-function ProductQueueRowItem({ row }: { row: ProductQueueRow }) {
+function ProductCatalogRowItem({ row }: { row: ProductQueueRow }) {
   const chip = productChip(row.status);
-  const isActionable = ['submitted', 'under_review'].includes(row.status);
 
   return (
     <tr className="hover:bg-pq-neutral-50 transition">
@@ -276,7 +266,7 @@ function ProductQueueRowItem({ row }: { row: ProductQueueRow }) {
           href={`/accreditation/products/${row.id}`}
           className="inline-flex items-center gap-1 text-xs font-semibold text-pq-neutral-500 hover:text-pq-neutral-900 transition"
         >
-          {isActionable ? 'Review' : 'View'}
+          View
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </td>
@@ -284,11 +274,9 @@ function ProductQueueRowItem({ row }: { row: ProductQueueRow }) {
   );
 }
 
-// ─── Skeleton loading ─────────────────────────────────────────────────────────
-
-function ProductQueueSkeleton() {
+function ProductCatalogSkeleton() {
   return (
-    <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden" aria-busy="true" aria-label="Loading product queue">
+    <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden" aria-busy="true" aria-label="Loading product catalog">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>

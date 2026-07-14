@@ -13,6 +13,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { getAllAccreditationsForProcurement } from '@/lib/accreditation';
 import type { AccreditationQueueRow } from '@/lib/accreditation';
+import {
+  SUPPLY_TYPE_FILTER_OPTIONS,
+  matchesSupplyTypeFilter,
+  supplyTypeLabel,
+  type SupplyTypeFilter,
+} from '@/lib/supplier-supply-type';
 import CreateSupplierModal from '@/components/procurement/CreateSupplierModal';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
@@ -70,6 +76,8 @@ export default function AccreditationQueuePage() {
   const [activeTab, setActiveTab] = useState<FilterKey>('pending');
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [supplyTypeFilter, setSupplyTypeFilter] = useState<SupplyTypeFilter>('all');
+  const [appliedSupplyTypeFilter, setAppliedSupplyTypeFilter] = useState<SupplyTypeFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
@@ -96,7 +104,7 @@ export default function AccreditationQueuePage() {
     all:      allRows.length,
   }), [allRows]);
 
-  // Filter rows based on active tab and search
+  // Filter rows based on active tab, search, and supply type
   const filteredRows = useMemo(() => {
     let rows = getFilteredRows(allRows, activeTab);
     if (appliedSearch.trim()) {
@@ -106,8 +114,13 @@ export default function AccreditationQueuePage() {
         (r.supplier_email && r.supplier_email.toLowerCase().includes(searchLower))
       );
     }
+    if (appliedSupplyTypeFilter !== 'all') {
+      rows = rows.filter(r =>
+        matchesSupplyTypeFilter(r.supplier_supply_type, appliedSupplyTypeFilter)
+      );
+    }
     return rows;
-  }, [allRows, activeTab, appliedSearch]);
+  }, [allRows, activeTab, appliedSearch, appliedSupplyTypeFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
@@ -127,6 +140,8 @@ export default function AccreditationQueuePage() {
   const handleClear = () => {
     setSearch('');
     setAppliedSearch('');
+    setSupplyTypeFilter('all');
+    setAppliedSupplyTypeFilter('all');
     setActiveTab('pending');
     setCurrentPage(1);
   };
@@ -134,7 +149,7 @@ export default function AccreditationQueuePage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, appliedSearch]);
+  }, [activeTab, appliedSearch, appliedSupplyTypeFilter]);
 
   return (
     <AppShell title="Supplier Accreditation">
@@ -171,8 +186,21 @@ export default function AccreditationQueuePage() {
               value: search,
               onChange: (value) => setSearch(value as string),
             },
+            {
+              type: 'select',
+              id: 'accreditation-supply-type',
+              label: 'Supply type',
+              placeholder: 'All supply types',
+              value: supplyTypeFilter,
+              onChange: (value) => setSupplyTypeFilter(value as SupplyTypeFilter),
+              options: SUPPLY_TYPE_FILTER_OPTIONS,
+            },
           ] as FilterConfig[]}
-          onApply={() => { setAppliedSearch(search); setCurrentPage(1); }}
+          onApply={() => {
+            setAppliedSearch(search);
+            setAppliedSupplyTypeFilter(supplyTypeFilter);
+            setCurrentPage(1);
+          }}
           onClear={handleClear}
           loading={loading}
           resultCount={filteredRows.length}
@@ -208,6 +236,7 @@ export default function AccreditationQueuePage() {
                   <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Supplier</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Email</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Supply type</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Submitted</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Reviewed</th>
@@ -289,6 +318,9 @@ function QueueRow({ row }: { row: AccreditationQueueRow }) {
         </div>
       </td>
       <td className="px-5 py-3.5 text-pq-neutral-400 text-xs">{row.supplier_email ?? '—'}</td>
+      <td className="px-5 py-3.5 text-pq-neutral-700 text-xs whitespace-nowrap">
+        {supplyTypeLabel(row.supplier_supply_type)}
+      </td>
       <td className="px-5 py-3.5">
         <StatusChip status={chip.variant} label={chip.label} size="sm" />
       </td>
@@ -321,7 +353,7 @@ function AccreditationQueueSkeleton() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
-              {['Supplier', 'Email', 'Status', 'Submitted', 'Reviewed', 'Valid Until', ''].map((h, i) => (
+              {['Supplier', 'Email', 'Supply type', 'Status', 'Submitted', 'Reviewed', 'Valid Until', ''].map((h, i) => (
                 <th key={i} className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">
                   {h && <Skeleton className="h-3 w-16" />}
                 </th>
@@ -333,6 +365,7 @@ function AccreditationQueueSkeleton() {
               <tr key={i}>
                 <td className="px-5 py-3.5"><Skeleton className="h-4 w-40" /></td>
                 <td className="px-5 py-3.5"><Skeleton className="h-3 w-36" /></td>
+                <td className="px-5 py-3.5"><Skeleton className="h-3 w-20" /></td>
                 <td className="px-5 py-3.5"><Skeleton className="h-5 w-32 rounded-full" /></td>
                 <td className="px-5 py-3.5"><Skeleton className="h-3 w-24" /></td>
                 <td className="px-5 py-3.5"><Skeleton className="h-3 w-24" /></td>

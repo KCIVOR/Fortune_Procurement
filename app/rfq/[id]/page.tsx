@@ -27,6 +27,11 @@ import {
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
 import type { RfqDetailView, QuoteMatrixRow, CanvassSupplierCandidate } from '@/types/canvassing';
+import {
+  SUPPLY_TYPE_FILTER_OPTIONS,
+  matchesSupplyTypeFilter,
+  type SupplyTypeFilter,
+} from '@/lib/supplier-supply-type';
 import { UserPlus, SendHorizontal as Send, CircleCheck as CheckCircle2, Circle as XCircle, Users, Trophy, CalendarDays, FileText, Building2, TriangleAlert as AlertTriangle, CheckCheck, CircleDot, Loader as Loader2, Replace, Clock, ClipboardList, MessageSquare, Mail, Info, Store, Trash2, X, Paperclip, RotateCcw } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
@@ -86,6 +91,8 @@ export default function RfqDetailPage() {
   const [appliedSupplierSearch, setAppliedSupplierSearch] = useState('');
   const [accreditationFilter, setAccreditationFilter] = useState('all');
   const [appliedAccreditationFilter, setAppliedAccreditationFilter] = useState('all');
+  const [supplyTypeFilter, setSupplyTypeFilter] = useState<SupplyTypeFilter>('all');
+  const [appliedSupplyTypeFilter, setAppliedSupplyTypeFilter] = useState<SupplyTypeFilter>('all');
   const [supplierPage, setSupplierPage] = useState(1);
   const supplierRowsPerPage = 20;
 
@@ -254,7 +261,8 @@ export default function RfqDetailPage() {
       const matchEmail = (c.email ?? '').toLowerCase().includes(term);
       if (!matchName && !matchEmail) return false;
     }
-    return matchesAccreditationFilter(c, appliedAccreditationFilter);
+    if (!matchesAccreditationFilter(c, appliedAccreditationFilter)) return false;
+    return matchesSupplyTypeFilter(c.supplier_supply_type, appliedSupplyTypeFilter);
   });
   const supplierTotalCount = filteredAvailableSuppliers.length;
   const supplierTotalPages = Math.max(1, Math.ceil(supplierTotalCount / supplierRowsPerPage));
@@ -288,6 +296,15 @@ export default function RfqDetailPage() {
         { value: 'none', label: 'No accreditation' },
       ],
     },
+    {
+      type: 'select',
+      id: 'supplier-supply-type',
+      label: 'Supply type',
+      placeholder: 'All supply types',
+      value: supplyTypeFilter,
+      onChange: (value) => setSupplyTypeFilter(value as SupplyTypeFilter),
+      options: SUPPLY_TYPE_FILTER_OPTIONS,
+    },
   ];
 
   const openAssignModal = () => {
@@ -295,6 +312,8 @@ export default function RfqDetailPage() {
     setAppliedSupplierSearch('');
     setAccreditationFilter('all');
     setAppliedAccreditationFilter('all');
+    setSupplyTypeFilter('all');
+    setAppliedSupplyTypeFilter('all');
     setSupplierPage(1);
     setAssigning(true);
   };
@@ -306,12 +325,15 @@ export default function RfqDetailPage() {
     setAppliedSupplierSearch('');
     setAccreditationFilter('all');
     setAppliedAccreditationFilter('all');
+    setSupplyTypeFilter('all');
+    setAppliedSupplyTypeFilter('all');
     setSupplierPage(1);
   };
 
   const handleSupplierFilterApply = () => {
     setAppliedSupplierSearch(supplierSearch);
     setAppliedAccreditationFilter(accreditationFilter);
+    setAppliedSupplyTypeFilter(supplyTypeFilter);
     setSupplierPage(1);
   };
 
@@ -320,6 +342,8 @@ export default function RfqDetailPage() {
     setAppliedSupplierSearch('');
     setAccreditationFilter('all');
     setAppliedAccreditationFilter('all');
+    setSupplyTypeFilter('all');
+    setAppliedSupplyTypeFilter('all');
     setSupplierPage(1);
   };
 

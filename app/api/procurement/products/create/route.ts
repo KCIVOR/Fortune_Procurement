@@ -52,9 +52,13 @@ export async function POST(req: NextRequest) {
     }
 
     const itemType = body.item_type ?? 'goods';
-    if (itemType !== 'goods' && itemType !== 'services') {
+    if (itemType !== 'goods') {
       return NextResponse.json(
-        { success: false, error: "item_type must be 'goods' or 'services'" },
+        {
+          success: false,
+          error:
+            "Catalog products must be goods. Services RFQs use manual quote entry — item_type 'services' is not accepted.",
+        },
         { status: 400 },
       );
     }
@@ -116,7 +120,7 @@ export async function POST(req: NextRequest) {
         category:       optionalTrimmed(body.category),
         description:    optionalTrimmed(body.description),
         specifications: optionalTrimmed(body.specifications),
-        item_type:      itemType,
+        item_type:      'goods',
         status:         'verified',
         verified_at:    now,
         reviewed_at:    now,
