@@ -236,7 +236,8 @@ export default function SupplierAccountDetail({
       <Card className="bg-white rounded-lg border border-pq-neutral-200 p-6">
         <h3 className="text-sm font-semibold text-pq-neutral-900 mb-1">Supplier Supply Type</h3>
         <p className="text-xs text-pq-neutral-500 mb-4">
-          Marks whether this account is a raw material, normal goods, or service supplier.
+          Marks whether this account is a raw mat supplier, non raw mat supplier, or service supplier.
+          New suppliers default to non raw mat supplier.
         </p>
         <SupplierSupplyTypeForm
           userId={supplier.id}

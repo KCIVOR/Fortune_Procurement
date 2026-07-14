@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireApiAuth, isAuthError } from '@/lib/api-auth';
-import { resolveSupplierDefaults } from '@/lib/procurement-supplier-defaults';
+import {
+  DEFAULT_SUPPLIER_SUPPLY_TYPE,
+  resolveSupplierDefaults,
+} from '@/lib/procurement-supplier-defaults';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -130,6 +133,7 @@ export async function POST(req: NextRequest) {
         role_id,
         department_id,
         position_id,
+        supplier_supply_type: DEFAULT_SUPPLIER_SUPPLY_TYPE,
       };
       if (payment_terms !== undefined) {
         profileRow.payment_terms = payment_terms;

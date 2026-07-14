@@ -9,17 +9,17 @@ import { CircleAlert as AlertCircle, CircleCheck as CheckCircle2 } from 'lucide-
 const OPTIONS: { value: SupplierSupplyType; label: string; hint: string }[] = [
   {
     value: 'raw_material',
-    label: 'Raw material',
+    label: 'Raw mat supplier',
     hint: 'Inputs such as glue, cardboard, etc.',
   },
   {
     value: 'normal',
-    label: 'Normal',
+    label: 'Non raw mat supplier',
     hint: 'Regular goods such as ballpen, paper — not raw materials.',
   },
   {
     value: 'service',
-    label: 'Service',
+    label: 'Service supplier',
     hint: 'Services such as calibration.',
   },
 ];

@@ -102,14 +102,25 @@ export async function POST(req: NextRequest) {
 
     const userId = authData.user.id;
 
-    const { error: profileError } = await admin.from('profiles').insert({
+    const { data: createdRole } = await admin
+      .from('roles')
+      .select('name')
+      .eq('id', role_id)
+      .maybeSingle();
+
+    const profilePayload: Record<string, unknown> = {
       id: userId,
       full_name,
       email,
       role_id,
       department_id,
       position_id,
-    });
+    };
+    if ((createdRole as { name?: string } | null)?.name === 'supplier') {
+      profilePayload.supplier_supply_type = 'normal';
+    }
+
+    const { error: profileError } = await admin.from('profiles').insert(profilePayload);
 
     if (profileError) {
       await admin.auth.admin.deleteUser(userId);

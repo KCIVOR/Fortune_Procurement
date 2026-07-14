@@ -124,15 +124,26 @@ export async function POST(req: NextRequest) {
 
     const invitedId = inviteData.user.id;
 
+    const { data: invitedRole } = await admin
+      .from('roles')
+      .select('name')
+      .eq('id', role_id)
+      .maybeSingle();
+
+    const profilePayload: Record<string, unknown> = {
+      id: invitedId,
+      full_name: full_name.trim(),
+      email: normalizedEmail,
+      role_id,
+      department_id,
+      position_id,
+    };
+    if ((invitedRole as { name?: string } | null)?.name === 'supplier') {
+      profilePayload.supplier_supply_type = 'normal';
+    }
+
     const { error: profileError } = await admin.from('profiles').upsert(
-      {
-        id: invitedId,
-        full_name: full_name.trim(),
-        email: normalizedEmail,
-        role_id,
-        department_id,
-        position_id,
-      },
+      profilePayload,
       { onConflict: 'id' }
     );
 

@@ -1,4 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupplierSupplyType } from '@/lib/procurement-suppliers';
+
+/** Default exclusive type for newly provisioned supplier accounts (Non raw mat supplier). */
+export const DEFAULT_SUPPLIER_SUPPLY_TYPE: SupplierSupplyType = 'normal';
 
 export type SupplierDefaults = {
   role_id: string;
