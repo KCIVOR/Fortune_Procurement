@@ -14,11 +14,7 @@ import {
   uploadRfqQuoteAttachment,
 } from '@/lib/canvassing';
 import type { SupplierQuoteDetail, QuoteDraft } from '@/lib/canvassing';
-import {
-  getActiveProductsForCurrentSupplier,
-  createAndSubmitSupplierProductForRFQ,
-  type RFQProductProposalInput,
-} from '@/lib/supplier-products';
+import { getActiveProductsForCurrentSupplier } from '@/lib/supplier-products';
 import type { SupplierProduct } from '@/types/database';
 import {
   ChevronLeft,
@@ -29,11 +25,7 @@ import {
   Send,
   Info,
   Package,
-  PlusCircle,
   Ban,
-  X,
-  Loader,
-  Clock,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -102,13 +94,11 @@ function previewField(val: string | null, maxLen: number): string {
 /**
  * Per-item UI mode: how the supplier is filling this line.
  *
- * Phase 5 (Raw Mats): added `manual_entry`. Suppliers may now fill a line
- * without picking from their catalog (no `supplier_product_id`). The
- * pick-from-catalog mode (`select_verified`) accepts both verified AND
- * in-flight products under the new rule; the existing label is kept for
- * UX continuity but the underlying picker is broadened.
+ * `select_verified` (catalog pick) is only offered to raw_material suppliers.
+ * Manual entry remains available for all supply types (including temporary
+ * services RFQ quoting by raw-mat suppliers).
  */
-type LineMode = 'select_verified' | 'manual_entry' | 'propose_new' | 'no_quote';
+type LineMode = 'select_verified' | 'manual_entry' | 'no_quote';
 
 /** Phase 5 (Raw Mats): visual treatment for the catalog product status. */
 type ProductBadgeKind = 'verified' | 'pending' | 'unknown';
@@ -133,28 +123,14 @@ function describeProductStatus(status: string | null | undefined): {
   }
 }
 
-/** Pending proposal form state per item. */
-interface ProposalForm {
-  product_name:   string;
-  product_code:   string;
-  category:       string;
-  description:    string;
-  specifications: string;
-}
-
-const EMPTY_PROPOSAL: ProposalForm = {
-  product_name:   '',
-  product_code:   '',
-  category:       '',
-  description:    '',
-  specifications: '',
-};
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SupplierQuotationPage() {
   const { rfqSupplierId } = useParams<{ rfqSupplierId: string }>();
   const { profile } = useAuth();
+  /** Catalog pick is raw-mat only; null / normal / service → manual + no_quote. */
+  const canUseCatalog = profile?.supplier_supply_type === 'raw_material';
+  const defaultLineMode: LineMode = canUseCatalog ? 'select_verified' : 'manual_entry';
 
   const [detail, setDetail]         = useState<SupplierQuoteDetail | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -175,13 +151,7 @@ export default function SupplierQuotationPage() {
   const [availableProducts, setAvailableProducts] = useState<SupplierProduct[]>([]);
   const [productsLoaded,   setProductsLoaded]   = useState(false);
 
-  // Phase 8: per-item UI mode and proposal state
-  const [lineModes,       setLineModes]       = useState<LineMode[]>([]);
-  const [proposalForms,   setProposalForms]   = useState<ProposalForm[]>([]);
-  const [proposalBusy,    setProposalBusy]    = useState<boolean[]>([]);
-  const [proposalErrors,  setProposalErrors]  = useState<string[]>([]);
-  // Tracks proposed (pending) products attached to a line (not yet verified)
-  const [pendingProducts, setPendingProducts] = useState<Record<number, SupplierProduct>>({});
+  const [lineModes, setLineModes] = useState<LineMode[]>([]);
 
   // Catalog product picker modal (per RFQ line)
   const [pickerLineIndex, setPickerLineIndex] = useState<number | null>(null);
@@ -196,9 +166,14 @@ export default function SupplierQuotationPage() {
   useEffect(() => {
     if (!rfqSupplierId || !profile) return;
 
+    const loadCatalog =
+      profile.supplier_supply_type === 'raw_material'
+        ? getActiveProductsForCurrentSupplier(profile)
+        : Promise.resolve([] as SupplierProduct[]);
+
     Promise.all([
       fetchSupplierQuoteDetail(rfqSupplierId, profile.id),
-      getActiveProductsForCurrentSupplier(profile),
+      loadCatalog,
       supabase.from('profiles').select('is_vat_registered').eq('id', profile.id).maybeSingle(),
       getVatSettings().catch(() => ({ vat_rate: 12 })),
     ])
@@ -209,6 +184,8 @@ export default function SupplierQuotationPage() {
         setProductsLoaded(true);
         setIsVatRegistered(Boolean((vatRes.data as any)?.is_vat_registered));
         setVatRate(Number(vatSettings.vat_rate));
+
+        const allowCatalog = profile.supplier_supply_type === 'raw_material';
 
         const initialDrafts: QuoteDraft[] = d.items.map(item => {
           const existing = d.quotes.find(q => q.pr1_item_id === item.id);
@@ -230,24 +207,15 @@ export default function SupplierQuotationPage() {
         });
         setDrafts(initialDrafts);
 
-        // Determine initial line mode (Phase 5 update — manual entries are
-        // first-class, and the picker carries verified + in-flight products).
         const initialModes: LineMode[] = initialDrafts.map(draft => {
           if (draft.response_status === 'no_quote') return 'no_quote';
           if (!draft.supplier_product_id) {
-            // No product link: brand-new lines start at the catalog picker;
-            // existing quotes that the supplier filled manually before reload
-            // come back as manual_entry. We detect "filled manually" by
-            // checking that the line already has a price.
-            return draft.unit_price > 0 ? 'manual_entry' : 'select_verified';
+            return draft.unit_price > 0 || !allowCatalog ? 'manual_entry' : 'select_verified';
           }
-          const inActiveCatalog = products.some(p => p.id === draft.supplier_product_id);
-          return inActiveCatalog ? 'select_verified' : 'propose_new';
+          const inActiveCatalog = allowCatalog && products.some(p => p.id === draft.supplier_product_id);
+          return inActiveCatalog ? 'select_verified' : 'manual_entry';
         });
         setLineModes(initialModes);
-        setProposalForms(d.items.map(() => ({ ...EMPTY_PROPOSAL })));
-        setProposalBusy(d.items.map(() => false));
-        setProposalErrors(d.items.map(() => ''));
 
         if (d.rfqSupplier.status === 'submitted') setSubmitted(true);
       })
@@ -367,8 +335,6 @@ export default function SupplierQuotationPage() {
 
   const switchToVerifiedSelect = (index: number) => {
     setLineModes(prev => { const n = [...prev]; n[index] = 'select_verified'; return n; });
-    setProposalErrors(prev => { const n = [...prev]; n[index] = ''; return n; });
-    setPendingProducts(prev => { const n = { ...prev }; delete n[index]; return n; });
     setDrafts(prev => {
       const next = [...prev];
       next[index] = {
@@ -390,8 +356,6 @@ export default function SupplierQuotationPage() {
   // (Phase 7).
   const switchToManualEntry = (index: number) => {
     setLineModes(prev => { const n = [...prev]; n[index] = 'manual_entry'; return n; });
-    setProposalErrors(prev => { const n = [...prev]; n[index] = ''; return n; });
-    setPendingProducts(prev => { const n = { ...prev }; delete n[index]; return n; });
     setDrafts(prev => {
       const next = [...prev];
       const fallbackDesc = detail?.items[index]?.description ?? next[index].quoted_description;
@@ -412,25 +376,8 @@ export default function SupplierQuotationPage() {
     });
   };
 
-  const switchToProposeNew = (index: number) => {
-    setLineModes(prev => { const n = [...prev]; n[index] = 'propose_new'; return n; });
-    const hasPending = pendingProducts[index];
-    setDrafts(prev => {
-      const next = [...prev];
-      next[index] = {
-        ...next[index],
-        response_status: 'quoted',
-        no_quote_reason: null,
-        ...(!hasPending ? { supplier_product_id: null } : {}),
-      };
-      return next;
-    });
-  };
-
   const switchToNoQuote = (index: number) => {
     setLineModes(prev => { const n = [...prev]; n[index] = 'no_quote'; return n; });
-    setProposalErrors(prev => { const n = [...prev]; n[index] = ''; return n; });
-    setPendingProducts(prev => { const n = { ...prev }; delete n[index]; return n; });
     setDrafts(prev => {
       const next = [...prev];
       next[index] = {
@@ -447,98 +394,19 @@ export default function SupplierQuotationPage() {
     });
   };
 
-  // ── Proposal form ────────────────────────────────────────────────────────────
-
-  const updateProposalForm = (index: number, field: keyof ProposalForm, value: string) => {
-    setProposalForms(prev => {
-      const n = [...prev];
-      n[index] = { ...n[index], [field]: value };
-      return n;
-    });
-  };
-
-  const handlePropose = async (index: number) => {
-    if (!profile) return;
-    const form = proposalForms[index];
-    if (!form.product_name.trim()) {
-      setProposalErrors(prev => { const n = [...prev]; n[index] = 'Product name is required.'; return n; });
-      return;
-    }
-
-    setProposalBusy(prev => { const n = [...prev]; n[index] = true; return n; });
-    setProposalErrors(prev => { const n = [...prev]; n[index] = ''; return n; });
-
-    try {
-      const input: RFQProductProposalInput = {
-        product_name:   form.product_name.trim(),
-        product_code:   form.product_code.trim()   || null,
-        category:       form.category.trim()       || null,
-        description:    form.description.trim()    || null,
-        specifications: form.specifications.trim() || null,
-      };
-      const product = await createAndSubmitSupplierProductForRFQ(input, profile);
-
-      // Attach to the quote draft line
-      setPendingProducts(prev => ({ ...prev, [index]: product }));
-      setDrafts(prev => {
-        const next = [...prev];
-        next[index] = {
-          ...next[index],
-          supplier_product_id: product.id,
-          response_status:     'quoted',
-          no_quote_reason:     null,
-          quoted_description:  product.product_name,
-        };
-        return next;
-      });
-      // Clear form
-      setProposalForms(prev => {
-        const n = [...prev];
-        n[index] = { ...EMPTY_PROPOSAL };
-        return n;
-      });
-    } catch (err: unknown) {
-      setProposalErrors(prev => {
-        const n = [...prev];
-        n[index] = (err as Error)?.message || 'Failed to propose product.';
-        return n;
-      });
-    } finally {
-      setProposalBusy(prev => { const n = [...prev]; n[index] = false; return n; });
-    }
-  };
-
-  const cancelProposal = (index: number) => {
-    setPendingProducts(prev => { const n = { ...prev }; delete n[index]; return n; });
-    setProposalForms(prev => {
-      const n = [...prev];
-      n[index] = { ...EMPTY_PROPOSAL };
-      return n;
-    });
-    setProposalErrors(prev => { const n = [...prev]; n[index] = ''; return n; });
-    updateDraft(index, 'supplier_product_id', null);
-    updateDraft(index, 'is_alternative', false);
-    updateDraft(index, 'response_status', 'quoted');
-    updateDraft(index, 'no_quote_reason', null);
-    updateDraft(index, 'quoted_description', detail?.items[index]?.description ?? '');
-  };
-
   const everyLineResponded = useMemo(() => {
     if (!detail || !productsLoaded) return false;
     return drafts.every((d, i) => {
-      const mode = lineModes[i] ?? 'select_verified';
+      const mode = lineModes[i] ?? defaultLineMode;
       if (mode === 'no_quote') {
         return (d.no_quote_reason?.trim() ?? '').length > 0;
       }
-      // Phase 5 (Raw Mats): manual entry is now valid without supplier_product_id.
-      // Catalog modes (select_verified / propose_new) still require a product link.
+      // Manual entry is valid without supplier_product_id; catalog mode requires a link.
       if (mode !== 'manual_entry' && !d.supplier_product_id) return false;
-      // Manual entry needs a non-empty description so procurement sees something
-      // beyond the original PR1 line label.
       if (mode === 'manual_entry' && d.quoted_description.trim().length === 0) return false;
       return d.unit_price > 0;
     });
-  }, [drafts, lineModes, productsLoaded, detail]);
+  }, [drafts, lineModes, productsLoaded, detail, defaultLineMode]);
 
   // ── Submit ───────────────────────────────────────────────────────────────────
 
@@ -547,7 +415,7 @@ export default function SupplierQuotationPage() {
 
     for (let i = 0; i < drafts.length; i++) {
       const d = drafts[i];
-      const mode = lineModes[i] ?? 'select_verified';
+      const mode = lineModes[i] ?? defaultLineMode;
       if (mode === 'no_quote') {
         if (!(d.no_quote_reason?.trim() ?? '')) {
           setSubmitError('Please select or enter a reason for each line marked “No Quote”.');
@@ -555,10 +423,9 @@ export default function SupplierQuotationPage() {
         }
         continue;
       }
-      // Phase 5: catalog modes still need a product link; manual entry doesn't.
       if (mode !== 'manual_entry' && !d.supplier_product_id) {
         setSubmitError(
-          'Please select a catalog product, propose a new one, fill it manually, or mark “No Quote” on each line.'
+          'Please select a catalog product, fill it manually, or mark “No Quote” on each line.'
         );
         return;
       }
@@ -723,16 +590,28 @@ export default function SupplierQuotationPage() {
             <div className="bg-pq-warning-100 border border-pq-warning-100 rounded-md p-4">
               <p className="text-xs font-semibold text-pq-warning-600 mb-1">Instructions</p>
               <ul className="text-xs text-pq-warning-600 space-y-1 list-disc list-inside">
-                <li>Per item, choose: <strong>catalog product</strong>, <strong>manual entry</strong>, <strong>propose new product</strong>, or <strong>No Quote</strong></li>
+                <li>
+                  Per item, choose:{' '}
+                  {canUseCatalog ? (
+                    <>
+                      <strong>catalog product</strong>, <strong>manual entry</strong>, or <strong>No Quote</strong>
+                    </>
+                  ) : (
+                    <>
+                      <strong>manual entry</strong> or <strong>No Quote</strong>
+                    </>
+                  )}
+                </li>
                 <li>Quoted lines need price and lead time</li>
-                <li>Catalog products may be verified or pending — procurement sees the status during canvassing</li>
-                <li>Proposed products await Procurement validation before award</li>
+                {canUseCatalog && (
+                  <li>Catalog products may be verified or pending — procurement sees the status during canvassing</li>
+                )}
                 <li>Mark &ldquo;Alternative item&rdquo; when offering a substitute — requestor must approve before award</li>
               </ul>
             </div>
           )}
 
-          {productsLoaded && availableProducts.length > 0 && !isReadOnly && (
+          {canUseCatalog && productsLoaded && availableProducts.length > 0 && !isReadOnly && (
             <div className="bg-white rounded-md border border-pq-neutral-200 p-4">
               <div className="flex items-center gap-1.5 mb-1">
                 <Package className="w-3.5 h-3.5 text-pq-neutral-400" />
@@ -758,9 +637,7 @@ export default function SupplierQuotationPage() {
         <div className="lg:col-span-3 space-y-4">
           {items.map((item, index) => {
             const draft         = drafts[index];
-            const mode          = lineModes[index] ?? 'select_verified';
-            const proposalForm  = proposalForms[index] ?? EMPTY_PROPOSAL;
-            const pendingProduct = pendingProducts[index] ?? null;
+            const mode          = lineModes[index] ?? defaultLineMode;
             if (!draft) return null;
 
             const selectedCatalog = availableProducts.find(
@@ -769,9 +646,8 @@ export default function SupplierQuotationPage() {
             const isProposedCatalogLine =
               mode !== 'no_quote' &&
               mode !== 'manual_entry' &&
-              (mode === 'propose_new' ||
-                (!!draft.supplier_product_id &&
-                  !availableProducts.some(p => p.id === draft.supplier_product_id)));
+              !!draft.supplier_product_id &&
+              !availableProducts.some(p => p.id === draft.supplier_product_id);
             const hideQuotePricing =
               mode === 'no_quote' ||
               (isReadOnly && draft.response_status === 'no_quote');
@@ -823,18 +699,20 @@ export default function SupplierQuotationPage() {
                     <>
                       {/* Mode tabs */}
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => switchToVerifiedSelect(index)}
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
-                            mode === 'select_verified'
-                              ? 'bg-pq-primary-600 text-white border-pq-primary-600'
-                              : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:bg-pq-neutral-50'
-                          }`}
-                        >
-                          <Package className="inline w-3 h-3 mr-1" />
-                          {isServiceRfq ? 'Select Catalog Service' : 'Select Catalog Product'}
-                        </button>
+                        {canUseCatalog && (
+                          <button
+                            type="button"
+                            onClick={() => switchToVerifiedSelect(index)}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
+                              mode === 'select_verified'
+                                ? 'bg-pq-primary-600 text-white border-pq-primary-600'
+                                : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:bg-pq-neutral-50'
+                            }`}
+                          >
+                            <Package className="inline w-3 h-3 mr-1" />
+                            {isServiceRfq ? 'Select Catalog Service' : 'Select Catalog Product'}
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => switchToManualEntry(index)}
@@ -846,18 +724,6 @@ export default function SupplierQuotationPage() {
                         >
                           <FileText className="inline w-3 h-3 mr-1" />
                           Manual Entry
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => switchToProposeNew(index)}
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
-                            mode === 'propose_new'
-                              ? 'bg-pq-primary-600 text-white border-pq-primary-600'
-                              : 'bg-white text-pq-neutral-500 border-pq-neutral-200 hover:bg-pq-neutral-50'
-                          }`}
-                        >
-                          <PlusCircle className="inline w-3 h-3 mr-1" />
-                          {isServiceRfq ? 'Propose New Service' : 'Propose New Product'}
                         </button>
                         <button
                           type="button"
@@ -879,8 +745,7 @@ export default function SupplierQuotationPage() {
                       {item.is_raw_material && mode !== 'no_quote' && (() => {
                         const showWarn =
                           mode === 'manual_entry' ||
-                          (mode === 'select_verified' && selectedCatalog && selectedCatalog.status !== 'verified') ||
-                          mode === 'propose_new';
+                          (mode === 'select_verified' && selectedCatalog && selectedCatalog.status !== 'verified');
                         if (!showWarn) return null;
                         return (
                           <div className="flex items-start gap-2 rounded-md border border-pq-warning-100 bg-pq-warning-100/60 px-3 py-2 text-xs text-pq-warning-700">
@@ -889,9 +754,7 @@ export default function SupplierQuotationPage() {
                               This is a <strong>raw material</strong> line. You may submit with a
                               {mode === 'manual_entry'
                                 ? ' manual entry'
-                                : mode === 'propose_new'
-                                  ? ' newly proposed product (pending validation)'
-                                  : ' product still pending verification'}
+                                : ' product still pending verification'}
                               ; procurement will see the verification status during canvassing
                               and may request justification before awarding.
                             </span>
@@ -900,16 +763,13 @@ export default function SupplierQuotationPage() {
                       })()}
 
                       {/* Select catalog product panel (Phase 5: verified + in-flight) */}
-                      {mode === 'select_verified' && (
+                      {canUseCatalog && mode === 'select_verified' && (
                         <div>
                           {availableProducts.length === 0 ? (
                             <div className="flex items-center gap-2 px-3 py-2 border border-pq-neutral-200 bg-pq-neutral-50 rounded-md text-xs text-pq-neutral-600">
                               <Info className="w-3.5 h-3.5 shrink-0" />
                               {isServiceRfq ? 'No catalog services yet.' : 'No catalog products yet.'}{' '}
-                              <Link href="/supplier/products" className="underline font-medium">
-                                {isServiceRfq ? 'Add to your Catalog' : 'Add to your Product Catalog'}
-                              </Link>{' '}
-                              or use &ldquo;Manual Entry&rdquo;, &ldquo;{isServiceRfq ? 'Propose New Service' : 'Propose New Product'}&rdquo;, or &ldquo;No Quote&rdquo; above.
+                              Use &ldquo;Manual Entry&rdquo; or &ldquo;No Quote&rdquo; above.
                             </div>
                           ) : (
                             <div className="space-y-3">
@@ -999,124 +859,6 @@ export default function SupplierQuotationPage() {
                         </div>
                       )}
 
-                      {/* Propose new product panel */}
-                      {mode === 'propose_new' && (
-                        <div className="border border-pq-neutral-200 rounded-md overflow-hidden">
-                          <div className="px-4 py-3 bg-pq-primary-50 border-b border-pq-neutral-200 flex items-center justify-between">
-                            <p className="text-xs font-semibold text-pq-primary-600">
-                              <PlusCircle className="inline w-3.5 h-3.5 mr-1" />
-                              {isServiceRfq ? 'Propose New Service for Validation' : 'Propose New Product for Validation'}
-                            </p>
-                            <p className="text-xs text-pq-primary-600">
-                              Product will be submitted to Procurement for review.
-                              Award is blocked until verified.
-                            </p>
-                          </div>
-
-                          {/* Pending proposal already submitted for this line */}
-                          {pendingProduct ? (
-                            <div className="px-4 py-3 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Clock className="w-4 h-4 text-amber-500 shrink-0" />
-                                  <div>
-                                    <p className="text-sm font-semibold text-pq-neutral-900">
-                                      {pendingProduct.product_name}
-                                    </p>
-                                    <p className="text-xs text-pq-warning-600 font-medium">
-                                      Pending Procurement/TSQA validation · Procurement may need to justify before awarding
-                                    </p>
-                                  </div>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => cancelProposal(index)}
-                                  className="text-xs text-pq-neutral-400 hover:text-pq-danger-600 transition flex items-center gap-0.5"
-                                >
-                                  <X className="w-3.5 h-3.5" /> Remove
-                                </button>
-                              </div>
-                              <p className="text-xs text-pq-neutral-400">
-                                This proposal has been submitted to your Product Catalog.
-                                Procurement will review and may verify directly or request a TSQA evaluation.
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="p-4 space-y-3">
-                              <ProposalField label={isServiceRfq ? 'Service Name *' : 'Product Name *'}>
-                                <input
-                                  type="text"
-                                  value={proposalForm.product_name}
-                                  onChange={e => updateProposalForm(index, 'product_name', e.target.value)}
-                                  placeholder={isServiceRfq ? 'e.g. Annual Preventive Maintenance, IT Consulting' : 'e.g. Rust Inhibitor Primer Type B'}
-                                  className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
-                                />
-                              </ProposalField>
-                              <div className={`grid gap-3 ${isServiceRfq ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                                {!isServiceRfq && (
-                                  <ProposalField label="Product Code (optional)">
-                                    <input
-                                      type="text"
-                                      value={proposalForm.product_code}
-                                      onChange={e => updateProposalForm(index, 'product_code', e.target.value)}
-                                      placeholder="SKU or part number"
-                                      className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
-                                    />
-                                  </ProposalField>
-                                )}
-                                <ProposalField label="Category (optional)">
-                                  <input
-                                    type="text"
-                                    value={proposalForm.category}
-                                    onChange={e => updateProposalForm(index, 'category', e.target.value)}
-                                    placeholder={isServiceRfq ? 'e.g. Maintenance, Consulting, IT Services' : 'e.g. Chemicals, Hardware'}
-                                    className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
-                                  />
-                                </ProposalField>
-                              </div>
-                              <ProposalField label={isServiceRfq ? 'Scope of Service (optional)' : 'Description (optional)'}>
-                                <textarea
-                                  rows={2}
-                                  value={proposalForm.description}
-                                  onChange={e => updateProposalForm(index, 'description', e.target.value)}
-                                  placeholder={isServiceRfq ? 'Describe what is included in this service offering' : 'Brief product description...'}
-                                  className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
-                                />
-                              </ProposalField>
-                              <ProposalField label={isServiceRfq ? 'Terms & Conditions / SLA (optional)' : 'Specifications (optional)'}>
-                                <textarea
-                                  rows={2}
-                                  value={proposalForm.specifications}
-                                  onChange={e => updateProposalForm(index, 'specifications', e.target.value)}
-                                  placeholder={isServiceRfq ? 'SLA, billing model, response time, coverage period...' : 'Technical specs, standards, grades...'}
-                                  className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
-                                />
-                              </ProposalField>
-
-                              {proposalErrors[index] && (
-                                <p className="text-xs text-pq-danger-600 flex items-center gap-1">
-                                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                                  {proposalErrors[index]}
-                                </p>
-                              )}
-
-                              <button
-                                type="button"
-                                onClick={() => handlePropose(index)}
-                                disabled={proposalBusy[index]}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
-                              >
-                                {proposalBusy[index] ? (
-                                  <><Loader className="w-3.5 h-3.5 animate-spin" /> Submitting…</>
-                                ) : (
-                                  <><PlusCircle className="w-3.5 h-3.5" /> Submit Proposal</>
-                                )}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
                       {/* No quote / cannot supply */}
                       {mode === 'no_quote' && (
                         <div className="rounded-md border border-pq-neutral-200 bg-pq-neutral-50 px-4 py-4 space-y-3">
@@ -1174,7 +916,7 @@ export default function SupplierQuotationPage() {
                       <span className="font-semibold">
                         {isProposedCatalogLine ? 'Proposed Product:' : 'Catalog Product:'}
                       </span>
-                      {selectedCatalog?.product_name ?? pendingProducts[index]?.product_name ?? draft.supplier_product_id}
+                      {selectedCatalog?.product_name ?? draft.supplier_product_id}
                       {isProposedCatalogLine && (
                         <span className="ml-1 font-semibold">(Pending validation)</span>
                       )}
