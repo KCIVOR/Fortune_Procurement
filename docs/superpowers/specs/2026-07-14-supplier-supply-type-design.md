@@ -11,8 +11,8 @@ Procurement has no account-level way to mark what kind of supplier an account is
 
 | Type | Meaning |
 |------|---------|
-| Raw material supplier | Supplies inputs (glue, cardboard, etc.) |
-| Normal supplier | Supplies regular goods (ballpen, paper, etc.) — not raw materials |
+| Raw mat supplier | Supplies inputs (glue, cardboard, etc.) |
+| Non raw mat supplier | Supplies regular goods (ballpen, paper, etc.) — not raw materials |
 | Service supplier | Offers services (calibration, etc.) |
 
 ## Decisions
@@ -26,6 +26,7 @@ Procurement has no account-level way to mark what kind of supplier an account is
 | Who sets it | Procurement and admin only |
 | Where | `/suppliers/[id]` account detail (next to VAT card) |
 | New suppliers | Default `normal` (Non raw mat) on invite / create / bulk-import; admin/edge create when role is supplier |
+| v1 behavior | **Label / classification only** — does not block catalog, RFQ, award, or RSE |
 
 ## Non-goals (v1)
 
