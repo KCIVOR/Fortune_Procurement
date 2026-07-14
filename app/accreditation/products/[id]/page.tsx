@@ -19,10 +19,7 @@ import {
   updateProductVerificationExpiry,
 } from '@/lib/supplier-products';
 import {
-  createRSEFromSupplierProduct,
-  listTSQAUsers,
   getRSERecordsByProductId,
-  type TSQAUserOption,
   type RSEWithReview,
 } from '@/lib/rse';
 import {
@@ -39,19 +36,11 @@ import {
   CheckCircle2,
   XCircle,
   Eye,
-  FlaskConical,
   Circle,
   AlertCircle,
   RotateCcw,
   CalendarClock,
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -72,10 +61,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 
 // ─── Action panel type ────────────────────────────────────────────────────────
 
-type ActionPanel = 'none' | 'verify' | 'reject' | 'rse' | 'revoke' | 'reopen' | 'edit_expiry';
-
-/** Radix Select forbids empty string values on SelectItem. */
-const RSE_ASSIGNEE_UNASSIGNED = 'unassigned';
+type ActionPanel = 'none' | 'verify' | 'reject' | 'revoke' | 'reopen' | 'edit_expiry';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -94,13 +80,6 @@ export default function ProductReviewDetailPage() {
   const [noteInput, setNoteInput]             = useState('');
   const [expiryInput, setExpiryInput]         = useState('');
   const [expiryError, setExpiryError]         = useState('');
-
-  // RSE form state
-  const [rseReason, setRseReason]             = useState('');
-  const [rseProcNotes, setRseProcNotes]       = useState('');
-  const [rseAssignedTo, setRseAssignedTo]     = useState<string>(RSE_ASSIGNEE_UNASSIGNED);
-  const [tsqaUsers, setTsqaUsers]             = useState<TSQAUserOption[]>([]);
-  const [tsqaUsersLoaded, setTsqaUsersLoaded] = useState(false);
 
   const [rseRecords, setRseRecords]           = useState<RSEWithReview[]>([]);
   const [rseDocsMap,  setRseDocsMap]          = useState<Record<string, SupplierDocument[]>>({});
@@ -150,26 +129,7 @@ export default function ProductReviewDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Load TSQA users lazily when RSE panel is opened
-  const openRSEPanel = async () => {
-    setActivePanel('rse');
-    setNoteInput('');
-    setRseReason('');
-    setRseProcNotes('');
-    setRseAssignedTo(RSE_ASSIGNEE_UNASSIGNED);
-    setActionError('');
-    setActionSuccess('');
-    if (!tsqaUsersLoaded) {
-      try {
-        const users = await listTSQAUsers();
-        setTsqaUsers(users);
-        setTsqaUsersLoaded(true);
-      } catch { /* assignment still possible without list */ }
-    }
-  };
-
   const openPanel = (panel: ActionPanel) => {
-    if (panel === 'rse') { openRSEPanel(); return; }
     setActivePanel(panel);
     setNoteInput('');
     setExpiryInput(panel === 'edit_expiry' ? (product?.valid_until ?? '') : '');
@@ -240,38 +200,6 @@ export default function ProductReviewDetailPage() {
     }
   };
 
-  const handleCreateRSE = async () => {
-    if (!profile || !product) return;
-    setBusy(true);
-    setActionError('');
-    setActionSuccess('');
-    try {
-      const rse = await createRSEFromSupplierProduct(
-        {
-          supplier_id:         product.supplier_id,
-          supplier_product_id: product.id,
-          accreditation_id:    product.accreditation_id ?? null,
-          reason:              rseReason.trim()    || null,
-          procurement_notes:   rseProcNotes.trim() || null,
-          assigned_to:         rseAssignedTo === RSE_ASSIGNEE_UNASSIGNED ? null : rseAssignedTo,
-        },
-        profile
-      );
-      await load();
-      setActivePanel('none');
-      setActionSuccess(
-        `RSE ${rse.rse_number ?? ''} created. Product is now Under Technical Evaluation.${
-          rseAssignedTo !== RSE_ASSIGNEE_UNASSIGNED
-            ? ' TSQA has been notified.'
-            : ' RSE is unassigned — assign in TSQA queue.'
-        }`
-      );
-    } catch (err: unknown) {
-      setActionError((err as Error)?.message || 'Failed to create RSE.');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const handleRevokeVerification = async () => {
     if (!profile || !product) return;
@@ -345,7 +273,6 @@ export default function ProductReviewDetailPage() {
   const canMarkReview  = status === 'submitted';
   const canVerify      = status === 'submitted' || status === 'under_review';
   const canRejectProd  = status === 'submitted' || status === 'under_review';
-  const canCreateRSE   = !isService && (status === 'submitted' || status === 'under_review');
   const isClosed       = status === 'rejected' || status === 'withdrawn';
   const canRevoke      = status === 'verified';
   const canReopen      = status === 'verified' || status === 'inactive' || status === 'expired';
@@ -550,7 +477,7 @@ export default function ProductReviewDetailPage() {
                     }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    Verify Directly
+                    Verify
                   </button>
                 )}
 
@@ -568,19 +495,6 @@ export default function ProductReviewDetailPage() {
                   </button>
                 )}
 
-                {canCreateRSE && (
-                  <button
-                    onClick={() => openPanel(activePanel === 'rse' ? 'none' : 'rse')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
-                      activePanel === 'rse'
-                        ? 'bg-violet-100 text-violet-800 border-violet-300'
-                        : 'text-violet-700 bg-violet-50 border-violet-200 hover:bg-violet-100'
-                    }`}
-                  >
-                    <FlaskConical className="w-3.5 h-3.5" />
-                    Create RSE for TSQA
-                  </button>
-                )}
               </div>
 
               {/* Inline action panels */}
@@ -599,9 +513,7 @@ export default function ProductReviewDetailPage() {
                         Verification Notes (optional)
                       </p>
                       <p className="text-xs text-pq-neutral-400">
-                        {isService
-                          ? 'Service offerings do not require TSQA/RSE evaluation. Verify after reviewing the supplier\'s credentials and service documentation.'
-                          : 'Use this only when TSQA evaluation is not required for this product.'}
+                        Confirm verification after reviewing the product details and supporting documents.
                         {' '}After verification, Can Offer = Yes.
                       </p>
                       <textarea
@@ -672,92 +584,6 @@ export default function ProductReviewDetailPage() {
                     </>
                   )}
 
-                  {/* RSE creation panel */}
-                  {activePanel === 'rse' && (
-                    <>
-                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                        Create RSE for TSQA Evaluation
-                      </p>
-                      <p className="text-xs text-pq-neutral-400">
-                        This will create an RSE record and set the product to{' '}
-                        <strong>Under Technical Evaluation</strong>. TSQA will conduct the
-                        pass/fail evaluation. Procurement retains accreditation approval authority.
-                      </p>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                            Reason / Purpose
-                          </label>
-                          <textarea
-                            value={rseReason}
-                            onChange={e => setRseReason(e.target.value)}
-                            rows={2}
-                            placeholder="Why is TSQA evaluation required?"
-                            className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                            Procurement Notes
-                          </label>
-                          <textarea
-                            value={rseProcNotes}
-                            onChange={e => setRseProcNotes(e.target.value)}
-                            rows={2}
-                            placeholder="Internal notes for TSQA."
-                            className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
-                          />
-                        </div>
-                      </div>
-
-                      {/* TSQA assignee dropdown */}
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                          Assign to TSQA User (optional)
-                        </label>
-                        {tsqaUsers.length > 0 ? (
-                          <div className="w-full sm:w-72">
-                            <Select value={rseAssignedTo} onValueChange={setRseAssignedTo}>
-                              <SelectTrigger className="text-sm border-pq-neutral-200">
-                                <SelectValue placeholder="Leave unassigned" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={RSE_ASSIGNEE_UNASSIGNED}>Leave unassigned</SelectItem>
-                                {tsqaUsers.map(u => (
-                                  <SelectItem key={u.id} value={u.id}>
-                                    {u.full_name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-pq-neutral-400">
-                            No TSQA users found. RSE will be created unassigned and can be assigned
-                            later from the RSE queue.
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={handleCreateRSE}
-                          disabled={busy}
-                          className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
-                        >
-                          <FlaskConical className="w-3.5 h-3.5" />
-                          {busy ? 'Creating RSE…' : 'Create RSE'}
-                        </button>
-                        <button
-                          onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  )}
                 </div>
               )}
 
@@ -975,7 +801,7 @@ export default function ProductReviewDetailPage() {
             )}
           </div>
 
-          {/* ── RSE / TSQA evaluation records — goods only ── */}
+          {/* ── Historical RSE / TSQA evaluation records — goods only ── */}
           {!isService && rseRecords.length > 0 && (
             <div className="bg-white rounded-md border border-pq-neutral-200">
               <div className="px-5 py-3.5 border-b border-pq-neutral-200">

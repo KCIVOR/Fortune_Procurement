@@ -1,0 +1,362 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import AppShell from '@/components/layout/AppShell';
+import PageHeader from '@/components/shared/PageHeader';
+import LoadingState from '@/components/shared/LoadingState';
+import { useAuth } from '@/context/AuthContext';
+import { listSupplierAccountsWithCount } from '@/lib/procurement-suppliers';
+import type { SupplierAccount } from '@/lib/procurement-suppliers';
+import { ChevronLeft } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+type ItemType = 'goods' | 'services';
+
+function canCreateProducts(role: string | undefined): boolean {
+  return role === 'procurement' || role === 'admin';
+}
+
+export default function NewProcurementProductPage() {
+  const router = useRouter();
+  const { profile, session, loading: authLoading } = useAuth();
+
+  const [suppliers, setSuppliers] = useState<SupplierAccount[]>([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(true);
+  const [supplierId, setSupplierId] = useState('');
+  const [itemType, setItemType] = useState<ItemType>('goods');
+  const [form, setForm] = useState({
+    product_name:   '',
+    product_code:   '',
+    category:       '',
+    description:    '',
+    specifications: '',
+    valid_until:    '',
+  });
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const isService = itemType === 'services';
+  const allowed = canCreateProducts(profile?.role);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!profile || !allowed) {
+      setSuppliersLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSuppliersLoading(true);
+    listSupplierAccountsWithCount({ limit: 500, offset: 0, status: 'all' })
+      .then(result => {
+        if (cancelled) return;
+        const rawMat = result.suppliers.filter(s => s.supplier_supply_type === 'raw_material');
+        setSuppliers(rawMat);
+      })
+      .catch(() => {
+        if (!cancelled) setFormError('Failed to load suppliers.');
+      })
+      .finally(() => {
+        if (!cancelled) setSuppliersLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [authLoading, profile, allowed]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.access_token) {
+      setFormError('Not authenticated.');
+      return;
+    }
+    if (!supplierId) {
+      setFormError('Please select a supplier.');
+      return;
+    }
+    if (!form.product_name.trim()) {
+      setFormError(isService ? 'Service name is required.' : 'Product name is required.');
+      return;
+    }
+
+    setBusy(true);
+    setFormError('');
+    try {
+      const res = await fetch('/api/procurement/products/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          supplier_id:    supplierId,
+          product_name:   form.product_name.trim(),
+          product_code:   isService ? null : (form.product_code.trim() || null),
+          category:       form.category.trim() || null,
+          description:    form.description.trim() || null,
+          specifications: form.specifications.trim() || null,
+          item_type:      itemType,
+          valid_until:    form.valid_until.trim() || null,
+        }),
+      });
+
+      let data: { success?: boolean; error?: string; product?: { id: string } } = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Invalid server response (HTTP ${res.status}).`);
+      }
+
+      if (!res.ok || !data.success || !data.product?.id) {
+        throw new Error(data.error || 'Failed to create product.');
+      }
+
+      router.push(`/accreditation/products/${data.product.id}`);
+    } catch (err: unknown) {
+      setFormError((err as Error)?.message || 'Failed to create product.');
+      setBusy(false);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <AppShell title="Add Product">
+        <LoadingState message="Loading…" />
+      </AppShell>
+    );
+  }
+
+  if (!profile || !allowed) {
+    return (
+      <AppShell title="Add Product">
+        <div className="space-y-6">
+          <PageHeader
+            title="Add Product"
+            description="Create a verified catalog product for a raw-material supplier."
+          />
+          <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
+            <h3 className="font-semibold text-red-900 mb-2">Access Denied</h3>
+            <p className="text-sm text-pq-danger-600">
+              Only procurement staff or admins can add verified catalog products.
+            </p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell title="Add Product">
+      <div className="w-full max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="mb-4">
+          <Link
+            href="/accreditation/products"
+            className="inline-flex items-center gap-1 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to Product Queue
+          </Link>
+        </div>
+
+        <PageHeader
+          title="Add Verified Product"
+          description="Create a product in a raw-material supplier's catalog. It is saved as verified and available for RFQ quotes."
+        />
+
+        <div className="w-full bg-white rounded-md border border-pq-neutral-200 p-6 sm:p-8">
+          {formError && (
+            <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600 mb-5">
+              {formError}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <FormField label="Supplier" required>
+              {suppliersLoading ? (
+                <p className="text-sm text-pq-neutral-400">Loading suppliers…</p>
+              ) : suppliers.length === 0 ? (
+                <p className="text-sm text-pq-neutral-500">
+                  No raw-material suppliers found. Set a supplier&apos;s supply type to Raw Material first.
+                </p>
+              ) : (
+                <div className="w-full sm:max-w-md">
+                  <Select value={supplierId || undefined} onValueChange={setSupplierId}>
+                    <SelectTrigger className="text-sm border-pq-neutral-200">
+                      <SelectValue placeholder="Select a raw-material supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers.map(s => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.full_name || s.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </FormField>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                Offering Type
+              </label>
+              <div className="flex rounded-md border border-pq-neutral-200 overflow-hidden w-fit">
+                {(['goods', 'services'] as ItemType[]).map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setItemType(t)}
+                    className={`px-5 py-2 text-sm font-medium transition ${
+                      itemType === t
+                        ? 'bg-pq-primary-600 text-white'
+                        : 'bg-white text-pq-neutral-500 hover:bg-pq-neutral-50'
+                    }`}
+                  >
+                    {t === 'goods' ? 'Goods' : 'Services'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <FormField label={isService ? 'Service Name' : 'Product Name'} required>
+              <input
+                type="text"
+                name="product_name"
+                value={form.product_name}
+                onChange={handleChange}
+                placeholder={
+                  isService
+                    ? 'e.g. Annual Preventive Maintenance, IT Consulting'
+                    : 'e.g. Sodium Chloride ACS Grade'
+                }
+                className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+              />
+            </FormField>
+
+            <div className={`grid grid-cols-1 gap-5 ${isService ? '' : 'md:grid-cols-2'}`}>
+              {!isService && (
+                <FormField label="Product Code / SKU">
+                  <input
+                    type="text"
+                    name="product_code"
+                    value={form.product_code}
+                    onChange={handleChange}
+                    placeholder="e.g. NaCl-ACS-001"
+                    className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+                  />
+                </FormField>
+              )}
+              <FormField label="Category">
+                <input
+                  type="text"
+                  name="category"
+                  value={form.category}
+                  onChange={handleChange}
+                  placeholder={
+                    isService
+                      ? 'e.g. Maintenance, Consulting, Security, IT Services'
+                      : 'e.g. Chemicals, Reagents'
+                  }
+                  className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+                />
+              </FormField>
+            </div>
+
+            <FormField label={isService ? 'Scope of Service' : 'Description'}>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                rows={3}
+                placeholder={
+                  isService
+                    ? 'Describe what is included in this service offering'
+                    : 'Short description of the product'
+                }
+                className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+              />
+            </FormField>
+
+            <FormField label={isService ? 'Terms & Conditions / SLA' : 'Specifications'}>
+              <textarea
+                name="specifications"
+                value={form.specifications}
+                onChange={handleChange}
+                rows={5}
+                placeholder={
+                  isService
+                    ? 'SLA, billing model, coverage period, support hours, exclusions, response time, etc.'
+                    : 'Technical specifications: purity, grade, packaging, storage conditions, etc.'
+                }
+                className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+              />
+            </FormField>
+
+            <FormField label="Valid Until">
+              <input
+                type="date"
+                name="valid_until"
+                value={form.valid_until}
+                onChange={handleChange}
+                className="w-full sm:max-w-xs px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+              />
+              <p className="text-xs text-pq-neutral-400 mt-1">
+                Optional. Leave blank for no expiry.
+              </p>
+            </FormField>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="submit"
+                disabled={busy || suppliersLoading || suppliers.length === 0}
+                className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
+              >
+                {busy ? 'Creating…' : 'Create Verified Product'}
+              </button>
+              <Link
+                href="/accreditation/products"
+                className="px-5 py-2 text-sm font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
+              >
+                Cancel
+              </Link>
+            </div>
+          </form>
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+function FormField({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+        {label}
+        {required && <span className="text-pq-danger-600 ml-0.5">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}

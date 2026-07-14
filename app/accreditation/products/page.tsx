@@ -14,7 +14,8 @@ import type { StatusVariant } from '@/components/shared/StatusChip';
 import { getAllProductsForProcurement } from '@/lib/supplier-products';
 import type { ProductQueueRow } from '@/lib/supplier-products';
 import { format, differenceInDays } from 'date-fns';
-import { PackageSearch, ArrowRight, CalendarClock } from 'lucide-react';
+import { PackageSearch, ArrowRight, CalendarClock, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -144,10 +145,22 @@ export default function ProductReviewQueuePage() {
 
   return (
     <AppShell title="Product Review">
-      <PageHeader
-        title="Supplier Product Review"
-        description="Review products submitted by suppliers for procurement verification. Verify directly or create an RSE for TSQA evaluation."
-      />
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <PageHeader
+          title="Supplier Product Review"
+          description="Add verified catalog products for raw-material suppliers, or review legacy submissions that still need verification."
+          className="mb-0"
+        />
+        <Button
+          asChild
+          className="shrink-0 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-medium"
+        >
+          <Link href="/accreditation/products/new">
+            <Plus className="w-4 h-4 mr-2" />
+            Add product
+          </Link>
+        </Button>
+      </div>
 
       {/* FilterBar with tabs and search */}
       {!loading && !error && (
