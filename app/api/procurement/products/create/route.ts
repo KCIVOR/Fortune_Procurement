@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireApiAuth, isAuthError } from '@/lib/api-auth';
-import { createNotification } from '@/lib/notifications';
 
 type Body = {
   supplier_id?: string;
@@ -11,7 +10,6 @@ type Body = {
   description?: string | null;
   specifications?: string | null;
   item_type?: 'goods' | 'services';
-  valid_until?: string | null;
 };
 
 function resolveRoleName(profile: unknown): string | null {
@@ -59,23 +57,6 @@ export async function POST(req: NextRequest) {
         { success: false, error: "item_type must be 'goods' or 'services'" },
         { status: 400 },
       );
-    }
-
-    let validUntil: string | null = null;
-    if (body.valid_until !== undefined && body.valid_until !== null && body.valid_until !== '') {
-      if (typeof body.valid_until !== 'string') {
-        return NextResponse.json({ success: false, error: 'Invalid valid_until' }, { status: 400 });
-      }
-      const chosen = new Date(`${body.valid_until}T00:00:00`);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (Number.isNaN(chosen.getTime()) || chosen <= today) {
-        return NextResponse.json(
-          { success: false, error: 'Expiry date must be a valid date in the future.' },
-          { status: 400 },
-        );
-      }
-      validUntil = body.valid_until;
     }
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -141,7 +122,7 @@ export async function POST(req: NextRequest) {
         reviewed_at:    now,
         submitted_at:   now,
         reviewed_by:    auth.userId,
-        valid_until:    validUntil,
+        valid_until:    null,
         created_at:     now,
         updated_at:     now,
       })
@@ -154,41 +135,6 @@ export async function POST(req: NextRequest) {
         { success: false, error: insertErr?.message ?? 'Failed to create product' },
         { status: 400 },
       );
-    }
-
-    const productId = (product as { id: string }).id;
-    const target = targetUser as { full_name?: string; email?: string };
-
-    const { error: auditErr } = await admin.from('audit_logs').insert({
-      actor_id:      auth.userId,
-      action:        'SUPPLIER_PRODUCT_CREATED_BY_PROCUREMENT',
-      document_type: 'SUPPLIER_PRODUCT',
-      document_id:   productId,
-      payload: {
-        supplier_id:    supplierId,
-        supplier_email: target.email ?? null,
-        supplier_name:  target.full_name ?? null,
-        product_name:   productName,
-        item_type:      itemType,
-        valid_until:    validUntil,
-      },
-    });
-    if (auditErr) {
-      console.error('[procurement/products/create] Audit log failed:', auditErr);
-    }
-
-    try {
-      await createNotification({
-        user_id:       supplierId,
-        title:         'Product added to your catalog',
-        body:          `Procurement added "${productName}" to your product catalog.`,
-        type:          'info',
-        document_type: 'SUPPLIER_PRODUCT',
-        document_id:   productId,
-        action_url:    null,
-      });
-    } catch {
-      /* best-effort notify */
     }
 
     return NextResponse.json({ success: true, product });
