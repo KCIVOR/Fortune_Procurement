@@ -14,6 +14,7 @@ const procurementStaffProfile: UserProfile = {
   department: 'Procurement',
   department_id: 'dept-proc',
   active: true,
+  supplier_supply_type: null,
 };
 
 const procurementManagerProfile: UserProfile = {
@@ -27,6 +28,7 @@ const procurementManagerProfile: UserProfile = {
   department: 'Procurement',
   department_id: 'dept-proc',
   active: true,
+  supplier_supply_type: null,
 };
 
 const otherProfile: UserProfile = {
@@ -40,6 +42,7 @@ const otherProfile: UserProfile = {
   department: 'Sales',
   department_id: 'dept-sales',
   active: true,
+  supplier_supply_type: null,
 };
 
 interface TestCase {

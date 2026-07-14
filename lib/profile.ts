@@ -37,6 +37,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
       department_id,
       active,
       payment_terms,
+      supplier_supply_type,
       roles:role_id ( name ),
       positions:position_id ( title ),
       departments:department_id ( name )
@@ -47,6 +48,11 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
   if (error || !data) return null;
 
   const row = data as any;
+  const supplyType = row.supplier_supply_type;
+  const supplier_supply_type =
+    supplyType === 'raw_material' || supplyType === 'normal' || supplyType === 'service'
+      ? supplyType
+      : null;
 
   return {
     id: row.id,
@@ -60,5 +66,6 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
     department_id: row.department_id,
     active: row.active ?? true,
     payment_terms: row.payment_terms ?? null,
+    supplier_supply_type,
   };
 }

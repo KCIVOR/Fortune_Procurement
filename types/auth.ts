@@ -29,4 +29,5 @@ export interface UserProfile {
   active: boolean;
   /** Supplier default payment terms — used to prefill PO generation. */
   payment_terms?: string | null;
+  supplier_supply_type: 'raw_material' | 'normal' | 'service' | null;
 }
