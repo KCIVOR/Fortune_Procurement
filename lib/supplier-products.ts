@@ -68,150 +68,38 @@ export async function getMySupplierProducts(
   return (data ?? []) as SupplierProduct[];
 }
 
-// ─── Supplier: create new draft product ──────────────────────────────────────
+const SUPPLIER_CATALOG_WRITE_DENIED =
+  'Suppliers cannot modify the product catalog. Procurement adds verified products for raw mat suppliers.';
+
+// ─── Supplier mutations denied (procurement owns catalog) ─────────────────────
 
 export async function createSupplierProduct(
-  input:   SupplierProductInput,
-  profile: UserProfile
+  _input:   SupplierProductInput,
+  _profile: UserProfile
 ): Promise<SupplierProduct> {
-  const now = new Date().toISOString();
-  const { data, error } = await db
-    .from('supplier_products')
-    .insert({
-      supplier_id:      profile.id,
-      product_name:     input.product_name.trim(),
-      product_code:     input.product_code     ?? null,
-      category:         input.category         ?? null,
-      description:      input.description      ?? null,
-      specifications:   input.specifications   ?? null,
-      accreditation_id: input.accreditation_id ?? null,
-      item_type:        input.item_type        ?? 'goods',
-      status:           'draft',
-      created_at:       now,
-      updated_at:       now,
-    })
-    .select('*')
-    .single();
-  if (error) throw error;
-  return data as SupplierProduct;
+  throw new Error(SUPPLIER_CATALOG_WRITE_DENIED);
 }
-
-// ─── Supplier: update a draft product ────────────────────────────────────────
-// Only allowed while status = draft.
 
 export async function updateSupplierProduct(
-  productId: string,
-  input:     Partial<SupplierProductInput>,
-  profile:   UserProfile
+  _productId: string,
+  _input:     Partial<SupplierProductInput>,
+  _profile:   UserProfile
 ): Promise<void> {
-  const now = new Date().toISOString();
-  const updates: Record<string, unknown> = { updated_at: now };
-  if (input.product_name    !== undefined) updates.product_name    = input.product_name.trim();
-  if (input.product_code    !== undefined) updates.product_code    = input.product_code;
-  if (input.category        !== undefined) updates.category        = input.category;
-  if (input.description     !== undefined) updates.description     = input.description;
-  if (input.specifications  !== undefined) updates.specifications  = input.specifications;
-  if (input.accreditation_id !== undefined) updates.accreditation_id = input.accreditation_id;
-  if (input.item_type       !== undefined) updates.item_type       = input.item_type;
-
-  const { error } = await db
-    .from('supplier_products')
-    .update(updates)
-    .eq('id', productId)
-    .eq('supplier_id', profile.id)
-    .eq('status', 'draft');
-  if (error) throw error;
+  throw new Error(SUPPLIER_CATALOG_WRITE_DENIED);
 }
-
-// ─── Supplier: submit product for procurement review ─────────────────────────
 
 export async function submitSupplierProductForReview(
-  productId: string,
-  profile:   UserProfile
+  _productId: string,
+  _profile:   UserProfile
 ): Promise<void> {
-  const now = new Date().toISOString();
-  const { error } = await db
-    .from('supplier_products')
-    .update({
-      status:       'submitted',
-      submitted_at: now,
-      updated_at:   now,
-    })
-    .eq('id', productId)
-    .eq('supplier_id', profile.id)
-    .eq('status', 'draft');
-  if (error) throw error;
-
-  // Audit log (best-effort)
-  try {
-    const { error: auditErr } = await db.from('audit_logs').insert({
-      actor_id:      profile.id,
-      action:        'SUPPLIER_PRODUCT_SUBMITTED',
-      document_type: 'SUPPLIER_PRODUCT',
-      document_id:   productId,
-      payload:       { supplier: profile.full_name },
-    });
-    if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
-  }
+  throw new Error(SUPPLIER_CATALOG_WRITE_DENIED);
 }
 
-// ─── Supplier: withdraw product (record retained; documents unchanged) ───────
-
 export async function withdrawSupplierProduct(
-  productId: string,
-  profile:   UserProfile
+  _productId: string,
+  _profile:   UserProfile
 ): Promise<void> {
-  const { data: row, error: fetchErr } = await db
-    .from('supplier_products')
-    .select('id, supplier_id, status, product_name')
-    .eq('id', productId)
-    .maybeSingle();
-  if (fetchErr) throw fetchErr;
-  if (!row) throw new Error('Product not found.');
-  if ((row as any).supplier_id !== profile.id) throw new Error('Not allowed.');
-
-  const st = (row as any).status as string;
-  if (!['draft', 'submitted'].includes(st)) {
-    throw new Error('Withdraw Product is only available for draft or submitted products.');
-  }
-
-  const wasSubmitted = st === 'submitted';
-  const name         = (row as any).product_name as string;
-  const now          = new Date().toISOString();
-
-  const { error } = await db
-    .from('supplier_products')
-    .update({ status: 'withdrawn', updated_at: now })
-    .eq('id', productId)
-    .eq('supplier_id', profile.id)
-    .in('status', ['draft', 'submitted']);
-  if (error) throw error;
-
-  try {
-    const { error: auditErr } = await db.from('audit_logs').insert({
-      actor_id:      profile.id,
-      action:        'SUPPLIER_PRODUCT_WITHDRAWN',
-      document_type: 'SUPPLIER_PRODUCT',
-      document_id:   productId,
-      payload:       { supplier: profile.full_name, prior_status: st, product_name: name },
-    });
-    if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
-  }
-
-  if (wasSubmitted) {
-    await notifyAllProcurementUsers({
-      title:         'Supplier Withdrew Product',
-      body:          `${profile.full_name} withdrew the product "${name}" from the review queue.`,
-      type:          'action_required',
-      document_type: 'SUPPLIER_PRODUCT',
-      document_id:   productId,
-      action_url:    null,
-    });
-  }
+  throw new Error(SUPPLIER_CATALOG_WRITE_DENIED);
 }
 
 // ─── Any role with RLS access: fetch product by id ───────────────────────────
@@ -643,58 +531,13 @@ export async function reopenProductForReview(
   } catch { /* non-blocking */ }
 }
 
-// ─── Supplier: request re-verification of an expired product ─────────────────
-// expired → submitted. Clears valid_until, re-stamps submitted_at.
-// Notifies all Procurement users so the record re-enters the review queue.
+// ─── Supplier: request re-verification — denied (procurement owns catalog) ───
 
 export async function requestProductReverification(
-  productId: string,
-  profile:   UserProfile
+  _productId: string,
+  _profile:   UserProfile
 ): Promise<void> {
-  const { data: product, error: fetchErr } = await db
-    .from('supplier_products')
-    .select('status, product_name')
-    .eq('id', productId)
-    .eq('supplier_id', profile.id)
-    .maybeSingle();
-  if (fetchErr) throw fetchErr;
-  if (!product) throw new Error('Product not found.');
-  if ((product as any).status !== 'expired') {
-    throw new Error('Only expired products can be submitted for re-verification.');
-  }
-
-  const now = new Date().toISOString();
-  const { error } = await db
-    .from('supplier_products')
-    .update({
-      status:       'submitted',
-      submitted_at: now,
-      valid_until:  null,
-      updated_at:   now,
-    })
-    .eq('id', productId)
-    .eq('supplier_id', profile.id)
-    .eq('status', 'expired');
-  if (error) throw error;
-
-  try {
-    await db.from('audit_logs').insert({
-      actor_id:      profile.id,
-      action:        'SUPPLIER_PRODUCT_REVERIFICATION_REQUESTED',
-      document_type: 'SUPPLIER_PRODUCT',
-      document_id:   productId,
-      payload:       { supplier: profile.full_name, product_name: (product as any).product_name },
-    });
-  } catch { /* best-effort */ }
-
-  await notifyAllProcurementUsers({
-    title:         'Supplier Requested Re-verification',
-    body:          `${profile.full_name} requested re-verification for "${(product as any).product_name}".`,
-    type:          'action_required',
-    document_type: 'SUPPLIER_PRODUCT',
-    document_id:   productId,
-    action_url:    `/accreditation/products/${productId}`,
-  });
+  throw new Error(SUPPLIER_CATALOG_WRITE_DENIED);
 }
 
 // ─── Supplier: list own verified products ────────────────────────────────────
@@ -740,13 +583,7 @@ export async function getActiveProductsForCurrentSupplier(
   return (data ?? []) as SupplierProduct[];
 }
 
-// ─── Phase 8: create + immediately submit a product proposed from an RFQ ──────
-// Creates a draft product and submits it for Procurement review in a single
-// atomic-ish operation. The product lands in the Procurement Product Review
-// queue (/accreditation/products) with status = 'submitted'.
-//
-// accreditation_id is linked if the supplier already has an approved or
-// in-progress accreditation; otherwise left null (product can still be reviewed).
+// ─── RFQ product proposal — denied (procurement owns catalog) ─────────────────
 
 export interface RFQProductProposalInput {
   product_name:    string;
@@ -758,82 +595,8 @@ export interface RFQProductProposalInput {
 }
 
 export async function createAndSubmitSupplierProductForRFQ(
-  input:   RFQProductProposalInput,
-  profile: UserProfile
+  _input:   RFQProductProposalInput,
+  _profile: UserProfile
 ): Promise<SupplierProduct> {
-  const now = new Date().toISOString();
-
-  // Best-effort: find supplier accreditation to link (any non-rejected one)
-  let accreditationId: string | null = null;
-  try {
-    const { data: acc } = await db
-      .from('supplier_accreditations')
-      .select('id')
-      .eq('supplier_id', profile.id)
-      .not('status', 'eq', 'rejected')
-      .not('status', 'eq', 'withdrawn')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    accreditationId = (acc?.id as string) ?? null;
-  } catch { /* non-blocking — product is still created without accreditation_id */ }
-
-  // Insert directly as 'submitted' (skips draft state for speed in RFQ context)
-  const { data, error } = await db
-    .from('supplier_products')
-    .insert({
-      supplier_id:      profile.id,
-      product_name:     input.product_name.trim(),
-      product_code:     input.product_code    ?? null,
-      category:         input.category        ?? null,
-      description:      input.description     ?? null,
-      specifications:   input.specifications  ?? null,
-      accreditation_id: accreditationId,
-      item_type:        input.item_type       ?? 'goods',
-      status:           'submitted',
-      submitted_at:     now,
-      created_at:       now,
-      updated_at:       now,
-    })
-    .select('*')
-    .single();
-  if (error) throw error;
-
-  const product = data as SupplierProduct;
-
-  // Audit + notify procurement (best-effort; mirrors submitSupplierProductForReview)
-  try {
-    const { error: auditErr } = await db.from('audit_logs').insert({
-      actor_id:      profile.id,
-      action:        'SUPPLIER_PRODUCT_SUBMITTED',
-      document_type: 'SUPPLIER_PRODUCT',
-      document_id:   product.id,
-      payload:       { supplier: profile.full_name, source: 'rfq_proposal' },
-    });
-    if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
-  }
-
-  try {
-    const { data: procRole } = await db.from('roles').select('id').eq('name', 'procurement').maybeSingle();
-    if (procRole?.id) {
-      const { data: procUsers } = await db.from('profiles').select('id').eq('role_id', procRole.id);
-      await Promise.all(
-        ((procUsers ?? []) as any[]).map((p: any) =>
-          createNotification({
-            user_id:       p.id as string,
-            title:         'New Product Proposed via RFQ',
-            body:          `${profile.full_name} proposed a new product for validation: ${product.product_name}`,
-            type:          'info',
-            document_type: 'supplier_product',
-            document_id:   product.id,
-            action_url:    `/accreditation/products/${product.id}`,
-          })
-        )
-      );
-    }
-  } catch { /* notifications are best-effort */ }
-
-  return product;
+  throw new Error(SUPPLIER_CATALOG_WRITE_DENIED);
 }
