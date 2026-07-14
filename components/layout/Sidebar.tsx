@@ -105,15 +105,23 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
   const navItems = useMemo((): NavItem[] | null => {
     if (!profile) return null;
     const base = ROLE_NAV[profile.role ?? 'employee'] ?? [];
-    if (profile.role === 'admin') return base;
+    const hideCatalogUnlessRawMat = (items: NavItem[]): NavItem[] => {
+      if (profile.role !== 'supplier') return items;
+      if (profile.supplier_supply_type === 'raw_material') return items;
+      return items.filter(
+        (item) =>
+          item.module_key !== 'supplier_products' && item.href !== '/supplier/products'
+      );
+    };
+    if (profile.role === 'admin') return hideCatalogUnlessRawMat(base);
     if (!profile.role_id) {
-      return resolveVisibleModules(base, [], profile.position_id);
+      return hideCatalogUnlessRawMat(resolveVisibleModules(base, [], profile.position_id));
     }
     if (rulesLoading || rules === null) return null;
     if (rulesFetchFailed) {
-      return base.filter((item) => item.module_key === 'dashboard');
+      return hideCatalogUnlessRawMat(base.filter((item) => item.module_key === 'dashboard'));
     }
-    return resolveVisibleModules(base, rules, profile.position_id);
+    return hideCatalogUnlessRawMat(resolveVisibleModules(base, rules, profile.position_id));
   }, [profile, rules, rulesLoading, rulesFetchFailed]);
 
   const activeHref = navItems !== null ? getActiveNavHref(pathname, navItems) : null;

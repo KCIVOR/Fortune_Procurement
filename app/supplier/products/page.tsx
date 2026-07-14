@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
@@ -15,7 +16,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getMySupplierProducts } from '@/lib/supplier-products';
 import type { SupplierProduct } from '@/types/database';
 import { format, differenceInDays } from 'date-fns';
-import { Package, Plus, ArrowRight, CheckCircle2, Circle, CalendarClock } from 'lucide-react';
+import { Package, ArrowRight, CheckCircle2, Circle, CalendarClock } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ const PAGE_SIZE = 20;
 
 export default function SupplierProductsPage() {
   const { profile } = useAuth();
+  const router = useRouter();
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
@@ -60,15 +62,26 @@ export default function SupplierProductsPage() {
   const [typeFilter, setTypeFilter]     = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
 
+  const isRawMatSupplier =
+    profile?.role === 'supplier' && profile.supplier_supply_type === 'raw_material';
+  const accessDenied =
+    !!profile && profile.role === 'supplier' && profile.supplier_supply_type !== 'raw_material';
+
   useEffect(() => {
-    if (!profile) return;
+    if (accessDenied) {
+      router.replace('/dashboard');
+    }
+  }, [accessDenied, router]);
+
+  useEffect(() => {
+    if (!profile || !isRawMatSupplier) return;
     setLoading(true);
     setError('');
     getMySupplierProducts(profile)
       .then(setProducts)
       .catch((err: unknown) => setError((err as Error)?.message || 'Failed to load products.'))
       .finally(() => setLoading(false));
-  }, [profile]);
+  }, [profile, isRawMatSupplier]);
 
   // Filter products based on search, status, and type
   const filteredProducts = products.filter((p) => {
@@ -106,20 +119,36 @@ export default function SupplierProductsPage() {
     setCurrentPage(1);
   }, [appliedSearch, statusFilter, typeFilter]);
 
+  if (!profile || accessDenied) {
+    return (
+      <AppShell title="Product Catalog">
+        <div className="space-y-6">
+          <PageHeader
+            title="Product Catalog"
+            description="View products Procurement has added to your catalog."
+          />
+          {accessDenied ? (
+            <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-lg p-6">
+              <h3 className="font-semibold text-red-900 mb-2">Access Denied</h3>
+              <p className="text-sm text-pq-danger-600">
+                The product catalog is only available to raw-material suppliers. Redirecting…
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-48">
+              <LoadingState message="Loading…" />
+            </div>
+          )}
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell title="Product Catalog">
       <PageHeader
         title="Product Catalog"
-        description="Manage the products you offer. Submit products for Procurement verification before they can be offered in procurement."
-        action={
-          <Link
-            href="/supplier/products/new"
-            className="flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
-          >
-            <Plus className="w-4 h-4" />
-            Add to Catalog
-          </Link>
-        }
+        description="View-only catalog of products Procurement has added for your account. Contact Procurement to request changes."
       />
 
       {loading ? (
@@ -177,19 +206,10 @@ export default function SupplierProductsPage() {
             <div className="bg-white rounded-md border border-pq-neutral-200">
               <EmptyState
                 title={appliedSearch || statusFilter !== 'all' ? 'No products match your filters' : 'No products yet'}
-                description={appliedSearch || statusFilter !== 'all' 
+                description={appliedSearch || statusFilter !== 'all'
                   ? 'Try adjusting your search or status filter.'
-                  : 'Add products for validation before offering them in procurement.'}
+                  : 'Procurement has not added any products to your catalog yet.'}
                 icon={Package}
-                action={!appliedSearch && statusFilter === 'all' ? (
-                  <Link
-                    href="/supplier/products/new"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Your First Product
-                  </Link>
-                ) : undefined}
               />
             </div>
           ) : (

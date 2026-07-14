@@ -54,7 +54,8 @@ export default function SupplierDashboard({ profile }: Props) {
     : 'No application';
 
   const showPortalAccred = isModuleVisible('supplier_portal_accreditation');
-  const showSupplierProducts = isModuleVisible('supplier_products');
+  const isRawMatSupplier = profile.supplier_supply_type === 'raw_material';
+  const showSupplierProducts = isRawMatSupplier && isModuleVisible('supplier_products');
   const showQuotations = isModuleVisible('supplier_quotations');
   const showAccredCatalogBand = showPortalAccred || showSupplierProducts;
 
@@ -62,7 +63,11 @@ export default function SupplierDashboard({ profile }: Props) {
     <div>
       <PageHeader
         title="Supplier Portal"
-        description={`Welcome, ${profile.full_name}. Respond to active RFQs and keep your accreditation and catalog up to date.`}
+        description={
+          isRawMatSupplier
+            ? `Welcome, ${profile.full_name}. Respond to active RFQs and keep your accreditation up to date. Your product catalog is managed by Procurement.`
+            : `Welcome, ${profile.full_name}. Respond to active RFQs and keep your accreditation up to date.`
+        }
       />
 
       {rulesLoading ? (
@@ -72,7 +77,13 @@ export default function SupplierDashboard({ profile }: Props) {
           {/* Accreditation + catalog — KPI band */}
           {showAccredCatalogBand && (
             <div className="mb-4 mt-1">
-              <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-2">Accreditation &amp; catalog</h2>
+              <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-2">
+                {showPortalAccred && showSupplierProducts
+                  ? 'Accreditation & catalog'
+                  : showSupplierProducts
+                    ? 'Catalog'
+                    : 'Accreditation'}
+              </h2>
               <div className={KPI_GRID_CLASS}>
                 {showPortalAccred && (
                   <Link href="/supplier/accreditation" className="block w-full min-w-0 transition hover:-translate-y-0.5">
