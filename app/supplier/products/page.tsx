@@ -15,8 +15,8 @@ import type { StatusVariant } from '@/components/shared/StatusChip';
 import { useAuth } from '@/context/AuthContext';
 import { getMySupplierProducts } from '@/lib/supplier-products';
 import type { SupplierProduct } from '@/types/database';
-import { format, differenceInDays } from 'date-fns';
-import { Package, ArrowRight, CheckCircle2, Circle, CalendarClock } from 'lucide-react';
+import { format } from 'date-fns';
+import { Package, ArrowRight, CheckCircle2, Circle } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -42,7 +42,6 @@ const STATUS_OPTIONS = [
   { value: 'under_review', label: 'Under Review' },
   { value: 'pending_tsqa', label: 'Under Technical Evaluation' },
   { value: 'verified', label: 'Verified' },
-  { value: 'expired',  label: 'Expired' },
   { value: 'rejected', label: 'Rejected' },
 ];
 
@@ -260,31 +259,7 @@ function ProductRow({ product }: { product: SupplierProduct }) {
   const canOffer  = product.status === 'verified';
   const isService = (product.item_type ?? 'goods') === 'services';
 
-  const expiryNote = (() => {
-    if (!product.valid_until) return null;
-    const daysLeft = differenceInDays(new Date(product.valid_until), new Date());
-    if (product.status === 'expired' || daysLeft < 0) {
-      return (
-        <span className="inline-flex items-center gap-1 text-xs text-pq-danger-600">
-          <CalendarClock className="w-3 h-3" />
-          Expired {format(new Date(product.valid_until), 'MMM d, yyyy')}
-        </span>
-      );
-    }
-    if (daysLeft <= 30) {
-      return (
-        <span className="inline-flex items-center gap-1 text-xs text-pq-warning-600">
-          <CalendarClock className="w-3 h-3" />
-          Expires {format(new Date(product.valid_until), 'MMM d, yyyy')} · {daysLeft}d left
-        </span>
-      );
-    }
-    return null;
-  })();
-
-  const dateNote = product.status === 'expired'
-    ? null
-    : product.verified_at
+  const dateNote = product.verified_at
     ? <span className="text-pq-success-600">Verified {format(new Date(product.verified_at), 'MMM d, yyyy')}</span>
     : product.rejected_at
     ? <span className="text-pq-danger-600">Rejected {format(new Date(product.rejected_at), 'MMM d, yyyy')}</span>
@@ -302,7 +277,6 @@ function ProductRow({ product }: { product: SupplierProduct }) {
           )}
           {product.category && <span className="text-xs text-pq-neutral-400">{product.category}</span>}
           {dateNote && <span className="text-xs">{dateNote}</span>}
-          {expiryNote}
         </div>
       </td>
       <td className="px-5 py-3.5">
@@ -320,11 +294,6 @@ function ProductRow({ product }: { product: SupplierProduct }) {
           <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2.5 py-1">
             <CheckCircle2 className="w-3 h-3 shrink-0" />
             Can Offer
-          </span>
-        ) : product.status === 'expired' ? (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-full px-2.5 py-1">
-            <CalendarClock className="w-3 h-3 shrink-0" />
-            Expired · Offerable
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-pq-neutral-400 bg-pq-neutral-50 border border-pq-neutral-200 rounded-full px-2.5 py-1">

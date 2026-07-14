@@ -1,22 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import PageHeader from '@/components/shared/PageHeader';
 import LoadingState from '@/components/shared/LoadingState';
+import PickRawMatSupplierModal from '@/components/procurement/PickRawMatSupplierModal';
 import { useAuth } from '@/context/AuthContext';
 import { listSupplierAccountsWithCount } from '@/lib/procurement-suppliers';
 import type { SupplierAccount } from '@/lib/procurement-suppliers';
-import { ChevronLeft } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { ChevronLeft, Search } from 'lucide-react';
 
 type ItemType = 'goods' | 'services';
 
@@ -31,6 +25,7 @@ export default function NewProcurementProductPage() {
   const [suppliers, setSuppliers] = useState<SupplierAccount[]>([]);
   const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [supplierId, setSupplierId] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [itemType, setItemType] = useState<ItemType>('goods');
   const [form, setForm] = useState({
     product_name:   '',
@@ -38,13 +33,16 @@ export default function NewProcurementProductPage() {
     category:       '',
     description:    '',
     specifications: '',
-    valid_until:    '',
   });
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
 
   const isService = itemType === 'services';
   const allowed = canCreateProducts(profile?.role);
+  const selectedSupplier = useMemo(
+    () => suppliers.find(s => s.id === supplierId) ?? null,
+    [suppliers, supplierId],
+  );
 
   useEffect(() => {
     if (authLoading) return;
@@ -110,7 +108,6 @@ export default function NewProcurementProductPage() {
           description:    form.description.trim() || null,
           specifications: form.specifications.trim() || null,
           item_type:      itemType,
-          valid_until:    form.valid_until.trim() || null,
         }),
       });
 
@@ -190,22 +187,44 @@ export default function NewProcurementProductPage() {
                 <p className="text-sm text-pq-neutral-400">Loading suppliers…</p>
               ) : suppliers.length === 0 ? (
                 <p className="text-sm text-pq-neutral-500">
-                  No raw-material suppliers found. Set a supplier&apos;s supply type to Raw Material first.
+                  No raw-material suppliers found. Set a supplier&apos;s supply type to Raw mat first.
                 </p>
               ) : (
-                <div className="w-full sm:max-w-md">
-                  <Select value={supplierId || undefined} onValueChange={setSupplierId}>
-                    <SelectTrigger className="text-sm border-pq-neutral-200">
-                      <SelectValue placeholder="Select a raw-material supplier" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {suppliers.map(s => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.full_name || s.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  {selectedSupplier ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-md border border-pq-neutral-200 bg-pq-neutral-50/50 px-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-pq-neutral-900 truncate">
+                          {selectedSupplier.full_name}
+                        </p>
+                        <p className="text-xs text-pq-neutral-500 font-mono truncate">
+                          {selectedSupplier.email}
+                        </p>
+                        <p className="text-[11px] text-pq-neutral-400 mt-1">
+                          {selectedSupplier.product_count} product
+                          {selectedSupplier.product_count === 1 ? '' : 's'} in catalog
+                          {' · '}
+                          {selectedSupplier.active ? 'Active' : 'Inactive'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPickerOpen(true)}
+                        className="shrink-0 px-3 py-2 text-xs font-semibold rounded-md border border-pq-neutral-200 bg-white text-pq-neutral-700 hover:bg-pq-neutral-100 transition"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPickerOpen(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-md border border-pq-neutral-200 bg-white text-pq-neutral-800 hover:bg-pq-neutral-50 transition"
+                    >
+                      <Search className="w-4 h-4 text-pq-neutral-500" />
+                      Select raw mat supplier
+                    </button>
+                  )}
                 </div>
               )}
             </FormField>
@@ -306,19 +325,6 @@ export default function NewProcurementProductPage() {
               />
             </FormField>
 
-            <FormField label="Valid Until">
-              <input
-                type="date"
-                name="valid_until"
-                value={form.valid_until}
-                onChange={handleChange}
-                className="w-full sm:max-w-xs px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
-              />
-              <p className="text-xs text-pq-neutral-400 mt-1">
-                Optional. Leave blank for no expiry.
-              </p>
-            </FormField>
-
             <div className="flex items-center gap-3 pt-1">
               <button
                 type="submit"
@@ -337,6 +343,18 @@ export default function NewProcurementProductPage() {
           </form>
         </div>
       </div>
+
+      <PickRawMatSupplierModal
+        open={pickerOpen}
+        suppliers={suppliers}
+        selectedId={supplierId}
+        onClose={() => setPickerOpen(false)}
+        onConfirm={id => {
+          setSupplierId(id);
+          setPickerOpen(false);
+          setFormError('');
+        }}
+      />
     </AppShell>
   );
 }

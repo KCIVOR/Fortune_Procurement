@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
@@ -12,22 +12,14 @@ import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { useAuth } from '@/context/AuthContext';
 import { getSupplierProductById } from '@/lib/supplier-products';
-import {
-  getDocumentsByProductId,
-  getAccreditationDocumentSignedUrl,
-} from '@/lib/accreditation-documents';
 import { getRSERecordsByProductId, type RSEWithReview } from '@/lib/rse';
-import type { SupplierProduct, SupplierDocument } from '@/types/database';
-import { useDropdownOptions } from '@/hooks/useDropdownOptions';
+import type { SupplierProduct } from '@/types/database';
 import { format } from 'date-fns';
 import {
   ChevronLeft,
   CheckCircle2,
   Circle,
-  FileText,
-  ExternalLink,
   AlertCircle,
-  CalendarClock,
 } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
@@ -54,18 +46,10 @@ export default function SupplierProductDetailPage() {
   const { profile } = useAuth();
   const router = useRouter();
 
-  const { options: docTypeOpts } = useDropdownOptions('PRODUCT_DOC_TYPE_OPTIONS');
-  const docTypeOptions = useMemo(
-    () => docTypeOpts.map(o => ({ value: o.option_value, label: o.option_label })),
-    [docTypeOpts],
-  );
-
   const [product, setProduct] = useState<SupplierProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rseRecords, setRseRecords] = useState<RSEWithReview[]>([]);
-  const [documents, setDocuments] = useState<SupplierDocument[]>([]);
-  const [docsLoading, setDocsLoading] = useState(false);
 
   const isRawMatSupplier =
     profile?.role === 'supplier' && profile.supplier_supply_type === 'raw_material';
@@ -78,18 +62,6 @@ export default function SupplierProductDetailPage() {
     }
   }, [accessDenied, router]);
 
-  const loadDocs = useCallback(async (productId: string) => {
-    setDocsLoading(true);
-    try {
-      const docs = await getDocumentsByProductId(productId);
-      setDocuments(docs);
-    } catch {
-      // non-blocking
-    } finally {
-      setDocsLoading(false);
-    }
-  }, []);
-
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -98,34 +70,21 @@ export default function SupplierProductDetailPage() {
       const p = await getSupplierProductById(id);
       if (!p) { setError('Product not found.'); return; }
       setProduct(p);
-      const [, rse] = await Promise.all([
-        loadDocs(p.id),
-        getRSERecordsByProductId(p.id),
-      ]);
+      const rse = await getRSERecordsByProductId(p.id);
       setRseRecords(rse);
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to load product.');
     } finally {
       setLoading(false);
     }
-  }, [id, loadDocs]);
+  }, [id]);
 
   useEffect(() => {
     if (!isRawMatSupplier) return;
     load();
   }, [load, isRawMatSupplier]);
 
-  const handleViewDocument = async (path: string) => {
-    try {
-      const url = await getAccreditationDocumentSignedUrl(path);
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } catch {
-      // secondary action; fail silently
-    }
-  };
-
   const isWithdrawn = product?.status === 'withdrawn';
-  const isExpired   = product?.status === 'expired';
   const chip        = product ? productChip(product.status) : null;
   const canOffer    = product?.status === 'verified';
   const isService   = (product?.item_type ?? 'goods') === 'services';
@@ -194,39 +153,22 @@ export default function SupplierProductDetailPage() {
             className={`rounded-md border px-4 py-3 flex items-center gap-2.5 text-sm font-medium ${
               canOffer
                 ? 'bg-pq-success-100 border-pq-success-100 text-pq-success-600'
-                : isExpired
-                  ? 'bg-pq-danger-100 border-pq-danger-100 text-pq-danger-600'
-                  : 'bg-pq-neutral-50 border-pq-neutral-200 text-pq-neutral-500'
+                : 'bg-pq-neutral-50 border-pq-neutral-200 text-pq-neutral-500'
             }`}
           >
             {canOffer ? (
               <CheckCircle2 className="w-4 h-4 shrink-0" />
-            ) : isExpired ? (
-              <CalendarClock className="w-4 h-4 shrink-0" />
             ) : (
               <Circle className="w-4 h-4 shrink-0 text-pq-neutral-400" />
             )}
             <span>
               {canOffer
                 ? 'Verified — this product can be offered and awarded on RFQ quotes when substitute rules are met.'
-                : isExpired
-                  ? 'Expired — this product can still be offered on RFQ quotes, but Procurement will see that verification has expired.'
-                  : isWithdrawn
-                    ? 'This product was withdrawn and cannot be offered in procurement.'
-                    : 'Pending validation — this product can still be offered and awarded on RFQ quotes, but Procurement will see a notice that it is pending validation.'}
+                : isWithdrawn
+                  ? 'This product was withdrawn and cannot be offered in procurement.'
+                  : 'Pending validation — this product can still be offered and awarded on RFQ quotes, but Procurement will see a notice that it is pending validation.'}
             </span>
           </div>
-
-          {isExpired && (
-            <div className="rounded-md border border-pq-warning-100 bg-pq-warning-100 px-4 py-3 text-sm text-pq-warning-600">
-              <p className="font-semibold mb-0.5">Verification Expired</p>
-              <p className="text-xs font-normal">
-                Verification expired
-                {product.valid_until ? ` on ${format(new Date(product.valid_until), 'MMM d, yyyy')}` : ''}.
-                Contact Procurement to renew verification.
-              </p>
-            </div>
-          )}
 
           {profile && (
             <ComplianceTraceability anchor={{ kind: 'product', id: product.id }} role={profile.role} />
@@ -234,7 +176,7 @@ export default function SupplierProductDetailPage() {
 
           {isWithdrawn && (
             <div className="rounded-md border border-pq-neutral-200 bg-pq-neutral-50 px-4 py-3 text-sm text-pq-neutral-500">
-              This product was withdrawn. It remains on file for audit; documents below are view-only.
+              This product was withdrawn. It remains on file for audit.
             </div>
           )}
 
@@ -305,51 +247,6 @@ export default function SupplierProductDetailPage() {
                   </p>
                   <p className="text-sm text-pq-neutral-900">{product.review_notes}</p>
                 </div>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-md border border-pq-neutral-200">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
-              <h2 className="text-sm font-semibold text-pq-neutral-900">Product Documents</h2>
-              <span className="text-xs text-pq-neutral-400">
-                {documents.length} file{documents.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            {docsLoading ? (
-              <div className="p-5">
-                <LoadingState message="Loading documents…" />
-              </div>
-            ) : documents.length === 0 ? (
-              <div className="p-8 text-center">
-                <FileText className="w-6 h-6 text-pq-neutral-400 mx-auto mb-2" />
-                <p className="text-sm text-pq-neutral-500">No documents on file.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-pq-neutral-200">
-                {documents.map(doc => (
-                  <div key={doc.id} className="flex items-center gap-3 px-5 py-3.5">
-                    <FileText className="w-4 h-4 text-pq-neutral-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
-                      <p className="text-xs text-pq-neutral-400">
-                        {docTypeOptions.find(o => o.value === doc.document_type)?.label ??
-                          doc.document_type}
-                        {' · '}
-                        {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleViewDocument(doc.file_path)}
-                      className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      View
-                    </button>
-                  </div>
-                ))}
               </div>
             )}
           </div>

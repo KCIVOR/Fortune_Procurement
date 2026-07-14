@@ -14,21 +14,18 @@ import {
   markProductUnderReview,
   markProductVerified,
   markProductRejected,
-  revokeProductVerification,
   reopenProductForReview,
-  updateProductVerificationExpiry,
 } from '@/lib/supplier-products';
 import {
   getRSERecordsByProductId,
   type RSEWithReview,
 } from '@/lib/rse';
 import {
-  getDocumentsByProductId,
   getDocumentsByRSEId,
   getAccreditationDocumentSignedUrl,
 } from '@/lib/accreditation-documents';
 import type { SupplierProduct, SupplierDocument } from '@/types/database';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import {
   ChevronLeft,
   FileText,
@@ -39,7 +36,6 @@ import {
   Circle,
   AlertCircle,
   RotateCcw,
-  CalendarClock,
 } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
@@ -61,7 +57,7 @@ function productChip(status: string): { variant: StatusVariant; label: string } 
 
 // ─── Action panel type ────────────────────────────────────────────────────────
 
-type ActionPanel = 'none' | 'verify' | 'reject' | 'revoke' | 'reopen' | 'edit_expiry';
+type ActionPanel = 'none' | 'verify' | 'reject' | 'reopen';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -78,22 +74,9 @@ export default function ProductReviewDetailPage() {
   const [actionSuccess, setActionSuccess]     = useState('');
   const [activePanel, setActivePanel]         = useState<ActionPanel>('none');
   const [noteInput, setNoteInput]             = useState('');
-  const [expiryInput, setExpiryInput]         = useState('');
-  const [expiryError, setExpiryError]         = useState('');
 
   const [rseRecords, setRseRecords]           = useState<RSEWithReview[]>([]);
   const [rseDocsMap,  setRseDocsMap]          = useState<Record<string, SupplierDocument[]>>({});
-
-  const [documents, setDocuments]             = useState<SupplierDocument[]>([]);
-  const [docsLoading, setDocsLoading]         = useState(false);
-
-  const loadDocs = useCallback(async (productId: string) => {
-    setDocsLoading(true);
-    try {
-      setDocuments(await getDocumentsByProductId(productId));
-    } catch { /* non-blocking */ }
-    finally { setDocsLoading(false); }
-  }, []);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -103,10 +86,7 @@ export default function ProductReviewDetailPage() {
       const p = await getSupplierProductById(id);
       if (!p) { setError('Product not found.'); return; }
       setProduct(p);
-      const [, rseRows] = await Promise.all([
-        loadDocs(p.id),
-        getRSERecordsByProductId(p.id),
-      ]);
+      const rseRows = await getRSERecordsByProductId(p.id);
       setRseRecords(rseRows);
       // Fetch RSE report documents for each RSE
       const docsEntries = await Promise.all(
@@ -125,15 +105,13 @@ export default function ProductReviewDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [id, loadDocs]);
+  }, [id]);
 
   useEffect(() => { load(); }, [load]);
 
   const openPanel = (panel: ActionPanel) => {
     setActivePanel(panel);
     setNoteInput('');
-    setExpiryInput(panel === 'edit_expiry' ? (product?.valid_until ?? '') : '');
-    setExpiryError('');
     setActionError('');
     setActionSuccess('');
   };
@@ -158,21 +136,11 @@ export default function ProductReviewDetailPage() {
 
   const handleVerify = async () => {
     if (!profile || !product) return;
-    setExpiryError('');
-    if (expiryInput) {
-      const chosen = new Date(`${expiryInput}T00:00:00`);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (chosen <= today) {
-        setExpiryError('Expiry date must be in the future.');
-        return;
-      }
-    }
     setBusy(true);
     setActionError('');
     setActionSuccess('');
     try {
-      await markProductVerified(product.id, profile, noteInput.trim() || undefined, expiryInput || null);
+      await markProductVerified(product.id, profile, noteInput.trim() || undefined);
       await load();
       setActivePanel('none');
       setActionSuccess('Product verified. Supplier has been notified. Can Offer = Yes.');
@@ -193,55 +161,6 @@ export default function ProductReviewDetailPage() {
       await load();
       setActivePanel('none');
       setActionSuccess('Product rejected. Supplier has been notified.');
-    } catch (err: unknown) {
-      setActionError((err as Error)?.message || 'Action failed.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-
-  const handleRevokeVerification = async () => {
-    if (!profile || !product) return;
-    if (!noteInput.trim()) {
-      setActionError('Please enter a reason for revoking verification.');
-      return;
-    }
-    setBusy(true);
-    setActionError('');
-    setActionSuccess('');
-    try {
-      await revokeProductVerification(product.id, profile, noteInput.trim());
-      await load();
-      setActivePanel('none');
-      setActionSuccess('Verification revoked. Product is expired and Can Offer = No.');
-    } catch (err: unknown) {
-      setActionError((err as Error)?.message || 'Action failed.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleEditExpiry = async () => {
-    if (!profile || !product) return;
-    setExpiryError('');
-    if (expiryInput) {
-      const chosen = new Date(`${expiryInput}T00:00:00`);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (chosen <= today) {
-        setExpiryError('Expiry date must be in the future.');
-        return;
-      }
-    }
-    setBusy(true);
-    setActionError('');
-    setActionSuccess('');
-    try {
-      await updateProductVerificationExpiry(product.id, profile, expiryInput || null);
-      await load();
-      setActivePanel('none');
-      setActionSuccess('Expiry date updated.');
     } catch (err: unknown) {
       setActionError((err as Error)?.message || 'Action failed.');
     } finally {
@@ -274,7 +193,6 @@ export default function ProductReviewDetailPage() {
   const canVerify      = status === 'submitted' || status === 'under_review';
   const canRejectProd  = status === 'submitted' || status === 'under_review';
   const isClosed       = status === 'rejected' || status === 'withdrawn';
-  const canRevoke      = status === 'verified';
   const canReopen      = status === 'verified' || status === 'inactive' || status === 'expired';
   const showReviewActions = status === 'submitted' || status === 'under_review';
   const showPostVerifyActions = status === 'verified' || status === 'expired' || status === 'inactive';
@@ -343,8 +261,6 @@ export default function ProductReviewDetailPage() {
             <span className="font-medium">
               {canOffer
                 ? 'Verified — this product can be offered and awarded on RFQ quotes when substitute rules are met.'
-                : status === 'expired'
-                ? 'Expired — this product can still be offered on RFQ quotes, but Procurement will see that verification has expired. Re-verification is recommended before award.'
                 : 'Unverified — this product can still be offered and awarded on RFQ quotes, but Procurement will see a notice that it is pending validation. Verification is recommended before award.'
               }
             </span>
@@ -359,7 +275,7 @@ export default function ProductReviewDetailPage() {
             {status === 'withdrawn' && (
               <div className="rounded-md border border-pq-neutral-200 bg-pq-neutral-50 px-4 py-3 text-sm text-pq-neutral-500">
                 <span className="font-semibold text-pq-neutral-900">Withdrawn by supplier.</span>{' '}
-                This listing is read-only. Documents remain on file for audit.
+                This listing is read-only.
               </div>
             )}
             {status === 'inactive' && (
@@ -369,35 +285,6 @@ export default function ProductReviewDetailPage() {
               </div>
             )}
 
-            {status === 'expired' && (
-              <div className="rounded-md border border-pq-danger-100 bg-pq-danger-100 px-4 py-3 flex items-start gap-2.5">
-                <CalendarClock className="w-4 h-4 text-pq-danger-600 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-pq-danger-600">Verification Expired</p>
-                  <p className="text-xs text-pq-danger-600 mt-0.5">
-                    This product's verification has expired
-                    {product.valid_until
-                      ? ` on ${format(new Date(product.valid_until), 'MMMM d, yyyy')}`
-                      : ''}.
-                    Use <span className="font-semibold">Reopen for Review</span> to begin a renewal.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {status === 'verified' && product.valid_until && (() => {
-              const daysLeft = differenceInDays(new Date(product.valid_until), new Date());
-              if (daysLeft <= 30) return (
-                <div className="rounded-md border border-pq-warning-100 bg-pq-warning-100 px-4 py-3 flex items-start gap-2.5">
-                  <CalendarClock className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
-                  <p className="text-sm text-pq-warning-600">
-                    <span className="font-semibold">Expiring soon —</span>{' '}
-                    valid until {format(new Date(product.valid_until), 'MMMM d, yyyy')} ({daysLeft} day{daysLeft !== 1 ? 's' : ''} left).
-                  </p>
-                </div>
-              );
-              return null;
-            })()}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {!isService && (
                 <InfoField label="Product Code" value={product.product_code ?? '—'} />
@@ -430,9 +317,6 @@ export default function ProductReviewDetailPage() {
               )}
               {product.verified_at && (
                 <InfoField label="Verified"  value={format(new Date(product.verified_at),  'MMM d, yyyy')} />
-              )}
-              {product.valid_until && (
-                <InfoField label="Valid Until" value={format(new Date(product.valid_until), 'MMM d, yyyy')} />
               )}
               {product.rejected_at && (
                 <InfoField label="Rejected"  value={format(new Date(product.rejected_at),  'MMM d, yyyy')} />
@@ -513,7 +397,7 @@ export default function ProductReviewDetailPage() {
                         Verification Notes (optional)
                       </p>
                       <p className="text-xs text-pq-neutral-400">
-                        Confirm verification after reviewing the product details and supporting documents.
+                        Confirm verification after reviewing the product details.
                         {' '}After verification, Can Offer = Yes.
                       </p>
                       <textarea
@@ -523,18 +407,6 @@ export default function ProductReviewDetailPage() {
                         placeholder="Optional notes for the supplier."
                         className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                       />
-                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                        Valid Until <span className="text-pq-neutral-400 font-normal normal-case">(optional — leave blank for no expiry)</span>
-                      </p>
-                      <input
-                        type="date"
-                        value={expiryInput}
-                        onChange={e => { setExpiryInput(e.target.value); setExpiryError(''); }}
-                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
-                      />
-                      {expiryError && (
-                        <p className="text-xs text-pq-danger-600">{expiryError}</p>
-                      )}
                       <div className="flex gap-2">
                         <button
                           onClick={handleVerify}
@@ -616,37 +488,9 @@ export default function ProductReviewDetailPage() {
                     Reopen for Review
                   </button>
                 )}
-
-                {canRevoke && (
-                  <button
-                    onClick={() => openPanel(activePanel === 'revoke' ? 'none' : 'revoke')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
-                      activePanel === 'revoke'
-                        ? 'bg-pq-danger-100 text-pq-danger-600 border-red-300'
-                        : 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100 hover:bg-pq-danger-100'
-                    }`}
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    Revoke Verification
-                  </button>
-                )}
-
-                {canRevoke && (
-                  <button
-                    onClick={() => openPanel(activePanel === 'edit_expiry' ? 'none' : 'edit_expiry')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
-                      activePanel === 'edit_expiry'
-                        ? 'bg-pq-neutral-100 text-pq-neutral-900 border-pq-neutral-300'
-                        : 'text-pq-neutral-500 bg-white border-pq-neutral-200 hover:border-pq-neutral-300'
-                    }`}
-                  >
-                    <CalendarClock className="w-3.5 h-3.5" />
-                    Edit Expiry
-                  </button>
-                )}
               </div>
 
-              {activePanel !== 'none' && (
+              {activePanel === 'reopen' && (
                 <div className="p-5 space-y-3 border-b border-pq-neutral-200">
                   {actionError && (
                     <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-3 text-sm text-pq-danger-600">
@@ -654,106 +498,34 @@ export default function ProductReviewDetailPage() {
                     </div>
                   )}
 
-                  {activePanel === 'reopen' && (
-                    <>
-                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                        Reopen Notes (optional)
-                      </p>
-                      <p className="text-xs text-pq-neutral-400">
-                        Returns this product to Under Review. Can Offer becomes No until verified again.
-                      </p>
-                      <textarea
-                        value={noteInput}
-                        onChange={e => setNoteInput(e.target.value)}
-                        rows={2}
-                        placeholder="Optional notes for the supplier."
-                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleReopenForReview}
-                          disabled={busy}
-                          className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
-                        >
-                          {busy ? 'Reopening…' : 'Confirm Reopen'}
-                        </button>
-                        <button
-                          onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  )}
-
-                  {activePanel === 'revoke' && (
-                    <>
-                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                        Revocation Reason (required)
-                      </p>
-                      <p className="text-xs text-pq-neutral-400">
-                        Sets product to Expired. Existing RFQ quotes are not automatically removed.
-                      </p>
-                      <textarea
-                        value={noteInput}
-                        onChange={e => setNoteInput(e.target.value)}
-                        rows={2}
-                        placeholder="Reason for revoking verification."
-                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleRevokeVerification}
-                          disabled={busy}
-                          className="px-4 py-2 bg-pq-danger-600 hover:bg-pq-danger-600 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
-                        >
-                          {busy ? 'Revoking…' : 'Confirm Revocation'}
-                        </button>
-                        <button
-                          onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  )}
-
-                  {activePanel === 'edit_expiry' && (
-                    <>
-                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                        Valid Until <span className="text-pq-neutral-400 font-normal normal-case">(optional — leave blank for no expiry)</span>
-                      </p>
-                      <p className="text-xs text-pq-neutral-400">
-                        Changes the expiry date directly. The product stays verified.
-                      </p>
-                      <input
-                        type="date"
-                        value={expiryInput}
-                        onChange={e => { setExpiryInput(e.target.value); setExpiryError(''); }}
-                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
-                      />
-                      {expiryError && (
-                        <p className="text-xs text-pq-danger-600">{expiryError}</p>
-                      )}
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleEditExpiry}
-                          disabled={busy}
-                          className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
-                        >
-                          {busy ? 'Saving…' : 'Save Expiry'}
-                        </button>
-                        <button
-                          onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                    Reopen Notes (optional)
+                  </p>
+                  <p className="text-xs text-pq-neutral-400">
+                    Returns this product to Under Review. Can Offer becomes No until verified again.
+                  </p>
+                  <textarea
+                    value={noteInput}
+                    onChange={e => setNoteInput(e.target.value)}
+                    rows={2}
+                    placeholder="Optional notes for the supplier."
+                    className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleReopenForReview}
+                      disabled={busy}
+                      className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
+                    >
+                      {busy ? 'Reopening…' : 'Confirm Reopen'}
+                    </button>
+                    <button
+                      onClick={() => openPanel('none')}
+                      className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -773,33 +545,6 @@ export default function ProductReviewDetailPage() {
               {actionSuccess}
             </div>
           )}
-
-          {/* ── Product documents ── */}
-          <div className="bg-white rounded-md border border-pq-neutral-200">
-            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
-              <h2 className="text-sm font-semibold text-pq-neutral-900">{isService ? 'Supporting Documents' : 'Product Documents'}</h2>
-              <span className="text-xs text-pq-neutral-400">
-                {documents.length} file{documents.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            {docsLoading ? (
-              <div className="p-5">
-                <LoadingState message="Loading documents…" />
-              </div>
-            ) : documents.length === 0 ? (
-              <div className="p-8 text-center">
-                <FileText className="w-6 h-6 text-pq-neutral-400 mx-auto mb-2" />
-                <p className="text-sm text-pq-neutral-500">No documents uploaded by the supplier yet.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-pq-neutral-200">
-                {documents.map(doc => (
-                  <DocumentRow key={doc.id} doc={doc} />
-                ))}
-              </div>
-            )}
-          </div>
 
           {/* ── Historical RSE / TSQA evaluation records — goods only ── */}
           {!isService && rseRecords.length > 0 && (
