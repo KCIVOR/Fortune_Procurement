@@ -18,6 +18,7 @@ const ACCRED_LABELS: Record<SupplierAccreditationStatus, string> = {
   approved: 'Accredited',
   rejected: 'Rejected',
   withdrawn: 'Withdrawn',
+  expired: 'Expired',
 };
 
 function accreditationClass(status: SupplierAccreditationStatus): string {
@@ -30,6 +31,7 @@ function accreditationClass(status: SupplierAccreditationStatus): string {
       return 'bg-pq-warning-100 text-pq-warning-700';
     case 'rejected':
     case 'withdrawn':
+    case 'expired':
       return 'bg-pq-danger-100 text-pq-danger-600';
     default:
       return 'bg-pq-neutral-100 text-pq-neutral-500';

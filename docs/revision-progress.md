@@ -13,6 +13,9 @@ Revisions from [revisions.md](revisions.md), ordered easiest → hardest. Check 
 | 7 | 9 | Priority level — visibility, permission, filtering | ✅ Done |
 | 8 | 1 | VAT handling (VAT-able flag + VAT-IN/VAT-EX) | ✅ Done |
 | 9 | 4 | TSQA / RSE product review redesign | 🚫 Blocked — requirements TBC |
+| 10 | 10 | Remarks on PR1 request creation | ⬜ Not started — audit pending |
+| 11 | 11 | Supplier product registration by procurement | ⬜ Not started — audit pending |
+| 12 | 12 | Warehouse change request quantity | ⬜ Not started — audit pending |
 
 **Status legend:** ⬜ Not started · 🔄 In progress · ✅ Done · 🚫 Blocked
 
@@ -182,3 +185,41 @@ Revisions from [revisions.md](revisions.md), ordered easiest → hardest. Check 
 - [ ] Implement redesigned flow
 
 **Status:** 🚫 Blocked — needs requirements confirmation before any implementation.
+
+---
+
+## 10. Remarks on PR1 Request Creation (Rev #10)
+
+- [ ] Add optional remarks/notes field to the PR1 creation form
+- [ ] Persist remarks on the request and surface to approvers/procurement downstream
+- [ ] Audit whether a `remarks`/`notes` column already exists on `pr1_requests`
+
+**Complexity:** Likely small — a single field on the create form + a column, mirroring existing free-text fields.
+
+**Status:** ⬜ Not started — awaiting audit (audit → confirm → plan → proceed).
+
+---
+
+## 11. Supplier Product Registration — Handled by Procurement (Rev #11)
+
+- [ ] Audit what recent catalog-ownership work already delivered (supplier write access to `supplier_products` was removed; catalog ownership moved)
+- [ ] Confirm procurement can create/register a supplier's product on their behalf
+- [ ] Confirm supplier-side product creation is fully removed from the UI/RLS
+- [ ] Identify remaining gaps vs. the client requirement
+
+**Complexity:** Possibly mostly done already via recent commits — audit to determine what's left.
+
+**Status:** ⬜ Not started — awaiting audit.
+
+---
+
+## 12. Warehouse — Change Request Quantity (Rev #12)
+
+- [ ] Confirm scope: which quantity and which document in the chain warehouse should be able to edit (request qty on PR1, GRN receiving qty, etc.)
+- [ ] Add edit-quantity capability for warehouse (UI + RLS/permission)
+- [ ] Determine downstream recomputation impact (totals, PR2/PO, GRN) and self-correcting reads
+- [ ] Audit trail + notification on quantity change
+
+**Complexity:** Medium — permission + which-quantity scope + downstream ripple; needs a confirmed scope before planning.
+
+**Status:** ⬜ Not started — awaiting audit and scope confirmation.

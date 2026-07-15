@@ -105,7 +105,7 @@ export async function submitAccreditation(
   profile:         UserProfile
 ): Promise<void> {
   const now = new Date().toISOString();
-  const { error } = await db
+  const { data: updated, error } = await db
     .from('supplier_accreditations')
     .update({
       status:       'submitted',
@@ -114,8 +114,12 @@ export async function submitAccreditation(
     })
     .eq('id', accreditationId)
     .eq('supplier_id', profile.id)
-    .in('status', ['draft', 'missing_documents']);
+    .in('status', ['draft', 'missing_documents'])
+    .select('id');
   if (error) throw error;
+  if (!updated || updated.length === 0) {
+    throw new Error('This application was already updated. Please refresh and try again.');
+  }
 
   // Audit log (best-effort)
   try {
@@ -167,13 +171,17 @@ export async function withdrawAccreditation(
   const notifyProcurement = st === 'submitted' || st === 'missing_documents';
   const now = new Date().toISOString();
 
-  const { error } = await db
+  const { data: updated, error } = await db
     .from('supplier_accreditations')
     .update({ status: 'withdrawn', updated_at: now })
     .eq('id', accreditationId)
     .eq('supplier_id', profile.id)
-    .in('status', ['draft', 'submitted', 'missing_documents']);
+    .in('status', ['draft', 'submitted', 'missing_documents'])
+    .select('id');
   if (error) throw error;
+  if (!updated || updated.length === 0) {
+    throw new Error('This application was already updated. Please refresh and try again.');
+  }
 
   try {
     const { error: auditErr } = await db.from('audit_logs').insert({
@@ -304,7 +312,7 @@ export async function markAccreditationUnderReview(
   profile:         UserProfile
 ): Promise<void> {
   const now = new Date().toISOString();
-  const { error } = await db
+  const { data: updated, error } = await db
     .from('supplier_accreditations')
     .update({
       status:      'under_review',
@@ -313,8 +321,12 @@ export async function markAccreditationUnderReview(
       updated_at:  now,
     })
     .eq('id', accreditationId)
-    .eq('status', 'submitted');
+    .eq('status', 'submitted')
+    .select('id');
   if (error) throw error;
+  if (!updated || updated.length === 0) {
+    throw new Error('This application was already updated. Please refresh and try again.');
+  }
 }
 
 // ─── Procurement: request missing documents from supplier ─────────────────────
@@ -340,7 +352,7 @@ export async function requestMissingDocuments(
   }
 
   const now = new Date().toISOString();
-  const { error } = await db
+  const { data: updated, error } = await db
     .from('supplier_accreditations')
     .update({
       status:                 'missing_documents',
@@ -349,8 +361,13 @@ export async function requestMissingDocuments(
       reviewed_at:            now,
       updated_at:             now,
     })
-    .eq('id', accreditationId);
+    .eq('id', accreditationId)
+    .in('status', ['submitted', 'under_review', 'missing_documents'])
+    .select('id');
   if (error) throw error;
+  if (!updated || updated.length === 0) {
+    throw new Error('This application was already updated. Please refresh and try again.');
+  }
 
   // Audit log (best-effort)
   try {
@@ -386,8 +403,8 @@ export async function approveAccreditation(
   accreditationId: string,
   profile:         UserProfile,
   reviewNotes?:    string,
-  /** Rev #3: manually entered by procurement. Optional — null/undefined means no expiry set. */
-  validUntil?:     string | null
+  /** @deprecated Account expiry removed — documents carry expires_at. Ignored. */
+  _validUntil?:    string | null
 ): Promise<void> {
   const { data: acc, error: fetchErr } = await db
     .from('supplier_accreditations')
@@ -401,21 +418,9 @@ export async function approveAccreditation(
     throw new Error('This application was withdrawn and cannot be approved.');
   }
 
-  // Rev #3: expiry is now a manual, optional field. If provided, it must be a future date.
-  let validUntilValue: string | null = null;
-  if (validUntil) {
-    const chosen = new Date(`${validUntil}T00:00:00`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (Number.isNaN(chosen.getTime()) || chosen <= today) {
-      throw new Error('Expiry date must be a valid date in the future.');
-    }
-    validUntilValue = validUntil;
-  }
-
   const now = new Date().toISOString();
 
-  const { error } = await db
+  const { data: updated, error } = await db
     .from('supplier_accreditations')
     .update({
       status:       'approved',
@@ -423,11 +428,16 @@ export async function approveAccreditation(
       reviewed_by:  profile.id,
       reviewed_at:  now,
       review_notes: reviewNotes ?? null,
-      valid_until:  validUntilValue,
+      valid_until:  null,
       updated_at:   now,
     })
-    .eq('id', accreditationId);
+    .eq('id', accreditationId)
+    .in('status', ['submitted', 'under_review', 'missing_documents'])
+    .select('id');
   if (error) throw error;
+  if (!updated || updated.length === 0) {
+    throw new Error('This application was already updated. Please refresh and try again.');
+  }
 
   // Audit log (best-effort)
   try {
@@ -436,7 +446,7 @@ export async function approveAccreditation(
       action:        'ACCREDITATION_APPROVED',
       document_type: 'ACCREDITATION',
       document_id:   accreditationId,
-      payload:       { reviewer: profile.full_name, review_notes: reviewNotes ?? null, valid_until: validUntilValue },
+      payload:       { reviewer: profile.full_name, review_notes: reviewNotes ?? null, valid_until: null },
     });
     if (auditErr) console.warn(auditErr);
   } catch {
@@ -534,7 +544,7 @@ export async function rejectAccreditation(
   }
 
   const now = new Date().toISOString();
-  const { error } = await db
+  const { data: updated, error } = await db
     .from('supplier_accreditations')
     .update({
       status:       'rejected',
@@ -544,8 +554,13 @@ export async function rejectAccreditation(
       review_notes: reviewNotes ?? null,
       updated_at:   now,
     })
-    .eq('id', accreditationId);
+    .eq('id', accreditationId)
+    .in('status', ['submitted', 'under_review', 'missing_documents'])
+    .select('id');
   if (error) throw error;
+  if (!updated || updated.length === 0) {
+    throw new Error('This application was already updated. Please refresh and try again.');
+  }
 
   // Audit log (best-effort)
   try {
@@ -601,7 +616,7 @@ export async function revokeAccreditation(
   }
 
   const now = new Date().toISOString();
-  const { error } = await db
+  const { data: updated, error } = await db
     .from('supplier_accreditations')
     .update({
       status:       'expired',
@@ -612,8 +627,12 @@ export async function revokeAccreditation(
       updated_at:   now,
     })
     .eq('id', accreditationId)
-    .eq('status', 'approved');
+    .eq('status', 'approved')
+    .select('id');
   if (error) throw error;
+  if (!updated || updated.length === 0) {
+    throw new Error('This application was already updated. Please refresh and try again.');
+  }
 
   try {
     const { error: auditErr } = await db.from('audit_logs').insert({
@@ -662,7 +681,7 @@ export async function reopenAccreditationForReview(
   }
 
   const now = new Date().toISOString();
-  const { error } = await db
+  const { data: updated, error } = await db
     .from('supplier_accreditations')
     .update({
       status:       'under_review',
@@ -674,8 +693,12 @@ export async function reopenAccreditationForReview(
       updated_at:   now,
     })
     .eq('id', accreditationId)
-    .in('status', ['approved', 'expired']);
+    .in('status', ['approved', 'expired'])
+    .select('id');
   if (error) throw error;
+  if (!updated || updated.length === 0) {
+    throw new Error('This application was already updated. Please refresh and try again.');
+  }
 
   try {
     const { error: auditErr } = await db.from('audit_logs').insert({

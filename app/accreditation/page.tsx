@@ -23,8 +23,7 @@ import CreateSupplierModal from '@/components/procurement/CreateSupplierModal';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
-import { BadgeCheck, ArrowRight, AlertCircle, Plus, CalendarClock } from 'lucide-react';
-import { differenceInDays } from 'date-fns';
+import { BadgeCheck, ArrowRight, AlertCircle, Plus } from 'lucide-react';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -240,7 +239,6 @@ export default function AccreditationQueuePage() {
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Submitted</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Reviewed</th>
-                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Valid Until</th>
                     <th />
                   </tr>
                 </thead>
@@ -282,28 +280,6 @@ function QueueRow({ row }: { row: AccreditationQueueRow }) {
   const chip = accreditationChip(row.status);
   const isActionable = ['submitted', 'under_review', 'missing_documents'].includes(row.status);
 
-  const validUntilCell = () => {
-    if (!row.valid_until) return <span className="text-pq-neutral-300">—</span>;
-    const daysLeft = differenceInDays(new Date(row.valid_until), new Date());
-    if (row.status === 'expired' || daysLeft < 0) {
-      return (
-        <span className="inline-flex items-center gap-1 text-xs font-semibold text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded-full px-2 py-0.5">
-          <CalendarClock className="w-3 h-3" />
-          Expired {format(new Date(row.valid_until), 'MMM d, yyyy')}
-        </span>
-      );
-    }
-    if (daysLeft <= 30) {
-      return (
-        <span className="inline-flex items-center gap-1 text-xs font-semibold text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-full px-2 py-0.5">
-          <CalendarClock className="w-3 h-3" />
-          {format(new Date(row.valid_until), 'MMM d, yyyy')} · {daysLeft}d left
-        </span>
-      );
-    }
-    return <span className="text-pq-neutral-400 text-xs whitespace-nowrap">{format(new Date(row.valid_until), 'MMM d, yyyy')}</span>;
-  };
-
   return (
     <tr className="hover:bg-pq-neutral-50 transition">
       <td className="px-5 py-3.5">
@@ -330,7 +306,6 @@ function QueueRow({ row }: { row: AccreditationQueueRow }) {
       <td className="px-5 py-3.5 text-pq-neutral-400 text-xs whitespace-nowrap">
         {row.reviewed_at ? format(new Date(row.reviewed_at), 'MMM d, yyyy') : '—'}
       </td>
-      <td className="px-5 py-3.5">{validUntilCell()}</td>
       <td className="px-5 py-3.5 text-right">
         <Link
           href={`/accreditation/${row.id}`}
@@ -353,7 +328,7 @@ function AccreditationQueueSkeleton() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
-              {['Supplier', 'Email', 'Supply type', 'Status', 'Submitted', 'Reviewed', 'Valid Until', ''].map((h, i) => (
+              {['Supplier', 'Email', 'Supply type', 'Status', 'Submitted', 'Reviewed', ''].map((h, i) => (
                 <th key={i} className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">
                   {h && <Skeleton className="h-3 w-16" />}
                 </th>
@@ -367,7 +342,6 @@ function AccreditationQueueSkeleton() {
                 <td className="px-5 py-3.5"><Skeleton className="h-3 w-36" /></td>
                 <td className="px-5 py-3.5"><Skeleton className="h-3 w-20" /></td>
                 <td className="px-5 py-3.5"><Skeleton className="h-5 w-32 rounded-full" /></td>
-                <td className="px-5 py-3.5"><Skeleton className="h-3 w-24" /></td>
                 <td className="px-5 py-3.5"><Skeleton className="h-3 w-24" /></td>
                 <td className="px-5 py-3.5"><Skeleton className="h-3 w-24" /></td>
                 <td className="px-5 py-3.5"><Skeleton className="h-4 w-14" /></td>

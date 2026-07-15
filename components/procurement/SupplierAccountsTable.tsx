@@ -24,12 +24,13 @@ const ACCRED_LABELS: Record<SupplierAccreditationStatus, string> = {
   approved: 'Accredited',
   rejected: 'Rejected',
   withdrawn: 'Withdrawn',
+  expired: 'Expired',
 };
 
 function accreditationBadgeClass(status: SupplierAccreditationStatus): string {
   if (status === 'approved') return 'bg-pq-success-100 text-pq-success-600';
   if (status === 'none' || status === 'draft') return 'bg-pq-neutral-100 text-pq-neutral-500';
-  if (status === 'rejected' || status === 'withdrawn') return 'bg-pq-danger-100 text-pq-danger-600';
+  if (status === 'rejected' || status === 'withdrawn' || status === 'expired') return 'bg-pq-danger-100 text-pq-danger-600';
   return 'bg-pq-warning-100 text-pq-warning-600';
 }
 

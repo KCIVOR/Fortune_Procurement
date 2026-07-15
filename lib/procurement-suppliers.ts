@@ -8,7 +8,8 @@ export type SupplierAccreditationStatus =
   | 'missing_documents'
   | 'approved'
   | 'rejected'
-  | 'withdrawn';
+  | 'withdrawn'
+  | 'expired';
 
 export type SupplierSupplyType = 'raw_material' | 'normal' | 'service';
 
@@ -41,7 +42,7 @@ const PROFILE_SELECT =
   'id, full_name, email, payment_terms, is_vat_registered, supplier_supply_type, created_at, active, role_id, roles(name)';
 
 const PENDING_ACCREDITATION = new Set(['submitted', 'under_review', 'missing_documents']);
-const REJECTED_ACCREDITATION = new Set(['rejected', 'withdrawn']);
+const REJECTED_ACCREDITATION = new Set(['rejected', 'withdrawn', 'expired']);
 
 let cachedSupplierRoleId: string | null | undefined;
 
@@ -129,6 +130,7 @@ function toAccreditationStatus(raw: string | undefined): SupplierAccreditationSt
     'approved',
     'rejected',
     'withdrawn',
+    'expired',
   ];
   return allowed.includes(raw as SupplierAccreditationStatus)
     ? (raw as SupplierAccreditationStatus)

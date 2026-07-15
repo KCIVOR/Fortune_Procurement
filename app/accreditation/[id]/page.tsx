@@ -17,16 +17,20 @@ import {
   rejectAccreditation,
   revokeAccreditation,
   reopenAccreditationForReview,
-  updateAccreditationExpiry,
 } from '@/lib/accreditation';
 import {
   getDocumentsByAccreditationId,
+  verifyAccreditationDocument,
+  rejectAccreditationDocument,
+  updateAccreditationDocumentExpiry,
+  requestAccreditationDocumentRevision,
 } from '@/lib/accreditation-documents';
 import {
   getProductsByAccreditationId,
   type ProductWithRSESummary,
 } from '@/lib/rse';
 import type { SupplierAccreditation, SupplierDocument } from '@/types/database';
+import type { UserProfile } from '@/types/auth';
 import { format } from 'date-fns';
 import {
   ChevronLeft,
@@ -41,7 +45,6 @@ import {
   RotateCcw,
   CalendarClock,
 } from 'lucide-react';
-import { differenceInDays } from 'date-fns';
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -51,7 +54,7 @@ function accreditationChip(status: string): { variant: StatusVariant; label: str
     submitted:         { variant: 'pending',   label: 'Submitted' },
     under_review:      { variant: 'in_review', label: 'Under Procurement Review' },
     missing_documents: { variant: 'pending',   label: 'Missing Documents Requested' },
-    approved:          { variant: 'approved',  label: 'Accredited' },
+    approved:          { variant: 'approved',  label: 'Approved' },
     rejected:          { variant: 'rejected',  label: 'Rejected' },
     withdrawn:         { variant: 'cancelled', label: 'Withdrawn' },
     expired:           { variant: 'cancelled', label: 'Expired' },
@@ -61,7 +64,7 @@ function accreditationChip(status: string): { variant: StatusVariant; label: str
 
 // ─── Action types ─────────────────────────────────────────────────────────────
 
-type ActionPanel = 'none' | 'missing_docs' | 'approve' | 'reject' | 'revoke' | 'reopen' | 'edit_expiry';
+type ActionPanel = 'none' | 'missing_docs' | 'approve' | 'reject' | 'revoke' | 'reopen';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -79,8 +82,6 @@ export default function AccreditationDetailPage() {
 
   const [activePanel, setActivePanel] = useState<ActionPanel>('none');
   const [noteInput, setNoteInput]     = useState('');
-  const [expiryInput, setExpiryInput] = useState('');
-  const [expiryError, setExpiryError] = useState('');
 
   const [documents, setDocuments]         = useState<SupplierDocument[]>([]);
   const [docsLoading, setDocsLoading]     = useState(false);
@@ -121,8 +122,6 @@ export default function AccreditationDetailPage() {
   const openPanel = (panel: ActionPanel) => {
     setActivePanel(panel);
     setNoteInput('');
-    setExpiryInput(panel === 'edit_expiry' ? (accreditation?.valid_until ?? '') : '');
-    setExpiryError('');
     setActionError('');
     setActionSuccess('');
   };
@@ -163,21 +162,11 @@ export default function AccreditationDetailPage() {
 
   const handleApprove = async () => {
     if (!profile || !accreditation) return;
-    setExpiryError('');
-    if (expiryInput) {
-      const chosen = new Date(`${expiryInput}T00:00:00`);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (chosen <= today) {
-        setExpiryError('Expiry date must be in the future.');
-        return;
-      }
-    }
     setBusy(true);
     setActionError('');
     setActionSuccess('');
     try {
-      await approveAccreditation(accreditation.id, profile, noteInput.trim() || undefined, expiryInput || null);
+      await approveAccreditation(accreditation.id, profile, noteInput.trim() || undefined);
       await load();
       setActivePanel('none');
       setActionSuccess('Accreditation approved. Supplier has been notified.');
@@ -226,33 +215,6 @@ export default function AccreditationDetailPage() {
     }
   };
 
-  const handleEditExpiry = async () => {
-    if (!profile || !accreditation) return;
-    setExpiryError('');
-    if (expiryInput) {
-      const chosen = new Date(`${expiryInput}T00:00:00`);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (chosen <= today) {
-        setExpiryError('Expiry date must be in the future.');
-        return;
-      }
-    }
-    setBusy(true);
-    setActionError('');
-    setActionSuccess('');
-    try {
-      await updateAccreditationExpiry(accreditation.id, profile, expiryInput || null);
-      await load();
-      setActivePanel('none');
-      setActionSuccess('Expiry date updated.');
-    } catch (err: unknown) {
-      setActionError((err as Error)?.message || 'Action failed.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleReopen = async () => {
     if (!profile || !accreditation) return;
     setBusy(true);
@@ -285,6 +247,11 @@ export default function AccreditationDetailPage() {
   const canPostApproval    = status === 'approved' || status === 'expired';
   const canRevoke          = status === 'approved';
   const showReviewActions  = !isClosed && !canPostApproval;
+  const canManageDocs =
+    status === 'submitted' ||
+    status === 'under_review' ||
+    status === 'missing_documents' ||
+    status === 'approved';
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -317,7 +284,7 @@ export default function AccreditationDetailPage() {
             <div>
               <h1 className="text-xl font-bold text-pq-neutral-900">Supplier Accreditation Review</h1>
               <p className="text-sm text-pq-neutral-500 mt-0.5">
-                Application submitted for Procurement evaluation and approval. Accreditation is separate from product verification — verified products can be awarded directly, while raw-material lines may still proceed with unverified items via procurement justification.
+                Review the application and verify each submitted document with its own expiry date. Approving finishes the application review; document verification is separate and does not block RFQ readiness.
               </p>
             </div>
             {accreditationChip(status) && (
@@ -344,29 +311,12 @@ export default function AccreditationDetailPage() {
                 <div>
                   <p className="text-sm font-semibold text-pq-danger-600">Accreditation Expired</p>
                   <p className="text-xs text-pq-danger-600 mt-0.5">
-                    This accreditation has expired
-                    {accreditation.valid_until
-                      ? ` on ${format(new Date(accreditation.valid_until), 'MMMM d, yyyy')}`
-                      : ''}.
-                    Use <span className="font-semibold">Reopen for Review</span> to begin a renewal.
+                    This application was marked expired (manual revoke or historical). Use{' '}
+                    <span className="font-semibold">Reopen for Review</span> to begin a renewal.
                   </p>
                 </div>
               </div>
             )}
-
-            {status === 'approved' && accreditation.valid_until && (() => {
-              const daysLeft = differenceInDays(new Date(accreditation.valid_until), new Date());
-              if (daysLeft <= 30) return (
-                <div className="rounded-md border border-pq-warning-100 bg-pq-warning-100 px-4 py-3 flex items-start gap-2.5">
-                  <CalendarClock className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
-                  <p className="text-sm text-pq-warning-600">
-                    <span className="font-semibold">Expiring soon —</span>{' '}
-                    valid until {format(new Date(accreditation.valid_until), 'MMMM d, yyyy')} ({daysLeft} day{daysLeft !== 1 ? 's' : ''} left).
-                  </p>
-                </div>
-              );
-              return null;
-            })()}
 
             {/* Key dates */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -390,12 +340,6 @@ export default function AccreditationDetailPage() {
                 <InfoField
                   label="Approved"
                   value={format(new Date(accreditation.approved_at), 'MMM d, yyyy')}
-                />
-              )}
-              {accreditation.valid_until && (
-                <InfoField
-                  label="Valid Until"
-                  value={format(new Date(accreditation.valid_until), 'MMM d, yyyy')}
                 />
               )}
               {accreditation.rejected_at && (
@@ -532,6 +476,9 @@ export default function AccreditationDetailPage() {
                       <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
                         Approval Notes (optional)
                       </p>
+                      <p className="text-xs text-pq-neutral-400">
+                        Document expiry is set per file in the documents list below — not on this approval.
+                      </p>
                       <textarea
                         value={noteInput}
                         onChange={e => setNoteInput(e.target.value)}
@@ -539,18 +486,6 @@ export default function AccreditationDetailPage() {
                         placeholder="Optional notes for the supplier."
                         className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
                       />
-                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                        Valid Until <span className="text-pq-neutral-400 font-normal normal-case">(optional — leave blank for no expiry)</span>
-                      </p>
-                      <input
-                        type="date"
-                        value={expiryInput}
-                        onChange={e => { setExpiryInput(e.target.value); setExpiryError(''); }}
-                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
-                      />
-                      {expiryError && (
-                        <p className="text-xs text-pq-danger-600">{expiryError}</p>
-                      )}
                       <div className="flex gap-2">
                         <button
                           onClick={handleApprove}
@@ -642,20 +577,6 @@ export default function AccreditationDetailPage() {
                     Revoke Accreditation
                   </button>
                 )}
-
-                {canRevoke && (
-                  <button
-                    onClick={() => openPanel(activePanel === 'edit_expiry' ? 'none' : 'edit_expiry')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition ${
-                      activePanel === 'edit_expiry'
-                        ? 'bg-pq-neutral-100 text-pq-neutral-900 border-pq-neutral-300'
-                        : 'text-pq-neutral-500 bg-white border-pq-neutral-200 hover:border-pq-neutral-300'
-                    }`}
-                  >
-                    <CalendarClock className="w-3.5 h-3.5" />
-                    Edit Expiry
-                  </button>
-                )}
               </div>
 
               {activePanel !== 'none' && (
@@ -731,41 +652,6 @@ export default function AccreditationDetailPage() {
                       </div>
                     </>
                   )}
-
-                  {activePanel === 'edit_expiry' && (
-                    <>
-                      <p className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
-                        Valid Until <span className="text-pq-neutral-400 font-normal normal-case">(optional — leave blank for no expiry)</span>
-                      </p>
-                      <p className="text-xs text-pq-neutral-400">
-                        Changes the expiry date directly. The accreditation stays approved.
-                      </p>
-                      <input
-                        type="date"
-                        value={expiryInput}
-                        onChange={e => { setExpiryInput(e.target.value); setExpiryError(''); }}
-                        className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
-                      />
-                      {expiryError && (
-                        <p className="text-xs text-pq-danger-600">{expiryError}</p>
-                      )}
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleEditExpiry}
-                          disabled={busy}
-                          className="px-4 py-2 bg-pq-primary-600 hover:bg-pq-primary-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-50"
-                        >
-                          {busy ? 'Saving…' : 'Save Expiry'}
-                        </button>
-                        <button
-                          onClick={() => openPanel('none')}
-                          className="px-4 py-2 text-xs font-medium text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md hover:bg-pq-neutral-200 transition"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  )}
                 </div>
               )}
 
@@ -794,6 +680,9 @@ export default function AccreditationDetailPage() {
                 {documents.length} file{documents.length !== 1 ? 's' : ''}
               </span>
             </div>
+            <p className="px-5 py-2 text-xs text-pq-neutral-400 border-b border-pq-neutral-200">
+              Verify each accreditation document and set its expiry. Product/RSE files linked to this application are view-only here.
+            </p>
 
             {docsLoading ? (
               <div className="p-5">
@@ -807,7 +696,15 @@ export default function AccreditationDetailPage() {
             ) : (
               <div className="divide-y divide-pq-neutral-200">
                 {documents.map(doc => (
-                  <DocumentRow key={doc.id} doc={doc} />
+                  <DocumentRow
+                    key={doc.id}
+                    doc={doc}
+                    profile={profile}
+                    canManage={
+                      Boolean(canManageDocs && profile && doc.accreditation_id && !doc.supplier_product_id)
+                    }
+                    onUpdated={() => loadDocs(accreditation.id)}
+                  />
                 ))}
               </div>
             )}
@@ -906,29 +803,264 @@ function LinkedProductRow({ product }: { product: ProductWithRSESummary }) {
   );
 }
 
-function DocumentRow({ doc }: { doc: SupplierDocument }) {
+function documentStatusLabel(status: string): { label: string; className: string } {
+  switch (status) {
+    case 'accepted':
+      return { label: 'Verified', className: 'bg-pq-success-100 text-pq-success-600' };
+    case 'rejected':
+      return { label: 'Rejected', className: 'bg-pq-danger-100 text-pq-danger-600' };
+    case 'expired':
+      return { label: 'Expired', className: 'bg-pq-danger-100 text-pq-danger-600' };
+    case 'needs_revision':
+      return { label: 'Needs revision', className: 'bg-pq-warning-100 text-pq-warning-600' };
+    case 'uploaded':
+    default:
+      return { label: 'Pending', className: 'bg-pq-warning-100 text-pq-warning-600' };
+  }
+}
+
+function DocumentRow({
+  doc,
+  profile,
+  canManage,
+  onUpdated,
+}: {
+  doc: SupplierDocument;
+  profile: UserProfile | null;
+  canManage: boolean;
+  onUpdated: () => Promise<void> | void;
+}) {
   const viewHref = `/api/storage/doc-view?path=${encodeURIComponent(doc.file_path)}`;
+  const chip = documentStatusLabel(doc.status);
+  const [expiryInput, setExpiryInput] = useState(doc.expires_at ?? '');
+  const [revisionNote, setRevisionNote] = useState('');
+  const [showRevision, setShowRevision] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [showReject, setShowReject] = useState(false);
+  const [rowBusy, setRowBusy] = useState(false);
+  const [rowError, setRowError] = useState('');
+
+  const isApplicationDoc = Boolean(doc.accreditation_id && !doc.supplier_product_id);
+  const canVerify = canManage && isApplicationDoc && (doc.status === 'uploaded' || doc.status === 'accepted');
+  const canReject = canManage && isApplicationDoc && (doc.status === 'uploaded' || doc.status === 'accepted');
+  const canRequestRevision =
+    canManage && isApplicationDoc && (doc.status === 'uploaded' || doc.status === 'accepted');
+  const canEditExpiry = canManage && isApplicationDoc && doc.status === 'accepted';
+
+  const run = async (fn: () => Promise<void>) => {
+    if (!profile) return;
+    setRowBusy(true);
+    setRowError('');
+    try {
+      await fn();
+      setShowRevision(false);
+      setRevisionNote('');
+      setShowReject(false);
+      setRejectReason('');
+      await onUpdated();
+    } catch (err: unknown) {
+      setRowError((err as Error)?.message || 'Action failed.');
+    } finally {
+      setRowBusy(false);
+    }
+  };
 
   return (
-    <div className="flex items-center gap-3 px-5 py-3.5">
-      <FileText className="w-4 h-4 text-pq-neutral-400 shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
-        <p className="text-xs text-pq-neutral-400">
-          {doc.document_type.replace(/_/g, ' ')}
-          {' · '}
-          {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}
-        </p>
+    <div className="px-5 py-3.5 space-y-2">
+      <div className="flex items-center gap-3">
+        <FileText className="w-4 h-4 text-pq-neutral-400 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
+            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-medium ${chip.className}`}>
+              {chip.label}
+            </span>
+          </div>
+          <p className="text-xs text-pq-neutral-400">
+            {doc.document_type.replace(/_/g, ' ')}
+            {' · '}
+            {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}
+            {doc.expires_at
+              ? ` · Expires ${format(new Date(doc.expires_at), 'MMM d, yyyy')}`
+              : ''}
+            {!isApplicationDoc ? ' · Product/RSE linked' : ''}
+          </p>
+          {doc.revision_note && (
+            <p className={`text-xs mt-1 ${doc.status === 'rejected' ? 'text-pq-danger-600' : 'text-pq-warning-600'}`}>
+              <span className="font-semibold">
+                {doc.status === 'rejected' ? 'Rejection reason:' : 'Revision remarks:'}
+              </span>{' '}
+              {doc.revision_note}
+            </p>
+          )}
+        </div>
+        <a
+          href={viewHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          View
+        </a>
       </div>
-      <a
-        href={viewHref}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition"
-      >
-        <ExternalLink className="w-3.5 h-3.5" />
-        View
-      </a>
+
+      {(canVerify || canEditExpiry || canReject || canRequestRevision) && (
+        <div className="flex flex-wrap items-center gap-2 pl-7">
+          {(canVerify || canEditExpiry) && (
+            <input
+              type="date"
+              value={expiryInput}
+              onChange={e => setExpiryInput(e.target.value)}
+              disabled={rowBusy}
+              className="px-2 py-1 text-xs border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] bg-white"
+            />
+          )}
+          {canVerify && doc.status === 'uploaded' && (
+            <button
+              type="button"
+              disabled={rowBusy || !profile}
+              onClick={() =>
+                run(() => verifyAccreditationDocument(doc.id, expiryInput, profile!))
+              }
+              className="px-2.5 py-1 text-xs font-semibold text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-md hover:bg-pq-success-100 disabled:opacity-50"
+            >
+              {rowBusy ? 'Saving…' : 'Verify'}
+            </button>
+          )}
+          {canEditExpiry && (
+            <button
+              type="button"
+              disabled={rowBusy || !profile}
+              onClick={() =>
+                run(() => updateAccreditationDocumentExpiry(doc.id, expiryInput, profile!))
+              }
+              className="px-2.5 py-1 text-xs font-semibold text-pq-primary-700 bg-pq-primary-50 border border-pq-primary-200 rounded-md disabled:opacity-50"
+            >
+              {rowBusy ? 'Saving…' : 'Save expiry'}
+            </button>
+          )}
+          {canVerify && doc.status === 'accepted' && (
+            <button
+              type="button"
+              disabled={rowBusy || !profile}
+              onClick={() =>
+                run(() => verifyAccreditationDocument(doc.id, expiryInput, profile!))
+              }
+              className="px-2.5 py-1 text-xs font-semibold text-pq-neutral-500 bg-white border border-pq-neutral-200 rounded-md disabled:opacity-50"
+            >
+              Re-verify
+            </button>
+          )}
+          {canRequestRevision && (
+            <button
+              type="button"
+              disabled={rowBusy || !profile}
+              onClick={() => {
+                setShowRevision(v => !v);
+                setRowError('');
+              }}
+              className="px-2.5 py-1 text-xs font-semibold text-pq-warning-600 bg-pq-warning-100 border border-pq-warning-100 rounded-md disabled:opacity-50"
+            >
+              Needs revision
+            </button>
+          )}
+          {canReject && (
+            <button
+              type="button"
+              disabled={rowBusy || !profile}
+              onClick={() => {
+                setShowReject(v => !v);
+                setRowError('');
+              }}
+              className="px-2.5 py-1 text-xs font-semibold text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded-md disabled:opacity-50"
+            >
+              Reject
+            </button>
+          )}
+        </div>
+      )}
+
+      {showRevision && canRequestRevision && (
+        <div className="pl-7 space-y-2 max-w-lg">
+          <p className="text-xs text-pq-neutral-400">
+            Application status will stay the same. Supplier can replace this file.
+          </p>
+          <textarea
+            value={revisionNote}
+            onChange={e => setRevisionNote(e.target.value)}
+            rows={2}
+            placeholder="What should the supplier fix or re-upload?"
+            disabled={rowBusy}
+            className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={rowBusy || !profile || !revisionNote.trim()}
+              onClick={() =>
+                run(() =>
+                  requestAccreditationDocumentRevision(doc.id, revisionNote, profile!)
+                )
+              }
+              className="px-2.5 py-1 text-xs font-semibold text-white bg-amber-600 rounded-md disabled:opacity-50"
+            >
+              {rowBusy ? 'Sending…' : 'Send revision request'}
+            </button>
+            <button
+              type="button"
+              disabled={rowBusy}
+              onClick={() => {
+                setShowRevision(false);
+                setRevisionNote('');
+              }}
+              className="px-2.5 py-1 text-xs font-medium text-pq-neutral-500 border border-pq-neutral-200 rounded-md"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showReject && canReject && (
+        <div className="pl-7 space-y-2 max-w-lg">
+          <p className="text-xs text-pq-neutral-400">
+            The supplier will see this as a rejection with your reason, and can resubmit a corrected file.
+          </p>
+          <textarea
+            value={rejectReason}
+            onChange={e => setRejectReason(e.target.value)}
+            rows={2}
+            placeholder="Why is this document being rejected?"
+            disabled={rowBusy}
+            className="w-full px-3 py-2 text-sm border border-pq-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#1E4BFF] resize-none bg-white"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={rowBusy || !profile || !rejectReason.trim()}
+              onClick={() =>
+                run(() => rejectAccreditationDocument(doc.id, profile!, rejectReason))
+              }
+              className="px-2.5 py-1 text-xs font-semibold text-white bg-pq-danger-600 rounded-md disabled:opacity-50"
+            >
+              {rowBusy ? 'Rejecting…' : 'Confirm rejection'}
+            </button>
+            <button
+              type="button"
+              disabled={rowBusy}
+              onClick={() => {
+                setShowReject(false);
+                setRejectReason('');
+              }}
+              className="px-2.5 py-1 text-xs font-medium text-pq-neutral-500 border border-pq-neutral-200 rounded-md"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {rowError && <p className="pl-7 text-xs text-pq-danger-600">{rowError}</p>}
     </div>
   );
 }

@@ -17,6 +17,7 @@ import {
   uploadSupplierAccreditationDocument,
   getDocumentsByAccreditationId,
   getAccreditationDocumentSignedUrl,
+  resubmitAccreditationDocument,
 } from '@/lib/accreditation-documents';
 import type { SupplierAccreditation, SupplierDocument } from '@/types/database';
 import { useDropdownOptions } from '@/hooks/useDropdownOptions';
@@ -61,6 +62,7 @@ function statusChip(status: string): { variant: StatusVariant; label: string } {
     approved:          { variant: 'approved',  label: 'Accredited' },
     rejected:          { variant: 'rejected',  label: 'Rejected' },
     withdrawn:         { variant: 'cancelled', label: 'Withdrawn' },
+    expired:           { variant: 'cancelled', label: 'Expired' },
   };
   return map[status] ?? { variant: 'draft', label: status };
 }
@@ -80,6 +82,8 @@ const STATUS_DESCRIPTION: Record<string, string> = {
     'Your accreditation application was rejected. You may start a new application.',
   withdrawn:
     'This application was withdrawn. You may start a new accreditation application.',
+  expired:
+    'This accreditation application has expired. You may start a new application.',
 };
 
 // ─── Document upload constants ────────────────────────────────────────────────
@@ -216,6 +220,27 @@ export default function SupplierAccreditationPage() {
     }
   };
 
+  const handleReplaceDocument = async (documentId: string, file: File) => {
+    if (!profile) return;
+    const err = validateDocFile(file);
+    if (err) {
+      setUploadError(err);
+      return;
+    }
+    setUploadBusy(true);
+    setUploadError('');
+    setActionError('');
+    try {
+      await resubmitAccreditationDocument(documentId, file, profile);
+      if (accreditation) await loadDocs(accreditation.id);
+      setActionSuccess('Document resubmitted. Procurement can review it again.');
+    } catch (err: unknown) {
+      setUploadError((err as Error)?.message || 'Failed to replace document.');
+    } finally {
+      setUploadBusy(false);
+    }
+  };
+
   const canSubmit =
     accreditation?.status === 'draft' || accreditation?.status === 'missing_documents';
 
@@ -225,10 +250,14 @@ export default function SupplierAccreditationPage() {
     accreditation?.status === 'missing_documents';
 
   const canStartNewAfterClose =
-    accreditation?.status === 'withdrawn' || accreditation?.status === 'rejected';
+    accreditation?.status === 'withdrawn' ||
+    accreditation?.status === 'rejected' ||
+    accreditation?.status === 'expired';
 
   const docUploadDisabled =
-    accreditation?.status === 'withdrawn' || accreditation?.status === 'rejected';
+    accreditation?.status === 'withdrawn' ||
+    accreditation?.status === 'rejected' ||
+    accreditation?.status === 'expired';
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -537,25 +566,81 @@ export default function SupplierAccreditationPage() {
             ) : (
               <div className="divide-y divide-pq-neutral-200">
                 {documents.map(doc => (
-                  <div key={doc.id} className="flex items-center gap-3 px-5 py-3.5">
-                    <FileText className="w-4 h-4 text-pq-neutral-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
-                      <p className="text-xs text-pq-neutral-400">
-                        {docTypeOptions.find(o => o.value === doc.document_type)?.label ??
-                          doc.document_type}
-                        {' · '}
-                        {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}
-                      </p>
+                  <div key={doc.id} className="px-5 py-3.5 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-4 h-4 text-pq-neutral-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm text-pq-neutral-900 truncate">{doc.file_name}</p>
+                          <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-medium bg-pq-neutral-100 text-pq-neutral-500">
+                            {doc.status === 'accepted'
+                              ? 'Verified'
+                              : doc.status === 'rejected'
+                                ? 'Rejected'
+                                : doc.status === 'expired'
+                                  ? 'Expired'
+                                  : doc.status === 'needs_revision'
+                                    ? 'Needs revision'
+                                    : 'Pending'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-pq-neutral-400">
+                          {docTypeOptions.find(o => o.value === doc.document_type)?.label ??
+                            doc.document_type}
+                          {' · '}
+                          {format(new Date(doc.uploaded_at), 'MMM d, yyyy')}
+                          {doc.expires_at
+                            ? ` · Expires ${format(new Date(doc.expires_at), 'MMM d, yyyy')}`
+                            : ''}
+                        </p>
+                        {doc.status === 'needs_revision' && doc.revision_note && (
+                          <p className="text-xs text-pq-warning-600 mt-1">
+                            <span className="font-semibold">What to fix:</span> {doc.revision_note}
+                          </p>
+                        )}
+                        {doc.status === 'rejected' && doc.revision_note && (
+                          <p className="text-xs text-pq-danger-600 mt-1">
+                            <span className="font-semibold">Reason:</span> {doc.revision_note}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleViewDocument(doc.file_path)}
+                        className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        View
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleViewDocument(doc.file_path)}
-                      className="shrink-0 flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 transition"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      View
-                    </button>
+                    {(doc.status === 'uploaded' || doc.status === 'needs_revision' || doc.status === 'rejected') && (
+                      <div className="pl-7 flex flex-wrap items-center gap-2">
+                        <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-pq-primary-700 cursor-pointer">
+                          <Upload className="w-3.5 h-3.5" />
+                          {uploadBusy
+                            ? 'Resubmitting…'
+                            : doc.status === 'rejected'
+                              ? 'Resubmit file'
+                              : 'Replace file'}
+                          <input
+                            type="file"
+                            accept=".pdf,image/jpeg,image/png,application/pdf"
+                            className="hidden"
+                            disabled={uploadBusy}
+                            onChange={e => {
+                              const f = e.target.files?.[0];
+                              e.target.value = '';
+                              if (f) void handleReplaceDocument(doc.id, f);
+                            }}
+                          />
+                        </label>
+                        <span className="text-xs text-pq-neutral-400">
+                          {doc.status === 'uploaded'
+                            ? 'Uploads a new file, replacing this one before it’s reviewed.'
+                            : 'Uploads a new file on this same document (status returns to Pending).'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

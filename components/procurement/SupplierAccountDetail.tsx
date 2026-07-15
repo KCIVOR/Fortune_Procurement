@@ -36,6 +36,7 @@ const ACCRED_LABELS: Record<SupplierAccreditationStatus, string> = {
   approved: 'Accredited',
   rejected: 'Rejected',
   withdrawn: 'Withdrawn',
+  expired: 'Expired',
 };
 
 function toDialogUser(supplier: SupplierAccount): AdminUser {
