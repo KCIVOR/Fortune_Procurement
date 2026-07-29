@@ -116,6 +116,8 @@ export async function notifyApproversForStep({
   body,
   documentType = 'pr1',
   actionUrl,
+  documentDepartmentId,
+  directorPositions = [],
 }: {
   workflowId:     string;
   stepOrder:      number;
@@ -126,6 +128,18 @@ export async function notifyApproversForStep({
   body?:          string;
   documentType?:  string;
   actionUrl?:     string;
+  /**
+   * Department-scoped positions (e.g. Department Head, Supervisor) hold that
+   * title in every department — without this, every Department Head in the
+   * company gets notified for a single-department document, even though only
+   * the matching department's holder can actually act on it (see
+   * canActOnPR2Step / canActOnPOStep / etc.). Pass the document's own
+   * department_id to scope the notification to the same set of people who
+   * can act on it.
+   */
+  documentDepartmentId?: string | null;
+  /** Positions exempt from department scoping (e.g. Director, Finance Director) — pass the caller's own DIRECTOR_POSITIONS list. */
+  directorPositions?: readonly string[];
 }): Promise<void> {
   // 1. Step role + position requirements
   const { data: step, error: stepErr } = await db
@@ -153,13 +167,26 @@ export async function notifyApproversForStep({
   const posIds: string[] = (posRows.data ?? []).map((p: any) => p.id as string);
   if (posIds.length === 0) return;
 
-  // 3. All profiles matching that role + any of the eligible positions
-  const { data: approvers, error: profErr } = await db
+  // 3. All profiles matching that role + any of the eligible positions.
+  // Department-scoped positions must additionally match the document's own
+  // department — otherwise every holder of that position title across all
+  // departments gets notified, not just the one who can actually act on it.
+  // Only 'approver'-role steps (Dept Head, Supervisor, etc.) are ever
+  // department-scoped in the ACT gates (canActOnStep / canActOnPR2Step /
+  // canActOnPOStep all special-case `stepRoleRequired === 'approver'`) — so
+  // mirror that here rather than scoping procurement/supplier steps, which
+  // are company-wide regardless of the document's department.
+  const isDirectorStep = eligiblePositionTitles.some((t) => directorPositions.includes(t));
+  let approversQuery = db
     .from('profiles')
     .select('id')
     .eq('role_id', roleRes.data.id)
     .in('position_id', posIds)
     .eq('active', true);
+  if (step.role_required === 'approver' && documentDepartmentId && !isDirectorStep) {
+    approversQuery = approversQuery.eq('department_id', documentDepartmentId);
+  }
+  const { data: approvers, error: profErr } = await approversQuery;
   if (profErr || !approvers || approvers.length === 0) return;
 
   const approverIds: string[] = approvers.map((a: any) => a.id as string);

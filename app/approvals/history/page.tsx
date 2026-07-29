@@ -20,6 +20,7 @@ import type {
 import { History, Eye, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import type { AppRole } from '@/types/auth';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 
 /** Roles that may view approval-signature history (`approval_actions.actor_id = self`). */
 const APPROVAL_HISTORY_ROLES = new Set<AppRole>(['approver', 'procurement']);
@@ -245,7 +246,12 @@ export default function ApprovalsHistoryPage() {
                 <tbody className="divide-y divide-pq-neutral-200">
                   {rows.map((r) => (
                     <tr key={r.approval_action_id} className="hover:bg-pq-neutral-50">
-                      <td className="px-5 py-3.5 font-medium text-pq-neutral-500">{r.document_type}</td>
+                      <td className="px-5 py-3.5 font-medium text-pq-neutral-500">
+                        <div className="flex items-center gap-1.5">
+                          <span>{r.document_type}</span>
+                          {r.request_type && <RequestTypeBadge type={r.request_type} />}
+                        </div>
+                      </td>
                       <td className="px-5 py-3.5 font-mono font-semibold text-pq-neutral-900">{r.document_number}</td>
                       <td className="px-5 py-3.5">
                         <span

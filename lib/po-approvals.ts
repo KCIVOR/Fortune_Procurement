@@ -8,7 +8,8 @@ import type {
   SupplierPORow,
 } from '@/types/po';
 import { createDeliveryForPO } from '@/lib/delivery';
-import { createNotification, notifyApproversForStep } from '@/lib/notifications';
+import { createNotification, notifyApproversForStep, notifyByRole } from '@/lib/notifications';
+import { resolvePORequestType } from '@/lib/po-send';
 import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { fetchPR1Attachments } from '@/lib/pr1';
@@ -156,24 +157,21 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
     (poRes.data ?? []).map((po: any) => po.pr2_id).filter(Boolean)
   ));
   const { data: pr2s } = pr2Ids.length > 0
-    ? await db.from('pr2_requests').select('id, pr1_id').in('id', pr2Ids)
+    ? await db.from('pr2_requests').select('id, pr1_id, request_type').in('id', pr2Ids)
     : { data: [] };
   const pr2Map: Record<string, any> = Object.fromEntries(
     ((pr2s ?? []) as any[]).map((pr2: any) => [pr2.id, pr2])
   );
 
-  // Fetch PR1 priorities
+  // Fetch PR1 priorities only — request_type now reads pr2.request_type directly.
   const pr1Ids = Array.from(new Set(
     Object.values(pr2Map).map((pr2: any) => pr2.pr1_id).filter(Boolean)
   ));
   const { data: pr1s } = pr1Ids.length > 0
-    ? await db.from('pr1_requests').select('id, priority, request_type').in('id', pr1Ids)
+    ? await db.from('pr1_requests').select('id, priority').in('id', pr1Ids)
     : { data: [] };
   const pr1PriorityMap: Record<string, string> = Object.fromEntries(
     ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.priority])
-  );
-  const pr1TypeMap: Record<string, 'goods' | 'services'> = Object.fromEntries(
-    ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.request_type ?? 'goods'])
   );
 
   return instances.flatMap((inst: any) => {
@@ -183,10 +181,10 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
     );
     if (!po || !step) return [];
 
-    // Resolve priority and request_type through PO → PR2 → PR1 chain
+    // Priority is PR1-only; request_type reads pr2.request_type directly.
     const pr1Id       = po.pr2_id && pr2Map[po.pr2_id]?.pr1_id ? pr2Map[po.pr2_id].pr1_id : undefined;
     const pr1Priority = pr1Id ? pr1PriorityMap[pr1Id] : undefined;
-    const pr1RequestType = pr1Id ? pr1TypeMap[pr1Id]  : undefined;
+    const requestType = po.pr2_id ? pr2Map[po.pr2_id]?.request_type : undefined;
 
     return [{
       po_id:                    po.id,
@@ -206,7 +204,7 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
       step_action_label:        step.action_label,
       step_is_final:            step.is_final,
       pr1_priority:             pr1Priority as 'normal' | 'medium' | 'high' | undefined,
-      request_type:             pr1RequestType,
+      request_type:             requestType,
     }] as POApprovalQueueRow[];
   });
 }
@@ -249,26 +247,24 @@ export async function fetchPOApprovalDetail(
 
   const po = poRes.data;
 
-  // Fetch PR1 priority and request_type from related PR1 record through PR2
+  // Priority is PR1-only; request_type reads pr2.request_type directly.
   let pr1Priority: 'normal' | 'medium' | 'high' | undefined;
-  let pr1RequestType: 'goods' | 'services' = 'goods';
+  let requestType: 'goods' | 'services' | 'raw_material' = 'goods';
   if (po.pr2_id) {
     const { data: pr2Data } = await db
       .from('pr2_requests')
-      .select('pr1_id')
+      .select('pr1_id, request_type')
       .eq('id', po.pr2_id)
       .maybeSingle();
+    requestType = (pr2Data?.request_type as 'goods' | 'services' | 'raw_material') ?? 'goods';
     if (pr2Data?.pr1_id) {
       const { data: pr1Data } = await db
         .from('pr1_requests')
-        .select('priority, request_type')
+        .select('priority')
         .eq('id', pr2Data.pr1_id)
         .maybeSingle();
       if (pr1Data?.priority) {
         pr1Priority = pr1Data.priority as 'normal' | 'medium' | 'high';
-      }
-      if ((pr1Data as any)?.request_type) {
-        pr1RequestType = (pr1Data as any).request_type as 'goods' | 'services';
       }
     }
   }
@@ -320,7 +316,7 @@ export async function fetchPOApprovalDetail(
     remarks:                     po.remarks,
     po_status:                   po.status,
     pr1_priority:                pr1Priority,
-    request_type:                pr1RequestType,
+    request_type:                requestType,
     pr1_id:                      pr1IdFetch,
     items: rawItems.map((i: any) => {
       const rfqItemQuoteId: string | null = i.pr2_items?.rfq_item_quote_id ?? null;
@@ -339,6 +335,7 @@ export async function fetchPOApprovalDetail(
         vat_rate_applied:     i.vat_rate_applied ?? null,
         supplier_name_snapshot: i.supplier_name_snapshot,
         remarks:              i.remarks,
+        requires_compliance_doc: i.requires_compliance_doc === true,
         is_raw_material:      i.pr2_items?.is_raw_material === true,
         quote_justification:  i.pr2_items?.quote_justification ?? null,
         pr1_remarks_snapshot: i.pr2_items?.pr1_remarks_snapshot ?? null,
@@ -489,7 +486,7 @@ export async function submitPOApprovalAction(
     payload: { instance_id: instanceId, step_order: stepOrder, action, remarks: remarks.trim() || null },
   });
 
-  // Notify supplier when PO is finally approved (best-effort)
+  // Notify procurement when PO is finally approved so they can perform manual send to supplier
   if (action === 'approved' && effectiveIsFinal) {
     try {
       const { data: po } = await db
@@ -498,28 +495,14 @@ export async function submitPOApprovalAction(
         .eq('id', poId)
         .maybeSingle();
 
-      if (po?.supplier_id) {
-        // Deduplicate: only notify if no info notification already exists for this PO + supplier
-        const { data: existing } = await db
-          .from('notifications')
-          .select('id')
-          .eq('user_id', po.supplier_id)
-          .eq('document_id', poId)
-          .eq('type', 'info')
-          .maybeSingle();
-
-        if (!existing) {
-          await createNotification({
-            user_id:       po.supplier_id,
-            title:         'New Purchase Order',
-            body:          `You have a new Purchase Order: ${po.po_number}.`,
-            type:          'info',
-            document_type: 'po',
-            document_id:   poId,
-            action_url:    `/supplier/po/${poId}`,
-          });
-        }
-      }
+      await notifyByRole('procurement', {
+        title:         'PO Ready to Send to Supplier',
+        body:          `PO ${po?.po_number ?? ''} has been approved. Send it to the supplier when ready.`,
+        type:          'action_required',
+        document_type: 'po',
+        document_id:   poId,
+        action_url:    `/po/${poId}`,
+      }, { dedupeUnreadForDocument: true });
 
       const { data: poFull } = await db
         .from('po_requests')
@@ -530,28 +513,37 @@ export async function submitPOApprovalAction(
       if (poFull?.pr2_id) {
         const { data: pr2 } = await db
           .from('pr2_requests')
-          .select('pr1_id')
+          .select('pr1_id, request_type, requisitioner_id')
           .eq('id', poFull.pr2_id)
           .maybeSingle();
 
+        // Goods resolves the requisitioner via PR1 (unchanged); raw material
+        // has no PR1, so pr2.requisitioner_id is the Planning user directly.
+        let notifyUserId: string | null = null;
+        let notifyActionUrl = '';
         if (pr2?.pr1_id) {
           const { data: pr1 } = await db
             .from('pr1_requests')
             .select('requisitioner_id')
             .eq('id', pr2.pr1_id)
             .maybeSingle();
+          notifyUserId = pr1?.requisitioner_id ?? null;
+          notifyActionUrl = `/pr1/${pr2.pr1_id}`;
+        } else if (pr2?.request_type === 'raw_material') {
+          notifyUserId = pr2.requisitioner_id ?? null;
+          notifyActionUrl = `/planning/pr2/${poFull.pr2_id}`;
+        }
 
-          if (pr1?.requisitioner_id) {
-            await createNotification({
-              user_id:       pr1.requisitioner_id,
-              title:         'Purchase Order Approved',
-              body:          `PO ${poFull.po_number} has been approved.`,
-              type:          'approved',
-              document_type: 'po',
-              document_id:   poId,
-              action_url:    `/pr1/${pr2.pr1_id}`,
-            });
-          }
+        if (notifyUserId) {
+          await createNotification({
+            user_id:       notifyUserId,
+            title:         'Purchase Order Approved',
+            body:          `PO ${poFull.po_number} has been approved.`,
+            type:          'approved',
+            document_type: 'po',
+            document_id:   poId,
+            action_url:    notifyActionUrl,
+          });
         }
       }
     } catch (err) {
@@ -586,12 +578,17 @@ export async function submitPOApprovalAction(
       ]);
       // Always notify the procurement buyer who submitted the PO.
       if (instRow.data?.started_by && poRow.data?.po_number) {
+        const startedByRemark = remarks.trim();
         await createNotification({
           user_id:       instRow.data.started_by,
           title:         action === 'rejected' ? 'PO Rejected' : 'PO Revision Requested',
           body:          action === 'rejected'
-            ? `PO ${poRow.data.po_number} was rejected.`
-            : `Revision requested on PO ${poRow.data.po_number}.`,
+            ? (startedByRemark
+                ? `PO ${poRow.data.po_number} was rejected. Reason: "${startedByRemark}"`
+                : `PO ${poRow.data.po_number} was rejected.`)
+            : (startedByRemark
+                ? `Revision requested on PO ${poRow.data.po_number}. Reason: "${startedByRemark}"`
+                : `Revision requested on PO ${poRow.data.po_number}.`),
           type:          action === 'rejected' ? 'rejected' : 'action_required',
           document_type: 'po',
           document_id:   poId,
@@ -600,33 +597,44 @@ export async function submitPOApprovalAction(
       }
 
       // On terminal rejection, also notify the employee requisitioner so the
-      // rejection surfaces in their My Requests view. Resolve via PO → PR2 → PR1.
+      // rejection surfaces in their My Requests / Raw Material Requests view.
+      // Resolve via PO → PR2 → PR1 (goods); raw material has no PR1, so fall
+      // back to pr2.requisitioner_id directly.
       if (action === 'rejected' && poRow.data?.pr2_id && poRow.data?.po_number) {
         const { data: pr2 } = await db
           .from('pr2_requests')
-          .select('pr1_id')
+          .select('pr1_id, request_type, requisitioner_id')
           .eq('id', poRow.data.pr2_id)
           .maybeSingle();
+
+        let notifyUserId: string | null = null;
+        let notifyActionUrl = '';
         if (pr2?.pr1_id) {
           const { data: pr1 } = await db
             .from('pr1_requests')
             .select('requisitioner_id')
             .eq('id', pr2.pr1_id)
             .maybeSingle();
-          if (pr1?.requisitioner_id && pr1.requisitioner_id !== instRow.data?.started_by) {
-            const trimmedRemark = remarks.trim();
-            await createNotification({
-              user_id:       pr1.requisitioner_id,
-              title:         'Purchase Order Rejected',
-              body:          trimmedRemark
-                ? `PO ${poRow.data.po_number} was rejected. Reason: "${trimmedRemark}"`
-                : `The Purchase Order for your request (${poRow.data.po_number}) was rejected.`,
-              type:          'rejected',
-              document_type: 'po',
-              document_id:   poId,
-              action_url:    `/pr1/${pr2.pr1_id}`,
-            });
-          }
+          notifyUserId = pr1?.requisitioner_id ?? null;
+          notifyActionUrl = `/pr1/${pr2.pr1_id}`;
+        } else if (pr2?.request_type === 'raw_material') {
+          notifyUserId = pr2.requisitioner_id ?? null;
+          notifyActionUrl = `/planning/pr2/${poRow.data.pr2_id}`;
+        }
+
+        if (notifyUserId && notifyUserId !== instRow.data?.started_by) {
+          const trimmedRemark = remarks.trim();
+          await createNotification({
+            user_id:       notifyUserId,
+            title:         'Purchase Order Rejected',
+            body:          trimmedRemark
+              ? `PO ${poRow.data.po_number} was rejected. Reason: "${trimmedRemark}"`
+              : `The Purchase Order for your request (${poRow.data.po_number}) was rejected.`,
+            type:          'rejected',
+            document_type: 'po',
+            document_id:   poId,
+            action_url:    notifyActionUrl,
+          });
         }
       }
     }
@@ -655,6 +663,30 @@ async function checkIfFinalInternalStep(instanceId: string, stepOrder: number): 
   return nextStep?.role_required === 'supplier';
 }
 
+// ─── Supplier inbox visibility (Goods POs hidden until procurement sends) ─────
+
+const SUPPLIER_PO_SELECT = `
+  id, po_number, purpose, date_required, po_date, warehouse, payment_terms, status,
+  supplier_name_snapshot, sent_at,
+  pr2:pr2_requests!pr2_id ( request_type )
+`;
+
+type SupplierPOQueryRow = {
+  id: string;
+  status: string;
+  sent_at: string | null;
+  pr2?: { request_type?: string } | null;
+};
+
+function supplierInboxVisible(row: SupplierPOQueryRow): boolean {
+  if (row.status === 'sent') return true;
+  if (row.status !== 'approved') return false;
+  // Manual send gate applies to all PO types (goods, raw material, services).
+  // Un-sent POs are hidden from supplier inbox until explicitly sent by procurement.
+  if (!row.sent_at) return false;
+  return true;
+}
+
 // ─── Supplier: fetch POs available for acknowledgment ────────────────────────
 // Queries po_requests directly by supplier_id = auth.uid().
 // RLS enforces the same constraint — no cross-table joins needed.
@@ -662,15 +694,16 @@ async function checkIfFinalInternalStep(instanceId: string, stepOrder: number): 
 export async function fetchSupplierPOs(supplierId: string): Promise<SupplierPORow[]> {
   const { data: pos, error } = await db
     .from('po_requests')
-    .select('id, po_number, purpose, date_required, po_date, warehouse, payment_terms, status, supplier_name_snapshot')
+    .select(SUPPLIER_PO_SELECT)
     .eq('supplier_id', supplierId)
     .in('status', ['approved', 'sent'])
     .order('po_date', { ascending: false });
 
   if (error) throw error;
-  if (!pos || pos.length === 0) return [];
+  const visible = ((pos ?? []) as SupplierPOQueryRow[]).filter(supplierInboxVisible);
+  if (visible.length === 0) return [];
 
-  const poIds = pos.map((p: any) => p.id);
+  const poIds = visible.map((p) => p.id);
   const { data: receipts } = await db
     .from('po_receipts')
     .select('*')
@@ -680,7 +713,7 @@ export async function fetchSupplierPOs(supplierId: string): Promise<SupplierPORo
     (receipts ?? []).map((r: any) => [r.po_id, r])
   );
 
-  return pos.map((po: any) => ({
+  return visible.map((po: any) => ({
     po_id:                  po.id,
     po_number:              po.po_number,
     purpose:                po.purpose,
@@ -716,26 +749,17 @@ export async function fetchSupplierPOsPaged(
     return q;
   };
 
-  const [posRes, countRes] = await Promise.all([
-    applyFilters(
-      db
-        .from('po_requests')
-        .select('id, po_number, purpose, date_required, po_date, warehouse, payment_terms, status, supplier_name_snapshot')
-    )
-      .order('po_date', { ascending: false })
-      .range(offset, offset + limit - 1),
-    applyFilters(
-      db.from('po_requests').select('id', { count: 'exact', head: true })
-    ),
-  ]);
+  const { data, error } = await applyFilters(
+    db.from('po_requests').select(SUPPLIER_PO_SELECT)
+  ).order('po_date', { ascending: false });
 
-  if (posRes.error) throw posRes.error;
-  if (countRes.error) throw countRes.error;
+  if (error) throw error;
 
-  const pos = posRes.data ?? [];
-  if (pos.length === 0) return { rows: [], total_count: countRes.count ?? 0 };
+  const allVisible = ((data ?? []) as SupplierPOQueryRow[]).filter(supplierInboxVisible);
+  const visible = allVisible.slice(offset, offset + limit);
+  if (visible.length === 0) return { rows: [], total_count: allVisible.length };
 
-  const poIds = pos.map((p: any) => p.id);
+  const poIds = visible.map((p) => p.id);
   const { data: receipts } = await db
     .from('po_receipts')
     .select('*')
@@ -746,7 +770,7 @@ export async function fetchSupplierPOsPaged(
   );
 
   return {
-    rows: pos.map((po: any) => ({
+    rows: visible.map((po: any) => ({
       po_id:         po.id,
       po_number:     po.po_number,
       purpose:       po.purpose,
@@ -757,7 +781,7 @@ export async function fetchSupplierPOsPaged(
       po_status:     po.status,
       receipt:       receiptMap[po.id] ? normalizeReceipt(receiptMap[po.id]) : null,
     })),
-    total_count: countRes.count ?? 0,
+    total_count: allVisible.length,
   };
 }
 
@@ -766,19 +790,22 @@ export async function fetchSupplierPOsPaged(
 export async function fetchSupplierPOStatCounts(
   supplierId: string
 ): Promise<{ pending: number; acknowledged: number; total: number }> {
-  const applyBase = (q: any) =>
-    q.eq('supplier_id', supplierId).in('status', ['approved', 'sent']);
+  const { data, error } = await db
+    .from('po_requests')
+    .select(SUPPLIER_PO_SELECT)
+    .eq('supplier_id', supplierId)
+    .in('status', ['approved', 'sent']);
 
-  const [pendingRes, acknowledgedRes, totalRes] = await Promise.all([
-    applyBase(db.from('po_requests').select('id', { count: 'exact', head: true })).eq('status', 'approved'),
-    applyBase(db.from('po_requests').select('id', { count: 'exact', head: true })).eq('status', 'sent'),
-    applyBase(db.from('po_requests').select('id', { count: 'exact', head: true })),
-  ]);
+  if (error) throw error;
+
+  const visible = ((data ?? []) as SupplierPOQueryRow[]).filter(supplierInboxVisible);
+  const pending = visible.filter((r) => r.status === 'approved').length;
+  const acknowledged = visible.filter((r) => r.status === 'sent').length;
 
   return {
-    pending:      pendingRes.count      ?? 0,
-    acknowledged: acknowledgedRes.count ?? 0,
-    total:        totalRes.count        ?? 0,
+    pending,
+    acknowledged,
+    total: visible.length,
   };
 }
 
@@ -795,11 +822,15 @@ export async function acknowledgeSupplierPO(
   // Guard: PO must be 'approved' — fetch all columns needed for delivery creation
   const { data: po } = await db
     .from('po_requests')
-    .select('id, status, po_number, approval_instance_id, pr2_id, pr2_number_snapshot, pr1_number_snapshot, rfq_number_snapshot, supplier_id, supplier_name_snapshot, requisitioner_name_snapshot, department_name_snapshot, purpose, delivery_address, warehouse')
+    .select('id, status, po_number, approval_instance_id, pr2_id, pr2_number_snapshot, pr1_number_snapshot, rfq_number_snapshot, supplier_id, supplier_name_snapshot, requisitioner_name_snapshot, department_name_snapshot, purpose, delivery_address, warehouse, sent_at')
     .eq('id', poId)
     .maybeSingle();
   if (!po) throw new Error('PO not found.');
   if (po.status !== 'approved') throw new Error('PO must be fully approved before acknowledgment.');
+
+  if (!po.sent_at) {
+    throw new Error('This PO has not been sent by procurement yet.');
+  }
 
   // Resolve requisitioner_id for employee RLS: deliveries.employee visibility is
   // requisitioner_id = auth.uid(). Resolution must work under supplier auth (no
@@ -826,6 +857,18 @@ export async function acknowledgeSupplierPO(
         .limit(1);
       const first = Array.isArray(pr1Rows) && pr1Rows.length > 0 ? pr1Rows[0] : null;
       requisitionerId = first?.requisitioner_id ?? null;
+    } else if (po.pr2_id) {
+      // Raw-material PO — no PR1 at all, so the lookup above is always
+      // skipped. Resolve straight off pr2_requests instead: the awarded
+      // supplier acknowledging this PO is, by construction, assigned to the
+      // RFQ linked to this pr2_id, so is_supplier_assigned_to_pr2() (Phase 3)
+      // grants them read access to pr2_requests.requisitioner_id here.
+      const { data: pr2Row } = await db
+        .from('pr2_requests')
+        .select('requisitioner_id')
+        .eq('id', po.pr2_id)
+        .maybeSingle();
+      requisitionerId = pr2Row?.requisitioner_id ?? null;
     }
   } catch {
     requisitionerId = null;

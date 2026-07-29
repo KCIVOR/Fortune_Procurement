@@ -55,6 +55,10 @@ import DetailInfoGrid from '@/components/shared/DetailInfoGrid';
 import DetailInfoField from '@/components/shared/DetailInfoField';
 import DetailWideInfoRow from '@/components/shared/DetailWideInfoRow';
 import DetailTableCard from '@/components/shared/DetailTableCard';
+import {
+  APPROVAL_ACTION_ROW_CLASS,
+  ApprovalActionButton,
+} from '@/components/approvals/ApprovalActionButtons';
 import WorkflowTimeline from '@/components/approvals/WorkflowTimeline';
 import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 
@@ -492,22 +496,22 @@ export default function ApprovalDetailPage() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3 flex-wrap">
-                <ActionButton
+              <div className={APPROVAL_ACTION_ROW_CLASS}>
+                <ApprovalActionButton
                   icon={CheckCheck}
                   label={currentStepDef?.is_final ? 'Approve — Final' : 'Approve & Advance'}
                   variant="approve"
                   onClick={() => { setSubmitError(''); setPendingAction('approved'); }}
                   disabled={submitting}
                 />
-                <ActionButton
+                <ApprovalActionButton
                   icon={RotateCcw}
                   label="Request Revision"
                   variant="revise"
                   onClick={() => { setSubmitError(''); setPendingAction('revision_requested'); }}
                   disabled={submitting}
                 />
-                <ActionButton
+                <ApprovalActionButton
                   icon={XCircle}
                   label="Reject"
                   variant="reject"
@@ -562,37 +566,6 @@ function ClosedBanner({ status, pr1Status }: { status: string; pr1Status: string
         </p>
       </div>
     </div>
-  );
-}
-
-function ActionButton({
-  icon: Icon,
-  label,
-  variant,
-  onClick,
-  disabled,
-}: {
-  icon: React.ElementType;
-  label: string;
-  variant: 'approve' | 'revise' | 'reject';
-  onClick: () => void;
-  disabled: boolean;
-}) {
-  const styles = {
-    approve: 'bg-pq-success-600 hover:bg-pq-success-600 text-white border-pq-success-600',
-    revise:  'bg-white hover:bg-orange-50 text-orange-600 border-orange-300 hover:border-orange-400',
-    reject:  'bg-white hover:bg-pq-danger-100 text-pq-danger-600 border-red-300 hover:border-red-400',
-  };
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-md border transition disabled:opacity-50 ${styles[variant]}`}
-    >
-      <Icon className="w-4 h-4" />
-      {label}
-    </button>
   );
 }
 

@@ -12,6 +12,8 @@ export type PR1Status =
   | 'revision_requested'
   | 'for_canvassing'
   | 'canvassing_complete'
+  | 'pr2_pending_approval'
+  | 'pr2_approved'
   | 'approved'
   | 'rejected'
   | 'completed'
@@ -130,6 +132,7 @@ export interface PR1ItemDraft {
 
 export interface PR1FormValues {
   pr1_number: string;
+  requisitioner_name?: string;
   purpose: string;
   date_required: string;
   request_type: PR1RequestType;
@@ -145,6 +148,8 @@ export const PR1_STATUS_LABELS: Record<PR1Status, string> = {
   revision_requested:     'Needs Revision',
   for_canvassing:         'For Canvassing',
   canvassing_complete:    'Canvassing Complete',
+  pr2_pending_approval:   'PR2 Pending Approval',
+  pr2_approved:           'PR2 Approved — Ready for RFQ',
   approved:               'Approved',
   rejected:               'Rejected',
   completed:              'Completed',

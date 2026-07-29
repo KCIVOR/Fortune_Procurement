@@ -18,6 +18,15 @@ import type { WarehouseItemRoute } from '@/types/warehouse';
 import { PR1_STATUS_LABELS } from '@/types/pr1';
 import { notifyByRole, notifyApproversForStep, createNotification } from '@/lib/notifications';
 
+// Positions exempt from department-scoped notification fan-out (see lib/approvals.ts
+// DIRECTOR_POSITIONS — kept as a local copy here to avoid a circular import,
+// since lib/approvals.ts already imports from this file).
+const PR1_DIRECTOR_POSITIONS = ['Director', 'Finance Director'] as const;
+import {
+  sanitizePR1RawMaterialFlags,
+  assertNoPR1RawMaterialItems,
+} from '@/lib/raw-material-access';
+
 const db = supabase as any;
 
 const PO_ISSUED_STATUSES = new Set(['approved', 'sent']);
@@ -33,6 +42,8 @@ const PR1_RAW_CHIP: Record<PR1Status, StatusVariant> = {
   revision_requested:     'in_review',
   for_canvassing:         'approved',
   canvassing_complete:    'approved',
+  pr2_pending_approval:   'pending',
+  pr2_approved:           'approved',
   approved:               'approved',
   rejected:               'rejected',
   completed:              'completed',
@@ -45,6 +56,8 @@ export const POST_PR1_APPROVAL_STATUSES = new Set<PR1Status>([
   'approved_for_warehouse',
   'for_canvassing',
   'canvassing_complete',
+  'pr2_pending_approval',
+  'pr2_approved',
 ]);
 
 /** Lifecycle chips for downstream stages after PR1 approval (PO, delivery, GRN). */
@@ -803,7 +816,7 @@ export async function saveDraftPR1(
   const headerFields = {
     pr1_number:                  values.pr1_number.trim(),
     requisitioner_id:            authUserId,
-    requisitioner_name_snapshot: profile.full_name,
+    requisitioner_name_snapshot: values.requisitioner_name?.trim() || profile.full_name,
     department_id:               profile.department_id,
     department_name_snapshot:    profile.department,
     purpose:                     values.purpose.trim(),
@@ -841,7 +854,8 @@ export async function saveDraftPR1(
     pr1Id = data.id;
   }
 
-  const syncedItems = await syncItems(pr1Id, values.items);
+  const itemsToSync = sanitizePR1RawMaterialFlags(values.items);
+  const syncedItems = await syncItems(pr1Id, itemsToSync);
 
   try {
     await db.from('audit_logs').insert({
@@ -872,7 +886,7 @@ export async function submitPR1(
 
   const { data: currentRow, error: statusErr } = await db
     .from('pr1_requests')
-    .select('status, pr1_number')
+    .select('status, pr1_number, department_id')
     .eq('id', pr1Id)
     .maybeSingle();
 
@@ -881,6 +895,13 @@ export async function submitPR1(
   if (!currentStatus || !['draft', 'revision_requested'].includes(currentStatus)) {
     throw new Error('PR1 could not be submitted. It may have already been submitted or does not exist.');
   }
+
+  const { data: pr1Items, error: itemsErr } = await db
+    .from('pr1_items')
+    .select('is_raw_material')
+    .eq('pr1_id', pr1Id);
+  if (itemsErr) throw itemsErr;
+  assertNoPR1RawMaterialItems(pr1Items ?? []);
 
   // Transition header to submitted state
   const { data: updatedRows, error: headerErr } = await db
@@ -948,6 +969,8 @@ export async function submitPR1(
         documentId:     pr1Id,
         documentNumber: currentRow.pr1_number,
         instanceId:     newInst.id,
+        documentDepartmentId: currentRow.department_id,
+        directorPositions: PR1_DIRECTOR_POSITIONS,
       });
     }
   } catch {

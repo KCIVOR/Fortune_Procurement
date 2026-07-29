@@ -14,7 +14,7 @@ const db = supabase as any;
 
 // ─── Normalizers ──────────────────────────────────────────────────────────────
 
-function normalizeDelivery(row: any): Delivery {
+function normalizeDelivery(row: any, hasGrn?: boolean): Delivery {
   return {
     id:                           row.id,
     po_id:                        row.po_id,
@@ -39,12 +39,32 @@ function normalizeDelivery(row: any): Delivery {
     dr_document_filename:         row.dr_document_filename ?? null,
     dr_document_uploaded_at:      row.dr_document_uploaded_at ?? null,
     request_type:                 (row.request_type ?? 'goods') as 'goods' | 'services',
-    has_grn:                      Array.isArray(row.grn_receipts)
-                                    ? row.grn_receipts.length > 0
-                                    : !!row.grn_receipts,
+    has_grn:                      hasGrn ?? (
+      Array.isArray(row.grn_receipts)
+        ? row.grn_receipts.length > 0
+        : !!row.grn_receipts
+    ),
+    forwarded_to_procurement:     Boolean(row.forwarded_to_procurement),
+    forwarded_at:                 row.forwarded_at ?? null,
     created_at:                   row.created_at,
     updated_at:                   row.updated_at,
   };
+}
+
+async function attachHasGrnFlags(rows: Delivery[]): Promise<void> {
+  const deliveryIds = Array.from(new Set(rows.map(r => r.id).filter(Boolean)));
+  if (deliveryIds.length === 0) return;
+
+  const { data, error } = await db
+    .from('grn_receipts')
+    .select('delivery_id')
+    .in('delivery_id', deliveryIds);
+  if (error) throw error;
+
+  const withGrn = new Set(((data ?? []) as { delivery_id: string }[]).map(r => r.delivery_id));
+  for (const row of rows) {
+    row.has_grn = withGrn.has(row.id);
+  }
 }
 
 function normalizeHistoryEntry(row: any): DeliveryHistoryEntry {
@@ -114,7 +134,7 @@ export async function fetchDeliveryQueuePaged(params: {
     priorityPoIds = poIds;
   }
 
-  let q = db.from('deliveries').select('*, grn_receipts(id)', { count: 'exact' });
+  let q = db.from('deliveries').select('*', { count: 'exact' });
 
   if (priorityPoIds !== null) {
     if (priorityPoIds.length === 0) {
@@ -156,7 +176,8 @@ export async function fetchDeliveryQueuePaged(params: {
 
   if (error) throw error;
 
-  const rows = (data ?? []).map(normalizeDelivery);
+  const rows = (data ?? []).map((row: any) => normalizeDelivery(row, false));
+  await attachHasGrnFlags(rows);
   // Resolve request_type via the unambiguous FK chain (po_requests -> pr2_requests ->
   // pr1_requests), not by matching pr1_number_snapshot text — PR1 numbers are not
   // guaranteed unique, and a text match can silently resolve to the wrong row.
@@ -169,22 +190,19 @@ export async function fetchDeliveryQueuePaged(params: {
     const pr2Ids = Array.from(new Set((poData ?? []).map((p: any) => p.pr2_id).filter(Boolean)));
 
     const { data: pr2Data } = pr2Ids.length > 0
-      ? await db.from('pr2_requests').select('id, pr1_id').in('id', pr2Ids)
+      ? await db.from('pr2_requests').select('id, pr1_id, request_type').in('id', pr2Ids)
       : { data: [] as any[] };
     const pr1Ids = Array.from(new Set((pr2Data ?? []).map((p: any) => p.pr1_id).filter(Boolean)));
 
     const { data: pr1Data } = pr1Ids.length > 0
-      ? await db.from('pr1_requests').select('id, request_type, priority').in('id', pr1Ids)
+      ? await db.from('pr1_requests').select('id, priority').in('id', pr1Ids)
       : { data: [] as any[] };
 
-    const pr1TypeById: Record<string, 'goods' | 'services'> = Object.fromEntries(
-      ((pr1Data ?? []) as any[]).map(p => [p.id, p.request_type ?? 'goods'])
-    );
     const pr1PriorityById: Record<string, string> = Object.fromEntries(
       ((pr1Data ?? []) as any[]).map(p => [p.id, p.priority ?? 'normal'])
     );
-    const pr1IdByPr2Id: Record<string, string> = Object.fromEntries(
-      ((pr2Data ?? []) as any[]).map(p => [p.id, p.pr1_id])
+    const pr2ById: Record<string, any> = Object.fromEntries(
+      ((pr2Data ?? []) as any[]).map(p => [p.id, p])
     );
     const pr2IdByPoId: Record<string, string> = Object.fromEntries(
       ((poData ?? []) as any[]).map(p => [p.id, p.pr2_id])
@@ -192,10 +210,11 @@ export async function fetchDeliveryQueuePaged(params: {
 
     for (const d of rows) {
       const pr2Id = pr2IdByPoId[d.po_id];
-      const pr1Id = pr2Id ? pr1IdByPr2Id[pr2Id] : undefined;
-      const resolvedType = pr1Id ? pr1TypeById[pr1Id] : undefined;
+      const pr2 = pr2Id ? pr2ById[pr2Id] : undefined;
+      // request_type reads pr2.request_type directly — priority stays PR1-only.
+      const resolvedType = pr2?.request_type;
       if (resolvedType) d.request_type = resolvedType;
-      (d as any).priority = pr1Id ? (pr1PriorityById[pr1Id] ?? 'normal') : 'normal';
+      (d as any).priority = pr2?.pr1_id ? (pr1PriorityById[pr2.pr1_id] ?? 'normal') : 'normal';
     }
   }
 
@@ -349,16 +368,17 @@ export async function fetchDeliveryById(id: string): Promise<DeliveryWithHistory
   if (deliveryRes.error) throw deliveryRes.error;
   if (!deliveryRes.data) return null;
 
-  const delivery = normalizeDelivery(deliveryRes.data);
+  const delivery = normalizeDelivery(deliveryRes.data, false);
+  await attachHasGrnFlags([delivery]);
   // Resolve request_type via the unambiguous FK chain (deliveries -> po_requests ->
   // pr2_requests -> pr1_requests), not by matching pr1_number_snapshot text — PR1
   // numbers are not guaranteed unique, and a text match can silently return the
   // wrong row (or fail ambiguously) if a duplicate exists.
-  const { data: resolvedType } = await db.rpc('request_type_for_delivery', { p_delivery_id: id });
+  const { data: resolvedType } = await db.rpc('request_type_for_delivery_display', { p_delivery_id: id });
 
   return {
     ...delivery,
-    request_type: (resolvedType as 'goods' | 'services' | null) ?? 'goods',
+    request_type: (resolvedType as 'goods' | 'services' | 'raw_material' | null) ?? 'goods',
     history: (historyRes.data ?? []).map(normalizeHistoryEntry),
   };
 }
@@ -472,20 +492,17 @@ export async function supplierUpdateDelivery(
   const statusFrom = delivery.status as DeliveryStatus;
   const statusTo   = values.new_status;
 
-  if (
-    statusTo === 'in_transit' &&
-    (!values.dr_document_path?.trim() || !values.dr_document_filename?.trim())
-  ) {
-    throw new Error('Delivery receipt file is required for In Transit.');
-  }
-
   const updates: Record<string, any> = { updated_at: now };
   if (statusTo !== statusFrom) updates.status = statusTo;
   if (values.scheduled_date)   updates.scheduled_date = values.scheduled_date;
   if (statusTo === 'delivered') updates.actual_delivery_date = now.slice(0, 10);
-  if (statusTo === 'in_transit') {
-    updates.dr_document_path = values.dr_document_path!.trim();
-    updates.dr_document_filename = values.dr_document_filename!.trim();
+  if (
+    statusTo === 'in_transit' &&
+    values.dr_document_path?.trim() &&
+    values.dr_document_filename?.trim()
+  ) {
+    updates.dr_document_path = values.dr_document_path.trim();
+    updates.dr_document_filename = values.dr_document_filename.trim();
     updates.dr_document_uploaded_at = now;
   }
 
@@ -676,3 +693,57 @@ export async function markDelivered(
     // Notifications are best-effort; do not fail markDelivered
   }
 }
+
+// ─── Warehouse: forward service delivery to Procurement for GRN ──────────────
+
+export async function forwardServiceDeliveryToProcurement(
+  deliveryId: string,
+  profile: UserProfile
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { data: delivery } = await db
+    .from('deliveries')
+    .select('id, po_number_snapshot')
+    .eq('id', deliveryId)
+    .maybeSingle();
+  if (!delivery) throw new Error('Delivery not found.');
+
+  await db
+    .from('deliveries')
+    .update({
+      forwarded_to_procurement: true,
+      forwarded_at:               now,
+      updated_at:                 now,
+    })
+    .eq('id', deliveryId);
+
+  await db.from('delivery_status_history').insert({
+    delivery_id:    deliveryId,
+    actor_id:       profile.id,
+    actor_name:     profile.full_name,
+    actor_role:     profile.role,
+    status_from:    null,
+    status_to:      null,
+    note:           'Forwarded service delivery to Procurement for GRN processing',
+    scheduled_date: null,
+    created_at:     now,
+  });
+
+  try {
+    await notifyByRole(
+      'procurement',
+      {
+        title:         'Service Delivery Forwarded for GRN',
+        body:          `Warehouse has forwarded service delivery for PO ${delivery.po_number_snapshot} to Procurement for GRN processing.`,
+        type:          'action_required',
+        document_type: 'delivery',
+        document_id:   deliveryId,
+        action_url:    `/delivery/${deliveryId}`,
+      },
+      { dedupeUnreadForDocument: true }
+    );
+  } catch {
+    // Notifications are best-effort
+  }
+}
+

@@ -226,7 +226,7 @@ export async function fetchPR1ApprovalSignatories(
 // PR1 workflow steps are all approver-role; the overload for role is kept for
 // callers that only have position (legacy PR1 queue page).
 
-const DIRECTOR_POSITIONS = ['Director', 'Finance Director'] as const;
+export const DIRECTOR_POSITIONS = ['Director', 'Finance Director'] as const;
 
 function isDepartmentBlocked(
   profile: UserProfile,
@@ -382,7 +382,7 @@ export async function submitApprovalAction(
   try {
     const { data: pr1Row } = await db
       .from('pr1_requests')
-      .select('pr1_number, requisitioner_id')
+      .select('pr1_number, requisitioner_id, department_id')
       .eq('id', pr1Id)
       .maybeSingle();
 
@@ -426,14 +426,19 @@ export async function submitApprovalAction(
               documentId:     pr1Id,
               documentNumber: pr1Row.pr1_number,
               instanceId,
+              documentDepartmentId: pr1Row.department_id,
+              directorPositions: DIRECTOR_POSITIONS,
             });
           }
         }
       } else if (action === 'rejected') {
+        const trimmedRemark = remarks.trim();
         await createNotification({
           user_id:       pr1Row.requisitioner_id,
           title:         'PR1 Rejected',
-          body:          `Your PR1 ${pr1Row.pr1_number} was rejected.`,
+          body:          trimmedRemark
+            ? `Your PR1 ${pr1Row.pr1_number} was rejected. Reason: "${trimmedRemark}"`
+            : `Your PR1 ${pr1Row.pr1_number} was rejected.`,
           type:          'rejected',
           document_type: 'pr1',
           document_id:   pr1Id,
@@ -441,10 +446,13 @@ export async function submitApprovalAction(
         });
       } else {
         // revision_requested
+        const trimmedRemark = remarks.trim();
         await createNotification({
           user_id:       pr1Row.requisitioner_id,
           title:         'PR1 Revision Requested',
-          body:          `Revision requested on PR1 ${pr1Row.pr1_number}.`,
+          body:          trimmedRemark
+            ? `Revision requested on PR1 ${pr1Row.pr1_number}. Reason: "${trimmedRemark}"`
+            : `Revision requested on PR1 ${pr1Row.pr1_number}.`,
           type:          'action_required',
           document_type: 'pr1',
           document_id:   pr1Id,

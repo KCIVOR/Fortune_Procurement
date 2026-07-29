@@ -4,6 +4,7 @@ import type { AppRole } from '@/types/auth';
 export type ModuleKey =
   | 'dashboard'
   | 'my_requests'
+  | 'planning_pr2'
   | 'substitute_review'
   | 'delivery_tracking'
   | 'warehouse_validation'
@@ -14,6 +15,7 @@ export type ModuleKey =
   | 'approver_pr1'
   | 'approver_pr2'
   | 'approver_po'
+  | 'approver_rfq'
   | 'purchase_requests'
   | 'canvassing_rfq'
   | 'purchase_orders'
@@ -27,6 +29,7 @@ export type ModuleKey =
   | 'supplier_delivery'
   | 'tsqa_dashboard'
   | 'tsqa_rse'
+  | 'tsqa_grn'
   | 'admin_users'
   | 'admin_roles'
   | 'admin_positions'
@@ -34,7 +37,9 @@ export type ModuleKey =
   | 'admin_audit'
   | 'admin_module_visibility'
   | 'admin_workflows'
-  | 'admin_settings';
+  | 'admin_settings'
+  | 'supplier_compliance_documents'
+  | 'procurement_compliance_documents';
 
 export interface NavItem {
   label: string;
@@ -61,6 +66,12 @@ export const ALL_NAV: Record<string, NavItem> = {
     href: '/pr1',
     icon: 'FileText',
     module_key: 'my_requests',
+  },
+  planningPR2: {
+    label: 'PR2 Requests',
+    href: '/planning/pr2',
+    icon: 'ClipboardList',
+    module_key: 'planning_pr2',
   },
   myDeliveries: {
     label: 'Delivery Status',
@@ -158,6 +169,18 @@ export const ALL_NAV: Record<string, NavItem> = {
     icon: 'Package',
     module_key: 'supplier_products',
   },
+  supplierComplianceDocs: {
+    label: 'Compliance Documents',
+    href: '/supplier/compliance-documents',
+    icon: 'FileCheck2',
+    module_key: 'supplier_compliance_documents',
+  },
+  complianceDocuments: {
+    label: 'Compliance Documents',
+    href: '/compliance-documents',
+    icon: 'FileCheck2',
+    module_key: 'procurement_compliance_documents',
+  },
   substitutes: {
     label: 'Substitute Review',
     href: '/substitutes',
@@ -224,6 +247,12 @@ export const ALL_NAV: Record<string, NavItem> = {
     icon: 'ClipboardList',
     module_key: 'approver_pr2',
   },
+  approverRFQ: {
+    label: 'RFQ Approvals',
+    href: '/approvals/rfq',
+    icon: 'FileText',
+    module_key: 'approver_rfq',
+  },
   approverPO: {
     label: 'Purchase Orders',
     href: '/approvals/po',
@@ -254,6 +283,12 @@ export const ALL_NAV: Record<string, NavItem> = {
     icon: 'ClipboardList',
     module_key: 'tsqa_rse',
   },
+  tsqaGrn: {
+    label: 'GRN QA Queue',
+    href: '/tsqa/grn',
+    icon: 'PackageCheck',
+    module_key: 'tsqa_grn',
+  },
 };
 
 export const ROLE_NAV: Record<AppRole, NavItem[]> = {
@@ -276,6 +311,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
   employee: [
     ALL_NAV.dashboard,
     ALL_NAV.myRequests,
+    ALL_NAV.planningPR2, // Hidden by default; visible only for Planning Staff (module visibility)
     ALL_NAV.myDeliveries,
     ALL_NAV.substitutes, // Edge case (less frequent), moved to bottom
   ],
@@ -297,6 +333,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     // Logistics & receiving
     ALL_NAV.deliveryTracking,
     ALL_NAV.grn,
+    ALL_NAV.complianceDocuments,
     // Supplier management
     ALL_NAV.supplierAccounts,
     ALL_NAV.supplierAccredQueue,
@@ -322,6 +359,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     ALL_NAV.supplierPortal,      // Quotations
     ALL_NAV.supplierPO,           // Purchase Orders
     ALL_NAV.supplierDelivery,     // Deliveries
+    ALL_NAV.supplierComplianceDocs, // Compliance Documents (service suppliers only — gated in Sidebar)
     // Setup & maintenance (less frequent)
     ALL_NAV.supplierProducts,     // Product Catalog
     ALL_NAV.supplierAccreditation, // Accreditation (one-time)
@@ -330,5 +368,6 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
   tsqa: [
     ALL_NAV.tsqaDashboard,
     ALL_NAV.tsqaRse,
+    ALL_NAV.tsqaGrn,
   ],
 };

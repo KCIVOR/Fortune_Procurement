@@ -19,13 +19,15 @@ import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import PriorityChip from '@/components/shared/PriorityChip';
 
 const STATUS_STYLES: Record<GRNStatus, string> = {
-  open:   'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
-  closed: 'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
+  open:        'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
+  pending_qa:  'bg-sky-50 text-sky-700 border-sky-200',
+  closed:      'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
 };
 
 const STATUS_ICONS: Record<GRNStatus, React.ElementType> = {
-  open:   Clock,
-  closed: CheckCircle2,
+  open:        Clock,
+  pending_qa:  Clock,
+  closed:      CheckCircle2,
 };
 
 export default function GRNListPage() {
@@ -71,13 +73,14 @@ export default function GRNListPage() {
       .finally(() => setLoading(false));
   }, [profile, filter, currentPage, rowsPerPage, appliedSearch, selectedPriority]);
 
-  const counts = tabCounts ?? { all: 0, open: 0, closed: 0 };
+  const counts = tabCounts ?? { all: 0, open: 0, pending_qa: 0, closed: 0 };
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
   const tabs: TabFilter[] = [
-    { value: 'all',    label: `All GRNs (${counts.all})` },
-    { value: 'open',   label: `${GRN_STATUS_LABELS.open} (${counts.open})` },
-    { value: 'closed', label: `${GRN_STATUS_LABELS.closed} (${counts.closed})` },
+    { value: 'all',         label: `All GRNs (${counts.all})` },
+    { value: 'open',        label: `${GRN_STATUS_LABELS.open} (${counts.open})` },
+    { value: 'pending_qa',  label: `${GRN_STATUS_LABELS.pending_qa} (${counts.pending_qa})` },
+    { value: 'closed',      label: `${GRN_STATUS_LABELS.closed} (${counts.closed})` },
   ];
 
   const filters: FilterConfig[] = [

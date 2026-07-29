@@ -12,12 +12,15 @@
 | Status | Label | Variant | Who Can Set | Next States |
 |--------|-------|---------|-------------|-------------|
 | `draft` | Draft | draft | Employee (create/edit) | `pending_warehouse` (submit) |
-| `pending_warehouse` | Pending Warehouse | pending | System (on submit) | `resolved_internal`, `pending_approval` |
-| `pending_approval` | Pending Approval | in_review | Warehouse (insufficient) | `for_canvassing`, `rejected`, `revision_requested` |
+| `pending_warehouse` | Pending Warehouse | pending | System (on submit) | `resolved_internal`, `approved_for_warehouse` |
+| `approved_for_warehouse` | Approved for Warehouse | approved | PR1 approvers | Warehouse queue |
+| `pending_approval` | Pending Approval | in_review | Legacy | `rejected`, `revision_requested` |
 | `resolved_internal` | Resolved Internally | validated | Warehouse (sufficient) | Terminal |
-| `revision_requested` | Revision Requested | in_review | Approver | Intended: employee resubmit → `pending_warehouse` (**gap:** edit/submit only allow `draft` today) |
-| `for_canvassing` | For Canvassing | approved | Approver (final approve) | `canvassing_complete` |
-| `canvassing_complete` | Canvassing Complete | approved | Procurement (close RFQ) | Terminal |
+| `revision_requested` | Revision Requested | in_review | Approver | Resubmit → `pending_warehouse` |
+| `pr2_pending_approval` | PR2 Pending Approval | in_review | Warehouse (Goods/Services insufficient) | `pr2_approved`, `rejected` |
+| `pr2_approved` | PR2 Approved | approved | PR2_FINAL final approve (Goods/Services) | RFQ canvassing |
+| `for_canvassing` | For Canvassing | approved | Legacy/historical (pre-alignment) | `canvassing_complete` |
+| `canvassing_complete` | Canvassing Complete | approved | Legacy/historical (pre-alignment) | Terminal |
 | `approved` | Approved | approved | Legacy/fallback | — |
 | `rejected` | Rejected | rejected | Approver | Terminal |
 | `cancelled` | Cancelled | cancelled | Employee (draft delete) | Terminal |
@@ -62,14 +65,13 @@
 
 | Status | Meaning | Trigger |
 |--------|---------|---------|
-| `draft` | Generated, editable | `generatePR2FromRfq` |
-| `pending_phase1_approval` | Phase 1 submitted | `submitPR2ForApproval` |
-| `phase1_approved` | Phase 1 complete | Director final approve → auto `startPhase2` |
-| `pending_phase2_approval` | Phase 2 submitted | Auto after Phase 1 |
-| `phase2_approved` | Fully approved | Director Phase 2 final approve |
+| `draft` | Generated, editable | Warehouse creates PR2 (Goods/Services) or Planning-direct entry (Services / Raw Material) |
+| `pending_approval` | Submitted for approval | `submitPR2ForApproval` |
+| `approved` | Fully approved | Final approver (`PR2_FINAL` or `PR2_PHASE1`) |
+| `rejected` | Rejected | Approver reject |
 | `cancelled` | Cancelled | — |
 
-**Reject/revision:** Returns PR2 to `draft` from either pending phase.
+**Workflow codes:** PR1-sourced Goods and Services → `PR2_FINAL` (Dept Head → Operations Manager). Planning-direct Services / Raw Material → `PR2_PHASE1`.
 
 ---
 
@@ -80,7 +82,7 @@
 | `draft` | Generated from approved PR2 | `generatePOFromPR2` |
 | `for_approval` | Submitted for approval | `submitPOForApproval` |
 | `approved` | Finance Director approved | Step 3 final approve |
-| `sent` | Supplier acknowledged | `acknowledgeSupplierPO` |
+| `sent` | Supplier acknowledged | `acknowledgeSupplierPO` (after manual Send for Goods/Services) |
 | `cancelled` | Cancelled | — |
 
 ---
@@ -102,8 +104,9 @@
 
 | Status | Meaning |
 |--------|---------|
-| `open` | GRN opened for receiving |
-| `closed` | All items received, GRN finalized |
+| `open` | GRN opened for receiving (Warehouse owned for Goods, Procurement owned for Services) |
+| `pending_qa` | Awaiting TSQA approval on flagged item(s) (Goods or Services) |
+| `closed` | All items received and QA resolved; GRN finalized |
 
 ---
 
@@ -175,55 +178,27 @@
 
 ## 2. End-to-End State Transition Map
 
+### Goods & Services (PR1-Sourced — Aligned Flow)
+
 ```
-┌─────────┐    submit     ┌───────────────────┐
-│  draft  │──────────────►│ pending_warehouse │
-└─────────┘               └────────┬──────────┘
-                                   │
-                    ┌──────────────┼──────────────┐
-                    ▼ sufficient   ▼ insufficient │
-         ┌──────────────────┐  ┌─────────────────┐
-         │ resolved_internal│  │ pending_approval │
-         └──────────────────┘  └────────┬────────┘
-                                        │ approve (Dept Head)
-                                        ▼
-                               ┌─────────────────┐
-                               │ for_canvassing  │
-                               └────────┬────────┘
-                                        │ RFQ closed
-                                        ▼
-                               ┌─────────────────────┐
-                               │ canvassing_complete │
-                               └────────┬────────────┘
-                                        │ generate PR2
-                                        ▼
-┌─────────┐  submit P1  ┌──────────────────────────┐  Director  ┌─────────────────┐
-│  draft  │────────────►│ pending_phase1_approval  │───────────►│ phase1_approved │
-└─────────┘             └──────────────────────────┘            └────────┬────────┘
-                                                                        │ auto start P2
-                                                                        ▼
-                               ┌──────────────────────────┐  Director  ┌─────────────────┐
-                               │ pending_phase2_approval  │───────────►│ phase2_approved │
-                               └──────────────────────────┘            └────────┬────────┘
-                                                                               │ generate PO
-                                                                               ▼
-┌─────────┐  submit  ┌──────────────┐  Fin Dir  ┌──────────┐  Supplier  ┌──────┐
-│  draft  │─────────►│ for_approval │──────────►│ approved │───────────►│ sent │
-└─────────┘          └──────────────┘           └──────────┘            └──┬───┘
-                                                                            │ ack
-                                                                            ▼
-                                                                    ┌──────────────┐
-                                                                    │ delivery     │
-                                                                    │ (pending→    │
-                                                                    │  delivered)  │
-                                                                    └──────┬───────┘
-                                                                           │ open GRN
-                                                                           ▼
-                                                                    ┌──────────────┐
-                                                                    │ GRN open→    │
-                                                                    │ closed       │
-                                                                    └──────────────┘
+draft → pending_warehouse → approved_for_warehouse
+         ├─ sufficient → resolved_internal
+         └─ insufficient → pr2_pending_approval → pr2_approved (PR2_FINAL: Dept Head → Ops Mgr)
+                → RFQ (open → closed + RFQ_APPROVAL) → PO → approved (Fin Dir)
+                → manual Send (Goods & Services) → supplier ack → sent
+                → delivery → GRN open ⇄ pending_qa (TSQA) → closed
 ```
+
+### Services & Raw Material (Planning-Direct PR2)
+
+```
+draft → pending_approval → approved (PR2_PHASE1: Procurement Staff → Mgr → Director)
+         → RFQ (open → closed + RFQ_APPROVAL) → PO → approved (Fin Dir)
+         → manual Send → supplier ack → sent
+         → delivery → GRN open (Procurement owned for Services) ⇄ pending_qa → closed
+```
+
+*(Legacy dual-phase PR2 diagram removed — `PR2_PHASE2` is not active.)*
 
 ---
 

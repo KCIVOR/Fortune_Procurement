@@ -49,6 +49,8 @@ export default function GRNPrintPage() {
   }
 
   const isClosed = grn.status === 'closed';
+  const statusLabel = grn.status === 'closed' ? 'Closed' : grn.status === 'pending_qa' ? 'Pending QA' : 'Open';
+  const hasQAItems = grn.items.some((i) => i.requires_qa === true);
   const canViewPrices = canViewCommercialPricing(profile);
   const receivedTotal = canViewPrices
     ? grn.items.reduce((s, i) => s + i.quantity_received * i.unit_price, 0)
@@ -93,6 +95,15 @@ export default function GRNPrintPage() {
 
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '20px 0' }}>
 
+        {!isClosed && (
+          <div style={{
+            border: '1px solid #b45309', background: '#fffbeb', color: '#92400e',
+            fontSize: 9, fontWeight: 'bold', textAlign: 'center', padding: '4px 8px', marginBottom: 6,
+          }}>
+            NOT FINAL — {grn.status === 'pending_qa' ? 'AWAITING TSQA APPROVAL' : 'GRN NOT YET CLOSED'}
+          </div>
+        )}
+
         {/* Header */}
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <tbody>
@@ -121,7 +132,7 @@ export default function GRNPrintPage() {
                   <span style={{ fontFamily: 'monospace' }}>{grn.grn_number}</span>
                 </div>
                 <div>
-                  <span style={{ fontWeight: 'bold' }}>Status:</span> {isClosed ? 'Closed' : 'Open'}
+                  <span style={{ fontWeight: 'bold' }}>Status:</span> {statusLabel}
                 </div>
               </td>
             </tr>
@@ -185,6 +196,12 @@ export default function GRNPrintPage() {
                 <div style={{ fontWeight: 'bold', fontSize: 9 }}>{grn.dr_date ? format(new Date(grn.dr_date), 'MMMM d, yyyy') : '—'}</div>
               </td>
             </tr>
+            <tr>
+              <td colSpan={3} style={{ border: '1px solid #000', borderTop: 'none', padding: '5px 8px' }}>
+                <div style={{ fontSize: 8, color: '#666', textTransform: 'uppercase' }}>INV No.</div>
+                <div style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: 9 }}>{grn.inv_no || '—'}</div>
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -231,6 +248,14 @@ export default function GRNPrintPage() {
                     {item.description}
                     {item.is_raw_material && (
                       <span style={{ marginLeft: 4, fontSize: 7, color: '#1e40af', fontWeight: 'bold' }}>[RAW]</span>
+                    )}
+                    {item.requires_qa && (
+                      <span style={{
+                        marginLeft: 4, fontSize: 7, fontWeight: 'bold',
+                        color: item.qa_status === 'approved' ? '#15803d' : '#b45309',
+                      }}>
+                        [QA {item.qa_status === 'approved' ? 'APPROVED' : 'PENDING'}]
+                      </span>
                     )}
                     {item.item_code && (
                       <div style={{ fontSize: 7, color: '#666', fontFamily: 'monospace' }}>{item.item_code}</div>
@@ -375,6 +400,34 @@ export default function GRNPrintPage() {
             </tr>
           </tbody>
         </table>
+
+        {/* TSQA approval line — only for GRNs with QA-flagged items */}
+        {hasQAItems && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: -1 }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '25%', border: '1px solid #000', borderTop: 'none', padding: '8px', textAlign: 'center', verticalAlign: 'top' }}>
+                  <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 8 }}>QA Approved By:</div>
+                  <div style={{ fontSize: 8, color: '#666', marginBottom: 6 }}>TSQA Representative</div>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: 6, minHeight: 28 }}>
+                    {grn.items.every((i) => !i.requires_qa || i.qa_status === 'approved') ? (
+                      <div style={{ fontSize: 8, fontWeight: 'bold', color: '#15803d' }}>All QA items approved</div>
+                    ) : (
+                      <div style={{ fontSize: 8, color: '#999', fontStyle: 'italic' }}>Pending</div>
+                    )}
+                  </div>
+                </td>
+                <td style={{ width: '75%', border: '1px solid #000', borderTop: 'none', borderLeft: 'none', padding: '8px', verticalAlign: 'top' }}>
+                  <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 4 }}>TSQA Notice:</div>
+                  <div style={{ fontSize: 7, color: '#555' }}>
+                    This receipt contains items subject to Technical and Quality Assurance (TSQA) inspection. Items marked
+                    [QA PENDING] must be approved by TSQA before this GRN can be closed.
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        )}
 
         {/* Footer note */}
         <div style={{ fontSize: 8, color: '#888', textAlign: 'right', marginTop: 6 }}>

@@ -21,8 +21,9 @@ export const PR2_STATUS_LABELS: Record<PR2Status, string> = {
 export interface PR2Request {
   id:                          string;
   pr2_number:                  string;
-  pr1_id:                      string;
-  rfq_id:                      string;
+  /** Phase 1 (Raw Mats): null for PR2-direct raw-material requests (no PR1). */
+  pr1_id:                      string | null;
+  rfq_id:                      string | null;
   requisitioner_id:            string;
   requisitioner_name_snapshot: string;
   department_id:               string | null;
@@ -31,13 +32,19 @@ export interface PR2Request {
   date_required:               string;
   pr1_number_snapshot:         string;
   rfq_number_snapshot:         string;
-  request_type:                'goods' | 'services';
+  request_type:                'goods' | 'services' | 'raw_material';
   remarks:                     string | null;
   status:                      PR2Status;
   generated_by:                string | null;
   generated_at:                string;
+  prepared_by_id?:             string | null;
+  prepared_by_name_snapshot?:  string | null;
+  prepared_by_position_snapshot?: string | null;
+  prepared_at?:                string | null;
   created_at:                  string;
   updated_at:                  string;
+  /** Direct priority on PR2 (e.g. for raw_material requests) or joined from PR1. */
+  priority?:                   'normal' | 'medium' | 'high';
   /** Rev #9: resolved from pr1_requests.priority via ID-based join at read time. */
   pr1_priority?:               string;
 }
@@ -97,10 +104,29 @@ export interface PR2Item {
   /** FK back to the winning rfq_item_quotes row. Null for manually-created PR2s. */
   rfq_item_quote_id?:      string | null;
   created_at:              string;
-  /** PR1 item attachments (requisitioner). Loaded at read time via pr1_item_id. */
-  attachments?:            PR1Attachment[];
+  /**
+   * Item attachments (requisitioner). Goods/Services items load these via
+   * pr1_item_id → pr1_attachments; raw-material items (no pr1_item_id) load
+   * directly from pr2_item_attachments instead.
+   */
+  attachments?:            Array<PR1Attachment | PR2ItemAttachment>;
   /** Supplier quote attachments. Loaded at read time via rfq_item_quote_id. */
   quote_attachments?:      RfqQuoteAttachment[];
+}
+
+/** Phase 9 (Raw Mats): image attachment on a raw-material PR2 line item. */
+export interface PR2ItemAttachment {
+  id: string;
+  pr2_id: string;
+  pr2_item_id: string;
+  uploaded_by: string;
+  storage_path: string;   // pr2/{pr2_id}/{pr2_item_id}/{ts}_{filename}
+  file_name: string;
+  file_size: number | null;
+  mime_type: string | null;
+  created_at: string;
+  /** Signed URL generated client-side for display; not stored in DB. */
+  signed_url?: string;
 }
 
 export interface PR2WithItems extends PR2Request {

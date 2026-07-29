@@ -2,6 +2,15 @@ import type { PR1Attachment, PR1RequestType } from '@/types/pr1';
 
 export type ApprovalAction = 'approved' | 'rejected' | 'revision_requested';
 
+/** Pre-approval step (e.g. Prepared By / Closed By) shown before signatory chain. */
+export interface ApprovalPreparerInfo {
+  position: string;
+  actionLabel?: string;
+  statusLabel?: string;
+  actorName: string;
+  actedAt: string;
+}
+
 // ─── PR2 approval types ───────────────────────────────────────────────────────
 
 export interface PR2ApprovalQueueRow {
@@ -23,7 +32,7 @@ export interface PR2ApprovalQueueRow {
   step_action_label:           string;
   step_is_final:               boolean;
   pr1_priority?:               'normal' | 'medium' | 'high';
-  request_type?:               'goods' | 'services';
+  request_type?:               'goods' | 'services' | 'raw_material';
 }
 
 export interface PR2ApprovalDetail {
@@ -40,7 +49,7 @@ export interface PR2ApprovalDetail {
   generated_at:                string;
   remarks:                     string | null;
   pr1_priority?:               'normal' | 'medium' | 'high';
-  request_type?:               'goods' | 'services';
+  request_type?:               'goods' | 'services' | 'raw_material';
   /** Rev #9: needed to edit priority from the approval detail page. */
   pr1_id?:                     string | null;
   /** Intersection ensures `pr1_item_id` for canvass lookups even if tooling resolves an older PR2ApprovalItem shape */
@@ -65,6 +74,8 @@ export interface PR2ApprovalDetail {
   active_current_step:    number | null;
   active_instance_status: ApprovalInstanceStatus | null;
   active_steps:           WorkflowStep[];
+  /** Warehouse (Goods) or creator who prepared the PR2 before approval routing. */
+  preparer?:              ApprovalPreparerInfo | null;
 }
 
 export interface PR2ApprovalItem {
@@ -248,4 +259,5 @@ export interface ApprovalHistoryRow {
   acted_at: string;
   instance_status: ApprovalInstanceStatus;
   action_url: string;
+  request_type?: 'goods' | 'services' | 'raw_material';
 }

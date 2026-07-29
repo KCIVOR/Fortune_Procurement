@@ -14,6 +14,7 @@ import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { canActOnPR2Step } from '@/lib/pr2-approvals';
+import { canActOnRfqStep, getPr2QueueReviewUrl } from '@/lib/rfq-approvals';
 import type { ApprovalInstanceStatus } from '@/types/approvals';
 import {
   SquareCheck as CheckSquare,
@@ -51,7 +52,7 @@ interface PR2ApprovalRow {
   step_action_label: string;
   step_is_final: boolean;
   pr1_priority?: 'normal' | 'medium' | 'high';
-  request_type?: 'goods' | 'services';
+  request_type?: 'goods' | 'services' | 'raw_material';
 }
 
 type RowStatus = ApprovalInstanceStatus | 'revision';
@@ -94,27 +95,45 @@ export default function PR2ApprovalsPage() {
       setError('');
 
       try {
-        const { data: instances, error: instErr } = await db
-          .from('approval_instances')
-          .select('id, workflow_id, document_id, current_step, status, started_at')
-          .eq('document_type', 'PR2')
-          .order('started_at', { ascending: false });
+        const [{ data: pr2Instances, error: pr2InstErr }, { data: rfqInstances, error: rfqInstErr }] =
+          await Promise.all([
+            db
+              .from('approval_instances')
+              .select('id, workflow_id, document_id, current_step, status, started_at')
+              .eq('document_type', 'PR2')
+              .order('started_at', { ascending: false }),
+            db
+              .from('approval_instances')
+              .select('id, workflow_id, document_id, current_step, status, started_at')
+              .eq('document_type', 'RFQ')
+              .order('started_at', { ascending: false }),
+          ]);
+
+        const instErr = pr2InstErr ?? rfqInstErr;
+        const instances = pr2Instances ?? [];
 
         if (instErr) throw instErr;
-        if (!instances || instances.length === 0) {
+        if ((!instances || instances.length === 0) && (!rfqInstances || rfqInstances.length === 0)) {
           setAllRows([]);
           setLoading(false);
           return;
         }
 
         const pr2Ids = Array.from(new Set(instances.map((r: any) => r.document_id as string)));
-        const workflowIds = Array.from(new Set(instances.map((r: any) => r.workflow_id as string)));
-        const instanceIds = instances.map((r: any) => r.id as string);
+        const rfqIds = Array.from(new Set((rfqInstances ?? []).map((r: any) => r.document_id as string)));
+        const allMetaInstances = [...instances, ...(rfqInstances ?? [])];
+        const workflowIds = Array.from(new Set(allMetaInstances.map((r: any) => r.workflow_id as string)));
+        const instanceIds = allMetaInstances.map((r: any) => r.id as string);
 
-        const [pr2Res, workflowRes, stepsRes, actionsRes] = await Promise.all([
-          db.from('pr2_requests')
-            .select('id, pr2_number, pr1_id, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
-            .in('id', pr2Ids),
+        const [pr2Res, rfqRes, workflowRes, stepsRes, actionsRes] = await Promise.all([
+          pr2Ids.length
+            ? db.from('pr2_requests')
+                .select('id, pr2_number, pr1_id, request_type, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
+                .in('id', pr2Ids)
+            : Promise.resolve({ data: [], error: null }),
+          rfqIds.length
+            ? db.from('rfq_batches').select('id, rfq_number, pr1_id, pr2_id').in('id', rfqIds)
+            : Promise.resolve({ data: [], error: null }),
           db.from('approval_workflows')
             .select('id, code')
             .in('id', workflowIds),
@@ -128,10 +147,28 @@ export default function PR2ApprovalsPage() {
         ]);
 
         if (pr2Res.error) throw pr2Res.error;
+        if (rfqRes.error) throw rfqRes.error;
         if (stepsRes.error) throw stepsRes.error;
         if (actionsRes.error) throw actionsRes.error;
 
-        const pr2Map: Record<string, any> = Object.fromEntries((pr2Res.data ?? []).map((r: any) => [r.id, r]));
+        let pr2Map: Record<string, any> = Object.fromEntries((pr2Res.data ?? []).map((r: any) => [r.id, r]));
+        const rfqMap: Record<string, any> = Object.fromEntries((rfqRes.data ?? []).map((r: any) => [r.id, r]));
+        // PR2 records linked only via RFQ (canvassing phase)
+        const linkedPr2Ids = Array.from(
+          new Set((rfqRes.data ?? []).map((r: any) => r.pr2_id as string).filter((id: string) => id && !pr2Map[id])),
+        );
+        if (linkedPr2Ids.length > 0) {
+          const { data: linkedPr2s, error: linkedErr } = await db
+            .from('pr2_requests')
+            .select('id, pr2_number, pr1_id, request_type, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
+            .in('id', linkedPr2Ids);
+          if (linkedErr) throw linkedErr;
+          pr2Map = {
+            ...pr2Map,
+            ...Object.fromEntries((linkedPr2s ?? []).map((r: any) => [r.id, r])),
+          };
+        }
+
         const workflowMap: Record<string, any> = Object.fromEntries((workflowRes.data ?? []).map((r: any) => [r.id, r]));
         const steps: any[] = stepsRes.data ?? [];
 
@@ -146,16 +183,13 @@ export default function PR2ApprovalsPage() {
 
         // Fetch PR1 priorities
         const pr1Ids = Array.from(new Set(
-          (pr2Res.data ?? []).map((pr2: any) => pr2.pr1_id).filter(Boolean)
+          Object.values(pr2Map).map((pr2: any) => pr2.pr1_id).filter(Boolean)
         ));
         const { data: pr1s } = pr1Ids.length > 0
-          ? await db.from('pr1_requests').select('id, priority, request_type').in('id', pr1Ids)
+          ? await db.from('pr1_requests').select('id, priority').in('id', pr1Ids)
           : { data: [] };
         const pr1PriorityMap: Record<string, string> = Object.fromEntries(
           ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.priority])
-        );
-        const pr1TypeMap: Record<string, 'goods' | 'services'> = Object.fromEntries(
-          ((pr1s ?? []) as any[]).map((pr1: any) => [pr1.id, pr1.request_type ?? 'goods'])
         );
 
         const rows: PR2ApprovalRow[] = [];
@@ -214,7 +248,6 @@ export default function PR2ApprovalsPage() {
           }
 
           const pr1Priority = pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined;
-          const pr1RequestType = pr2.pr1_id ? pr1TypeMap[pr2.pr1_id] : undefined;
 
           rows.push({
             pr2_id: pr2.id,
@@ -235,7 +268,63 @@ export default function PR2ApprovalsPage() {
             step_action_label: displayStep.action_label,
             step_is_final: displayStep.is_final,
             pr1_priority: pr1Priority as 'normal' | 'medium' | 'high' | undefined,
-            request_type: pr1RequestType,
+            request_type: pr2.request_type,
+          });
+        }
+
+        for (const inst of (rfqInstances ?? [])) {
+          const rfq = rfqMap[inst.document_id];
+          const pr2 = rfq?.pr2_id ? pr2Map[rfq.pr2_id] : null;
+          const wf = workflowMap[inst.workflow_id];
+          if (!rfq || !pr2) continue;
+
+          const currentStepDef = steps.find(
+            (s: any) => s.workflow_id === inst.workflow_id && s.step_order === inst.current_step,
+          );
+
+          const isMyTurn = inst.status === 'active' && !!currentStepDef &&
+            canActOnRfqStep(profile, currentStepDef.role_required, currentStepDef.position_required, pr2.department_id ?? null);
+
+          const userAction = userActionMap[inst.id];
+          if (!isMyTurn && !userAction) continue;
+
+          const displayStep = isMyTurn
+            ? currentStepDef!
+            : (steps.find((s: any) => s.workflow_id === inst.workflow_id && s.step_order === userAction?.step_order) ?? currentStepDef!);
+
+          let displayStatus: RowStatus;
+          if (isMyTurn) {
+            displayStatus = 'active';
+          } else if (userAction) {
+            if (userAction.action === 'approved') displayStatus = 'approved';
+            else if (userAction.action === 'rejected') displayStatus = 'rejected';
+            else displayStatus = 'cancelled';
+          } else {
+            displayStatus = 'active';
+          }
+
+          const pr1Priority = pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined;
+
+          rows.push({
+            pr2_id: pr2.id,
+            pr2_number: pr2.pr2_number,
+            requisitioner_name_snapshot: pr2.requisitioner_name_snapshot,
+            department_name_snapshot: pr2.department_name_snapshot,
+            department_id: pr2.department_id ?? null,
+            purpose: pr2.purpose,
+            date_required: pr2.date_required,
+            pr2_status: pr2.status,
+            instance_id: inst.id,
+            workflow_code: wf?.code ?? 'RFQ_APPROVAL',
+            current_step: inst.current_step,
+            instance_status: displayStatus,
+            started_at: inst.started_at,
+            step_position_required: displayStep.position_required,
+            step_role_required: displayStep.role_required,
+            step_action_label: displayStep.action_label,
+            step_is_final: displayStep.is_final,
+            pr1_priority: pr1Priority as 'normal' | 'medium' | 'high' | undefined,
+            request_type: pr2.request_type,
           });
         }
 
@@ -297,9 +386,13 @@ export default function PR2ApprovalsPage() {
   const totalPages = Math.ceil(filteredRows.length / pageSize);
   const paginatedRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const canAct = (row: PR2ApprovalRow): boolean =>
-    row.instance_status !== 'revision' &&
-    !!(profile && row.instance_status === 'active' && canActOnPR2Step(profile, row.step_role_required, row.step_position_required, row.department_id));
+  const canAct = (row: PR2ApprovalRow): boolean => {
+    if (row.instance_status === 'revision' || row.instance_status !== 'active' || !profile) return false;
+    if (row.workflow_code === 'RFQ_APPROVAL') {
+      return canActOnRfqStep(profile, row.step_role_required, row.step_position_required, row.department_id);
+    }
+    return canActOnPR2Step(profile, row.step_role_required, row.step_position_required, row.department_id);
+  };
 
   const filters: FilterConfig[] = [
     {
@@ -356,13 +449,15 @@ export default function PR2ApprovalsPage() {
 
   const PHASE_LABELS: Record<string, string> = {
     PR2_PHASE1: 'Approval',
+    PR2_FINAL: 'PR2 Sign-off',
+    RFQ_APPROVAL: 'Canvassing',
   };
 
   return (
     <AppShell title="PR2 Requests">
       <PageHeader
         title="PR2 Requests"
-        description="Procurement purchase requests assigned to your approval step."
+        description="PR2 sign-off and supplier canvassing approvals assigned to your step."
       />
 
       {stats.revision > 0 && (
@@ -481,11 +576,11 @@ export default function PR2ApprovalsPage() {
                               <ArrowRight className="w-3.5 h-3.5" /> Revise
                             </Link>
                           ) : active ? (
-                            <Link href={`/approvals/pr2/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
+                            <Link href={getPr2QueueReviewUrl(row)} className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
                               <ArrowRight className="w-3.5 h-3.5" /> Review
                             </Link>
                           ) : (
-                            <Link href={`/approvals/pr2/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-neutral-400 hover:text-pq-neutral-500 text-xs font-medium transition">
+                            <Link href={getPr2QueueReviewUrl(row)} className="inline-flex items-center gap-1.5 text-pq-neutral-400 hover:text-pq-neutral-500 text-xs font-medium transition">
                               View
                             </Link>
                           )}

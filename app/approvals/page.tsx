@@ -10,6 +10,7 @@ import PaginationControls from '@/components/shared/PaginationControls';
 import { useAuth } from '@/context/AuthContext';
 import { fetchApprovalQueue, canActOnStep } from '@/lib/approvals';
 import { fetchPR2ApprovalQueue, canActOnPR2Step } from '@/lib/pr2-approvals';
+import { canActOnRfqStep, getPr2QueueReviewUrl } from '@/lib/rfq-approvals';
 import { fetchPOApprovalQueue, canActOnPOStep } from '@/lib/po-approvals';
 import type { PR1ApprovalQueueRow } from '@/types/approvals';
 import type { PR2ApprovalQueueRow } from '@/types/approvals';
@@ -66,8 +67,13 @@ export default function ApprovalsPage() {
   const canActPR1 = (row: PR1ApprovalQueueRow) =>
     profile ? canActOnStep(profile, row.step_position_required, row.department_id) : false;
 
-  const canActPR2 = (row: PR2ApprovalQueueRow) =>
-    profile ? canActOnPR2Step(profile, row.step_role_required, row.step_position_required, row.department_id) : false;
+  const canActPR2 = (row: PR2ApprovalQueueRow) => {
+    if (!profile) return false;
+    if (row.workflow_code === 'RFQ_APPROVAL') {
+      return canActOnRfqStep(profile, row.step_role_required, row.step_position_required, row.department_id);
+    }
+    return canActOnPR2Step(profile, row.step_role_required, row.step_position_required, row.department_id);
+  };
 
   const canActPO = (row: POApprovalQueueRow) =>
     profile ? canActOnPOStep(profile, row.step_role_required, row.step_position_required, row.department_id) : false;
@@ -354,6 +360,8 @@ function PR2QueueTable({
 }) {
   const PHASE_LABELS: Record<string, string> = {
     PR2_PHASE1: 'Approval',
+    PR2_FINAL: 'PR2 Sign-off',
+    RFQ_APPROVAL: 'Canvassing',
   };
 
   return (
@@ -401,11 +409,11 @@ function PR2QueueTable({
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   {active ? (
-                    <Link href={`/approvals/pr2/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
+                    <Link href={getPr2QueueReviewUrl(row)} className="inline-flex items-center gap-1.5 text-pq-primary-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
                       <ArrowRight className="w-3.5 h-3.5" /> Review
                     </Link>
                   ) : (
-                    <Link href={`/approvals/pr2/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-neutral-400 hover:text-pq-neutral-500 text-xs font-medium transition">
+                    <Link href={getPr2QueueReviewUrl(row)} className="inline-flex items-center gap-1.5 text-pq-neutral-400 hover:text-pq-neutral-500 text-xs font-medium transition">
                       View
                     </Link>
                   )}

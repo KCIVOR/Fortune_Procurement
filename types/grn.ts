@@ -1,9 +1,12 @@
-export type GRNStatus = 'open' | 'closed';
+export type GRNStatus = 'open' | 'pending_qa' | 'closed';
 
 export const GRN_STATUS_LABELS: Record<GRNStatus, string> = {
-  open:   'Open',
-  closed: 'Closed',
+  open:        'Open',
+  pending_qa:  'Pending QA',
+  closed:      'Closed',
 };
+
+export type GRNItemQAStatus = 'pending' | 'approved';
 
 export interface GRNReceipt {
   id: string;
@@ -24,6 +27,7 @@ export interface GRNReceipt {
   // Physical document fields
   dr_no: string;
   dr_date: string | null;
+  inv_no: string;
   transaction_date: string;
 
   // Warehouse staff
@@ -85,6 +89,12 @@ export interface GRNItem {
   /** Supplier quote attachments loaded at read time via the grn→po→pr2 join. */
   quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
 
+  /** Phase 6: optional QA flag (mandatory for raw materials). */
+  requires_qa?: boolean;
+  qa_status?: GRNItemQAStatus | null;
+  qa_approved_by_id?: string | null;
+  qa_approved_at?: string | null;
+
   created_at: string;
   updated_at: string;
 }
@@ -137,11 +147,14 @@ export interface GRNItemDraft {
   /** Read-only, forwarded from `pr2_items.quantity_overridden_by_name_snapshot`. */
   quantity_overridden_by_name_snapshot?: string | null;
   quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
+  requires_qa?: boolean;
+  qa_status?: GRNItemQAStatus | null;
 }
 
 export interface GRNFormValues {
   dr_no: string;
   dr_date: string;
+  inv_no: string;
   transaction_date: string;
   remarks: string;
   items: GRNItemDraft[];

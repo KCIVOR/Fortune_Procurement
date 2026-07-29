@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
@@ -16,15 +16,14 @@ import { supabase } from '@/lib/supabase';
 import type { PR2WithItems, PR2Item } from '@/types/pr2';
 import type { PR1Attachment } from '@/types/pr1';
 import type { PORequest } from '@/types/po';
-import type { PR2ApprovalDetail, ApprovalActionRecord, WorkflowStep } from '@/types/approvals';
+import type { PR2ApprovalDetail } from '@/types/approvals';
 import { PR2_STATUS_LABELS } from '@/types/pr2';
 import { format } from 'date-fns';
-import { FileText, Building2, CalendarDays, User, Package, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, Pencil, Save, X as XIcon, RefreshCw, Send, ArrowRight, ShoppingCart, ClipboardList, Lock, RotateCcw, Circle as XCircle, CheckCheck, FlaskConical, Store } from 'lucide-react';
+import { FileText, Building2, CalendarDays, User, Package, TriangleAlert as AlertTriangle, CircleCheck as CheckCircle2, Pencil, Save, X as XIcon, RefreshCw, Send, ArrowRight, ShoppingCart, FlaskConical, Store } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import RequestorRemarks from '@/components/shared/RequestorRemarks';
 import WarehouseQtyOverrideNote from '@/components/shared/WarehouseQtyOverrideNote';
-import ActionPill from '@/components/shared/ActionPill';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
@@ -37,6 +36,17 @@ import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import PriorityChip from '@/components/shared/PriorityChip';
 import PrioritySelector from '@/components/shared/PrioritySelector';
 import { canUpdatePR1Priority, updatePR1Priority } from '@/lib/pr1';
+import { fetchRfqDetail, buildQuoteMatrix } from '@/lib/canvassing';
+import {
+  fetchRfqApprovalDetail,
+  fetchRfqApprovalInstanceForRfq,
+  canActOnRfqStep,
+  type RfqApprovalDetail,
+} from '@/lib/rfq-approvals';
+import type { RfqDetailView, QuoteMatrixRow } from '@/types/canvassing';
+import CanvassingComparisonPanel from '@/components/canvassing/CanvassingComparisonPanel';
+import ApprovalPhaseTimeline from '@/components/approvals/ApprovalPhaseTimeline';
+import RfqApprovalPanel from '@/components/approvals/RfqApprovalPanel';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:              'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
@@ -102,7 +112,7 @@ function toEditableItem(item: PR2Item): EditableItem {
     pr1_item_id:      item.pr1_item_id,
     selected_rfq_supplier_id: item.selected_rfq_supplier_id,
     is_raw_material:  item.is_raw_material === true,
-    attachments:      item.attachments,
+    attachments:      item.attachments as PR1Attachment[] | undefined,
     quote_justification: item.quote_justification ?? null,
     quote_attachments: item.quote_attachments,
     pr1_remarks_snapshot: item.pr1_remarks_snapshot ?? null,
@@ -114,6 +124,8 @@ function toEditableItem(item: PR2Item): EditableItem {
 
 export default function PR2DetailPage() {
   const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const rfqApprovalParam = searchParams.get('rfqApproval');
   const { profile } = useAuth();
   const router = useRouter();
   const { handleBack } = useBackNavigation();
@@ -122,6 +134,10 @@ export default function PR2DetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [approvalDetail, setApprovalDetail] = useState<PR2ApprovalDetail | null>(null);
+  const [rfqDetail, setRfqDetail] = useState<RfqDetailView | null>(null);
+  const [rfqMatrix, setRfqMatrix] = useState<QuoteMatrixRow[]>([]);
+  const [rfqApprovalDetail, setRfqApprovalDetail] = useState<RfqApprovalDetail | null>(null);
+  const [rfqApprovalInstanceId, setRfqApprovalInstanceId] = useState<string | null>(null);
 
   const [editing, setEditing] = useState(false);
   const [editItems, setEditItems] = useState<EditableItem[]>([]);
@@ -204,12 +220,50 @@ export default function PR2DetailPage() {
           ));
         }
         setHasPendingPOGroups(pending);
+
+        if (data.rfq_id) {
+          try {
+            const [rfqDetailRes, rfqInst] = await Promise.all([
+              fetchRfqDetail(data.rfq_id),
+              fetchRfqApprovalInstanceForRfq(data.rfq_id),
+            ]);
+            setRfqDetail(rfqDetailRes);
+            setRfqMatrix(rfqDetailRes ? buildQuoteMatrix(rfqDetailRes) : []);
+            const approvalInstanceId = rfqApprovalParam ?? rfqInst?.id ?? null;
+            if (approvalInstanceId) {
+              setRfqApprovalInstanceId(approvalInstanceId);
+              const rfqApproval = await fetchRfqApprovalDetail(approvalInstanceId);
+              setRfqApprovalDetail(rfqApproval);
+            } else {
+              setRfqApprovalInstanceId(null);
+              setRfqApprovalDetail(null);
+            }
+          } catch {
+            setRfqDetail(null);
+            setRfqMatrix([]);
+            setRfqApprovalInstanceId(null);
+            setRfqApprovalDetail(null);
+          }
+        } else {
+          setRfqDetail(null);
+          setRfqMatrix([]);
+          setRfqApprovalInstanceId(null);
+          setRfqApprovalDetail(null);
+        }
       })
       .catch(() => setError('Failed to load PR2.'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, rfqApprovalParam]);
 
   useEffect(load, [load]);
+
+  useEffect(() => {
+    if (!rfqApprovalParam || !rfqApprovalDetail) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById('rfq-approval-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [rfqApprovalParam, rfqApprovalDetail]);
 
   const handleEditToggle = () => {
     if (!pr2) return;
@@ -361,6 +415,26 @@ export default function PR2DetailPage() {
     canActOnPR2Step(profile, activeStepRole, activeStepPosition)
   );
 
+  const rfqApprovalStep = rfqApprovalDetail?.steps.find(
+    s => s.step_order === rfqApprovalDetail.current_step,
+  ) ?? null;
+
+  const userCanActRfqApproval = !!(
+    profile &&
+    rfqApprovalDetail &&
+    rfqApprovalDetail.instance_status === 'active' &&
+    rfqApprovalStep &&
+    canActOnRfqStep(
+      profile,
+      rfqApprovalStep.role_required,
+      rfqApprovalStep.position_required,
+      rfqApprovalDetail.department_id,
+    )
+  );
+
+  const showCanvassing = !!rfqDetail;
+  const isProcurementEditor = profile?.role === 'procurement';
+
   return (
     <AppShell title={`PR2 ${pr2.pr2_number}`}>
       <DetailBackButton className="mb-2" onClick={() => handleBack({ role: profile?.role })} />
@@ -450,7 +524,7 @@ export default function PR2DetailPage() {
         </div>
       )}
 
-      {/* Action required banner for procurement actors */}
+      {/* Action required banner for PR2 approvers */}
       {userCanActNow && activeInstanceId && (
         <div className="flex items-center justify-between gap-4 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-4">
           <div className="flex items-center gap-3">
@@ -469,6 +543,28 @@ export default function PR2DetailPage() {
             Review & Act
             <ArrowRight className="w-4 h-4" />
           </Link>
+        </div>
+      )}
+
+      {/* Action required banner for RFQ canvassing approval */}
+      {userCanActRfqApproval && rfqApprovalDetail && (
+        <div className="flex items-center justify-between gap-4 bg-amber-50 border border-amber-200 rounded-md px-5 py-4 mb-4">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">RFQ canvassing approval required</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                {rfqApprovalStep?.action_label} — {rfqApprovalStep?.position_required}
+              </p>
+            </div>
+          </div>
+          <a
+            href="#rfq-approval-panel"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-md transition shrink-0"
+          >
+            Review Canvassing
+            <ArrowRight className="w-4 h-4" />
+          </a>
         </div>
       )}
 
@@ -844,28 +940,50 @@ export default function PR2DetailPage() {
           )}
         </div>
 
-        {/* Right column: Approval Timeline */}
+        {/* Right column: Approval Timeline + RFQ approval */}
         <div className="lg:col-span-1">
-          <div className="lg:sticky lg:top-20">
+          <div className="lg:sticky lg:top-20 space-y-4">
             {approvalDetail ? (
-              <div className="space-y-4">
-                <PhaseTimeline
-                  phaseLabel="Approval"
-                  phaseSubLabel="PR2 Approval Chain"
-                  steps={approvalDetail.phase1_steps}
-                  actions={approvalDetail.phase1_actions}
-                  currentStep={approvalDetail.phase1_current_step}
-                  instanceStatus={approvalDetail.phase1_instance_status}
-                />
-              </div>
+              <ApprovalPhaseTimeline
+                phaseLabel="Approval"
+                phaseSubLabel="PR2 Approval Chain"
+                steps={approvalDetail.phase1_steps}
+                actions={approvalDetail.phase1_actions}
+                currentStep={approvalDetail.phase1_current_step}
+                instanceStatus={approvalDetail.phase1_instance_status}
+                preparer={approvalDetail.preparer}
+              />
             ) : (
               <div className="bg-white rounded-md border border-pq-neutral-200 p-5">
                 <p className="text-sm text-pq-neutral-400">Approval timeline will appear once submitted for approval.</p>
               </div>
             )}
+
+            {rfqApprovalDetail && rfqApprovalInstanceId && profile && (
+              <RfqApprovalPanel
+                detail={rfqApprovalDetail}
+                profile={profile}
+                instanceId={rfqApprovalInstanceId}
+                onCompleted={() => {
+                  setLoading(true);
+                  load();
+                }}
+              />
+            )}
           </div>
         </div>
       </div>
+
+      {showCanvassing && rfqDetail && (
+        <div className="mt-8 pt-6 border-t border-pq-neutral-200">
+          <CanvassingComparisonPanel
+            detail={rfqDetail}
+            matrix={rfqMatrix}
+            canViewPrices={canViewPrices}
+            editHref={isProcurementEditor && pr2.rfq_id ? `/rfq/${pr2.rfq_id}` : null}
+          />
+        </div>
+      )}
     </AppShell>
   );
 }
@@ -889,153 +1007,5 @@ function Field({
       </div>
       <p className={`text-sm text-pq-neutral-900 ${mono ? 'font-mono font-semibold' : 'font-medium'}`}>{value}</p>
     </div>
-  );
-}
-
-function PhaseTimeline({
-  phaseLabel,
-  phaseSubLabel,
-  steps,
-  actions,
-  currentStep,
-  instanceStatus,
-  notStarted,
-}: {
-  phaseLabel: string;
-  phaseSubLabel: string;
-  steps: WorkflowStep[];
-  actions: ApprovalActionRecord[];
-  currentStep: number;
-  instanceStatus: string;
-  notStarted?: boolean;
-}) {
-  return (
-    <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
-      <div className="px-6 py-4 border-b border-pq-neutral-200">
-        <div className="flex items-center gap-2">
-          <ClipboardList className="w-3.5 h-3.5 text-pq-neutral-400" />
-          <div>
-            <h2 className="text-xs font-semibold text-pq-neutral-900 uppercase tracking-wide">{phaseLabel}</h2>
-            <p className="text-xs text-pq-neutral-400 mt-0.5">{phaseSubLabel}</p>
-          </div>
-          {notStarted && (
-            <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-pq-neutral-400 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-2.5 py-1">
-              <Lock className="w-3 h-3" />
-              Not started
-            </span>
-          )}
-          {!notStarted && instanceStatus === 'approved' && (
-            <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded-full px-2.5 py-1">
-              <CheckCircle2 className="w-3 h-3" /> Complete
-            </span>
-          )}
-          {!notStarted && instanceStatus === 'active' && (
-            <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-pq-neutral-900 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-2.5 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-pq-primary-600 animate-pulse" />
-              In Progress
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="p-6">
-        {notStarted ? (
-          <p className="text-sm text-pq-neutral-400 italic">Approval timeline will appear once submitted.</p>
-        ) : (
-          <WorkflowTimeline
-            steps={steps}
-            actions={actions}
-            currentStep={currentStep}
-            instanceStatus={instanceStatus}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function WorkflowTimeline({
-  steps,
-  actions,
-  currentStep,
-  instanceStatus,
-}: {
-  steps: WorkflowStep[];
-  actions: ApprovalActionRecord[];
-  currentStep: number;
-  instanceStatus: string;
-}) {
-  return (
-    <ol className="relative space-y-0">
-      {steps.map((step, idx) => {
-        const action = actions.find(a => a.step_order === step.step_order);
-        const isComplete = !!action;
-        const isCurrent = !isComplete && step.step_order === currentStep && instanceStatus === 'active';
-        const isPending = !isComplete && !isCurrent;
-
-        return (
-          <li key={step.step_order} className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 ${
-                  isComplete
-                    ? action!.action === 'approved'
-                      ? 'bg-pq-success-600 border-pq-success-600'
-                      : action!.action === 'rejected'
-                        ? 'bg-pq-danger-600 border-pq-danger-600'
-                        : 'bg-orange-500 border-orange-500'
-                    : isCurrent
-                      ? 'bg-pq-neutral-50 border-pq-primary-600'
-                      : 'bg-pq-neutral-50 border-pq-neutral-200'
-                }`}
-              >
-                {isComplete ? (
-                  action!.action === 'approved' ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                  ) : action!.action === 'rejected' ? (
-                    <XCircle className="w-3.5 h-3.5 text-white" />
-                  ) : (
-                    <RotateCcw className="w-3.5 h-3.5 text-white" />
-                  )
-                ) : isCurrent ? (
-                  <span className="w-2.5 h-2.5 rounded-full bg-pq-primary-600 animate-pulse" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-pq-neutral-400" />
-                )}
-              </div>
-              {idx < steps.length - 1 && (
-                <div className={`w-0.5 flex-1 my-1 min-h-[24px] ${isComplete ? 'bg-pq-neutral-200' : 'bg-pq-neutral-200'}`} />
-              )}
-            </div>
-
-            <div className="pb-5 flex-1 min-w-0">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-sm font-semibold text-pq-neutral-900">
-                  Step {step.step_order}: {step.position_required}
-                </span>
-                <span className="text-xs text-pq-neutral-400">{step.action_label}</span>
-                {step.is_final && <span className="text-xs text-pq-neutral-400 italic">· Final</span>}
-              </div>
-
-              {isComplete && (
-                <div className="mt-1.5 space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <ActionPill action={action!.action} />
-                    <span className="text-xs text-pq-neutral-500 font-medium">{action!.actor_name_snapshot}</span>
-                    <span className="text-xs text-pq-neutral-400">· {format(new Date(action!.acted_at), 'MMM d, yyyy h:mm a')}</span>
-                  </div>
-                  {action!.remarks && (
-                    <p className="text-xs text-pq-neutral-500 italic ml-0.5">
-                      &ldquo;{action!.remarks}&rdquo;
-                    </p>
-                  )}
-                </div>
-              )}
-              {isCurrent && <p className="mt-1 text-xs text-pq-primary-600 font-medium">Awaiting action</p>}
-              {isPending && <p className="mt-1 text-xs text-pq-neutral-400">Not yet reached</p>}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
   );
 }

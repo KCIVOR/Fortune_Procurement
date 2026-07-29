@@ -82,6 +82,9 @@ export const ROUTE_ACCESS_RULES: readonly RouteAccessRule[] = [
   { prefix: '/rfq', decision: { kind: 'roles', roles: ['procurement'] } },
   { prefix: '/pr2', decision: { kind: 'roles', roles: ['procurement'] } },
   { prefix: '/po', decision: { kind: 'roles', roles: ['procurement'] } },
+  { prefix: '/compliance-documents', decision: { kind: 'roles', roles: ['procurement'] } },
+
+  { prefix: '/planning', decision: { kind: 'roles', roles: ['employee'] } },
 
   { prefix: '/pr1/new', decision: { kind: 'roles', roles: ['employee'] } },
   {

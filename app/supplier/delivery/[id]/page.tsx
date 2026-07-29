@@ -104,29 +104,21 @@ export default function SupplierDeliveryDetailPage() {
     setBusy(true);
     setFormError('');
     try {
-      if (form.new_status === 'in_transit') {
-        if (!drFile) {
-          setFormError('A delivery receipt file is required for In Transit.');
-          return;
-        }
+      let payload: DeliverySupplierUpdateValues = { ...form };
+      if (form.new_status === 'in_transit' && drFile) {
         const bad = validateDrFileLocal(drFile);
         if (bad) {
           setFormError(bad);
           return;
         }
         const { path, filename } = await uploadDeliveryReceipt(delivery.id, drFile);
-        await supplierUpdateDelivery(
-          delivery.id,
-          {
-            ...form,
-            dr_document_path: path,
-            dr_document_filename: filename,
-          },
-          profile
-        );
-      } else {
-        await supplierUpdateDelivery(delivery.id, form, profile);
+        payload = {
+          ...payload,
+          dr_document_path: path,
+          dr_document_filename: filename,
+        };
       }
+      await supplierUpdateDelivery(delivery.id, payload, profile);
       setForm(f => ({ ...f, note: '', scheduled_date: '' }));
       setDrFile(null);
       if (drInputRef.current) drInputRef.current.value = '';
@@ -156,6 +148,7 @@ export default function SupplierDeliveryDetailPage() {
   const Icon        = cfg.icon;
   const allowedNext = ALLOWED_NEXT[delivery.status];
   const canUpdate   = allowedNext.length > 0 && delivery.supplier_id === profile?.id;
+  const drFileInvalid = drFile ? !!validateDrFileLocal(drFile) : false;
 
   return (
     <AppShell title={`Delivery — PO ${delivery.po_number_snapshot}`}>
@@ -299,7 +292,8 @@ export default function SupplierDeliveryDetailPage() {
                 {form.new_status === 'in_transit' && (
                   <div>
                     <label className="block text-xs font-semibold text-pq-neutral-600 uppercase tracking-wide mb-1.5">
-                      Delivery receipt (DR) <span className="text-pq-danger-600">*</span>
+                      Delivery receipt (DR)
+                      <span className="font-normal text-pq-neutral-400 normal-case ml-1">(optional)</span>
                     </label>
                     <FileUpload
                       accept="application/pdf,image/jpeg,image/png"
@@ -378,7 +372,7 @@ export default function SupplierDeliveryDetailPage() {
                     disabled={
                       busy ||
                       (form.new_status === 'delayed' && !form.note.trim()) ||
-                      (form.new_status === 'in_transit' && (!drFile || !!validateDrFileLocal(drFile)))
+                      drFileInvalid
                     }
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                   >

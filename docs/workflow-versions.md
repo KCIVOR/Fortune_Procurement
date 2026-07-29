@@ -108,3 +108,36 @@ Distinct from the general flow above — this is the flow specific to the **Engi
 3. **V3 → V4:** Reordered PR1 signatories — Warehouse validation moved from first to last (now after Supervisor and Dept. Head).
 4. **V4 → V5:** Reordered PR1 again — Warehouse moved back to immediately after Requestor (ahead of Supervisor and Dept. Head) so planning can see stock first.
 5. **V5 → V6:** Engineering-specific variant discovered — PR1 flips Dept. Head/Warehouse order, requires two Dept. Head approvals in sequence, and adds a new ODM approver after Warehouse. Applies to Engineering only; other departments presumed to follow V5.
+
+---
+
+## Version 7 — Final Goods Workflow (`Final_Workflow.md`, 2026-07-21)
+
+Distinct from the legacy V1–V6 chain above. **Goods** requisitions now follow PR2-before-RFQ; **Services** and other tracks keep their existing paths where noted.
+
+| Stage | Approval / Action Chain |
+|---|---|
+| **PR1** | Requestor → Warehouse validation → Supervisor → Dept. Head |
+| **PR2** (`PR2_FINAL`) | Dept. Head (Certifier) → Operations Manager (Approver) |
+| **RFQ** (`RFQ_APPROVAL`) | Procurement Staff (Preparer) → Procurement Manager → Director |
+| **PO** (`PO_APPROVAL`) | Procurement Staff → Procurement Manager → Finance Director → **manual Send** by Procurement |
+| **Delivery** | Supplier acknowledges and updates progress |
+| **GRN** | Warehouse receives → optional TSQA QA (`pending_qa`) → close; Procurement may reopen Goods GRN |
+
+**Change from V5 (Goods only):**
+
+- Warehouse insufficient stock creates **PR2 first** (not RFQ/canvassing gate on PR1).
+- PR1 statuses `for_canvassing` / `canvassing_complete` are **not used** on the Goods path.
+- RFQ is linked to an **existing** PR2; selections sync onto PR2 lines (`syncPR2ItemsFromRfqSelections`).
+- PO is **not** auto-sent to supplier on Finance Director approval — Procurement manually sends (Goods portal suppliers).
+- GRN adds **INV #**, per-item QA flag, `pending_qa` status, and TSQA approval queue.
+
+**Known deviation (D4):** Revision on any approval step restarts at PR1 step 1 — not same-stage re-entry per `Final_Workflow.md` §3.
+
+**Workflow codes:**
+
+| Code | Used for |
+|------|----------|
+| `PR2_FINAL` | Goods PR2 (Dept Head → Operations Manager) |
+| `PR2_PHASE1` | **Services only** — post-RFQ PR2 generation path |
+| `RFQ_APPROVAL` | Goods RFQ after canvassing close |

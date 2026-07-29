@@ -7,11 +7,84 @@ import type {
   GRNQueueRow,
   GRNFormValues,
 } from '@/types/grn';
-import { createNotification } from '@/lib/notifications';
+import { createNotification, notifyByRole } from '@/lib/notifications';
 import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 
 const db = supabase as any;
+
+type GRNItemQARow = { requires_qa?: boolean; qa_status?: string | null };
+
+export function hasUnresolvedQAItems(items: GRNItemQARow[]): boolean {
+  return items.some((i) => i.requires_qa === true && i.qa_status === 'pending');
+}
+
+export async function evaluateGRNQAStatus(grnId: string): Promise<'open' | 'pending_qa' | null> {
+  const { data: grn, error: grnErr } = await db
+    .from('grn_receipts')
+    .select('id, status, grn_number')
+    .eq('id', grnId)
+    .maybeSingle();
+  if (grnErr) throw grnErr;
+  if (!grn || grn.status === 'closed') return null;
+
+  const { data: items, error: itemsErr } = await db
+    .from('grn_items')
+    .select('requires_qa, qa_status')
+    .eq('grn_id', grnId);
+  if (itemsErr) throw itemsErr;
+
+  const previousStatus = grn.status as string;
+
+  const { data: syncedStatus, error: syncErr } = await db.rpc('sync_grn_qa_header_status', {
+    p_grn_id: grnId,
+  });
+  if (syncErr) throw syncErr;
+
+  const resolvedStatus = (syncedStatus as string | null) ?? previousStatus;
+
+  try {
+    if (resolvedStatus === 'pending_qa' && previousStatus !== 'pending_qa') {
+      await notifyByRole('tsqa', {
+        title:         'GRN QA Inspection Required',
+        body:          `GRN ${grn.grn_number} has items pending QA approval.`,
+        type:          'action_required',
+        document_type: 'grn',
+        document_id:   grnId,
+        action_url:    `/tsqa/grn/${grnId}`,
+      }, { dedupeUnreadForDocument: true });
+    } else if (resolvedStatus === 'open' && previousStatus === 'pending_qa') {
+      await notifyByRole('warehouse', {
+        title:         'GRN QA Complete',
+        body:          `All QA items on GRN ${grn.grn_number} have been approved. You may close the GRN.`,
+        type:          'info',
+        document_type: 'grn',
+        document_id:   grnId,
+        action_url:    `/grn/${grnId}`,
+      }, { dedupeUnreadForDocument: true });
+    }
+  } catch {
+    // Notifications are best-effort
+  }
+
+  return resolvedStatus === 'pending_qa' ? 'pending_qa' : resolvedStatus === 'open' ? 'open' : null;
+}
+
+export async function forwardItemToQA(grnId: string, itemId: string): Promise<void> {
+  const { error } = await db
+    .from('grn_items')
+    .update({
+      requires_qa: true,
+      qa_status:   'pending',
+      updated_at:  new Date().toISOString(),
+    })
+    .eq('id', itemId)
+    .eq('grn_id', grnId);
+
+  if (error) throw error;
+
+  await evaluateGRNQAStatus(grnId);
+}
 
 // ─── Normalizers ──────────────────────────────────────────────────────────────
 
@@ -30,6 +103,7 @@ function normalizeGRN(row: any): GRNReceipt {
     delivery_address:             row.delivery_address,
     dr_no:                        row.dr_no,
     dr_date:                      row.dr_date ?? null,
+    inv_no:                       row.inv_no ?? '',
     transaction_date:             row.transaction_date,
     received_by_id:               row.received_by_id ?? null,
     received_by_name_snapshot:    row.received_by_name_snapshot,
@@ -66,6 +140,10 @@ function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuot
     quantity_override_reason_snapshot:    pr2Item?.quantity_override_reason_snapshot ?? null,
     quantity_overridden_by_name_snapshot: pr2Item?.quantity_overridden_by_name_snapshot ?? null,
     quote_attachments: rfqItemQuoteId ? (quoteAttachmentsByQuote[rfqItemQuoteId] ?? []) : [],
+    requires_qa:       row.requires_qa === true,
+    qa_status:         row.qa_status ?? null,
+    qa_approved_by_id: row.qa_approved_by_id ?? null,
+    qa_approved_at:    row.qa_approved_at ?? null,
     created_at:        row.created_at,
     updated_at:        row.updated_at,
   };
@@ -76,7 +154,7 @@ function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuot
 const GRN_QUEUE_SELECT =
   'id, grn_number, delivery_id, po_number_snapshot, pr1_number_snapshot, supplier_name_snapshot, department_name_snapshot, warehouse, transaction_date, status, closed_at, received_by_name_snapshot';
 
-export type GRNListTab = 'all' | 'open' | 'closed';
+export type GRNListTab = 'all' | 'open' | 'pending_qa' | 'closed';
 
 export async function fetchGRNQueue(): Promise<GRNQueueRow[]> {
   const { data, error } = await db
@@ -210,8 +288,8 @@ export async function fetchGRNQueuePaged(options: {
 }
 
 export async function fetchGRNTabCounts(): Promise<Record<GRNListTab, number>> {
-  const tabs: GRNListTab[] = ['all', 'open', 'closed'];
-  const result: Record<GRNListTab, number> = { all: 0, open: 0, closed: 0 };
+  const tabs: GRNListTab[] = ['all', 'open', 'pending_qa', 'closed'];
+  const result: Record<GRNListTab, number> = { all: 0, open: 0, pending_qa: 0, closed: 0 };
 
   for (const tab of tabs) {
     let q = db.from('grn_receipts').select('id', { count: 'exact', head: true });
@@ -336,13 +414,37 @@ export async function fetchSuggestedDRSequence(year?: number): Promise<string> {
   return String(max + 1).padStart(4, '0');
 }
 
+/** Next 4-digit suffix for GRN-{year}-####. Guide only — not reserved. */
+export async function fetchSuggestedGRNSequence(year?: number): Promise<string> {
+  const y = year ?? new Date().getFullYear();
+  const prefix = `GRN-${y}-`;
+
+  const { data, error } = await db
+    .from('grn_receipts')
+    .select('grn_number')
+    .ilike('grn_number', `${prefix}%`);
+  if (error) throw error;
+
+  let max = 0;
+  const re = new RegExp(`^GRN-${y}-(\\d+)`, 'i');
+  for (const row of data ?? []) {
+    const num = String((row as { grn_number?: string }).grn_number ?? '');
+    const match = num.match(re);
+    if (!match) continue;
+    const parsed = parseInt(match[1], 10);
+    if (!Number.isNaN(parsed) && parsed > max) max = parsed;
+  }
+  return String(max + 1).padStart(4, '0');
+}
+
 // ─── Open GRN for a delivery (idempotent) ────────────────────────────────────
 // Called when warehouse staff clicks "Receive Goods" on a delivered delivery.
 // Seeds GRN items from po_items. Safe to call multiple times.
 
 export async function openGRNForDelivery(
   deliveryId: string,
-  profile: UserProfile
+  profile: UserProfile,
+  grnNumberInput?: string,
 ): Promise<string> {
   // Check for existing GRN
   const { data: existing } = await db
@@ -362,29 +464,45 @@ export async function openGRNForDelivery(
       if (delivery?.po_id) {
         const { data: poItems } = await db
           .from('po_items')
-          .select('id, item_order, item_code, description, unit_of_measure, quantity_to_purchase, unit_price')
+          .select('id, item_order, item_code, description, unit_of_measure, quantity_to_purchase, unit_price, pr2_items:pr2_item_id ( is_raw_material )')
           .eq('po_id', delivery.po_id)
           .order('item_order', { ascending: true });
         if ((poItems ?? []).length > 0) {
-          const itemRows = (poItems ?? []).map((pi: any) => ({
-            grn_id:            existing.id,
-            po_item_id:        pi.id,
-            item_order:        pi.item_order,
-            item_code:         pi.item_code ?? '',
-            description:       pi.description,
-            unit_of_measure:   pi.unit_of_measure,
-            quantity_ordered:  Number(pi.quantity_to_purchase),
-            quantity_received: Number(pi.quantity_to_purchase),
-            quantity_rejected: 0,
-            unit_price:        Number(pi.unit_price),
-            remarks:           '',
-          }));
+          const itemRows = (poItems ?? []).map((pi: any) => {
+            const isRawMaterial = pi.pr2_items?.is_raw_material === true;
+            return {
+              grn_id:            existing.id,
+              po_item_id:        pi.id,
+              item_order:        pi.item_order,
+              item_code:         pi.item_code ?? '',
+              description:       pi.description,
+              unit_of_measure:   pi.unit_of_measure,
+              quantity_ordered:  Number(pi.quantity_to_purchase),
+              quantity_received: Number(pi.quantity_to_purchase),
+              quantity_rejected: 0,
+              unit_price:        Number(pi.unit_price),
+              remarks:           '',
+              requires_qa:       isRawMaterial,
+              qa_status:         isRawMaterial ? 'pending' : null,
+            };
+          });
           await db.from('grn_items').insert(itemRows);
+          await evaluateGRNQAStatus(existing.id);
         }
       }
     }
     return existing.id;
   }
+
+  const grnNumber = (grnNumberInput ?? '').trim();
+  if (!grnNumber) throw new Error('GRN number is required.');
+
+  const { data: dup } = await db
+    .from('grn_receipts')
+    .select('id')
+    .eq('grn_number', grnNumber)
+    .maybeSingle();
+  if (dup?.id) throw new Error(`GRN number ${grnNumber} is already in use.`);
 
   // Fetch delivery for snapshots
   const { data: delivery, error: dErr } = await db
@@ -398,7 +516,7 @@ export async function openGRNForDelivery(
   // Fetch PO items
   const { data: poItems, error: piErr } = await db
     .from('po_items')
-    .select('id, item_order, item_code, description, unit_of_measure, quantity_to_purchase, unit_price, total_price')
+    .select('id, item_order, item_code, description, unit_of_measure, quantity_to_purchase, unit_price, total_price, pr2_items:pr2_item_id ( is_raw_material )')
     .eq('po_id', delivery.po_id)
     .order('item_order', { ascending: true });
   if (piErr) throw piErr;
@@ -407,6 +525,7 @@ export async function openGRNForDelivery(
   const { data: grn, error: gErr } = await db
     .from('grn_receipts')
     .insert({
+      grn_number:                   grnNumber,
       delivery_id:                  deliveryId,
       po_number_snapshot:           delivery.po_number_snapshot,
       pr2_number_snapshot:          delivery.pr2_number_snapshot,
@@ -427,25 +546,36 @@ export async function openGRNForDelivery(
     })
     .select('id')
     .single();
-  if (gErr) throw gErr;
+  if (gErr) {
+    if (gErr.code === '23505' && String(gErr.message ?? '').includes('grn_number')) {
+      throw new Error(`GRN number ${grnNumber} is already in use.`);
+    }
+    throw gErr;
+  }
 
   // Seed GRN items from PO items
   if ((poItems ?? []).length > 0) {
-    const itemRows = (poItems ?? []).map((pi: any) => ({
-      grn_id:            grn.id,
-      po_item_id:        pi.id,
-      item_order:        pi.item_order,
-      item_code:         pi.item_code ?? '',
-      description:       pi.description,
-      unit_of_measure:   pi.unit_of_measure,
-      quantity_ordered:  Number(pi.quantity_to_purchase),
-      quantity_received: Number(pi.quantity_to_purchase), // default: full qty received
-      quantity_rejected: 0,
-      unit_price:        Number(pi.unit_price),
-      remarks:           '',
-    }));
+    const itemRows = (poItems ?? []).map((pi: any) => {
+      const isRawMaterial = pi.pr2_items?.is_raw_material === true;
+      return {
+        grn_id:            grn.id,
+        po_item_id:        pi.id,
+        item_order:        pi.item_order,
+        item_code:         pi.item_code ?? '',
+        description:       pi.description,
+        unit_of_measure:   pi.unit_of_measure,
+        quantity_ordered:  Number(pi.quantity_to_purchase),
+        quantity_received: Number(pi.quantity_to_purchase), // default: full qty received
+        quantity_rejected: 0,
+        unit_price:        Number(pi.unit_price),
+        remarks:           '',
+        requires_qa:       isRawMaterial,
+        qa_status:         isRawMaterial ? 'pending' : null,
+      };
+    });
     const { error: iErr } = await db.from('grn_items').insert(itemRows);
     if (iErr) throw iErr;
+    await evaluateGRNQAStatus(grn.id);
   }
 
   if (delivery.requisitioner_id) {
@@ -497,22 +627,56 @@ export async function saveGRNProgress(
 ): Promise<void> {
   const now = new Date().toISOString();
 
+  const { data: grn, error: grnErr } = await db
+    .from('grn_receipts')
+    .select('status')
+    .eq('id', grnId)
+    .maybeSingle();
+  if (grnErr) throw grnErr;
+  if (!grn) throw new Error('GRN not found.');
+  if (grn.status === 'closed') throw new Error('Closed GRNs cannot be edited.');
+
   await db.from('grn_receipts').update({
     dr_no:            values.dr_no.trim(),
     dr_date:          values.dr_date || null,
+    inv_no:           values.inv_no.trim(),
     transaction_date: values.transaction_date,
     remarks:          values.remarks.trim(),
     updated_at:       now,
   }).eq('id', grnId);
 
+  const itemIds = values.items.map((i) => i.id);
+  const { data: existingItems } = itemIds.length > 0
+    ? await db.from('grn_items').select('id, qa_status').in('id', itemIds)
+    : { data: [] as { id: string; qa_status: string | null }[] };
+  const qaStatusById = Object.fromEntries(
+    (existingItems ?? []).map((row: { id: string; qa_status: string | null }) => [row.id, row.qa_status])
+  );
+
   for (const item of values.items) {
-    await db.from('grn_items').update({
+    const requiresQA = item.is_raw_material === true || item.requires_qa === true;
+    const itemUpdate: Record<string, unknown> = {
       quantity_received: Number(item.quantity_received) || 0,
       quantity_rejected: Number(item.quantity_rejected) || 0,
       remarks:           item.remarks.trim(),
+      requires_qa:       requiresQA,
       updated_at:        now,
-    }).eq('id', item.id);
+    };
+
+    if (requiresQA) {
+      if (qaStatusById[item.id] !== 'approved') {
+        itemUpdate.qa_status = 'pending';
+      }
+    } else {
+      itemUpdate.qa_status = null;
+      itemUpdate.qa_approved_by_id = null;
+      itemUpdate.qa_approved_at = null;
+    }
+
+    await db.from('grn_items').update(itemUpdate).eq('id', item.id);
   }
+
+  await evaluateGRNQAStatus(grnId);
 
   try {
     await db.from('audit_logs').insert({
@@ -535,8 +699,40 @@ export async function closeGRN(
 ): Promise<void> {
   const now = new Date().toISOString();
 
-  // Save all fields
+  const { data: grn, error: grnErr } = await db
+    .from('grn_receipts')
+    .select('status')
+    .eq('id', grnId)
+    .maybeSingle();
+  if (grnErr) throw grnErr;
+  if (!grn) throw new Error('GRN not found.');
+  if (grn.status === 'closed') throw new Error('GRN is already closed.');
+
+  // Save all fields first so the QA re-check below reflects the form's current
+  // requires_qa/qa_status, not stale DB state — otherwise a newly QA-flagged
+  // item introduced by this save could bypass the gate and get closed anyway.
+  // saveGRNProgress() calls evaluateGRNQAStatus() internally.
   await saveGRNProgress(grnId, values, profile);
+
+  const { data: items, error: itemsErr } = await db
+    .from('grn_items')
+    .select('requires_qa, qa_status')
+    .eq('grn_id', grnId);
+  if (itemsErr) throw itemsErr;
+  if (hasUnresolvedQAItems(items ?? [])) {
+    throw new Error('All QA-flagged items must be approved by TSQA before closing the GRN.');
+  }
+
+  const { data: refreshedGrn, error: refreshErr } = await db
+    .from('grn_receipts')
+    .select('status')
+    .eq('id', grnId)
+    .maybeSingle();
+  if (refreshErr) throw refreshErr;
+  if (refreshedGrn?.status === 'closed') throw new Error('GRN is already closed.');
+  if (refreshedGrn?.status === 'pending_qa') {
+    throw new Error('GRN is pending QA approval and cannot be closed yet.');
+  }
 
   // Close the GRN
   await db.from('grn_receipts').update({
@@ -634,14 +830,19 @@ export async function reopenGRN(grnId: string, profile: UserProfile): Promise<vo
   if (!grn) throw new Error('GRN not found.');
   if (grn.status !== 'closed') throw new Error('Only a closed GRN can be reopened.');
 
+  const { data: items, error: itemsErr } = await db
+    .from('grn_items')
+    .select('requires_qa, qa_status')
+    .eq('grn_id', grnId);
+  if (itemsErr) throw itemsErr;
+  const nextStatus = hasUnresolvedQAItems(items ?? []) ? 'pending_qa' : 'open';
+
   const now = new Date().toISOString();
 
-  // RLS scopes writes by role + request type (warehouse↔goods, procurement↔services).
-  // An out-of-lane update silently affects 0 rows, so select back the updated id to
-  // surface a friendly error instead of a phantom success.
+  // RLS scopes writes by role + request type (warehouse↔goods, procurement↔services/goods reopen).
   const { data: updated, error } = await db
     .from('grn_receipts')
-    .update({ status: 'open', updated_at: now })
+    .update({ status: nextStatus, updated_at: now })
     .eq('id', grnId)
     .select('id');
   if (error) throw error;

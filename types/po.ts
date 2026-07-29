@@ -18,7 +18,7 @@ export interface PORequest {
   pr2_number_snapshot: string;
   pr1_number_snapshot: string;
   rfq_number_snapshot: string;
-  request_type:        'goods' | 'services';
+  request_type:        'goods' | 'services' | 'raw_material';
   supplier_name_snapshot: string;
   supplier_id: string | null;
   requisitioner_name_snapshot: string;
@@ -41,6 +41,9 @@ export interface PORequest {
   pr1_priority?: string;
   /** Rev #9: resolved po -> pr2 -> pr1 via ID-based join; needed to edit priority from the PO detail page. */
   pr1_id?: string | null;
+  /** Phase 5 (Goods): procurement manual send audit — supplier notified at send, not approval. */
+  sent_by_id?: string | null;
+  sent_at?: string | null;
 }
 
 export interface POItem {
@@ -59,6 +62,8 @@ export interface POItem {
   vat_rate_applied?: number | null;
   supplier_name_snapshot: string;
   remarks: string | null;
+  /** Phase 9 (Compliance docs): set by Procurement/Buyer — supplier must upload a cert for this line once a GRN exists. */
+  requires_compliance_doc: boolean;
   /**
    * Phase 9 (Raw Mats): forwarded from `pr2_items.is_raw_material` via join.
    * Optional because legacy `select('*')` queries that don't perform the join
@@ -189,7 +194,7 @@ export interface POApprovalQueueRow {
   step_action_label:          string;
   step_is_final:              boolean;
   pr1_priority?:              'normal' | 'medium' | 'high';
-  request_type?:              'goods' | 'services';
+  request_type?:              'goods' | 'services' | 'raw_material';
 }
 
 export interface POApprovalStep {
@@ -234,7 +239,7 @@ export interface POApprovalDetail {
   remarks:                     string | null;
   po_status:                   string;
   pr1_priority?:               'normal' | 'medium' | 'high';
-  request_type?:               'goods' | 'services';
+  request_type?:               'goods' | 'services' | 'raw_material';
   /** Rev #9: needed to edit priority from the approval detail page. */
   pr1_id?:                     string | null;
   items:                       POItem[];

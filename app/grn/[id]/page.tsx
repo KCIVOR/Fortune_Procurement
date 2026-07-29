@@ -7,13 +7,13 @@ import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
-import { fetchGRNById, fetchSuggestedDRSequence, saveGRNProgress, closeGRN, reopenGRN } from '@/lib/grn';
+import { fetchGRNById, fetchSuggestedDRSequence, saveGRNProgress, closeGRN, reopenGRN, forwardItemToQA } from '@/lib/grn';
 import type { GRNWithItems, GRNFormValues, GRNItemDraft } from '@/types/grn';
 import { format } from 'date-fns';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
 import RequestorRemarks from '@/components/shared/RequestorRemarks';
 import WarehouseQtyOverrideNote from '@/components/shared/WarehouseQtyOverrideNote';
-import { PackageCheck, Building2, Package, CalendarDays, FileText, Save, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, User, MapPin, Hash, Receipt, RotateCcw } from 'lucide-react';
+import { PackageCheck, Building2, Package, CalendarDays, FileText, Save, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, User, MapPin, Hash, Receipt, RotateCcw, Send, Clock } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
@@ -39,6 +39,7 @@ export default function GRNDetailPage() {
   const [form, setForm] = useState<GRNFormValues>({
     dr_no:            '',
     dr_date:          '',
+    inv_no:           '',
     transaction_date: '',
     remarks:          '',
     items:            [],
@@ -51,11 +52,35 @@ export default function GRNDetailPage() {
   const [formError, setFormError] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [suggestedDRSequence, setSuggestedDRSequence] = useState<string | null>(null);
+  const [forwardingItemId, setForwardingItemId] = useState<string | null>(null);
+
+  const handleForwardItemToQA = async (itemId: string) => {
+    if (!grn) return;
+    setForwardingItemId(itemId);
+    setFormError('');
+    try {
+      await forwardItemToQA(grn.id, itemId);
+      await load();
+    } catch (e: any) {
+      setFormError(e.message ?? 'Failed to forward item to QA.');
+    } finally {
+      setForwardingItemId(null);
+    }
+  };
 
   const isWarehouse = profile?.role === 'warehouse';
   const isProcurement = profile?.role === 'procurement';
-  const canHandle   = grn?.request_type === 'services' ? isProcurement : isWarehouse;
-  const isReadOnly  = grn?.status === 'closed' || !canHandle;
+  const canHandle   = grn?.request_type === 'services' ? (isWarehouse || isProcurement) : isWarehouse;
+  const isClosed    = grn?.status === 'closed';
+  const isPendingQA = grn?.status === 'pending_qa';
+  const canReopen   = isClosed && (
+    (grn?.request_type === 'services' && isProcurement) ||
+    (grn?.request_type === 'goods' && (isWarehouse || isProcurement))
+  );
+  const isReadOnly  = isClosed || !canHandle;
+  const hasPendingQAItems = form.items.some(
+    (i) => (i.is_raw_material || i.requires_qa) && i.qa_status !== 'approved'
+  );
 
   // DR No. prefix pattern (matches PR1/PO pattern)
   const currentYear = new Date().getFullYear();
@@ -89,6 +114,7 @@ export default function GRNDetailPage() {
         setForm({
           dr_no:            g.dr_no,
           dr_date:          g.dr_date ?? '',
+          inv_no:           g.inv_no ?? '',
           transaction_date: g.transaction_date,
           remarks:          g.remarks,
           items: g.items.map(i => ({
@@ -110,6 +136,8 @@ export default function GRNDetailPage() {
             quantity_override_reason_snapshot:    i.quantity_override_reason_snapshot ?? null,
             quantity_overridden_by_name_snapshot: i.quantity_overridden_by_name_snapshot ?? null,
             quote_attachments:   i.quote_attachments,
+            requires_qa:         i.is_raw_material === true || i.requires_qa === true,
+            qa_status:           i.qa_status ?? null,
           } as GRNItemDraft)),
         });
       })
@@ -212,7 +240,17 @@ export default function GRNDetailPage() {
     </AppShell>
   );
 
-  const isClosed = grn.status === 'closed';
+  const isClosedView = grn.status === 'closed';
+  const statusLabel =
+    grn.status === 'closed' ? 'Closed' :
+    grn.status === 'pending_qa' ? 'Pending QA' :
+    'Open';
+  const statusStyle =
+    grn.status === 'closed'
+      ? 'bg-pq-success-100 text-pq-success-600 border-pq-success-100'
+      : grn.status === 'pending_qa'
+        ? 'bg-sky-50 text-sky-700 border-sky-200'
+        : 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100';
   const canViewPrices = canViewCommercialPricing(profile);
   const receivedTotal = canViewPrices
     ? form.items.reduce((s, i) => s + (Number(i.quantity_received) || 0) * i.unit_price, 0)
@@ -229,13 +267,9 @@ export default function GRNDetailPage() {
           <div>
             <DetailTitleRow wrap mb>
               <h1 className="text-xl font-bold text-pq-neutral-900 font-mono">{grn.grn_number}</h1>
-              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-3 py-1 ${
-                isClosed
-                  ? 'bg-pq-success-100 text-pq-success-600 border-pq-success-100'
-                  : 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100'
-              }`}>
-                {isClosed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Receipt className="w-3.5 h-3.5" />}
-                {isClosed ? 'Closed' : 'Open'}
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-3 py-1 ${statusStyle}`}>
+                {isClosedView ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Receipt className="w-3.5 h-3.5" />}
+                {statusLabel}
               </span>
               <RequestTypeBadge type={grn.request_type ?? 'goods'} />
             </DetailTitleRow>
@@ -244,7 +278,7 @@ export default function GRNDetailPage() {
               <span className="font-mono">PO Ref: {grn.po_number_snapshot}</span>
               <span className="font-mono">PR1 Ref: {grn.pr1_number_snapshot}</span>
             </div>
-            {!isClosed && grn.closed_at && (
+            {!isClosedView && grn.closed_at && (
               <p className="text-xs text-pq-warning-600 italic mt-1">
                 Previously closed on {format(new Date(grn.closed_at), 'MMM d, yyyy h:mm a')} by {grn.received_by_name_snapshot} — reopened for correction.
               </p>
@@ -253,7 +287,7 @@ export default function GRNDetailPage() {
         }
         right={
           <div className="flex items-center gap-2">
-            {isClosed && canHandle && (
+            {canReopen && (
               <button
                 onClick={handleReopen}
                 disabled={reopening}
@@ -273,7 +307,7 @@ export default function GRNDetailPage() {
       />
 
       {/* Reopen error (form error banner below only renders while editable) */}
-      {isClosed && formError && (
+      {isClosedView && formError && (
         <div className="flex items-start gap-2 bg-pq-danger-100 border border-pq-danger-100 text-pq-danger-600 text-sm rounded-md px-4 py-3 mb-4">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           {formError}
@@ -288,7 +322,7 @@ export default function GRNDetailPage() {
       )}
 
       {/* Closed banner */}
-      {isClosed && (
+      {isClosedView && (
         <div className="flex items-start gap-3 bg-pq-success-100 border border-pq-success-100 rounded-md px-5 py-4 mb-6">
           <CheckCircle2 className="w-4 h-4 text-pq-success-600 mt-0.5 shrink-0" />
           <div>
@@ -302,7 +336,19 @@ export default function GRNDetailPage() {
       )}
 
       {/* TSQA Notice for Raw Materials */}
-      {isClosed && grn.items.some(i => i.is_raw_material) && (
+      {!isClosedView && (isPendingQA || hasPendingQAItems) && (
+        <div className="flex items-start gap-3 bg-sky-50 border border-sky-200 rounded-md px-5 py-4 mb-6">
+          <AlertTriangle className="w-4 h-4 text-sky-700 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-sky-900">Pending QA Approval</p>
+            <p className="text-xs text-sky-700 mt-0.5">
+              This GRN cannot be closed until TSQA approves all flagged items.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isClosedView && grn.items.some(i => i.is_raw_material) && (
         <div className="flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-6">
           <AlertTriangle className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
           <div>
@@ -385,7 +431,18 @@ export default function GRNDetailPage() {
               />
             </Field>
 
-            <Field label="Transaction Date" required={!isClosed}>
+            <Field label="INV No.">
+              <input
+                type="text"
+                value={form.inv_no}
+                onChange={e => setForm(f => ({ ...f, inv_no: e.target.value }))}
+                disabled={isReadOnly}
+                placeholder="Supplier invoice number"
+                className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-pq-neutral-50 disabled:text-pq-neutral-500"
+              />
+            </Field>
+
+            <Field label="Transaction Date" required={!isClosedView}>
               <input
                 type="date"
                 value={form.transaction_date}
@@ -449,6 +506,9 @@ export default function GRNDetailPage() {
                       </>
                     ) : (
                       <th className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-28">Pricing</th>
+                    )}
+                    {!isReadOnly && (grn.request_type === 'goods' || grn.request_type === 'services') && (
+                      <th className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-36">For QA</th>
                     )}
                     {!isReadOnly && <th className="px-3 py-2.5 w-32 text-xs font-semibold text-pq-neutral-500 uppercase">Remarks</th>}
                   </tr>
@@ -544,6 +604,35 @@ export default function GRNDetailPage() {
                             {formatCommercialAmount(0, false)}
                           </td>
                         )}
+                        {!isReadOnly && (grn.request_type === 'goods' || grn.request_type === 'services') && (
+                          <td className="px-3 py-3 text-center whitespace-nowrap">
+                            {item.is_raw_material ? (
+                              <span className="inline-flex items-center text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
+                                Mandatory QA
+                              </span>
+                            ) : item.requires_qa ? (
+                              <div className="inline-flex flex-col items-center gap-1">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-purple-900 bg-purple-100 border border-purple-300 rounded shadow-sm">
+                                  <Clock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                  Sent to QA
+                                </span>
+                                {item.qa_status === 'approved' && (
+                                  <span className="text-[10px] text-pq-success-600 font-semibold">QA Approved</span>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={forwardingItemId === item.id}
+                                onClick={() => handleForwardItemToQA(item.id)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 rounded transition shadow-sm disabled:opacity-50"
+                              >
+                                <Send className="w-3.5 h-3.5 shrink-0" />
+                                {forwardingItemId === item.id ? 'Sending...' : 'Forward to QA'}
+                              </button>
+                            )}
+                          </td>
+                        )}
                         {!isReadOnly && (
                           <td className="px-3 py-3">
                             <input
@@ -607,7 +696,7 @@ export default function GRNDetailPage() {
                     </button>
                     <button
                       onClick={() => setShowConfirm(true)}
-                      disabled={saving || closing || !form.transaction_date}
+                      disabled={saving || closing || !form.transaction_date || isPendingQA || hasPendingQAItems}
                       className="inline-flex items-center gap-2 px-4 py-2.5 bg-pq-success-600 hover:bg-pq-success-600 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                     >
                       <PackageCheck className="w-4 h-4" />

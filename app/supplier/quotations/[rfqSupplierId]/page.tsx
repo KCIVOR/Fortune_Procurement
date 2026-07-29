@@ -186,12 +186,14 @@ export default function SupplierQuotationPage() {
         setVatRate(Number(vatSettings.vat_rate));
 
         const allowCatalog = profile.supplier_supply_type === 'raw_material';
+        const isRawMaterialRfq = d.pr1.request_type === 'raw_material';
 
         const initialDrafts: QuoteDraft[] = d.items.map(item => {
-          const existing = d.quotes.find(q => q.pr1_item_id === item.id);
+          const existing = d.quotes.find(q => (isRawMaterialRfq ? q.pr2_item_id : q.pr1_item_id) === item.id);
           const isNoQuote = existing?.response_status === 'no_quote';
           return {
-            pr1_item_id:         item.id,
+            pr1_item_id:         isRawMaterialRfq ? null : item.id,
+            pr2_item_id:         isRawMaterialRfq ? item.id : null,
             quoted_description:  isNoQuote
               ? 'No quote'
               : (existing?.quoted_description ?? item.description),
@@ -455,17 +457,19 @@ export default function SupplierQuotationPage() {
         const refreshed = await fetchSupplierQuoteDetail(rfqSupplierId, profile.id).catch(() => null);
         if (refreshed) {
           setDetail(refreshed);
+          const refreshedIsRaw = refreshed.pr1.request_type === 'raw_material';
           for (const item of refreshed.items) {
             const staged = stagedFilesByItem[item.id] ?? [];
             if (staged.length === 0) continue;
-            const quote = refreshed.quotes.find(q => q.pr1_item_id === item.id);
+            const quote = refreshed.quotes.find(q => (refreshedIsRaw ? q.pr2_item_id : q.pr1_item_id) === item.id);
             if (!quote) continue;
             for (const file of staged) {
               await uploadRfqQuoteAttachment({
                 rfqId:          refreshed.rfqSupplier.rfq_id,
                 rfqSupplierId:  refreshed.rfqSupplier.id,
                 rfqItemQuoteId: quote.id,
-                pr1ItemId:      item.id,
+                pr1ItemId:      refreshedIsRaw ? null : item.id,
+                pr2ItemId:      refreshedIsRaw ? item.id : null,
                 file,
               }).catch(() => {}); // best-effort per file
             }
@@ -567,7 +571,7 @@ export default function SupplierQuotationPage() {
         <div className="space-y-4">
           <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-3">
             <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">RFQ Details</h2>
-            <InfoField icon={FileText}    label="PR1 Number" value={pr1.pr1_number} mono />
+            <InfoField icon={FileText}    label={pr1.request_type === 'raw_material' ? 'PR2 Number' : 'PR1 Number'} value={pr1.pr1_number} mono />
             <InfoField icon={FileText}    label="Purpose"    value={pr1.purpose} />
             {rfq.deadline && (
               <InfoField
@@ -1069,13 +1073,15 @@ export default function SupplierQuotationPage() {
                   </div>
 
                   {(() => {
-                    const existingQuote = detail?.quotes.find(q => q.pr1_item_id === item.id);
+                    const isRaw = detail?.pr1.request_type === 'raw_material';
+                    const existingQuote = detail?.quotes.find(q => (isRaw ? q.pr2_item_id : q.pr1_item_id) === item.id);
                     return (
                       <RfqQuoteAttachmentSection
                         rfqId={detail?.rfqSupplier.rfq_id ?? ''}
                         rfqSupplierId={detail?.rfqSupplier.id ?? ''}
                         rfqItemQuoteId={existingQuote?.id ?? null}
                         pr1ItemId={item.id}
+                        isRawMaterial={isRaw}
                         initialAttachments={existingQuote?.attachments ?? []}
                         stagedFiles={stagedFilesByItem[item.id] ?? []}
                         onStagedFilesChange={files =>

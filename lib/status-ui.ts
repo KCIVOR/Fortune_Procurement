@@ -50,6 +50,8 @@ const DOCUMENT_STATUS_UI: Partial<Record<DocumentType, Record<string, DocumentSt
     revision_requested:     { label: 'Needs Revision', className: 'bg-orange-50 text-orange-700' },
     for_canvassing:         { label: 'For Canvassing', className: 'bg-sky-50 text-sky-700' },
     canvassing_complete:    { label: 'Canvassing Complete', className: 'bg-sky-50 text-sky-700' },
+    pr2_pending_approval:   { label: 'PR2 Pending Approval', className: 'bg-amber-50 text-amber-700' },
+    pr2_approved:           { label: 'PR2 Approved — Ready for RFQ', className: 'bg-sky-50 text-sky-700' },
     approved:               { label: 'Approved', className: 'bg-emerald-50 text-emerald-700' },
     completed:              { label: 'Completed', className: 'bg-emerald-50 text-emerald-700' },
     rejected:               { label: 'Rejected', className: 'bg-red-50 text-red-600' },
@@ -89,8 +91,9 @@ const DOCUMENT_STATUS_UI: Partial<Record<DocumentType, Record<string, DocumentSt
   },
 
   GRN: {
-    open:   { label: 'Open', className: 'bg-amber-50 text-amber-700' },
-    closed: { label: 'Closed', className: 'bg-emerald-50 text-emerald-700' },
+    open:        { label: 'Open', className: 'bg-amber-50 text-amber-700' },
+    pending_qa:  { label: 'Pending QA', className: 'bg-sky-50 text-sky-700' },
+    closed:      { label: 'Closed', className: 'bg-emerald-50 text-emerald-700' },
   },
 };
 

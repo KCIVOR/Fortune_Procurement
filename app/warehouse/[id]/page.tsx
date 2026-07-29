@@ -15,6 +15,7 @@ import {
   submitWarehouseTerminalAction,
   computeWarehouseItemRouting,
 } from '@/lib/warehouse';
+import { fetchSuggestedPR2Sequence } from '@/lib/pr2';
 import type { WarehouseTerminalAction } from '@/types/warehouse';
 import type { PR1WithItems } from '@/types/pr1';
 import type {
@@ -60,6 +61,8 @@ export default function WarehouseValidationPage() {
   const [error, setError] = useState('');
   const [globalError, setGlobalError] = useState('');
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const [pr2Number, setPr2Number] = useState('');
+  const [suggestedPR2Sequence, setSuggestedPR2Sequence] = useState<string | null>(null);
   const [pendingTerminalAction, setPendingTerminalAction] = useState<WarehouseTerminalAction | null>(null);
   const [terminalRemarks, setTerminalRemarks] = useState('');
 
@@ -82,6 +85,26 @@ export default function WarehouseValidationPage() {
       )
       .finally(() => setLoading(false));
   }, [pr1Id, profile]);
+
+  useEffect(() => {
+    if (!confirmSubmit || !pr1 || pr1.request_type !== 'goods') return;
+    const year = new Date().getFullYear();
+    const prefix = `PR2-${year}-`;
+    let cancelled = false;
+    fetchSuggestedPR2Sequence(year)
+      .then((suffix) => {
+        if (cancelled) return;
+        setSuggestedPR2Sequence(suffix);
+        setPr2Number((current) => {
+          const hasSuffix = current.startsWith(prefix) && current.slice(prefix.length).trim();
+          return hasSuffix ? current : `${prefix}${suffix}`;
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestedPR2Sequence(null);
+      });
+    return () => { cancelled = true; };
+  }, [confirmSubmit, pr1]);
 
   const buildFormValues = (val: WarehouseValidationWithItems): ValidationFormValues => ({
     notes: val.notes,
@@ -132,12 +155,26 @@ export default function WarehouseValidationPage() {
 
   const handleSubmit = async () => {
     if (!validation || !pr1 || !profile) return;
+    if (willCreatePR2 && !getPR2Suffix(pr2Number).trim()) {
+      setGlobalError('Enter a PR2 number before submitting.');
+      return;
+    }
     setSubmitting(true);
     setGlobalError('');
     setConfirmSubmit(false);
     try {
-      await submitValidationDecision(validation.id, pr1.id, formValues, profile);
-      router.push('/warehouse');
+      const result = await submitValidationDecision(
+        validation.id,
+        pr1.id,
+        formValues,
+        profile,
+        willCreatePR2 ? { pr2Number } : undefined,
+      );
+      if (result.pr2Id) {
+        router.push(`/pr2/${result.pr2Id}`);
+      } else {
+        router.push('/warehouse');
+      }
     } catch (err: unknown) {
       setGlobalError(
         err instanceof Error ? err.message : 'Failed to submit validation.'
@@ -190,6 +227,19 @@ export default function WarehouseValidationPage() {
   }
 
   const isServices = pr1.request_type === 'services';
+  const currentYear = new Date().getFullYear();
+  const pr2Prefix = `PR2-${currentYear}-`;
+
+  const getPR2Suffix = (full: string) => {
+    if (full.startsWith(pr2Prefix)) return full.slice(pr2Prefix.length);
+    const match = full.match(/^PR2-\d{4}-(.*)$/i);
+    return match ? match[1] : full;
+  };
+
+  const setPR2Suffix = (suffix: string) => {
+    const clean = suffix.replace(/^PR2-\d{4}-/i, '').replace(/\D/g, '');
+    setPr2Number(pr2Prefix + clean);
+  };
 
   const routingRows = formValues.items.map(item => {
     const sohRaw = item.validated_soh;
@@ -235,6 +285,8 @@ export default function WarehouseValidationPage() {
       ? 'sufficient'
       : 'insufficient'
     : null;
+
+  const willCreatePR2 = !isServices && derivedDecision === 'insufficient';
 
   return (
     <AppShell title="Warehouse Validation">
@@ -626,7 +678,7 @@ export default function WarehouseValidationPage() {
                   )}
 
                   {confirmSubmit ? (
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="space-y-3">
                       <p className="text-sm text-pq-neutral-700">
                         Submit warehouse validation? PR outcome:{' '}
                         <strong
@@ -636,26 +688,54 @@ export default function WarehouseValidationPage() {
                         >
                           {derivedDecision === 'sufficient'
                             ? 'Resolve internally (all lines internal)'
-                            : 'Route to approval / procurement'}
+                            : willCreatePR2
+                              ? 'Create PR2 and start approval'
+                              : 'Route to approval / procurement'}
                         </strong>
                         . This cannot be undone.
                       </p>
-                      <button
-                        type="button"
-                        onClick={handleSubmit}
-                        disabled={submitting}
-                        className="px-4 py-2 text-sm font-semibold text-white rounded-md transition disabled:opacity-50 bg-pq-neutral-900 hover:bg-pq-neutral-700"
-                      >
-                        {submitting ? 'Submitting...' : 'Confirm submit'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmSubmit(false)}
-                        disabled={submitting}
-                        className="px-4 py-2 text-sm text-pq-neutral-700 hover:text-pq-neutral-900 transition"
-                      >
-                        Cancel
-                      </button>
+                      {willCreatePR2 && (
+                        <div>
+                          <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                            PR2 Number <span className="text-pq-danger-600">*</span>
+                          </label>
+                          <div className="flex items-center border border-pq-neutral-200 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-[#1E4BFF]">
+                            <div className="px-3 py-2 bg-pq-neutral-50 border-r border-pq-neutral-200 text-sm font-mono text-pq-neutral-400 whitespace-nowrap select-none">
+                              {pr2Prefix}
+                            </div>
+                            <input
+                              type="text"
+                              value={getPR2Suffix(pr2Number)}
+                              onChange={(e) => setPR2Suffix(e.target.value)}
+                              placeholder={suggestedPR2Sequence ?? '0001'}
+                              className="flex-1 px-3 py-2 border-0 text-sm font-mono focus:outline-none"
+                            />
+                          </div>
+                          <p className="mt-1 text-xs text-pq-neutral-400">
+                            {suggestedPR2Sequence
+                              ? `Suggested: ${pr2Prefix}${suggestedPR2Sequence} — you may edit this number.`
+                              : 'Enter a 4-digit sequence (e.g. 0001).'}
+                          </p>
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleSubmit}
+                          disabled={submitting || (willCreatePR2 && !getPR2Suffix(pr2Number).trim())}
+                          className="px-4 py-2 text-sm font-semibold text-white rounded-md transition disabled:opacity-50 bg-pq-neutral-900 hover:bg-pq-neutral-700"
+                        >
+                          {submitting ? 'Submitting...' : 'Confirm submit'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmSubmit(false)}
+                          disabled={submitting}
+                          className="px-4 py-2 text-sm text-pq-neutral-700 hover:text-pq-neutral-900 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button

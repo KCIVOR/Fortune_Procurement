@@ -10,11 +10,13 @@ export type AppPosition =
   | 'Procurement Manager'
   | 'Supervisor'
   | 'Department Head'
+  | 'Operations Manager'
   | 'Director'
   | 'Finance Director'
   | 'Supplier Representative'
   | 'System Administrator'
-  | 'TSQA Staff';
+  | 'TSQA Staff'
+  | 'Planning Staff';
 
 export interface UserProfile {
   id: string;

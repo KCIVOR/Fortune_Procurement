@@ -7,9 +7,9 @@ import { useBackNavigation } from '@/hooks/use-back-navigation';
 import AppShell from '@/components/layout/AppShell';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
-import { fetchDeliveryById, procurementFollowUp, markDelivered } from '@/lib/delivery';
+import { fetchDeliveryById, procurementFollowUp, markDelivered, forwardServiceDeliveryToProcurement } from '@/lib/delivery';
 import { getDeliveryReceiptSignedUrl } from '@/lib/delivery-receipt-storage';
-import { openGRNForDelivery, fetchGRNByDeliveryId } from '@/lib/grn';
+import { openGRNForDelivery, fetchGRNByDeliveryId, fetchSuggestedGRNSequence } from '@/lib/grn';
 import type { DeliveryWithHistory, DeliveryStatus } from '@/types/delivery';
 import { DELIVERY_STATUS_LABELS } from '@/types/delivery';
 import { format } from 'date-fns';
@@ -60,8 +60,28 @@ export default function DeliveryDetailPage() {
   const [deliveredBusy, setDeliveredBusy] = useState(false);
   const [deliveredError, setDeliveredError] = useState('');
 
+  // Service forwarding
+  const [forwardBusy, setForwardBusy] = useState(false);
+  const [forwardError, setForwardError] = useState('');
+
   // GRN open
   const [grnBusy, setGrnBusy] = useState(false);
+  const [showOpenGRN, setShowOpenGRN] = useState(false);
+  const [grnNumber, setGrnNumber] = useState('');
+  const [suggestedGRNSequence, setSuggestedGRNSequence] = useState<string | null>(null);
+  const [grnError, setGrnError] = useState('');
+
+  const currentYear = new Date().getFullYear();
+  const grnPrefix = `GRN-${currentYear}-`;
+  const getGRNSuffix = (full: string) => {
+    if (full.startsWith(grnPrefix)) return full.slice(grnPrefix.length);
+    const match = full.match(/^GRN-\d{4}-(.*)$/i);
+    return match ? match[1] : full;
+  };
+  const setGRNSuffix = (suffix: string) => {
+    const clean = suffix.replace(/^GRN-\d{4}-/i, '').replace(/\D/g, '');
+    setGrnNumber(grnPrefix + clean);
+  };
 
   const load = useCallback(() => {
     if (!id) return;
@@ -122,6 +142,21 @@ export default function DeliveryDetailPage() {
     </AppShell>
   );
 
+
+  const handleForwardService = async () => {
+    if (!profile || !delivery) return;
+    setForwardBusy(true);
+    setForwardError('');
+    try {
+      await forwardServiceDeliveryToProcurement(delivery.id, profile);
+      load();
+    } catch (e: any) {
+      setForwardError(e.message ?? 'Failed to forward delivery.');
+    } finally {
+      setForwardBusy(false);
+    }
+  };
+
   const cfg        = STATUS_CONFIG[delivery.status];
   const Icon       = cfg.icon;
   const isExternal = !delivery.supplier_id;
@@ -130,17 +165,60 @@ export default function DeliveryDetailPage() {
   const canViewPrices = canViewCommercialPricing(profile);
   const canMarkDelivered = (isProcurement || isWarehouse) && delivery.status !== 'delivered' && delivery.status !== 'cancelled';
   const canFollowUp      = isProcurement && delivery.status !== 'delivered' && delivery.status !== 'cancelled';
-  const canOpenGRN       =
+
+  const isService = delivery.request_type === 'services';
+  const canWarehouseForwardService =
+    isService &&
     delivery.status === 'delivered' &&
-    (delivery.request_type === 'services' ? isProcurement : isWarehouse);
+    isWarehouse &&
+    !delivery.forwarded_to_procurement;
+
+  const canWarehouseOpenServiceGRN =
+    isService &&
+    delivery.status === 'delivered' &&
+    isWarehouse &&
+    (!delivery.forwarded_to_procurement || !!existingGrnId);
+
+  const canProcurementOpenServiceGRN =
+    isService &&
+    delivery.status === 'delivered' &&
+    isProcurement &&
+    (delivery.forwarded_to_procurement || !!existingGrnId);
+
+  const canWarehouseOpenGoodsGRN =
+    !isService &&
+    delivery.status === 'delivered' &&
+    isWarehouse;
+
+  const canOpenGRN = canWarehouseOpenServiceGRN || canProcurementOpenServiceGRN || canWarehouseOpenGoodsGRN;
+
+  const openGRNModal = () => {
+    setGrnError('');
+    setGrnNumber('');
+    setSuggestedGRNSequence(null);
+    setShowOpenGRN(true);
+    fetchSuggestedGRNSequence(currentYear)
+      .then((suffix) => {
+        setSuggestedGRNSequence(suffix);
+        setGrnNumber(`${grnPrefix}${suffix}`);
+      })
+      .catch(() => setSuggestedGRNSequence(null));
+  };
 
   const handleOpenGRN = async () => {
     if (!profile || !delivery) return;
+    if (!getGRNSuffix(grnNumber).trim()) {
+      setGrnError('GRN number is required.');
+      return;
+    }
     setGrnBusy(true);
+    setGrnError('');
     try {
-      const grnId = await openGRNForDelivery(delivery.id, profile);
+      const grnId = await openGRNForDelivery(delivery.id, profile, grnNumber);
+      setShowOpenGRN(false);
       router.push(`/grn/${grnId}`);
-    } catch {
+    } catch (e: any) {
+      setGrnError(e.message ?? 'Failed to open GRN.');
       setGrnBusy(false);
     }
   };
@@ -172,7 +250,21 @@ export default function DeliveryDetailPage() {
         }
         right={
           <>
-            {/* GRN action button for warehouse */}
+            {/* Handoff & GRN Action Buttons */}
+            {isService && delivery.status === 'delivered' && !delivery.forwarded_to_procurement && isProcurement && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                Awaiting Warehouse handoff
+              </span>
+            )}
+
+            {isService && delivery.forwarded_to_procurement && isWarehouse && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-800 bg-teal-50 border border-teal-200 rounded-md px-3 py-2">
+                <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                Forwarded to Procurement for GRN
+              </span>
+            )}
+
             {canOpenGRN && (
               <div>
                 {existingGrnId ? (
@@ -185,14 +277,28 @@ export default function DeliveryDetailPage() {
                   </Link>
                 ) : (
                   <button
-                    onClick={handleOpenGRN}
+                    onClick={openGRNModal}
                     disabled={grnBusy}
                     className="inline-flex items-center gap-2 px-4 py-2.5 bg-pq-success-600 hover:bg-pq-success-600 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                   >
                     <PackageCheck className="w-4 h-4" />
-                    {grnBusy ? 'Opening...' : 'Receive Goods (GRN)'}
+                    {grnBusy ? 'Opening...' : isService ? 'Receive Service (GRN)' : 'Receive Goods (GRN)'}
                   </button>
                 )}
+              </div>
+            )}
+
+            {canWarehouseForwardService && !existingGrnId && (
+              <div>
+                <button
+                  onClick={handleForwardService}
+                  disabled={forwardBusy}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-300 text-teal-800 hover:bg-teal-100 text-sm font-semibold rounded-md transition disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4 text-teal-600" />
+                  {forwardBusy ? 'Forwarding...' : 'Forward to Procurement'}
+                </button>
+                {forwardError && <p className="text-xs text-pq-danger-600 mt-1 text-right">{forwardError}</p>}
               </div>
             )}
             <div className="text-right">
@@ -472,6 +578,58 @@ export default function DeliveryDetailPage() {
           </div>
         </div>
       </div>
+
+      {showOpenGRN && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-md w-full max-w-md mx-4 overflow-hidden">
+            <div className="px-6 py-5 border-b border-pq-neutral-200">
+              <h2 className="text-base font-semibold text-pq-neutral-900">Open Goods Receipt</h2>
+              <p className="text-xs text-pq-neutral-500 mt-0.5">Enter the GRN number before receiving goods.</p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                  GRN Number <span className="text-pq-danger-600">*</span>
+                </label>
+                <div className="flex items-center border border-pq-neutral-200 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-[#1E4BFF]">
+                  <div className="px-3 py-2 bg-pq-neutral-50 border-r border-pq-neutral-200 text-sm font-mono text-pq-neutral-400 whitespace-nowrap select-none">
+                    {grnPrefix}
+                  </div>
+                  <input
+                    type="text"
+                    value={getGRNSuffix(grnNumber)}
+                    onChange={(e) => setGRNSuffix(e.target.value)}
+                    placeholder={suggestedGRNSequence ?? '0001'}
+                    className="flex-1 px-3 py-2 border-0 text-sm font-mono focus:outline-none"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-pq-neutral-400">
+                  {suggestedGRNSequence
+                    ? `Suggested: ${grnPrefix}${suggestedGRNSequence} — you may edit this number.`
+                    : 'Enter a 4-digit sequence (e.g. 0001).'}
+                </p>
+              </div>
+              {grnError && <p className="text-sm text-pq-danger-600">{grnError}</p>}
+            </div>
+            <div className="px-6 pb-5 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowOpenGRN(false)}
+                disabled={grnBusy}
+                className="px-4 py-2 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleOpenGRN}
+                disabled={grnBusy || !getGRNSuffix(grnNumber).trim()}
+                className="px-5 py-2 bg-pq-success-600 hover:bg-pq-success-600 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
+              >
+                {grnBusy ? 'Opening...' : 'Open GRN'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

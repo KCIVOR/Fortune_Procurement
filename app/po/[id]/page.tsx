@@ -15,6 +15,7 @@ import {
   canActOnPOStep,
   markExternalPOOrdered,
 } from '@/lib/po-approvals';
+import { sendPOToSupplier } from '@/lib/po-send';
 import type { POWithItems, POApprovalDetail, POApprovalStep, POApprovalAction } from '@/types/po';
 import { PO_STATUS_LABELS } from '@/types/po';
 import { format } from 'date-fns';
@@ -23,7 +24,7 @@ import {
   Package, Truck, CreditCard, MapPin,
   DollarSign, ClipboardList, Send, CircleCheck as CheckCircle2,
   Circle as XCircle, RotateCcw, Lock, TriangleAlert as AlertTriangle,
-  Pencil, Save, X as XIcon, Store,
+  Pencil, Save, X as XIcon, Store, FileCheck2,
 } from 'lucide-react';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
@@ -41,6 +42,7 @@ import QuoteAttachmentPills from '@/components/rfq/QuoteAttachmentPills';
 import PriorityChip from '@/components/shared/PriorityChip';
 import PrioritySelector from '@/components/shared/PrioritySelector';
 import { canUpdatePR1Priority, updatePR1Priority } from '@/lib/pr1';
+import { fetchComplianceDocsByPO, updatePOItemComplianceRequirement, type ComplianceDocument } from '@/lib/compliance-documents';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:        'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
@@ -71,6 +73,10 @@ export default function PODetailPage() {
   const [priorityUpdating, setPriorityUpdating] = useState(false);
   const [priorityError, setPriorityError]       = useState('');
 
+  // Compliance docs (informational, services POs only)
+  const [complianceDocs, setComplianceDocs] = useState<ComplianceDocument[]>([]);
+  const [complianceUpdatingId, setComplianceUpdatingId] = useState<string | null>(null);
+
   const load = () => {
     if (!id) return;
     Promise.all([
@@ -87,6 +93,14 @@ export default function PODetailPage() {
   };
 
   useEffect(() => { load(); }, [id]);
+
+  // Load compliance docs once the PO is loaded (services only, procurement view)
+  useEffect(() => {
+    if (!po || po.request_type !== 'services' || profile?.role !== 'procurement') return;
+    fetchComplianceDocsByPO(po.id)
+      .then(setComplianceDocs)
+      .catch(() => { /* best-effort — banner still shows, count stays 0 */ });
+  }, [po?.id, po?.request_type, profile?.role]);
 
   const handleSubmitForApproval = async () => {
     if (!po || !profile) return;
@@ -111,6 +125,20 @@ export default function PODetailPage() {
       load();
     } catch (err: any) {
       setSubmitError(err.message ?? 'Failed to mark PO as ordered.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSendToSupplier = async () => {
+    if (!po || !profile) return;
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      await sendPOToSupplier(po.id, profile);
+      load();
+    } catch (err: any) {
+      setSubmitError(err.message ?? 'Failed to send PO to supplier.');
     } finally {
       setSubmitting(false);
     }
@@ -146,7 +174,30 @@ export default function PODetailPage() {
   };
 
   const canEdit    = po?.status === 'draft' && profile?.role === 'procurement';
+  const canManageCompliance =
+    po?.request_type === 'services' && (profile?.role === 'procurement' || profile?.role === 'admin');
+
+  const handleToggleCompliance = async (itemId: string, next: boolean) => {
+    if (!po || !profile) return;
+    setComplianceUpdatingId(itemId);
+    try {
+      await updatePOItemComplianceRequirement(itemId, next, profile);
+      setPO({
+        ...po,
+        items: po.items.map(i => i.id === itemId ? { ...i, requires_compliance_doc: next } : i),
+      });
+    } catch {
+      // best-effort — table just won't reflect the change; user can retry
+    } finally {
+      setComplianceUpdatingId(null);
+    }
+  };
   const isExternal = !po?.supplier_id;
+  const canSendToSupplier =
+    po?.status === 'approved' &&
+    !!po.supplier_id &&
+    !po.sent_at &&
+    profile?.role === 'procurement';
 
   if (loading) return (
     <AppShell title="Purchase Order">
@@ -211,7 +262,9 @@ export default function PODetailPage() {
             <p className="text-sm text-pq-neutral-500">{po.department_name_snapshot} · {po.purpose}</p>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-xs text-pq-neutral-400 font-mono">PR2 Ref: {po.pr2_number_snapshot}</span>
-              <span className="text-xs text-pq-neutral-400 font-mono">PR1 Ref: {po.pr1_number_snapshot}</span>
+              {po.pr1_number_snapshot && (
+                <span className="text-xs text-pq-neutral-400 font-mono">PR1 Ref: {po.pr1_number_snapshot}</span>
+              )}
               <span className="text-xs text-pq-neutral-400 font-mono">RFQ Ref: {po.rfq_number_snapshot}</span>
             </div>
           </div>
@@ -266,6 +319,16 @@ export default function PODetailPage() {
                 View Approval
               </Link>
             )}
+            {canSendToSupplier && (
+              <button
+                onClick={handleSendToSupplier}
+                disabled={submitting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                {submitting ? 'Sending...' : 'Send PO to Supplier'}
+              </button>
+            )}
             {/* External vendor (no supplier portal): Procurement places the order
                 externally, then marks it ordered to start delivery/GRN. */}
             {isExternal && po.status === 'approved' && (
@@ -307,6 +370,22 @@ export default function PODetailPage() {
         </div>
       )}
 
+      {/* Compliance docs informational banner (services POs, procurement view) */}
+      {po.request_type === 'services' && profile?.role === 'procurement' && (
+        <div className="flex items-start gap-3 bg-sky-50 border border-sky-200 rounded-md px-5 py-4 mb-6">
+          <FileCheck2 className="w-4 h-4 text-sky-600 mt-0.5 shrink-0" />
+          <div className="text-sm text-sky-800 flex-1">
+            <span className="font-semibold">Compliance documentation.</span>{' '}
+            This is a services PO. The supplier may be required to upload certification or compliance documents.
+          </div>
+          {complianceDocs.length > 0 && (
+            <span className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-pq-success-100 text-pq-success-700">
+              <CheckCircle2 className="w-3 h-3" />{complianceDocs.length} uploaded
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 auto-rows-max lg:auto-rows-auto">
 
         {/* Left column: details and items */}
@@ -329,13 +408,15 @@ export default function PODetailPage() {
               value={po.pr2_number_snapshot}
               valueClassName="font-mono font-semibold"
             />
-            <DetailInfoField
-              layout="inline"
-              icon={<FileText className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />}
-              label="PR1 Reference"
-              value={po.pr1_number_snapshot}
-              valueClassName="font-mono font-semibold"
-            />
+            {po.pr1_number_snapshot && (
+              <DetailInfoField
+                layout="inline"
+                icon={<FileText className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />}
+                label="PR1 Reference"
+                value={po.pr1_number_snapshot}
+                valueClassName="font-mono font-semibold"
+              />
+            )}
             <DetailInfoField
               layout="inline"
               icon={<FileText className="w-3.5 h-3.5 text-pq-neutral-400 mt-0.5 shrink-0" />}
@@ -535,6 +616,9 @@ export default function PODetailPage() {
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Attachments</th>
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-14">Unit</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-16">Qty</th>
+                    {po.request_type === 'services' && (
+                      <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-28">Compliance Doc</th>
+                    )}
                     {canViewPrices ? (
                       <>
                         <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-24">Unit Price</th>
@@ -583,6 +667,34 @@ export default function PODetailPage() {
                       </td>
                       <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_to_purchase}</td>
+                      {po.request_type === 'services' && (
+                        <td className="px-4 py-3 text-center">
+                          {canManageCompliance ? (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCompliance(item.id, !item.requires_compliance_doc)}
+                              disabled={complianceUpdatingId === item.id}
+                              aria-pressed={item.requires_compliance_doc}
+                              className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border transition disabled:opacity-50 disabled:cursor-wait ${
+                                item.requires_compliance_doc
+                                  ? 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100'
+                                  : 'bg-white text-pq-neutral-400 border-pq-neutral-200 hover:bg-pq-neutral-50 hover:text-pq-neutral-600'
+                              }`}
+                            >
+                              <FileCheck2 className="w-3 h-3" />
+                              {complianceUpdatingId === item.id
+                                ? 'Saving…'
+                                : item.requires_compliance_doc ? 'Required' : 'Not required'}
+                            </button>
+                          ) : item.requires_compliance_doc ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+                              <FileCheck2 className="w-3 h-3" /> Required
+                            </span>
+                          ) : (
+                            <span className="text-xs text-pq-neutral-300">—</span>
+                          )}
+                        </td>
+                      )}
                       {canViewPrices ? (
                         <>
                           <td className="px-4 py-3 text-right text-xs text-pq-neutral-500">
@@ -605,17 +717,17 @@ export default function PODetailPage() {
                     {vatBreakdown.vatAmount > 0 && (
                       <>
                         <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                          <td colSpan={7} className="px-4 py-3 text-right text-xs text-pq-neutral-500">Subtotal</td>
+                          <td colSpan={po.request_type === 'services' ? 8 : 7} className="px-4 py-3 text-right text-xs text-pq-neutral-500">Subtotal</td>
                           <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">{formatCommercialAmount(vatBreakdown.subtotal, true)}</td>
                         </tr>
                         <tr className="bg-pq-neutral-50">
-                          <td colSpan={7} className="px-4 py-3 text-right text-xs text-pq-neutral-500">VAT</td>
+                          <td colSpan={po.request_type === 'services' ? 8 : 7} className="px-4 py-3 text-right text-xs text-pq-neutral-500">VAT</td>
                           <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">{formatCommercialAmount(vatBreakdown.vatAmount, true)}</td>
                         </tr>
                       </>
                     )}
                     <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                      <td colSpan={7} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
+                      <td colSpan={po.request_type === 'services' ? 8 : 7} className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-900">Grand Total</td>
                       <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">
                         {formatCommercialAmount(vatBreakdown.total, true)}
                       </td>

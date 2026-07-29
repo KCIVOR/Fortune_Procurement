@@ -45,6 +45,10 @@ import {
   Package, TriangleAlert as AlertTriangle, CheckCheck, Lock,
   ClipboardList, ShoppingCart, Truck, CreditCard, MapPin, Store,
 } from 'lucide-react';
+import {
+  APPROVAL_ACTION_ROW_CLASS,
+  ApprovalActionButton,
+} from '@/components/approvals/ApprovalActionButtons';
 
 export default function POApprovalDetailPage() {
   const { id: instanceId } = useParams<{ id: string }>();
@@ -192,7 +196,9 @@ export default function POApprovalDetailPage() {
             </p>
             <p className="text-xs text-pq-neutral-400 mt-0.5">
               PR2 Ref: <span className="font-mono">{detail.pr2_number_snapshot}</span>
-              {' '}· PR1 Ref: <span className="font-mono">{detail.pr1_number_snapshot}</span>
+              {detail.pr1_number_snapshot && (
+                <>{' '}· PR1 Ref: <span className="font-mono">{detail.pr1_number_snapshot}</span></>
+              )}
               {' '}· RFQ Ref: <span className="font-mono">{detail.rfq_number_snapshot}</span>
             </p>
           </div>
@@ -599,12 +605,12 @@ export default function POApprovalDetailPage() {
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 flex-wrap">
-                  <ActionButton icon={CheckCheck} label={currentStepDef?.is_final ? 'Approve — Final' : 'Approve & Advance'} variant="approve"
+                <div className={APPROVAL_ACTION_ROW_CLASS}>
+                  <ApprovalActionButton icon={CheckCheck} label={currentStepDef?.is_final ? 'Approve — Final' : 'Approve & Advance'} variant="approve"
                     onClick={() => { setSubmitError(''); setPendingAction('approved'); }} disabled={submitting} />
-                  <ActionButton icon={RotateCcw} label="Request Revision" variant="revise"
+                  <ApprovalActionButton icon={RotateCcw} label="Request Revision" variant="revise"
                     onClick={() => { setSubmitError(''); setPendingAction('revision_requested'); }} disabled={submitting} />
-                  <ActionButton icon={XCircle} label="Reject" variant="reject"
+                  <ApprovalActionButton icon={XCircle} label="Reject" variant="reject"
                     onClick={() => { setSubmitError(''); setPendingAction('rejected'); }} disabled={submitting} />
                 </div>
               )}
@@ -740,20 +746,3 @@ function ApprovalTimeline({
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function ActionButton({ icon: Icon, label, variant, onClick, disabled }: {
-  icon: React.ElementType; label: string; variant: 'approve' | 'revise' | 'reject'; onClick: () => void; disabled: boolean;
-}) {
-  const styles = {
-    approve: 'bg-pq-success-600 hover:bg-pq-success-600 text-white border-pq-success-600',
-    revise:  'bg-white hover:bg-orange-50 text-orange-600 border-orange-300 hover:border-orange-400',
-    reject:  'bg-white hover:bg-pq-danger-100 text-pq-danger-600 border-red-300 hover:border-red-400',
-  };
-  return (
-    <button type="button" onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-md border transition disabled:opacity-50 ${styles[variant]}`}>
-      <Icon className="w-4 h-4" />
-      {label}
-    </button>
-  );
-}

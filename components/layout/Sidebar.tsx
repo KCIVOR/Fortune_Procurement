@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -24,6 +24,7 @@ import {
   BadgeCheck,
   Settings2,
   GitBranch,
+  FileCheck2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useModuleVisibility } from '@/hooks/use-module-visibility';
@@ -52,6 +53,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   BadgeCheck,
   Settings2,
   GitBranch,
+  FileCheck2,
 };
 
 const ROLE_LABELS: Record<AppRole, string> = {
@@ -105,23 +107,29 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
   const navItems = useMemo((): NavItem[] | null => {
     if (!profile) return null;
     const base = ROLE_NAV[profile.role ?? 'employee'] ?? [];
-    const hideCatalogUnlessRawMat = (items: NavItem[]): NavItem[] => {
+    const filterSupplierNavItems = (items: NavItem[]): NavItem[] => {
       if (profile.role !== 'supplier') return items;
-      if (profile.supplier_supply_type === 'raw_material') return items;
-      return items.filter(
-        (item) =>
-          item.module_key !== 'supplier_products' && item.href !== '/supplier/products'
-      );
+      return items.filter((item) => {
+        // Product Catalog: raw_material suppliers only
+        if (item.module_key === 'supplier_products' || item.href === '/supplier/products') {
+          return profile.supplier_supply_type === 'raw_material';
+        }
+        // Compliance Documents: service suppliers only
+        if (item.module_key === 'supplier_compliance_documents' || item.href === '/supplier/compliance-documents') {
+          return profile.supplier_supply_type === 'service';
+        }
+        return true;
+      });
     };
-    if (profile.role === 'admin') return hideCatalogUnlessRawMat(base);
+    if (profile.role === 'admin') return filterSupplierNavItems(base);
     if (!profile.role_id) {
-      return hideCatalogUnlessRawMat(resolveVisibleModules(base, [], profile.position_id));
+      return filterSupplierNavItems(resolveVisibleModules(base, [], profile.position_id));
     }
     if (rulesLoading || rules === null) return null;
     if (rulesFetchFailed) {
-      return hideCatalogUnlessRawMat(base.filter((item) => item.module_key === 'dashboard'));
+      return filterSupplierNavItems(base.filter((item) => item.module_key === 'dashboard'));
     }
-    return hideCatalogUnlessRawMat(resolveVisibleModules(base, rules, profile.position_id));
+    return filterSupplierNavItems(resolveVisibleModules(base, rules, profile.position_id));
   }, [profile, rules, rulesLoading, rulesFetchFailed]);
 
   const activeHref = navItems !== null ? getActiveNavHref(pathname, navItems) : null;

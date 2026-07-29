@@ -12,6 +12,7 @@ import type {
   ItemAvailability,
 } from '@/types/warehouse';
 import { createNotification, notifyByRole } from '@/lib/notifications';
+import { createPR2FromWarehouseValidation } from '@/lib/pr2-warehouse';
 
 const db = supabase as any;
 
@@ -469,8 +470,9 @@ export async function submitValidationDecision(
   validationId: string,
   pr1Id: string,
   values: ValidationFormValues,
-  profile: UserProfile
-): Promise<void> {
+  profile: UserProfile,
+  options?: { pr2Number?: string },
+): Promise<{ pr2Id: string | null }> {
   const now = new Date().toISOString();
 
   const originalQtyByPr1Item = await fetchOriginalQuantitiesByPr1Item(
@@ -528,6 +530,17 @@ export async function submitValidationDecision(
     ? 'sufficient'
     : 'insufficient';
 
+  const { data: pr1Meta, error: pr1MetaErr } = await db
+    .from('pr1_requests')
+    .select('request_type, pr1_number')
+    .eq('id', pr1Id)
+    .maybeSingle();
+  if (pr1MetaErr) throw pr1MetaErr;
+  const requestType = pr1Meta?.request_type as string | undefined;
+  // Goods and Services both get their PR2 created here by Warehouse; Raw
+  // Material never reaches this function (no PR1/warehouse step for it).
+  const createsPR2 = decision === 'insufficient' && (requestType === 'goods' || requestType === 'services');
+
   const { error: hErr } = await db
     .from('warehouse_validations')
     .update({
@@ -549,7 +562,7 @@ export async function submitValidationDecision(
         item_notes:             item.item_notes,
         item_route:             p.item_route,
         internal_fulfilled_qty: p.internal_fulfilled_qty,
-        procurement_qty:      p.procurement_qty,
+        procurement_qty:        p.procurement_qty,
         quantity_requested:                   p.quantity_requested,
         quantity_override_reason:             p.isOverridden ? item.quantity_override_reason.trim() : null,
         quantity_overridden_by:               p.isOverridden ? profile.id : null,
@@ -561,13 +574,6 @@ export async function submitValidationDecision(
 
     if (iErr) throw iErr;
   }
-
-  // Map decision to PR1 status
-  // sufficient   → resolved_internal (closed, stock on hand covers request)
-  // insufficient → for_canvassing (routes to procurement for canvassing)
-  const nextPR1Status = decision === 'sufficient'
-    ? 'resolved_internal'
-    : 'for_canvassing';
 
   // Finalise validation header with decision and submitter snapshot
   const { error: vErr } = await db
@@ -584,20 +590,34 @@ export async function submitValidationDecision(
 
   if (vErr) throw vErr;
 
-  // Transition PR1 status — the warehouse UPDATE policy allows this
-  const { data: updatedRows, error: pr1Err } = await db
-    .from('pr1_requests')
-    .update({
-      status:     nextPR1Status,
-      updated_at: now,
-    })
-    .eq('id', pr1Id)
-    .eq('status', 'approved_for_warehouse')
-    .select('id');
+  let pr2Id: string | null = null;
+  let nextPR1Status: string;
 
-  if (pr1Err) throw pr1Err;
-  if (!updatedRows || updatedRows.length === 0) {
-    throw new Error('PR1 status could not be updated. It may have already been processed.');
+  if (createsPR2) {
+    const pr2Number = options?.pr2Number?.trim() ?? '';
+    if (!pr2Number) throw new Error('PR2 number is required when routing Goods/Services to procurement.');
+    // Goods/Services final flow: warehouse creates PR2 (sets PR1 → pr2_pending_approval)
+    pr2Id = await createPR2FromWarehouseValidation(pr1Id, validationId, profile, pr2Number);
+    nextPR1Status = 'pr2_pending_approval';
+  } else {
+    // sufficient → resolved_internal. (Goods/Services with insufficient items
+    // both create a PR2 in the branch above, and raw_material never reaches this function.)
+    nextPR1Status = 'resolved_internal';
+
+    const { data: updatedRows, error: pr1Err } = await db
+      .from('pr1_requests')
+      .update({
+        status:     nextPR1Status,
+        updated_at: now,
+      })
+      .eq('id', pr1Id)
+      .eq('status', 'approved_for_warehouse')
+      .select('id');
+
+    if (pr1Err) throw pr1Err;
+    if (!updatedRows || updatedRows.length === 0) {
+      throw new Error('PR1 status could not be updated. It may have already been processed.');
+    }
   }
 
   // Quantity overrides: dedicated audit entry + requestor notice, separate
@@ -654,32 +674,6 @@ export async function submitValidationDecision(
     }
   }
 
-  // For insufficient decisions: notify procurement to begin canvassing
-  if (decision === 'insufficient') {
-    try {
-      const { data: pr1Row } = await db
-        .from('pr1_requests')
-        .select('pr1_number')
-        .eq('id', pr1Id)
-        .maybeSingle();
-
-      await notifyByRole(
-        'procurement',
-        {
-          title:         'PR1 Ready for Canvassing',
-          body:          `PR1 ${pr1Row?.pr1_number ?? pr1Id} has been validated — items require procurement.`,
-          type:          'action_required',
-          document_type: 'pr1',
-          document_id:   pr1Id,
-          action_url:    `/pr1/${pr1Id}`,
-        },
-        { dedupeUnreadForDocument: true }
-      );
-    } catch {
-      // Notifications are best-effort; do not fail the validation
-    }
-  }
-
   // Audit log
   await db.from('audit_logs').insert({
     actor_id:      profile.id,
@@ -694,10 +688,12 @@ export async function submitValidationDecision(
       validated_by:  profile.full_name,
       position:      profile.position,
       next_status:   nextPR1Status,
+      pr2_id:        pr2Id,
       item_routes:   values.items.map((it, idx) => ({
         pr1_item_id: it.pr1_item_id,
         item_order:  it.item_order,
-        ...itemPayloads[idx],
+        item_route:  itemPayloads[idx].item_route,
+        procurement_qty: itemPayloads[idx].procurement_qty,
       })),
       derived_all_internal: decision === 'sufficient',
     },
@@ -726,4 +722,6 @@ export async function submitValidationDecision(
       // Notifications are best-effort; do not fail validation
     }
   }
+
+  return { pr2Id };
 }

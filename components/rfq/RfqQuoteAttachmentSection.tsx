@@ -157,7 +157,10 @@ interface Props {
   rfqId:               string;
   rfqSupplierId:       string;
   rfqItemQuoteId:      string | null;
+  /** pr1_items.id, or (Phase 3, Raw Mats) pr2_items.id when isRawMaterial. */
   pr1ItemId:           string;
+  /** Phase 3 (Raw Mats): when true, pr1ItemId is actually a pr2_items.id. */
+  isRawMaterial?:      boolean;
   initialAttachments:  RfqQuoteAttachment[];
   stagedFiles:         File[];
   onStagedFilesChange: (files: File[]) => void;
@@ -169,6 +172,7 @@ export default function RfqQuoteAttachmentSection({
   rfqSupplierId,
   rfqItemQuoteId,
   pr1ItemId,
+  isRawMaterial = false,
   initialAttachments,
   stagedFiles,
   onStagedFilesChange,
@@ -226,7 +230,14 @@ export default function RfqQuoteAttachmentSection({
 
     setUploading(true);
     try {
-      const result = await uploadRfqQuoteAttachment({ rfqId, rfqSupplierId, rfqItemQuoteId, pr1ItemId, file });
+      const result = await uploadRfqQuoteAttachment({
+        rfqId,
+        rfqSupplierId,
+        rfqItemQuoteId,
+        pr1ItemId: isRawMaterial ? null : pr1ItemId,
+        pr2ItemId: isRawMaterial ? pr1ItemId : null,
+        file,
+      });
       setAttachments(prev => [...prev, result]);
     } catch (e: unknown) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed.');

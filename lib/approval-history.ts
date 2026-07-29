@@ -250,30 +250,48 @@ export async function fetchMyApprovalHistoryPaged(
     else if (dt === 'PO') poIds.add(did);
   }
 
-  const [pr1Res, pr2Res, poRes] = await Promise.all([
+  const [pr1Res, poRes] = await Promise.all([
     pr1Ids.size > 0
-      ? db.from('pr1_requests').select('id, pr1_number').in('id', Array.from(pr1Ids))
-      : Promise.resolve({ data: [] as any[], error: null }),
-    pr2Ids.size > 0
-      ? db.from('pr2_requests').select('id, pr2_number').in('id', Array.from(pr2Ids))
+      ? db.from('pr1_requests').select('id, pr1_number, request_type').in('id', Array.from(pr1Ids))
       : Promise.resolve({ data: [] as any[], error: null }),
     poIds.size > 0
-      ? db.from('po_requests').select('id, po_number').in('id', Array.from(poIds))
+      ? db.from('po_requests').select('id, po_number, pr2_id').in('id', Array.from(poIds))
       : Promise.resolve({ data: [] as any[], error: null }),
   ]);
 
   if (pr1Res.error) throw pr1Res.error;
-  if (pr2Res.error) throw pr2Res.error;
   if (poRes.error) throw poRes.error;
+
+  // PO rows carry their request_type via pr2_id, not their own column — merge
+  // those pr2_ids into the same pr2_requests lookup used for direct PR2 rows.
+  for (const po of (poRes.data ?? []) as any[]) {
+    if (po.pr2_id) pr2Ids.add(po.pr2_id);
+  }
+
+  const pr2Res = pr2Ids.size > 0
+    ? await db.from('pr2_requests').select('id, pr2_number, request_type').in('id', Array.from(pr2Ids))
+    : { data: [] as any[], error: null };
+  if (pr2Res.error) throw pr2Res.error;
 
   const pr1Num: Record<string, string> = Object.fromEntries(
     ((pr1Res.data ?? []) as any[]).map((r: any) => [r.id, r.pr1_number]),
   );
+  const pr1Type: Record<string, string> = Object.fromEntries(
+    ((pr1Res.data ?? []) as any[]).map((r: any) => [r.id, r.request_type ?? 'goods']),
+  );
   const pr2Num: Record<string, string> = Object.fromEntries(
     ((pr2Res.data ?? []) as any[]).map((r: any) => [r.id, r.pr2_number]),
   );
+  const pr2Type: Record<string, string> = Object.fromEntries(
+    ((pr2Res.data ?? []) as any[]).map((r: any) => [r.id, r.request_type ?? 'goods']),
+  );
   const poNum: Record<string, string> = Object.fromEntries(
     ((poRes.data ?? []) as any[]).map((r: any) => [r.id, r.po_number]),
+  );
+  const poPr2Id: Record<string, string> = Object.fromEntries(
+    ((poRes.data ?? []) as any[])
+      .filter((r: any) => !!r.pr2_id)
+      .map((r: any) => [r.id, r.pr2_id]),
   );
 
   const rows: ApprovalHistoryRow[] = [];
@@ -288,9 +306,18 @@ export async function fetchMyApprovalHistoryPaged(
     const docId = inst.document_id as string;
 
     let document_number = '—';
-    if (dt === 'PR1') document_number = pr1Num[docId] ?? '—';
-    else if (dt === 'PR2') document_number = pr2Num[docId] ?? '—';
-    else if (dt === 'PO') document_number = poNum[docId] ?? '—';
+    let request_type: 'goods' | 'services' | 'raw_material' | undefined;
+    if (dt === 'PR1') {
+      document_number = pr1Num[docId] ?? '—';
+      request_type = (pr1Type[docId] as 'goods' | 'services' | undefined) ?? 'goods';
+    } else if (dt === 'PR2') {
+      document_number = pr2Num[docId] ?? '—';
+      request_type = (pr2Type[docId] as 'goods' | 'services' | 'raw_material' | undefined) ?? 'goods';
+    } else if (dt === 'PO') {
+      document_number = poNum[docId] ?? '—';
+      const linkedPr2Id = poPr2Id[docId];
+      request_type = (linkedPr2Id ? (pr2Type[linkedPr2Id] as 'goods' | 'services' | 'raw_material' | undefined) : undefined) ?? 'goods';
+    }
 
     rows.push({
       approval_action_id: row.id,
@@ -304,6 +331,7 @@ export async function fetchMyApprovalHistoryPaged(
       acted_at: row.acted_at,
       instance_status: inst.status,
       action_url: actionUrl(dt, row.instance_id),
+      request_type,
     });
   }
 

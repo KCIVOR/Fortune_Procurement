@@ -9,11 +9,11 @@ import { TableSkeleton } from '@/components/shared/structural-skeletons';
 import PaginationControls from '@/components/shared/PaginationControls';
 import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
-import { fetchCanvassingQueuePaged, fetchCanvassingQueueCounts, createRfq, listProcurementUsers, assignPr1ToBuyer, unassignPr1FromBuyer } from '@/lib/canvassing';
+import { fetchCanvassingQueuePaged, fetchCanvassingQueueCounts, createRfq, listProcurementUsers, assignPr1ToBuyer, unassignPr1FromBuyer, fetchSuggestedRFQSequence, fetchRawMaterialCanvassingQueue, createRfqFromPr2 } from '@/lib/canvassing';
 import type { ProcurementUserOption } from '@/lib/canvassing';
 import { fetchDepartmentOptions } from '@/lib/pr2';
 import { useAuth } from '@/context/AuthContext';
-import type { CanvassingQueueRow } from '@/types/canvassing';
+import type { CanvassingQueueRow, RawMaterialCanvassingQueueRow } from '@/types/canvassing';
 import { SendHorizontal as SendHorizonal, ArrowRight, Clock, Plus, CalendarDays, Building2, CircleDot, CheckCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import PriorityChip from '@/components/shared/PriorityChip';
@@ -48,9 +48,16 @@ export default function RFQQueuePage() {
   const [selectedDept, setSelectedDept]   = useState('all');
   const [deptOptions, setDeptOptions]     = useState<{ id: string; name: string }[]>([]);
 
-  const [view, setView] = useState<'awaiting' | 'issued'>('awaiting');
+  const [view, setView] = useState<'awaiting' | 'issued' | 'raw_material'>('awaiting');
   const [viewInitialized, setViewInitialized] = useState(false);
   const [counts, setCounts] = useState<{ awaiting: number; active: number; complete: number; issued: number } | null>(null);
+
+  // Phase 3 (Raw Mats): separate queue — PR2-native, no PR1/warehouse step.
+  const [rawRows, setRawRows]       = useState<RawMaterialCanvassingQueueRow[]>([]);
+  const [rawLoading, setRawLoading] = useState(false);
+  const [rawError, setRawError]     = useState('');
+  const [creatingRaw, setCreatingRaw] = useState(false);
+  const [selectedPr2, setSelectedPr2] = useState<RawMaterialCanvassingQueueRow | null>(null);
 
   const canFilterByDept = profile?.role === 'admin' || profile?.role === 'procurement';
 
@@ -67,8 +74,24 @@ export default function RFQQueuePage() {
   const [selectedPr1, setSelectedPr1] = useState<CanvassingQueueRow | null>(null);
   const [deadline, setDeadline]       = useState('');
   const [notes, setNotes]             = useState('');
+  const [rfqNumber, setRfqNumber]     = useState('');
+  const [suggestedRFQSequence, setSuggestedRFQSequence] = useState<string | null>(null);
   const [submitting, setSubmitting]   = useState(false);
   const [createError, setCreateError] = useState('');
+
+  const currentYear = new Date().getFullYear();
+  const rfqPrefix = `RFQ-${currentYear}-`;
+
+  const getRFQSuffix = (full: string) => {
+    if (full.startsWith(rfqPrefix)) return full.slice(rfqPrefix.length);
+    const match = full.match(/^RFQ-\d{4}-(.*)$/i);
+    return match ? match[1] : full;
+  };
+
+  const setRFQSuffix = (suffix: string) => {
+    const clean = suffix.replace(/^RFQ-\d{4}-/i, '').replace(/\D/g, '');
+    setRfqNumber(rfqPrefix + clean);
+  };
 
   useEffect(() => {
     if (!canFilterByDept) return;
@@ -80,6 +103,24 @@ export default function RFQQueuePage() {
   useEffect(() => {
     listProcurementUsers().then(setBuyerOptions).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!creating && !creatingRaw) return;
+    let cancelled = false;
+    fetchSuggestedRFQSequence(currentYear)
+      .then((suffix) => {
+        if (cancelled) return;
+        setSuggestedRFQSequence(suffix);
+        setRfqNumber((current) => {
+          const hasSuffix = current.startsWith(rfqPrefix) && current.slice(rfqPrefix.length).trim();
+          return hasSuffix ? current : `${rfqPrefix}${suffix}`;
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestedRFQSequence(null);
+      });
+    return () => { cancelled = true; };
+  }, [creating, creatingRaw, currentYear, rfqPrefix]);
 
   const loadCounts = () => {
     fetchCanvassingQueueCounts()
@@ -99,6 +140,7 @@ export default function RFQQueuePage() {
   }, [counts, viewInitialized]);
 
   const load = () => {
+    if (view === 'raw_material') return;
     const offset = (currentPage - 1) * rowsPerPage;
     setLoading(true);
     fetchCanvassingQueuePaged({
@@ -119,20 +161,70 @@ export default function RFQQueuePage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [currentPage, appliedSearch, selectedDept, canFilterByDept, view, assignedFilter, profile?.id, selectedPriority]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (view === 'raw_material') return;
+    load();
+  }, [currentPage, appliedSearch, selectedDept, canFilterByDept, view, assignedFilter, profile?.id, selectedPriority]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadRaw = () => {
+    setRawLoading(true);
+    setRawError('');
+    fetchRawMaterialCanvassingQueue()
+      .then(setRawRows)
+      .catch(() => setRawError('Failed to load Planning-direct queue.'))
+      .finally(() => setRawLoading(false));
+  };
+
+  // Fetch unconditionally (not gated on the active tab) so the "Planning
+  // Direct" tab badge reflects the real count immediately — otherwise it
+  // shows a misleading "0" until the user happens to click into that tab.
+  useEffect(() => {
+    loadRaw();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
 
-  const handleViewChange = (next: 'awaiting' | 'issued') => {
+  const handleViewChange = (next: 'awaiting' | 'issued' | 'raw_material') => {
     if (next === view) return;
     setView(next);
     setCurrentPage(1);
+  };
+
+  const handleOpenCreateRaw = (row: RawMaterialCanvassingQueueRow) => {
+    setSelectedPr2(row);
+    setDeadline('');
+    setNotes('');
+    setRfqNumber('');
+    setSuggestedRFQSequence(null);
+    setCreateError('');
+    setCreatingRaw(true);
+  };
+
+  const handleCreateRaw = async () => {
+    if (!selectedPr2 || !profile) return;
+    if (!getRFQSuffix(rfqNumber).trim()) {
+      setCreateError('RFQ number is required.');
+      return;
+    }
+    setSubmitting(true);
+    setCreateError('');
+    try {
+      const rfqId = await createRfqFromPr2(selectedPr2.pr2_id, deadline || null, notes, profile, rfqNumber);
+      setCreatingRaw(false);
+      window.location.href = `/rfq/${rfqId}`;
+    } catch (e: any) {
+      setCreateError(e.message ?? 'Failed to create RFQ.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleOpenCreate = (row: CanvassingQueueRow) => {
     setSelectedPr1(row);
     setDeadline('');
     setNotes('');
+    setRfqNumber('');
+    setSuggestedRFQSequence(null);
     setCreateError('');
     setCreating(true);
   };
@@ -175,10 +267,14 @@ export default function RFQQueuePage() {
 
   const handleCreate = async () => {
     if (!selectedPr1 || !profile) return;
+    if (!getRFQSuffix(rfqNumber).trim()) {
+      setCreateError('RFQ number is required.');
+      return;
+    }
     setSubmitting(true);
     setCreateError('');
     try {
-      const rfqId = await createRfq(selectedPr1.pr1_id, deadline || null, notes, profile);
+      const rfqId = await createRfq(selectedPr1.pr1_id, deadline || null, notes, profile, rfqNumber);
       setCreating(false);
       setCurrentPage(1);
       loadCounts();
@@ -322,9 +418,97 @@ export default function RFQQueuePage() {
               count={counts?.issued}
               accent="slate"
             />
+            <TabButton
+              active={view === 'raw_material'}
+              onClick={() => handleViewChange('raw_material')}
+              label="Planning Direct"
+              count={rawRows.length}
+              accent="slate"
+            />
           </div>
 
-          {loading ? (
+          {view === 'raw_material' ? (
+            rawError ? (
+              <div className="bg-pq-danger-100 border border-pq-danger-100 rounded-md p-4 text-sm text-pq-danger-600">{rawError}</div>
+            ) : rawLoading ? (
+              <TableSkeleton rows={5} cols={7} />
+            ) : rawRows.length === 0 ? (
+              <div className="bg-white rounded-md border border-pq-neutral-200">
+                <EmptyState
+                  title="No Planning-direct requests ready"
+                  description="Approved Raw Material and Services PR2s created directly by Planning, with no RFQ yet, will appear here."
+                  icon={SendHorizonal}
+                />
+              </div>
+            ) : (
+              <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PR2 No.</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Type</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Priority</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ No.</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Date Required</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">RFQ Status</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-pq-neutral-200">
+                      {rawRows.map(row => (
+                        <tr key={row.pr2_id} className="hover:bg-pq-neutral-50 transition">
+                          <td className="px-5 py-3.5">
+                            <span className="font-mono text-xs font-bold text-pq-neutral-900">{row.pr2_number}</span>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <RequestTypeBadge type={row.request_type} />
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <PriorityChip priority={row.priority ?? 'normal'} />
+                          </td>
+                          <td className="px-5 py-3.5 font-mono text-xs font-semibold text-pq-primary-600 whitespace-nowrap">
+                            {row.rfq_number ?? '—'}
+                          </td>
+                          <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[200px] truncate">{row.purpose}</td>
+                          <td className="px-5 py-3.5 text-pq-neutral-500 text-xs whitespace-nowrap">{row.department_name_snapshot}</td>
+                          <td className="px-5 py-3.5 text-pq-neutral-500 text-xs whitespace-nowrap">{format(new Date(row.date_required), 'MMM d, yyyy')}</td>
+                          <td className="px-5 py-3.5">
+                            {row.rfq_status && (
+                              <span className={`inline-flex items-center text-xs font-medium border rounded-full px-2 py-0.5 ${RFQ_STATUS_COLOR[row.rfq_status] ?? ''}`}>
+                                {RFQ_STATUS_LABEL[row.rfq_status] ?? row.rfq_status}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            {!row.rfq_id ? (
+                              <button
+                                onClick={() => handleOpenCreateRaw(row)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-semibold rounded-md transition"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                Create RFQ
+                              </button>
+                            ) : (
+                              <Link
+                                href={`/rfq/${row.rfq_id}`}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-pq-primary-600 hover:text-pq-neutral-900 transition"
+                              >
+                                Open RFQ
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </Link>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          ) : loading ? (
             <TableSkeleton rows={5} cols={9} />
           ) : rows.length === 0 ? (
             <div className="bg-white rounded-md border border-pq-neutral-200">
@@ -374,7 +558,7 @@ export default function RFQQueuePage() {
             </div>
           )}
 
-          {totalCount > 0 && (
+          {view !== 'raw_material' && totalCount > 0 && (
             <PaginationControls
               currentPage={currentPage}
               totalPages={totalPages}
@@ -402,6 +586,28 @@ export default function RFQQueuePage() {
               </p>
             </div>
             <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                  RFQ Number <span className="text-pq-danger-600">*</span>
+                </label>
+                <div className="flex items-center border border-pq-neutral-200 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-[#1E4BFF]">
+                  <div className="px-3 py-2 bg-pq-neutral-50 border-r border-pq-neutral-200 text-sm font-mono text-pq-neutral-400 whitespace-nowrap select-none">
+                    {rfqPrefix}
+                  </div>
+                  <input
+                    type="text"
+                    value={getRFQSuffix(rfqNumber)}
+                    onChange={(e) => setRFQSuffix(e.target.value)}
+                    placeholder={suggestedRFQSequence ?? '0001'}
+                    className="flex-1 px-3 py-2 border-0 text-sm font-mono focus:outline-none"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-pq-neutral-400">
+                  {suggestedRFQSequence
+                    ? `Suggested: ${rfqPrefix}${suggestedRFQSequence} — you may edit this number.`
+                    : 'Enter a 4-digit sequence (e.g. 0001).'}
+                </p>
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
                   Quotation Deadline <span className="text-pq-neutral-400 font-normal normal-case">(optional)</span>
@@ -439,7 +645,87 @@ export default function RFQQueuePage() {
               </button>
               <button
                 onClick={handleCreate}
+                disabled={submitting || !getRFQSuffix(rfqNumber).trim()}
+                className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
+              >
+                {submitting ? 'Creating...' : 'Create RFQ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {creatingRaw && selectedPr2 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-md w-full max-w-md mx-4 overflow-hidden">
+            <div className="px-6 py-5 border-b border-pq-neutral-200">
+              <h2 className="text-base font-semibold text-pq-neutral-900">Create RFQ</h2>
+              <p className="text-xs text-pq-neutral-500 mt-0.5">
+                For PR2 <span className="font-mono font-semibold">{selectedPr2.pr2_number}</span>
+                {' '}— {selectedPr2.purpose}
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                  RFQ Number <span className="text-pq-danger-600">*</span>
+                </label>
+                <div className="flex items-center border border-pq-neutral-200 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-[#1E4BFF]">
+                  <div className="px-3 py-2 bg-pq-neutral-50 border-r border-pq-neutral-200 text-sm font-mono text-pq-neutral-400 whitespace-nowrap select-none">
+                    {rfqPrefix}
+                  </div>
+                  <input
+                    type="text"
+                    value={getRFQSuffix(rfqNumber)}
+                    onChange={(e) => setRFQSuffix(e.target.value)}
+                    placeholder={suggestedRFQSequence ?? '0001'}
+                    className="flex-1 px-3 py-2 border-0 text-sm font-mono focus:outline-none"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-pq-neutral-400">
+                  {suggestedRFQSequence
+                    ? `Suggested: ${rfqPrefix}${suggestedRFQSequence} — you may edit this number.`
+                    : 'Enter a 4-digit sequence (e.g. 0001).'}
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                  Quotation Deadline <span className="text-pq-neutral-400 font-normal normal-case">(optional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={deadline}
+                  onChange={e => setDeadline(e.target.value)}
+                  className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                  Notes <span className="text-pq-neutral-400 font-normal normal-case">(optional)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Specifications, brand preferences, delivery requirements..."
+                  className="w-full px-3 py-2.5 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] resize-none"
+                />
+              </div>
+              {createError && (
+                <p className="text-sm text-pq-danger-600">{createError}</p>
+              )}
+            </div>
+            <div className="px-6 pb-5 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setCreatingRaw(false)}
                 disabled={submitting}
+                className="px-4 py-2 text-sm text-pq-neutral-500 hover:text-pq-neutral-900 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateRaw}
+                disabled={submitting || !getRFQSuffix(rfqNumber).trim()}
                 className="px-5 py-2 bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
               >
                 {submitting ? 'Creating...' : 'Create RFQ'}

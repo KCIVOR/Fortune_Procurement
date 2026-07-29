@@ -25,7 +25,8 @@ import {
   clearItemSelection,
 } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
-import { generatePR2FromRfq, fetchPR2ByRfqId } from '@/lib/pr2';
+import { fetchPR2ByRfqId } from '@/lib/pr2';
+import { fetchRfqApprovalInstanceForRfq } from '@/lib/rfq-approvals';
 import type { RfqDetailView, QuoteMatrixRow, CanvassSupplierCandidate } from '@/types/canvassing';
 import {
   SUPPLY_TYPE_FILTER_OPTIONS,
@@ -83,6 +84,11 @@ export default function RfqDetailPage() {
   const [actionError, setActionError] = useState('');
   const [working, setWorking] = useState(false);
   const [existingPR2Id, setExistingPR2Id] = useState<string | null>(null);
+  const [rfqApproval, setRfqApproval] = useState<{
+    id: string;
+    status: string;
+    current_step: number;
+  } | null>(null);
 
   // Supplier assignment panel
   const [assigning, setAssigning]       = useState(false);
@@ -174,8 +180,12 @@ export default function RfqDetailPage() {
     setExtQuoteBusy(true);
     setExtQuoteError('');
     try {
+      const isPr2Item = Boolean(detail?.rfq && !detail.rfq.pr1_id);
+      const itemId = extQuote.pr1ItemId;
+
       await submitSupplierQuotation(extQuote.rfqSupplierId, [{
-        pr1_item_id:        extQuote.pr1ItemId,
+        pr1_item_id:        isPr2Item ? null : itemId,
+        pr2_item_id:        isPr2Item ? itemId : null,
         quoted_description: extQuote.quotedDescription.trim(),
         is_alternative:     false,
         unit_price:         price,
@@ -188,7 +198,7 @@ export default function RfqDetailPage() {
       if (extQuote.pendingFiles.length > 0) {
         const rfqItemQuoteId = await fetchQuoteIdForSupplierItem(
           extQuote.rfqSupplierId,
-          extQuote.pr1ItemId,
+          itemId,
         );
         if (rfqItemQuoteId) {
           for (const file of extQuote.pendingFiles) {
@@ -196,7 +206,8 @@ export default function RfqDetailPage() {
               rfqId:          detail.rfq.id,
               rfqSupplierId:  extQuote.rfqSupplierId,
               rfqItemQuoteId,
-              pr1ItemId:      extQuote.pr1ItemId,
+              pr1ItemId:      isPr2Item ? null : itemId,
+              pr2ItemId:      isPr2Item ? itemId : null,
               file,
             });
           }
@@ -218,12 +229,14 @@ export default function RfqDetailPage() {
     Promise.all([
       fetchRfqDetail(id),
       fetchPR2ByRfqId(id),
+      fetchRfqApprovalInstanceForRfq(id),
     ])
-      .then(([d, pr2]) => {
+      .then(([d, pr2, approval]) => {
         if (!d) { setError('RFQ not found.'); return; }
         setDetail(d);
         setMatrix(buildQuoteMatrix(d));
-        setExistingPR2Id(pr2?.id ?? null);
+        setExistingPR2Id(pr2?.id ?? d.rfq.pr2_id ?? null);
+        setRfqApproval(approval);
       })
       .catch(() => setError('Failed to load RFQ.'))
       .finally(() => setLoading(false));
@@ -246,6 +259,18 @@ export default function RfqDetailPage() {
   );
 
   const { rfq, pr1, items, suppliers, allSuppliers } = detail;
+  const isGoodsOrServices = (pr1.request_type ?? 'goods') === 'goods' || pr1.request_type === 'services';
+  const isRawMaterial = pr1.request_type === 'raw_material';
+  // PR2-native (no pr1_id): Raw Material or a Planning-direct Services PR2 —
+  // `pr1` here actually holds the PR2's fields in that case (see
+  // fetchRfqDetail), so "PR1 Number"/"PR1 Details" labels would be wrong for
+  // a Planning-direct Services RFQ too, not just Raw Material.
+  const isPr2Native = !rfq.pr1_id;
+  // Services Workflow Alignment Phase 4: Services now creates its PR2 before
+  // RFQ (same as Goods) and goes through RFQ_APPROVAL identically — same
+  // reopen/close-label/PR2-link UI as Goods/Raw Material, not the old
+  // "no approval, just Generate PR2" legacy branch this used to fall into.
+  const followsApprovalFlow = isGoodsOrServices || isRawMaterial;
   const isOpen   = rfq.status === 'open';
   const isDraft  = rfq.status === 'draft';
   const isClosed = rfq.status === 'closed';
@@ -304,6 +329,10 @@ export default function RfqDetailPage() {
       value: supplyTypeFilter,
       onChange: (value) => setSupplyTypeFilter(value as SupplyTypeFilter),
       options: SUPPLY_TYPE_FILTER_OPTIONS,
+      // Phase 3 (Raw Mats): locked to raw_material for raw-material RFQs —
+      // server-side assignSuppliers() also enforces this, this just keeps
+      // the UI from suggesting a choice that will be rejected.
+      disabled: pr1.request_type === 'raw_material',
     },
   ];
 
@@ -312,8 +341,14 @@ export default function RfqDetailPage() {
     setAppliedSupplierSearch('');
     setAccreditationFilter('all');
     setAppliedAccreditationFilter('all');
-    setSupplyTypeFilter('all');
-    setAppliedSupplyTypeFilter('all');
+    // Note: pr1.request_type uses 'services' (plural); the supply-type filter
+    // enum uses 'service' (singular) — deliberately different vocabularies.
+    const defaultSupplyType: SupplyTypeFilter =
+      pr1.request_type === 'raw_material' ? 'raw_material'
+      : pr1.request_type === 'services' ? 'service'
+      : 'all';
+    setSupplyTypeFilter(defaultSupplyType);
+    setAppliedSupplyTypeFilter(defaultSupplyType);
     setSupplierPage(1);
     setAssigning(true);
   };
@@ -447,20 +482,15 @@ export default function RfqDetailPage() {
     }
   };
 
-  const handleGeneratePR2 = async () => {
-    if (!profile) return;
-    if (existingPR2Id) { router.push(`/pr2/${existingPR2Id}`); return; }
-    setWorking(true);
-    setActionError('');
-    try {
-      const pr2Id = await generatePR2FromRfq(rfq.id, profile);
-      router.push(`/pr2/${pr2Id}`);
-    } catch (e: any) {
-      setActionError(e.message ?? 'Failed to generate PR2.');
-    } finally {
-      setWorking(false);
-    }
+  const handleViewPR2 = async () => {
+    if (!profile || !existingPR2Id) return;
+    router.push(`/pr2/${existingPR2Id}`);
   };
+
+
+
+  const rfqApprovalApproved = rfqApproval?.status === 'approved';
+  const rfqApprovalPending = rfqApproval?.status === 'active';
 
   const handleCopyForViber = (supplierAssignmentId?: string) => {
     if (!detail) return;
@@ -625,28 +655,46 @@ export default function RfqDetailPage() {
               <RequestTypeBadge type={pr1.request_type ?? 'goods'} />
             </DetailTitleRow>
             <p className="text-sm text-pq-neutral-500">
-              PR1 <span className="font-semibold text-pq-neutral-900">{pr1.pr1_number}</span>
+              {isPr2Native ? 'PR2' : 'PR1'} <span className="font-semibold text-pq-neutral-900">{pr1.pr1_number}</span>
               {' '}· {pr1.department_name_snapshot} · {pr1.purpose}
             </p>
             {isClosed && existingPR2Id && (
               <p className="text-xs text-pq-neutral-400 italic mt-1">
-                A PR2 has already been generated from this RFQ — it can no longer be reopened.
+                {followsApprovalFlow
+                  ? rfqApprovalApproved
+                    ? 'RFQ approved — procurement may create PO from the linked PR2.'
+                    : rfqApprovalPending
+                      ? 'RFQ closed — pending Director approval.'
+                      : isPr2Native
+                        ? 'Linked PR2 was created directly by Planning.'
+                        : 'Linked PR2 was created at warehouse validation.'
+                  : 'A PR2 has already been generated from this RFQ — it can no longer be reopened.'}
               </p>
             )}
           </div>
         }
         right={
           <div className="flex items-center gap-2 shrink-0">
-            {isClosed && (
+            {isClosed && existingPR2Id && (
               <ActionButton
                 icon={ClipboardList}
-                label={existingPR2Id ? 'View PR2' : 'Generate PR2'}
+                label="View PR2"
                 color="emerald"
-                onClick={handleGeneratePR2}
+                onClick={handleViewPR2}
                 disabled={working}
               />
             )}
-            {isClosed && !existingPR2Id && (
+
+            {isClosed && !followsApprovalFlow && !existingPR2Id && (
+              <ActionButton
+                icon={RotateCcw}
+                label="Reopen RFQ"
+                color="amber"
+                onClick={handleReopen}
+                disabled={working}
+              />
+            )}
+            {isClosed && followsApprovalFlow && !rfqApprovalApproved && (
               <ActionButton
                 icon={RotateCcw}
                 label="Reopen RFQ"
@@ -667,7 +715,7 @@ export default function RfqDetailPage() {
             {isOpen && allItemsSelected && (
               <ActionButton
                 icon={CheckCheck}
-                label="Close & Finalise"
+                label={followsApprovalFlow ? 'Close & Submit for Approval' : 'Close & Finalise'}
                 color="emerald"
                 onClick={handleClose}
                 disabled={working}
@@ -763,10 +811,10 @@ export default function RfqDetailPage() {
         <div className="space-y-4">
           {/* PR1 info card */}
           <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-3">
-            <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">PR1 Details</h2>
+            <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">{isPr2Native ? 'PR2 Details' : 'PR1 Details'}</h2>
             <DetailInfoField
               icon={<FileText className="w-3.5 h-3.5 text-pq-neutral-400" />}
-              label="PR1 Number"
+              label={isPr2Native ? 'PR2 Number' : 'PR1 Number'}
               value={pr1.pr1_number}
               labelTone="muted"
               labelSpacing="compact"
@@ -1209,6 +1257,8 @@ export default function RfqDetailPage() {
           </div>
         </div>
       )}
+
+
     </AppShell>
   );
 }
@@ -1255,7 +1305,7 @@ function MatrixRow({
   suppliers: { id: string; supplier_name_snapshot: string; status: string; is_external?: boolean }[];
   canSelect: boolean;
   canViewPrices: boolean;
-  requestType: 'goods' | 'services';
+  requestType: 'goods' | 'services' | 'raw_material';
   onSelect: (pr1ItemId: string, rfqSupplierId: string) => void;
   onEnterExternalQuote: (args: {
     pr1ItemId: string;
@@ -1264,6 +1314,9 @@ function MatrixRow({
     existing: { unit_price: number; quoted_description: string; lead_time_days: number; remarks?: string | null; attachments?: RfqQuoteAttachment[]; vat_type?: 'vat_inclusive' | 'vat_exclusive' | null } | null;
   }) => void;
 }) {
+  // Catalog products are only ever categorized 'goods' | 'services' — raw
+  // material requests are catalogued as 'goods', so compare against that.
+  const catalogRequestType = requestType === 'raw_material' ? 'goods' : requestType;
   return (
     <tr className="hover:bg-pq-neutral-50 transition">
       <td className="px-3 py-2.5 align-top">
@@ -1431,7 +1484,7 @@ function MatrixRow({
                       )}
 
                       {quote.supplier_product_item_type !== null &&
-                        quote.supplier_product_item_type !== requestType && (
+                        quote.supplier_product_item_type !== catalogRequestType && (
                           <p className="text-[10px] font-semibold text-pq-warning-700 flex items-center gap-0.5">
                             <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
                             Type mismatch — supplier offered{' '}
@@ -1444,11 +1497,11 @@ function MatrixRow({
                             </span>
                             for a{' '}
                             <span className={`mx-0.5 rounded px-1 py-px ${
-                              requestType === 'services'
+                              catalogRequestType === 'services'
                                 ? 'bg-purple-50 text-purple-700'
                                 : 'bg-blue-50 text-blue-700'
                             }`}>
-                              {requestType === 'services' ? 'Services' : 'Goods'}
+                              {catalogRequestType === 'services' ? 'Services' : 'Goods'}
                             </span>
                             request
                           </p>
@@ -1539,17 +1592,18 @@ function MatrixRow({
 
                   return (
                     <button
+                      type="button"
                       onClick={() => (isSelected || !awardBlocked) && onSelect(row.item.id, supplier.id)}
                       disabled={!isSelected && awardBlocked}
                       title={isSelected ? 'Click to clear this selection' : tooltip}
-                      className={`mt-1.5 inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md transition ${
+                      className={`mt-2 w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-md border shadow-sm transition ${
                         isSelected
-                          ? 'bg-pq-success-600 text-white hover:bg-pq-success-700'
+                          ? 'bg-pq-success-600 text-white border-pq-success-600 hover:bg-pq-success-700 hover:border-pq-success-700'
                           : awardBlocked
-                            ? 'bg-pq-neutral-50 text-pq-neutral-400 cursor-not-allowed'
+                            ? 'bg-pq-neutral-50 text-pq-neutral-400 border-pq-neutral-200 cursor-not-allowed shadow-none'
                             : needsJust
-                              ? 'bg-pq-warning-100 text-pq-warning-700 hover:bg-pq-warning-100'
-                              : 'bg-pq-neutral-50 text-pq-neutral-500 hover:bg-pq-success-100 hover:text-pq-success-600'
+                              ? 'bg-amber-50 text-amber-800 border-amber-400 hover:bg-amber-500 hover:text-white hover:border-amber-500'
+                              : 'bg-white text-pq-success-700 border-pq-success-600 hover:bg-pq-success-600 hover:text-white hover:border-pq-success-600'
                       }`}
                     >
                       {isSelected ? (

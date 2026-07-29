@@ -1,9 +1,11 @@
 import { supabase } from '@/lib/supabase';
+import { isRfqApprovalComplete } from '@/lib/pr2-rfq-sync';
 import type { UserProfile } from '@/types/auth';
 import type { PORequest, POWithItems, POFormValues, POGenerationCandidate } from '@/types/po';
 import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { computeLineVat, aggregateVat } from '@/lib/vat';
+import { resolvePR2RequestType } from '@/lib/pr2-classification';
 
 const db = supabase as any;
 
@@ -188,14 +190,13 @@ export async function fetchPOById(id: string): Promise<POWithItems | null> {
     quoteIds.length > 0
       ? fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({} as Record<string, RfqQuoteAttachment[]>))
       : Promise.resolve({} as Record<string, RfqQuoteAttachment[]>),
-    db.from('pr2_requests').select('pr1_id').eq('id', po.pr2_id).maybeSingle(),
+    db.from('pr2_requests').select('pr1_id, request_type').eq('id', po.pr2_id).maybeSingle(),
   ]);
 
-  let request_type: 'goods' | 'services' = 'goods';
+  const request_type = (pr2Res.data?.request_type as 'goods' | 'services' | 'raw_material') ?? 'goods';
   let pr1_priority = 'normal';
   if (pr2Res.data?.pr1_id) {
-    const { data: pr1Data } = await db.from('pr1_requests').select('request_type, priority').eq('id', pr2Res.data.pr1_id).maybeSingle();
-    request_type = (pr1Data as any)?.request_type ?? 'goods';
+    const { data: pr1Data } = await db.from('pr1_requests').select('priority').eq('id', pr2Res.data.pr1_id).maybeSingle();
     pr1_priority = (pr1Data as any)?.priority ?? 'normal';
   }
 
@@ -247,13 +248,49 @@ export async function fetchPOByPR2Id(pr2Id: string): Promise<PORequest | null> {
 export async function fetchPOGenerationCandidates(): Promise<POGenerationCandidate[]> {
   const { data: pr2s, error: pr2Err } = await db
     .from('pr2_requests')
-    .select('id, pr2_number, purpose, department_name_snapshot, requisitioner_name_snapshot, date_required')
+    .select('id, pr2_number, purpose, department_name_snapshot, requisitioner_name_snapshot, date_required, pr1_id, rfq_id, request_type')
     .eq('status', 'approved')
     .order('generated_at', { ascending: false });
   if (pr2Err) throw pr2Err;
   if (!pr2s?.length) return [];
 
-  const pr2Ids = (pr2s as any[]).map((p: any) => p.id);
+  const pr2TypeById: Record<string, string> = Object.fromEntries(
+    (pr2s as any[]).map((p) => [p.id, p.request_type]),
+  );
+
+  // Goods (via PR1), Services (via PR1 or Planning-direct), and Raw Material
+  // (via PR2 directly) all require a fully Director-approved RFQ before a PO
+  // can be generated — no request type is exempt (Services Workflow
+  // Alignment Phase 6: the old services carve-out was only correct under the
+  // legacy pre-alignment flow, where a services PR2 didn't exist until after
+  // the RFQ had already closed with no formal approval relationship).
+  const gatedRfqIds = Array.from(
+    new Set(
+      (pr2s as any[])
+        .filter((p) => p.rfq_id)
+        .map((p) => p.rfq_id as string),
+    ),
+  );
+  const approvedGatedRfqIds = new Set<string>();
+  if (gatedRfqIds.length > 0) {
+    const { data: rfqInsts } = await db
+      .from('approval_instances')
+      .select('document_id, status, started_at')
+      .eq('document_type', 'RFQ')
+      .in('document_id', gatedRfqIds)
+      .order('started_at', { ascending: false });
+    const seen = new Set<string>();
+    for (const inst of (rfqInsts ?? []) as any[]) {
+      if (seen.has(inst.document_id)) continue;
+      seen.add(inst.document_id);
+      if (inst.status === 'approved') approvedGatedRfqIds.add(inst.document_id);
+    }
+  }
+
+  const eligiblePr2s = (pr2s as any[]).filter((p) => Boolean(p.rfq_id && approvedGatedRfqIds.has(p.rfq_id)));
+  if (!eligiblePr2s.length) return [];
+
+  const pr2Ids = eligiblePr2s.map((p: any) => p.id);
 
   const { data: allPOs } = await db
     .from('po_requests')
@@ -335,7 +372,7 @@ export async function fetchPOGenerationCandidates(): Promise<POGenerationCandida
   };
 
   const groupsByPr2 = new Map<string, Map<string, GroupAcc>>();
-  for (const pr2 of pr2s as any[]) {
+  for (const pr2 of eligiblePr2s as any[]) {
     groupsByPr2.set(pr2.id, new Map());
   }
 
@@ -363,7 +400,7 @@ export async function fetchPOGenerationCandidates(): Promise<POGenerationCandida
   }
 
   const candidates: POGenerationCandidate[] = [];
-    for (const pr2 of pr2s as any[]) {
+    for (const pr2 of eligiblePr2s as any[]) {
       const pr2Map = groupsByPr2.get(pr2.id)!;
       for (const [groupKey, g] of Array.from(pr2Map.entries())) {
       const existingPoId = poByPr2Supplier.get(`${pr2.id}:${groupKey}`) ?? null;
@@ -487,12 +524,23 @@ export async function generatePOFromPR2(
   // Guard: PR2 must be approved
   const { data: pr2, error: pr2Err } = await db
     .from('pr2_requests')
-    .select('id, status, pr2_number, pr1_number_snapshot, rfq_number_snapshot, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required')
+    .select('id, status, pr2_number, pr1_id, request_type, pr1_number_snapshot, rfq_id, rfq_number_snapshot, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required')
     .eq('id', pr2Id)
     .maybeSingle();
   if (pr2Err) throw pr2Err;
   if (!pr2) throw new Error('PR2 not found.');
   if (pr2.status !== 'approved') throw new Error('PO can only be generated from a fully approved PR2.');
+
+  const reqType = resolvePR2RequestType(pr2);
+  // All three request types require a fully Director-approved RFQ before a
+  // PO can be generated — no exemption (Services Workflow Alignment Phase 6).
+  if (!pr2.rfq_id) {
+    throw new Error(`${reqType === 'goods' ? 'Goods' : reqType === 'services' ? 'Services' : 'Raw material'} PO requires a linked RFQ on the PR2.`);
+  }
+  const rfqApproved = await isRfqApprovalComplete(pr2.rfq_id);
+  if (!rfqApproved) {
+    throw new Error('RFQ must be fully approved by the Director before creating a PO.');
+  }
 
   // Guard: buyer must supply a PO number
   const poNumber = formValues.po_number.trim();
@@ -547,6 +595,16 @@ export async function generatePOFromPR2(
     .order('item_order', { ascending: true });
   if (itemsErr) throw itemsErr;
   if (!pr2ItemsRaw || pr2ItemsRaw.length === 0) throw new Error('PR2 has no items to include in PO.');
+
+  // All three request types sync their PR2 lines from RFQ selections before
+  // reaching here (goods/services via syncPR2ItemsFromRfqSelections, raw
+  // material via syncRawMaterialPR2ItemsFromRfqSelections) — no exemption.
+  const hasSyncedSupplier = (pr2ItemsRaw as any[]).some(
+    (item) => Boolean(item.selected_rfq_supplier_id),
+  );
+  if (!hasSyncedSupplier) {
+    throw new Error('PR2 lines must be synced from RFQ selections before creating a PO.');
+  }
 
   const rfqSids = Array.from(
     new Set(
@@ -697,6 +755,8 @@ function normalizePO(row: any): PORequest {
     updated_at:                  row.updated_at,
     // Rev #9: resolved from pr1_requests.priority via ID-based join at read time.
     pr1_priority:                row.pr1_priority ?? 'normal',
+    sent_by_id:                  row.sent_by_id ?? null,
+    sent_at:                     row.sent_at ?? null,
   };
 }
 
@@ -718,6 +778,7 @@ function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuot
     vat_rate_applied:      row.vat_rate_applied ?? null,
     supplier_name_snapshot: row.supplier_name_snapshot,
     remarks:               row.remarks,
+    requires_compliance_doc: row.requires_compliance_doc === true,
     is_raw_material:       pr2Item?.is_raw_material === true,
     quote_justification:   pr2Item?.quote_justification ?? null,
     pr1_remarks_snapshot:  pr2Item?.pr1_remarks_snapshot ?? null,

@@ -11,6 +11,7 @@ import { calcPOVatBreakdown } from '@/lib/po';
 import type { POApprovalDetail } from '@/types/po';
 import { format } from 'date-fns';
 import RawMaterialBadge from '@/components/shared/RawMaterialBadge';
+import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import {
   ChevronLeft, User, Building2, FileText, CalendarDays,
   Package, Truck, CreditCard, MapPin, CircleCheck as CheckCircle2,
@@ -103,11 +104,14 @@ export default function SupplierPODetailPage() {
                detail.po_status === 'sent'     ? 'Acknowledged' :
                detail.po_status}
             </span>
+            <RequestTypeBadge type={detail.request_type ?? 'goods'} />
           </div>
           <p className="text-sm text-pq-neutral-500">{detail.department_name_snapshot} · {detail.purpose}</p>
           <p className="text-xs text-pq-neutral-400 mt-0.5">
             PR2 Ref: <span className="font-mono">{detail.pr2_number_snapshot}</span>
-            {' '}· PR1 Ref: <span className="font-mono">{detail.pr1_number_snapshot}</span>
+            {detail.pr1_number_snapshot && (
+              <>{' '}· PR1 Ref: <span className="font-mono">{detail.pr1_number_snapshot}</span></>
+            )}
           </p>
         </div>
       </div>

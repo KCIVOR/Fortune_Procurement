@@ -17,7 +17,7 @@ import {
 import type { PR1WithItems, PR1FormValues, PR1ItemDraft, PR1Attachment, PR1RequestType } from '@/types/pr1';
 import { EMPTY_ITEM } from '@/types/pr1';
 import { useDropdownOptions } from '@/hooks/useDropdownOptions';
-import { Plus, Trash2, TriangleAlert as AlertTriangle, Save, Send, ChevronUp, ChevronDown, FlaskConical, CalendarDays } from 'lucide-react';
+import { Plus, Trash2, TriangleAlert as AlertTriangle, Save, Send, ChevronUp, ChevronDown, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,10 +43,11 @@ function resolveOptionSelection(stored: string, options: string[]): { sel: strin
 function buildInitialValues(existing?: PR1WithItems): PR1FormValues {
   if (existing) {
     return {
-      pr1_number:    existing.pr1_number,
-      purpose:       existing.purpose,
-      date_required: existing.date_required,
-      request_type:  existing.request_type ?? 'goods',
+      pr1_number:         existing.pr1_number,
+      requisitioner_name: existing.requisitioner_name_snapshot,
+      purpose:            existing.purpose,
+      date_required:      existing.date_required,
+      request_type:       existing.request_type ?? 'goods',
       items: existing.items.length > 0
         ? existing.items.map(i => ({
             id:                 i.id,
@@ -66,11 +67,12 @@ function buildInitialValues(existing?: PR1WithItems): PR1FormValues {
   const currentYear = new Date().getFullYear();
   const pr1Prefix = `PR1-${currentYear}-`;
   return {
-    pr1_number:    pr1Prefix,
-    purpose:       '',
-    date_required: format(new Date(), 'yyyy-MM-dd'),
-    request_type:  'goods',
-    items:         [{ ...EMPTY_ITEM(), id: `temp-${Math.random().toString(36).substring(2, 9)}` }],
+    pr1_number:         pr1Prefix,
+    requisitioner_name: '',
+    purpose:            '',
+    date_required:      format(new Date(), 'yyyy-MM-dd'),
+    request_type:       'goods',
+    items:              [{ ...EMPTY_ITEM(), id: `temp-${Math.random().toString(36).substring(2, 9)}` }],
   };
 }
 
@@ -206,15 +208,6 @@ export default function PR1Form({ existing }: PR1FormProps) {
     }));
   };
 
-  // Phase 3 (Raw Mats): boolean toggle kept separate from `setItem` so the
-  // existing string|number signature stays intact and surgical.
-  const setItemRawMaterial = (idx: number, value: boolean) => {
-    setValues(v => ({
-      ...v,
-      items: v.items.map((item, i) => i === idx ? { ...item, is_raw_material: value } : item),
-    }));
-  };
-
   const setUnitSel = (idx: number, sel: string) => {
     setItemUnitStates(prev => prev.map((s, i) => i === idx ? { ...s, sel } : s));
     setErrors(e => ({ ...e, [`item_uom_${idx}`]: undefined }));
@@ -308,6 +301,7 @@ export default function PR1Form({ existing }: PR1FormProps) {
       items: values.items.map((item, idx) => ({
         ...item,
         unit_of_measure: finalUnit(idx),
+        is_raw_material: false,
       })),
     };
   }
@@ -522,14 +516,16 @@ export default function PR1Form({ existing }: PR1FormProps) {
             )}
           </div>
 
-          {/* Requisitioner (read-only) */}
+          {/* Requisitioner */}
           <div>
             <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
               Requisitioner / User
             </label>
-            <div className="px-3 py-2.5 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md text-sm text-pq-neutral-900 font-medium">
-              {profile.full_name}
-            </div>
+            <Input
+              value={values.requisitioner_name ?? ''}
+              onChange={(e) => setHeader('requisitioner_name', e.target.value)}
+              placeholder={profile.full_name || 'Enter requestor name'}
+            />
           </div>
 
           {/* Department (read-only) */}
@@ -688,14 +684,6 @@ export default function PR1Form({ existing }: PR1FormProps) {
                   {isServices ? <span className="text-pq-neutral-400 italic">SOH</span> : 'SOH'}
                 </TableHead>
                 <TableHead className="text-right px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-28">Req. Qty</TableHead>
-                {!isServices && (
-                  <TableHead
-                    className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-20"
-                    title="Mark as Raw Material — used for production inputs (e.g. chemicals). Verified products are preferred during canvassing."
-                  >
-                    Raw Mat.
-                  </TableHead>
-                )}
                 <TableHead className="text-center px-3 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide w-20" title="Attach images to this item">Attach</TableHead>
                 <TableHead className="w-12 px-3 py-2.5" />
               </TableRow>
@@ -796,36 +784,6 @@ export default function PR1Form({ existing }: PR1FormProps) {
                         )}
                       />
                     </TableCell>
-                    {!isServices && (
-                      <TableCell className="px-2 py-2 text-center align-middle">
-                        <label
-                          className="inline-flex items-center justify-center cursor-pointer group/raw"
-                          title={
-                            item.is_raw_material
-                              ? 'Raw material — supplier may offer verified, unverified, or manual entry. Procurement will see verification status during canvassing.'
-                              : 'Not a raw material — verification not required.'
-                          }
-                        >
-                          <input
-                            type="checkbox"
-                            checked={item.is_raw_material === true}
-                            onChange={e => setItemRawMaterial(idx, e.target.checked)}
-                            className="sr-only"
-                          />
-                          <span
-                            className={cn(
-                              'inline-flex items-center justify-center w-6 h-6 rounded-md border transition',
-                              item.is_raw_material
-                                ? 'bg-pq-primary-50 border-pq-primary-600 text-pq-primary-600'
-                                : 'bg-white border-pq-neutral-300 text-pq-neutral-300 group-hover/raw:border-pq-neutral-400 group-hover/raw:text-pq-neutral-400'
-                            )}
-                            aria-hidden="true"
-                          >
-                            <FlaskConical className="w-3.5 h-3.5" />
-                          </span>
-                        </label>
-                      </TableCell>
-                    )}
                     <TableCell className="px-2 py-2 text-center align-middle">
                       <PR1ItemAttachmentButton
                         existingAttachments={existingAttachments[item.id ?? ''] ?? []}

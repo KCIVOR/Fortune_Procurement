@@ -4,12 +4,16 @@ import type { UserProfile } from '@/types/auth';
 import { fetchPR1Attachments } from './pr1';
 import type { PR1Attachment } from '@/types/pr1';
 import { createNotification, notifyByRole } from '@/lib/notifications';
+import { syncPR2ItemsFromRfqSelections, syncRawMaterialPR2ItemsFromRfqSelections } from '@/lib/pr2-rfq-sync';
+import { submitRfqForApproval } from '@/lib/rfq-approvals';
+import { isPr2NativeDirectRequest } from '@/lib/pr2-classification';
 import { getVatSettings, computeLineVat } from '@/lib/vat';
 import type {
   RfqBatch,
   RfqSupplier,
   RfqItemQuote,
   CanvassingQueueRow,
+  RawMaterialCanvassingQueueRow,
   RfqDetailView,
   QuoteMatrixRow,
   SupplierRfqInboxRow,
@@ -24,6 +28,26 @@ import type {
 } from '@/types/canvassing';
 
 const db = supabase as any;
+
+/**
+ * Procurement canvassing queue eligibility. Goods and Services both create
+ * their PR2 before RFQ (Warehouse handoff) and both reach `pr2_approved` on
+ * final PR2 approval — the old separate services clause (`for_canvassing`/
+ * `canvassing_complete`) was the legacy pre-alignment shape and is no longer
+ * reachable for new services records (Services Workflow Alignment Phase 5).
+ */
+const CANVASSING_QUEUE_OR_FILTER =
+  'and(request_type.in.(goods,services),status.eq.pr2_approved)';
+
+// Defensive filter for stale goods/services rows still sitting at the old
+// for_canvassing/canvassing_complete statuses from before their respective
+// alignment fixes shipped — the OR filter above no longer selects rows in
+// this shape going forward, but this catches any that slip through a stale
+// query plan or manual DB state.
+function isLegacyGoodsCanvassingStatus(row: { request_type?: string; status?: string }): boolean {
+  if ((row.request_type ?? 'goods') !== 'goods' && row.request_type !== 'services') return false;
+  return row.status === 'for_canvassing' || row.status === 'canvassing_complete';
+}
 
 // ─── Warehouse-routed RFQ lines (Phase 2) ─────────────────────────────────────
 // When warehouse validation is complete, only lines with procurement_qty > 0 appear in
@@ -215,13 +239,16 @@ export async function fetchCanvassingQueue(): Promise<CanvassingQueueRow[]> {
   const { data: pr1s, error: pr1Err } = await db
     .from('pr1_requests')
     .select(CANVASSING_QUEUE_PR1_SELECT)
-    .in('status', ['for_canvassing', 'canvassing_complete'])
+    .or(CANVASSING_QUEUE_OR_FILTER)
     .order('submitted_at', { ascending: false });
 
   if (pr1Err) throw pr1Err;
   if (!pr1s || pr1s.length === 0) return [];
 
-  const pr1Ids = (pr1s as any[]).map((r: any) => r.id);
+  const eligible = (pr1s as any[]).filter((row) => !isLegacyGoodsCanvassingStatus(row));
+  if (eligible.length === 0) return [];
+
+  const pr1Ids = eligible.map((r: any) => r.id);
 
   const { data: rfqs, error: rfqErr } = await db
     .from('rfq_batches')
@@ -235,7 +262,7 @@ export async function fetchCanvassingQueue(): Promise<CanvassingQueueRow[]> {
     rfqMap[rfq.pr1_id] = rfq;
   }
 
-  return (pr1s as any[]).map((pr1: any) => {
+  return (eligible as any[]).map((pr1: any) => {
     const rfq = rfqMap[pr1.id] ?? null;
     return {
       pr1_id:                      pr1.id,
@@ -300,7 +327,9 @@ export async function fetchCanvassingQueuePaged(options: {
   }
 
   const applyFilters = (q: any) => {
-    q = q.in('status', ['for_canvassing', 'canvassing_complete']);
+    if (view !== 'issued') {
+      q = q.or(CANVASSING_QUEUE_OR_FILTER);
+    }
     if (assignedFilter === 'mine' && viewerId) {
       q = q.eq('assigned_buyer_id', viewerId);
     } else if (assignedFilter === 'unassigned') {
@@ -348,10 +377,11 @@ export async function fetchCanvassingQueuePaged(options: {
   if (pr1sRes.error) throw pr1sRes.error;
   if (countRes.error) throw countRes.error;
 
-  const pr1s = pr1sRes.data ?? [];
-  if (pr1s.length === 0) return { rows: [], total_count: countRes.count ?? 0 };
+  const pr1s = ((pr1sRes.data ?? []) as any[]).filter((row) => view === 'issued' ? true : !isLegacyGoodsCanvassingStatus(row));
+  const totalEligible = (countRes.count ?? 0); // approximate when legacy rows exist
+  if (pr1s.length === 0) return { rows: [], total_count: totalEligible };
 
-  const pr1Ids = (pr1s as any[]).map((r: any) => r.id);
+  const pr1Ids = pr1s.map((r: any) => r.id);
 
   const { data: rfqs, error: rfqErr } = await db
     .from('rfq_batches')
@@ -385,7 +415,7 @@ export async function fetchCanvassingQueuePaged(options: {
         assigned_buyer_name_snapshot: pr1.assigned_buyer_name_snapshot ?? null,
       };
     }),
-    total_count: countRes.count ?? 0,
+    total_count: totalEligible,
   };
 }
 
@@ -540,28 +570,97 @@ export async function fetchCanvassingQueueCounts(): Promise<{
   if (rfqErr) throw rfqErr;
 
   const rfqRows = (rfqs ?? []) as { pr1_id: string | null; status: string }[];
-  const rfqPr1Ids = Array.from(
-    new Set(rfqRows.map((r) => r.pr1_id).filter(Boolean) as string[])
+  const rfqPr1Ids = new Set(
+    rfqRows.map((r) => r.pr1_id).filter(Boolean) as string[]
   );
   const active   = rfqRows.filter((r) => r.status === 'open').length;
   const complete = rfqRows.filter((r) => r.status === 'closed').length;
 
-  let q = db
+  // "awaiting" and "issued" must both count only PR1s currently within the
+  // canvassing queue's own eligibility window (same OR-filter the paged list
+  // uses) — otherwise a PR1 that finished canvassing long ago (e.g. status
+  // moved on to canvassing_complete) still inflates the "issued" badge forever
+  // even though it no longer appears in that tab's list.
+  const { data: eligiblePr1s, error: eligibleErr } = await db
     .from('pr1_requests')
-    .select('id', { count: 'exact', head: true })
-    .in('status', ['for_canvassing', 'canvassing_complete']);
-  if (rfqPr1Ids.length > 0) {
-    q = q.not('id', 'in', `(${rfqPr1Ids.join(',')})`);
-  }
-  const { count: awaitingCount, error: awaitingErr } = await q;
-  if (awaitingErr) throw awaitingErr;
+    .select('id')
+    .or(CANVASSING_QUEUE_OR_FILTER);
+  if (eligibleErr) throw eligibleErr;
 
-  return {
-    awaiting: awaitingCount ?? 0,
-    active,
-    complete,
-    issued: rfqPr1Ids.length,
-  };
+  const eligibleIds = ((eligiblePr1s ?? []) as any[]).map((r) => r.id as string);
+  const awaiting = eligibleIds.filter((id) => !rfqPr1Ids.has(id)).length;
+  const issued   = rfqPr1Ids.size;
+
+  return { awaiting, active, complete, issued };
+}
+
+// ─── Planning-direct canvassing queue (Phase 3, no PR1) ──────────────────────
+// Sibling to fetchCanvassingQueue — a PR2-native request (Raw Material, or a
+// Planning-direct Services PR2 per Services Workflow Alignment Phase 4) has
+// no pr1_requests row to filter on, so this can't extend
+// CANVASSING_QUEUE_OR_FILTER. No priority/buyer-assignment fields for the
+// non-priority case — pr2_requests has no buyer-assignment column either way.
+// `.is('pr1_id', null)` excludes PR1-linked Services PR2s, which already
+// surface in the main PR1-based queue instead.
+
+export async function fetchRawMaterialCanvassingQueue(): Promise<RawMaterialCanvassingQueueRow[]> {
+  let pr2s: any[] = [];
+  const { data, error: pr2Err } = await db
+    .from('pr2_requests')
+    .select('id, pr2_number, request_type, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, priority')
+    .in('request_type', ['raw_material', 'services'])
+    .is('pr1_id', null)
+    .eq('status', 'approved')
+    .order('generated_at', { ascending: false });
+
+  if (pr2Err && (pr2Err.code === '42703' || String(pr2Err.message ?? '').includes('priority'))) {
+    const { data: fallbackData, error: fallbackErr } = await db
+      .from('pr2_requests')
+      .select('id, pr2_number, request_type, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required')
+      .in('request_type', ['raw_material', 'services'])
+      .is('pr1_id', null)
+      .eq('status', 'approved')
+      .order('generated_at', { ascending: false });
+    if (fallbackErr) throw fallbackErr;
+    pr2s = fallbackData ?? [];
+  } else if (pr2Err) {
+    throw pr2Err;
+  } else {
+    pr2s = data ?? [];
+  }
+
+  if (pr2s.length === 0) return [];
+
+  const pr2Ids = pr2s.map((r: any) => r.id);
+
+  const { data: rfqs, error: rfqErr } = await db
+    .from('rfq_batches')
+    .select('id, pr2_id, rfq_number, status')
+    .in('pr2_id', pr2Ids);
+
+  if (rfqErr) throw rfqErr;
+
+  const rfqMap: Record<string, any> = {};
+  for (const rfq of (rfqs ?? []) as any[]) {
+    rfqMap[rfq.pr2_id] = rfq;
+  }
+
+  return (pr2s as any[]).map((pr2: any) => {
+    const rfq = rfqMap[pr2.id] ?? null;
+    return {
+      pr2_id:                      pr2.id,
+      pr2_number:                  pr2.pr2_number,
+      request_type:                (pr2.request_type ?? 'raw_material') as 'raw_material' | 'services',
+      requisitioner_name_snapshot: pr2.requisitioner_name_snapshot,
+      department_name_snapshot:    pr2.department_name_snapshot,
+      purpose:                     pr2.purpose,
+      priority:                    pr2.priority ?? 'normal',
+      date_required:               pr2.date_required,
+      rfq_id:                      rfq?.id ?? null,
+      rfq_number:                  rfq?.rfq_number ?? null,
+      rfq_status:                  rfq?.status ?? null,
+    };
+  });
 }
 
 // ─── RFQ detail (procurement) ─────────────────────────────────────────────────
@@ -576,39 +675,86 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
   if (rfqErr) throw rfqErr;
   if (!rfq) return null;
 
-  const [pr1Res, itemsRes, suppliersRes, attachments] = await Promise.all([
-    db.from('pr1_requests')
-      .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, request_type')
-      .eq('id', rfq.pr1_id)
-      .maybeSingle(),
-    db.from('pr1_items')
-      .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material, remarks')
-      .eq('pr1_id', rfq.pr1_id)
-      .order('item_order', { ascending: true }),
-    db.from('rfq_suppliers')
-      .select('*')
-      .eq('rfq_id', rfqId),
-    fetchPR1Attachments(rfq.pr1_id).catch(() => []),
-  ]);
+  const suppliersRes = await db.from('rfq_suppliers').select('*').eq('rfq_id', rfqId);
 
-  if (pr1Res.error) throw pr1Res.error;
-  if (!pr1Res.data) return null;
-  if (itemsRes.error) throw itemsRes.error;
+  let pr1Header: RfqDetailView['pr1'];
+  let items: RfqDetailView['items'];
 
-  const rawItems = (itemsRes.data ?? []) as any[];
-  const attachmentsByItem: Record<string, PR1Attachment[]> = {};
-  for (const att of attachments) {
-    if (!attachmentsByItem[att.pr1_item_id]) attachmentsByItem[att.pr1_item_id] = [];
-    attachmentsByItem[att.pr1_item_id].push(att);
+  if (rfq.pr1_id === null && rfq.pr2_id) {
+    // Phase 3 (Raw Mats): PR2-native RFQ — no PR1, no warehouse step. Lines
+    // come straight off pr2_items (already final quantities).
+    const { data: pr2, error: pr2Err } = await db
+      .from('pr2_requests')
+      .select('id, pr2_number, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, request_type')
+      .eq('id', rfq.pr2_id)
+      .maybeSingle();
+    if (pr2Err) throw pr2Err;
+    if (!pr2) return null;
+
+    const { data: pr2ItemRows, error: pr2ItemsErr } = await db
+      .from('pr2_items')
+      .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material, remarks')
+      .eq('pr2_id', rfq.pr2_id)
+      .order('item_order', { ascending: true });
+    if (pr2ItemsErr) throw pr2ItemsErr;
+
+    pr1Header = {
+      id:                          pr2.id,
+      pr1_number:                  pr2.pr2_number,
+      requisitioner_name_snapshot: pr2.requisitioner_name_snapshot,
+      department_name_snapshot:    pr2.department_name_snapshot,
+      purpose:                     pr2.purpose,
+      date_required:               pr2.date_required,
+      request_type:                (pr2.request_type ?? 'raw_material') as 'raw_material' | 'services',
+    };
+    items = ((pr2ItemRows ?? []) as any[]).map((item) => ({
+      id:                 item.id,
+      item_order:         item.item_order,
+      item_code:          item.item_code,
+      description:        item.description,
+      unit_of_measure:    item.unit_of_measure,
+      quantity_requested: Number(item.quantity_requested) || 0,
+      is_raw_material:    item.is_raw_material === true,
+      remarks:            item.remarks ?? null,
+      attachments:        [],
+    }));
+  } else {
+    const [pr1Res, itemsRes, attachments] = await Promise.all([
+      db.from('pr1_requests')
+        .select('id, pr1_number, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, request_type')
+        .eq('id', rfq.pr1_id)
+        .maybeSingle(),
+      db.from('pr1_items')
+        .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material, remarks')
+        .eq('pr1_id', rfq.pr1_id)
+        .order('item_order', { ascending: true }),
+      fetchPR1Attachments(rfq.pr1_id).catch(() => []),
+    ]);
+
+    if (pr1Res.error) throw pr1Res.error;
+    if (!pr1Res.data) return null;
+    if (itemsRes.error) throw itemsRes.error;
+
+    const rawItems = (itemsRes.data ?? []) as any[];
+    const attachmentsByItem: Record<string, PR1Attachment[]> = {};
+    for (const att of attachments) {
+      if (!attachmentsByItem[att.pr1_item_id]) attachmentsByItem[att.pr1_item_id] = [];
+      attachmentsByItem[att.pr1_item_id].push(att);
+    }
+    const pr1Items = rawItems.map((item) => ({
+      ...item,
+      attachments: attachmentsByItem[item.id] ?? [],
+    })) as Pr1ItemRfqRow[];
+
+    const warehouse = await fetchWarehouseProcurementByPr1Item(rfq.pr1_id);
+    const legacyIds = await collectLegacyPr1ItemIdsForRfq(rfqId);
+    items = buildRfqLineItems(pr1Items, warehouse, legacyIds);
+
+    pr1Header = {
+      ...pr1Res.data,
+      request_type: (pr1Res.data as any).request_type as 'goods' | 'services',
+    };
   }
-  const pr1Items = rawItems.map((item) => ({
-    ...item,
-    attachments: attachmentsByItem[item.id] ?? [],
-  })) as Pr1ItemRfqRow[];
-
-  const warehouse = await fetchWarehouseProcurementByPr1Item(rfq.pr1_id);
-  const legacyIds = await collectLegacyPr1ItemIdsForRfq(rfqId);
-  const items = buildRfqLineItems(pr1Items, warehouse, legacyIds);
 
   const assignedSuppliers: any[] = suppliersRes.data ?? [];
   const supplierIds = assignedSuppliers.map((s: any) => s.id);
@@ -628,11 +774,13 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
 
   // Fetch substitute decisions for this PR1 (covers all alternative quotes in the RFQ)
   let substituteDecisions: SubstituteDecisionRow[] = [];
-  const { data: decisionData } = await db
-    .from('substitute_decisions')
-    .select('*')
-    .eq('pr1_id', rfq.pr1_id);
-  substituteDecisions = (decisionData ?? []) as SubstituteDecisionRow[];
+  if (rfq.pr1_id) {
+    const { data: decisionData } = await db
+      .from('substitute_decisions')
+      .select('*')
+      .eq('pr1_id', rfq.pr1_id);
+    substituteDecisions = (decisionData ?? []) as SubstituteDecisionRow[];
+  }
 
   // All supplier profiles for canvassing + assign name snapshots — enrichment for modal
   const { data: roles } = await db.from('roles').select('id').eq('name', 'supplier');
@@ -792,7 +940,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
 
   return {
     rfq,
-    pr1:        pr1Res.data,
+    pr1:        pr1Header,
     items,
     suppliers:  suppliersWithVat,
     quotes,
@@ -813,11 +961,11 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
   }
 
   return detail.items.map(item => {
-    const selection = detail.selections.find(s => s.pr1_item_id === item.id);
+    const selection = detail.selections.find(s => (s.pr1_item_id ?? s.pr2_item_id) === item.id);
 
     const quotes = detail.suppliers.map(supplier => {
       const quote = detail.quotes.find(
-        q => q.rfq_supplier_id === supplier.id && q.pr1_item_id === item.id
+        q => q.rfq_supplier_id === supplier.id && (q.pr1_item_id ?? q.pr2_item_id) === item.id
       );
 
       // Phase 7: enrich with catalog product data from the lookup map
@@ -886,13 +1034,37 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
   });
 }
 
+/** Next 4-digit suffix for RFQ-{year}-####. Guide only — not reserved. */
+export async function fetchSuggestedRFQSequence(year?: number): Promise<string> {
+  const y = year ?? new Date().getFullYear();
+  const prefix = `RFQ-${y}-`;
+
+  const { data, error } = await db
+    .from('rfq_batches')
+    .select('rfq_number')
+    .ilike('rfq_number', `${prefix}%`);
+  if (error) throw error;
+
+  let max = 0;
+  const re = new RegExp(`^RFQ-${y}-(\\d+)`, 'i');
+  for (const row of data ?? []) {
+    const num = String((row as { rfq_number?: string }).rfq_number ?? '');
+    const match = num.match(re);
+    if (!match) continue;
+    const parsed = parseInt(match[1], 10);
+    if (!Number.isNaN(parsed) && parsed > max) max = parsed;
+  }
+  return String(max + 1).padStart(4, '0');
+}
+
 // ─── Create RFQ ───────────────────────────────────────────────────────────────
 
 export async function createRfq(
   pr1Id: string,
   deadline: string | null,
   notes: string,
-  profile: UserProfile
+  profile: UserProfile,
+  rfqNumberInput: string,
 ): Promise<string> {
   // Idempotency: return existing RFQ if one already exists for this PR1.
   const { data: existing } = await db
@@ -902,6 +1074,47 @@ export async function createRfq(
     .maybeSingle();
 
   if (existing?.id) return existing.id;
+
+  const rfq_number = rfqNumberInput.trim();
+  if (!rfq_number) throw new Error('RFQ number is required.');
+
+  const { data: dup } = await db
+    .from('rfq_batches')
+    .select('id')
+    .eq('rfq_number', rfq_number)
+    .maybeSingle();
+  if (dup?.id) throw new Error(`RFQ number ${rfq_number} is already in use.`);
+
+  const { data: pr1Header, error: pr1HeaderErr } = await db
+    .from('pr1_requests')
+    .select('id, request_type, status')
+    .eq('id', pr1Id)
+    .maybeSingle();
+  if (pr1HeaderErr) throw pr1HeaderErr;
+  if (!pr1Header) throw new Error('PR1 not found.');
+
+  // Goods and Services both get their PR2 created before RFQ (Warehouse
+  // handoff — lib/pr2-warehouse.ts), so both require an already-approved PR2
+  // before canvassing can start. Raw Material never reaches this function (no
+  // PR1) — it uses the createRfqFromPr2 sibling instead.
+  const requiresApprovedPR2 = pr1Header.request_type === 'goods' || pr1Header.request_type === 'services';
+  let linkedPr2Id: string | null = null;
+
+  if (requiresApprovedPR2) {
+    if (pr1Header.status !== 'pr2_approved') {
+      throw new Error('RFQ requires PR2 final approval (PR1 status must be pr2_approved).');
+    }
+    const { data: pr2, error: pr2Err } = await db
+      .from('pr2_requests')
+      .select('id, status')
+      .eq('pr1_id', pr1Id)
+      .maybeSingle();
+    if (pr2Err) throw pr2Err;
+    if (!pr2 || pr2.status !== 'approved') {
+      throw new Error('An approved PR2 must exist before creating an RFQ.');
+    }
+    linkedPr2Id = pr2.id;
+  }
 
   const { data: pr1ItemsRows, error: piErr } = await db
     .from('pr1_items')
@@ -925,15 +1138,11 @@ export async function createRfq(
 
   const now = new Date().toISOString();
 
-  // Generate rfq_number via DB sequence function — collision-safe.
-  const { data: rfqNum, error: numErr } = await (supabase as any).rpc('generate_rfq_number');
-  if (numErr) throw numErr;
-  const rfq_number = rfqNum as string;
-
   const { data, error } = await db
     .from('rfq_batches')
     .insert({
       pr1_id:     pr1Id,
+      pr2_id:     linkedPr2Id,
       rfq_number,
       status:     'draft',
       issued_by:  profile.id,
@@ -946,8 +1155,12 @@ export async function createRfq(
 
   // Race condition: another request inserted between our check and insert.
   // The UNIQUE(pr1_id) constraint fires — fetch and return the winner.
+  // UNIQUE(rfq_number) surfaces as a friendly duplicate error.
   if (error) {
     if (error.code === '23505') {
+      if (String(error.message ?? '').includes('rfq_number')) {
+        throw new Error(`RFQ number ${rfq_number} is already in use.`);
+      }
       const { data: race } = await db
         .from('rfq_batches')
         .select('id')
@@ -958,12 +1171,138 @@ export async function createRfq(
     throw error;
   }
 
+  if (requiresApprovedPR2 && linkedPr2Id) {
+    const { error: linkErr } = await db
+      .from('pr2_requests')
+      .update({
+        rfq_id:              data.id,
+        rfq_number_snapshot: rfq_number,
+        updated_at:          now,
+      })
+      .eq('id', linkedPr2Id);
+    if (linkErr) throw linkErr;
+  }
+
   await db.from('audit_logs').insert({
     actor_id:      profile.id,
     action:        'RFQ_CREATED',
     document_type: 'RFQ',
     document_id:   data.id,
     payload:       { rfq_number, pr1_id: pr1Id },
+  });
+
+  return data.id;
+}
+
+// ─── Create RFQ from a raw-material PR2 (Phase 3, no PR1) ─────────────────────
+// Sibling to createRfq() rather than a branch inside it — the PR1-linked
+// goods/services path is keyed entirely off pr1_requests/pr1_items/warehouse
+// validation, none of which exists for a PR2-native request (Raw Material or
+// a Planning-direct Services PR2, Services Workflow Alignment Phase 4).
+
+export async function createRfqFromPr2(
+  pr2Id: string,
+  deadline: string | null,
+  notes: string,
+  profile: UserProfile,
+  rfqNumberInput: string,
+): Promise<string> {
+  // Idempotency: return existing RFQ if one already exists for this PR2.
+  const { data: existing } = await db
+    .from('rfq_batches')
+    .select('id')
+    .eq('pr2_id', pr2Id)
+    .maybeSingle();
+
+  if (existing?.id) return existing.id;
+
+  const rfq_number = rfqNumberInput.trim();
+  if (!rfq_number) throw new Error('RFQ number is required.');
+
+  const { data: dup } = await db
+    .from('rfq_batches')
+    .select('id')
+    .eq('rfq_number', rfq_number)
+    .maybeSingle();
+  if (dup?.id) throw new Error(`RFQ number ${rfq_number} is already in use.`);
+
+  const { data: pr2Header, error: pr2HeaderErr } = await db
+    .from('pr2_requests')
+    .select('id, request_type, status, pr1_id')
+    .eq('id', pr2Id)
+    .maybeSingle();
+  if (pr2HeaderErr) throw pr2HeaderErr;
+  if (!pr2Header) throw new Error('PR2 not found.');
+  if (!isPr2NativeDirectRequest(pr2Header)) {
+    throw new Error('createRfqFromPr2 is only for PR2-native (Planning-direct) requests.');
+  }
+  if (pr2Header.status !== 'approved') {
+    throw new Error('An approved PR2 is required before creating an RFQ.');
+  }
+
+  const { data: pr2ItemRows, error: piErr } = await db
+    .from('pr2_items')
+    .select('id, item_order, quantity_to_purchase, quantity_requested')
+    .eq('pr2_id', pr2Id)
+    .order('item_order', { ascending: true });
+  if (piErr) throw piErr;
+  if (!pr2ItemRows || pr2ItemRows.length === 0) {
+    throw new Error('This request has no line items — an RFQ is not applicable.');
+  }
+
+  const now = new Date().toISOString();
+
+  const { data, error } = await db
+    .from('rfq_batches')
+    .insert({
+      pr1_id:     null,
+      pr2_id:     pr2Id,
+      rfq_number,
+      status:     'draft',
+      issued_by:  profile.id,
+      deadline:   deadline || null,
+      notes:      notes.trim() || null,
+      updated_at: now,
+    })
+    .select('id')
+    .single();
+
+  // Race condition: another request inserted between our check and insert.
+  // The partial UNIQUE(pr2_id) constraint fires — fetch and return the winner.
+  // UNIQUE(rfq_number) surfaces as a friendly duplicate error.
+  if (error) {
+    if (error.code === '23505') {
+      if (String(error.message ?? '').includes('rfq_number')) {
+        throw new Error(`RFQ number ${rfq_number} is already in use.`);
+      }
+      const { data: race } = await db
+        .from('rfq_batches')
+        .select('id')
+        .eq('pr2_id', pr2Id)
+        .maybeSingle();
+      if (race?.id) return race.id;
+    }
+    throw error;
+  }
+
+  // Always link back — unlike the PR1-linked path, the PR2 already exists and
+  // is approved before an RFQ can be created for it, so this is unconditional.
+  const { error: linkErr } = await db
+    .from('pr2_requests')
+    .update({
+      rfq_id:              data.id,
+      rfq_number_snapshot: rfq_number,
+      updated_at:          now,
+    })
+    .eq('id', pr2Id);
+  if (linkErr) throw linkErr;
+
+  await db.from('audit_logs').insert({
+    actor_id:      profile.id,
+    action:        'RFQ_CREATED',
+    document_type: 'RFQ',
+    document_id:   data.id,
+    payload:       { rfq_number, pr2_id: pr2Id },
   });
 
   return data.id;
@@ -978,6 +1317,61 @@ export async function assignSuppliers(
   profile: UserProfile,
 ): Promise<void> {
   const nameMap = Object.fromEntries(allSuppliers.map(s => [s.id, s.full_name]));
+
+  // Phase 3 (Raw Mats) + Services Workflow Alignment Phase 4: server-side
+  // enforcement — a raw-material or services RFQ may only be assigned
+  // suppliers whose profile carries the matching supplier_supply_type. The
+  // "Assign Suppliers" modal already filters/locks this client-side, but
+  // that alone is trivially bypassable; enforce it here too. Goods RFQs have
+  // no such restriction (supplier_supply_type 'normal' or unset).
+  if (supplierIds.length > 0) {
+    const { data: rfqRow } = await db
+      .from('rfq_batches')
+      .select('pr1_id, pr2_id')
+      .eq('id', rfqId)
+      .maybeSingle();
+    let requestType: string | undefined;
+    if (rfqRow?.pr1_id) {
+      const { data: pr1 } = await db
+        .from('pr1_requests')
+        .select('request_type')
+        .eq('id', rfqRow.pr1_id)
+        .maybeSingle();
+      requestType = pr1?.request_type;
+    } else if (rfqRow?.pr2_id) {
+      const { data: pr2 } = await db
+        .from('pr2_requests')
+        .select('request_type')
+        .eq('id', rfqRow.pr2_id)
+        .maybeSingle();
+      requestType = pr2?.request_type;
+    }
+
+    // Note: pr1/pr2 request_type uses 'services' (plural); supplier_supply_type
+    // uses 'service' (singular) — these are deliberately different enums.
+    const requiredSupplyType = requestType === 'raw_material'
+      ? 'raw_material'
+      : requestType === 'services'
+        ? 'service'
+        : null;
+
+    if (requiredSupplyType) {
+      const { data: supplierProfiles } = await db
+        .from('profiles')
+        .select('id, supplier_supply_type')
+        .in('id', supplierIds);
+      const mismatched = ((supplierProfiles ?? []) as any[]).filter(
+        (p) => p.supplier_supply_type !== requiredSupplyType,
+      );
+      if (mismatched.length > 0) {
+        throw new Error(
+          requiredSupplyType === 'raw_material'
+            ? 'Only suppliers classified as Raw Material may be assigned to a raw-material RFQ.'
+            : 'Only suppliers classified as Service may be assigned to a services RFQ.',
+        );
+      }
+    }
+  }
 
   // Dedup guard: skip suppliers already assigned to this RFQ so retries /
   // double-clicks can't create duplicate invitations.
@@ -1123,13 +1517,13 @@ export async function addExternalVendorToRfq(
 // submitSupplierQuotation so that file attachments can be linked to it.
 export async function fetchQuoteIdForSupplierItem(
   rfqSupplierId: string,
-  pr1ItemId: string,
+  itemId: string,
 ): Promise<string | null> {
   const { data } = await db
     .from('rfq_item_quotes')
     .select('id')
     .eq('rfq_supplier_id', rfqSupplierId)
-    .eq('pr1_item_id', pr1ItemId)
+    .or(`pr1_item_id.eq.${itemId},pr2_item_id.eq.${itemId}`)
     .maybeSingle();
   return (data as any)?.id ?? null;
 }
@@ -1296,8 +1690,45 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
 
 // ─── Close RFQ ────────────────────────────────────────────────────────────────
 
-export async function closeRfq(rfqId: string, pr1Id: string, profile: UserProfile): Promise<void> {
+export async function closeRfq(rfqId: string, pr1Id: string | null, profile: UserProfile): Promise<void> {
   const now = new Date().toISOString();
+
+  const [{ data: pr1 }, { data: rfqRow }] = await Promise.all([
+    pr1Id
+      ? db.from('pr1_requests').select('request_type, pr1_number, requisitioner_id').eq('id', pr1Id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    db.from('rfq_batches').select('id, pr2_id, rfq_number').eq('id', rfqId).maybeSingle(),
+  ]);
+
+  // Phase 3 (Raw Mats): a raw-material RFQ has no pr1_id — resolve its PR2 directly.
+  let pr2: { id: string; request_type: string; pr2_number: string; requisitioner_id: string } | null = null;
+  if (!pr1Id && rfqRow?.pr2_id) {
+    const { data } = await db
+      .from('pr2_requests')
+      .select('id, request_type, pr2_number, requisitioner_id')
+      .eq('id', rfqRow.pr2_id)
+      .maybeSingle();
+    pr2 = data;
+  }
+
+  // Goods and Services both have their PR2 created before RFQ (Warehouse
+  // handoff) and both follow the same RFQ_APPROVAL path afterward — the old
+  // "services closes straight to canvassing_complete, no approval" branch
+  // below was the legacy pre-alignment shape and is no longer reachable for
+  // new services RFQs (Services Workflow Alignment Phase 4).
+  const isGoodsOrServices = pr1?.request_type === 'goods' || pr1?.request_type === 'services';
+  // PR2-native (no pr1_id): Raw Material or a Planning-direct Services PR2 —
+  // both sync via the PR2-native sync function and follow the approval flow.
+  const isPr2Native = !pr1Id && (pr2?.request_type === 'raw_material' || pr2?.request_type === 'services');
+  const isRawMaterial = !pr1Id && pr2?.request_type === 'raw_material';
+
+  if (isGoodsOrServices) {
+    const pr2Id = rfqRow?.pr2_id as string | null;
+    if (!pr2Id) throw new Error('RFQ is missing a linked PR2.');
+    await syncPR2ItemsFromRfqSelections(pr2Id, rfqId, profile);
+  } else if (isPr2Native) {
+    await syncRawMaterialPR2ItemsFromRfqSelections(pr2!.id, rfqId, profile);
+  }
 
   const { error: rfqErr } = await db
     .from('rfq_batches')
@@ -1307,27 +1738,38 @@ export async function closeRfq(rfqId: string, pr1Id: string, profile: UserProfil
 
   if (rfqErr) throw rfqErr;
 
-  const { error: pr1Err } = await db
-    .from('pr1_requests')
-    .update({ status: 'canvassing_complete', updated_at: now })
-    .eq('id', pr1Id);
+  if (!isGoodsOrServices && !isPr2Native && pr1Id) {
+    const { error: pr1Err } = await db
+      .from('pr1_requests')
+      .update({ status: 'canvassing_complete', updated_at: now })
+      .eq('id', pr1Id);
 
-  if (pr1Err) throw pr1Err;
+    if (pr1Err) throw pr1Err;
+  }
 
   await db.from('audit_logs').insert({
     actor_id:      profile.id,
     action:        'RFQ_CLOSED',
     document_type: 'RFQ',
     document_id:   rfqId,
-    payload:       { closed_by: profile.full_name, pr1_id: pr1Id },
+    payload:       {
+      closed_by:  profile.full_name,
+      pr1_id:     pr1Id,
+      pr2_id:     pr2?.id ?? null,
+      goods_or_services_flow: isGoodsOrServices,
+      raw_material_flow: isRawMaterial,
+      pr2_native_services_flow: isPr2Native && !isRawMaterial,
+    },
   });
 
-  try {
-    const [{ data: pr1 }, { data: rfq }] = await Promise.all([
-      db.from('pr1_requests').select('pr1_number, requisitioner_id').eq('id', pr1Id).maybeSingle(),
-      db.from('rfq_batches').select('rfq_number').eq('id', rfqId).maybeSingle(),
-    ]);
+  if (isGoodsOrServices || isPr2Native) {
+    await submitRfqForApproval(rfqId, profile);
+    return;
+  }
 
+  if (!pr1Id) return; // legacy fallback path only past this point
+
+  try {
     const pr1Label = pr1?.pr1_number ?? 'PR1';
 
     await notifyByRole(
@@ -1364,20 +1806,71 @@ export async function closeRfq(rfqId: string, pr1Id: string, profile: UserProfil
 export async function reopenRfq(rfqId: string, profile: UserProfile): Promise<void> {
   const { data: rfq, error: rfqFetchErr } = await db
     .from('rfq_batches')
-    .select('id, rfq_number, pr1_id, status')
+    .select('id, rfq_number, pr1_id, pr2_id, status')
     .eq('id', rfqId)
     .maybeSingle();
   if (rfqFetchErr) throw rfqFetchErr;
   if (!rfq) throw new Error('RFQ not found.');
   if (rfq.status !== 'closed') throw new Error('Only a closed RFQ can be reopened.');
 
-  const { data: existingPR2 } = await db
-    .from('pr2_requests')
-    .select('id')
-    .eq('rfq_id', rfqId)
-    .maybeSingle();
-  if (existingPR2?.id) {
-    throw new Error('A PR2 has already been generated from this RFQ. It can no longer be reopened.');
+  const [{ data: pr1 }, pr2Res] = await Promise.all([
+    rfq.pr1_id
+      ? db.from('pr1_requests').select('request_type').eq('id', rfq.pr1_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    !rfq.pr1_id && rfq.pr2_id
+      ? db.from('pr2_requests').select('id, request_type').eq('id', rfq.pr2_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  // Phase 3 (Raw Mats): a raw-material RFQ has no pr1_id — resolving
+  // isGoodsOrServices from pr1?.request_type alone would silently fall into
+  // the legacy branch below and block reopen forever (the linked PR2 always
+  // exists, since it's linked at RFQ creation, not after close).
+  const pr2 = pr2Res.data as { id: string; request_type: string } | null;
+  const isGoodsOrServices = pr1?.request_type === 'goods' || pr1?.request_type === 'services';
+  // PR2-native (no pr1_id): Raw Material or a Planning-direct Services PR2.
+  const isPr2Native = !rfq.pr1_id && (pr2?.request_type === 'raw_material' || pr2?.request_type === 'services');
+  const followsApprovalFlow = isGoodsOrServices || isPr2Native;
+
+  if (followsApprovalFlow) {
+    const { data: approval } = await db
+      .from('approval_instances')
+      .select('status')
+      .eq('document_type', 'RFQ')
+      .eq('document_id', rfqId)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (approval?.status === 'approved') {
+      throw new Error('RFQ approval is complete. It can no longer be reopened.');
+    }
+    if (rfq.pr2_id) {
+      const { data: existingPO } = await db
+        .from('po_requests')
+        .select('id')
+        .eq('pr2_id', rfq.pr2_id)
+        .limit(1)
+        .maybeSingle();
+      if (existingPO?.id) {
+        throw new Error('A PO has already been created from this PR2. The RFQ can no longer be reopened.');
+      }
+    }
+    if (approval?.status === 'active') {
+      await db
+        .from('approval_instances')
+        .update({ status: 'cancelled', completed_at: new Date().toISOString() })
+        .eq('document_type', 'RFQ')
+        .eq('document_id', rfqId)
+        .eq('status', 'active');
+    }
+  } else {
+    const { data: existingPR2 } = await db
+      .from('pr2_requests')
+      .select('id')
+      .eq('rfq_id', rfqId)
+      .maybeSingle();
+    if (existingPR2?.id) {
+      throw new Error('A PR2 has already been generated from this RFQ. It can no longer be reopened.');
+    }
   }
 
   const now = new Date().toISOString();
@@ -1388,52 +1881,90 @@ export async function reopenRfq(rfqId: string, profile: UserProfile): Promise<vo
     .eq('id', rfqId);
   if (rfqErr) throw rfqErr;
 
-  const { error: pr1Err } = await db
-    .from('pr1_requests')
-    .update({ status: 'for_canvassing', updated_at: now })
-    .eq('id', rfq.pr1_id);
-  if (pr1Err) throw pr1Err;
+  if (rfq.pr1_id) {
+    const nextPr1Status = isGoodsOrServices ? 'pr2_approved' : 'for_canvassing';
+    const { error: pr1Err } = await db
+      .from('pr1_requests')
+      .update({ status: nextPr1Status, updated_at: now })
+      .eq('id', rfq.pr1_id);
+    if (pr1Err) throw pr1Err;
+  }
 
   await db.from('audit_logs').insert({
     actor_id:      profile.id,
     action:        'RFQ_REOPENED',
     document_type: 'RFQ',
     document_id:   rfqId,
-    payload:       { rfq_number: rfq.rfq_number, reopened_by: profile.full_name, pr1_id: rfq.pr1_id },
+    payload:       { rfq_number: rfq.rfq_number, reopened_by: profile.full_name, pr1_id: rfq.pr1_id, pr2_id: rfq.pr2_id ?? null },
   });
 
   try {
-    const { data: pr1 } = await db
-      .from('pr1_requests')
-      .select('pr1_number, requisitioner_id')
-      .eq('id', rfq.pr1_id)
-      .maybeSingle();
+    if (rfq.pr1_id) {
+      const { data: pr1Row } = await db
+        .from('pr1_requests')
+        .select('pr1_number, requisitioner_id')
+        .eq('id', rfq.pr1_id)
+        .maybeSingle();
 
-    const pr1Label = pr1?.pr1_number ?? 'PR1';
+      const pr1Label = pr1Row?.pr1_number ?? 'PR1';
 
-    await notifyByRole(
-      'procurement',
-      {
-        title:         'RFQ Reopened',
-        body:          `RFQ ${rfq.rfq_number} for ${pr1Label} has been reopened by ${profile.full_name}.`,
-        type:          'info',
-        document_type: 'rfq',
-        document_id:   rfqId,
-        action_url:    `/rfq/${rfqId}`,
-      },
-      { dedupeUnreadForDocument: true }
-    );
+      await notifyByRole(
+        'procurement',
+        {
+          title:         'RFQ Reopened',
+          body:          `RFQ ${rfq.rfq_number} for ${pr1Label} has been reopened by ${profile.full_name}.`,
+          type:          'info',
+          document_type: 'rfq',
+          document_id:   rfqId,
+          action_url:    `/rfq/${rfqId}`,
+        },
+        { dedupeUnreadForDocument: true }
+      );
 
-    if (pr1?.requisitioner_id) {
-      await createNotification({
-        user_id:       pr1.requisitioner_id,
-        title:         'RFQ Reopened',
-        body:          `Canvassing for your request ${pr1Label} has been reopened for further supplier changes.`,
-        type:          'info',
-        document_type: 'pr1',
-        document_id:   rfq.pr1_id,
-        action_url:    `/pr1/${rfq.pr1_id}`,
-      });
+      if (pr1Row?.requisitioner_id) {
+        await createNotification({
+          user_id:       pr1Row.requisitioner_id,
+          title:         'RFQ Reopened',
+          body:          `Canvassing for your request ${pr1Label} has been reopened for further supplier changes.`,
+          type:          'info',
+          document_type: 'pr1',
+          document_id:   rfq.pr1_id,
+          action_url:    `/pr1/${rfq.pr1_id}`,
+        });
+      }
+    } else if (pr2) {
+      const { data: pr2Row } = await db
+        .from('pr2_requests')
+        .select('pr2_number, requisitioner_id')
+        .eq('id', pr2.id)
+        .maybeSingle();
+
+      const pr2Label = pr2Row?.pr2_number ?? 'PR2';
+
+      await notifyByRole(
+        'procurement',
+        {
+          title:         'RFQ Reopened',
+          body:          `RFQ ${rfq.rfq_number} for ${pr2Label} has been reopened by ${profile.full_name}.`,
+          type:          'info',
+          document_type: 'rfq',
+          document_id:   rfqId,
+          action_url:    `/rfq/${rfqId}`,
+        },
+        { dedupeUnreadForDocument: true }
+      );
+
+      if (pr2Row?.requisitioner_id) {
+        await createNotification({
+          user_id:       pr2Row.requisitioner_id,
+          title:         'RFQ Reopened',
+          body:          `Canvassing for your request ${pr2Label} has been reopened for further supplier changes.`,
+          type:          'info',
+          document_type: 'pr2',
+          document_id:   pr2.id,
+          action_url:    `/planning/pr2/${pr2.id}`,
+        });
+      }
     }
   } catch {
     // Notifications are best-effort; do not fail reopenRfq
@@ -1485,12 +2016,15 @@ export async function saveItemSelection(
   const now = new Date().toISOString();
 
   // Fetch the quote row — used for both the substitute guard and the
-  // catalog-product / raw-mats logic below.
+  // catalog-product / raw-mats logic below. `pr1ItemId` is really just "the
+  // item id" — Phase 3 (Raw Mats) PR2-native lines pass a pr2_items.id here,
+  // resolved via the OR below since exactly one of pr1_item_id/pr2_item_id
+  // is set on any given quote row.
   const { data: quote } = await db
     .from('rfq_item_quotes')
-    .select('id, is_alternative, supplier_product_id, response_status')
+    .select('id, is_alternative, supplier_product_id, response_status, pr1_item_id, pr2_item_id')
     .eq('rfq_supplier_id', selectedRfqSupplierId)
-    .eq('pr1_item_id', pr1ItemId)
+    .or(`pr1_item_id.eq.${pr1ItemId},pr2_item_id.eq.${pr1ItemId}`)
     .maybeSingle();
 
   if (!quote) {
@@ -1544,15 +2078,24 @@ export async function saveItemSelection(
   }
 
   // Guard 3 (Phase 7): raw-mats lines awarded against an unverified or
-  // manual quote require a written justification. Look up the PR1 line
-  // to determine the raw-mats flag.
-  const { data: pr1Item } = await db
-    .from('pr1_items')
-    .select('is_raw_material')
-    .eq('id', pr1ItemId)
-    .maybeSingle();
-
-  const isRawMaterial = (pr1Item as any)?.is_raw_material === true;
+  // manual quote require a written justification. Look up the source line
+  // (pr1_items or, Phase 3, pr2_items) to determine the raw-mats flag.
+  let isRawMaterial: boolean;
+  if (quote.pr1_item_id) {
+    const { data: pr1Item } = await db
+      .from('pr1_items')
+      .select('is_raw_material')
+      .eq('id', quote.pr1_item_id)
+      .maybeSingle();
+    isRawMaterial = (pr1Item as any)?.is_raw_material === true;
+  } else {
+    const { data: pr2Item } = await db
+      .from('pr2_items')
+      .select('is_raw_material')
+      .eq('id', quote.pr2_item_id)
+      .maybeSingle();
+    isRawMaterial = (pr2Item as any)?.is_raw_material === true;
+  }
   const requiresJustification =
     isRawMaterial && (verification === 'unverified' || verification === 'manual');
 
@@ -1588,7 +2131,8 @@ export async function saveItemSelection(
     .upsert(
       {
         rfq_id:                   rfqId,
-        pr1_item_id:              pr1ItemId,
+        pr1_item_id:              quote.pr1_item_id ?? null,
+        pr2_item_id:              quote.pr2_item_id ?? null,
         selected_rfq_supplier_id: selectedRfqSupplierId,
         selected_by:              profile.id,
         selected_at:              now,
@@ -1596,7 +2140,10 @@ export async function saveItemSelection(
         quote_justification:      finalJustification,
         requires_justification:   requiresJustification,
       },
-      { onConflict: 'rfq_id,pr1_item_id' }
+      // Phase 3 (Raw Mats): supplier_item_selections_rfq_item_key is a
+      // single NULLS NOT DISTINCT composite index, so one onConflict target
+      // handles both pr1- and pr2-keyed rows.
+      { onConflict: 'rfq_id,pr1_item_id,pr2_item_id' }
     );
 
   if (error) throw error;
@@ -1626,7 +2173,7 @@ export async function clearItemSelection(
     .from('supplier_item_selections')
     .delete()
     .eq('rfq_id', rfqId)
-    .eq('pr1_item_id', pr1ItemId);
+    .or(`pr1_item_id.eq.${pr1ItemId},pr2_item_id.eq.${pr1ItemId}`);
 
   if (error) throw error;
 
@@ -2217,7 +2764,7 @@ export interface SupplierQuoteDetail {
     pr1_number:              string;
     department_name_snapshot: string;
     purpose:                 string;
-    request_type:            'goods' | 'services';
+    request_type:            'goods' | 'services' | 'raw_material';
   };
   items: {
     id:                 string;
@@ -2250,7 +2797,7 @@ export async function fetchSupplierQuoteDetail(
 
   const [rfqRes, quotesRes] = await Promise.all([
     db.from('rfq_batches')
-      .select('id, rfq_number, status, deadline, notes, pr1_id')
+      .select('id, rfq_number, status, deadline, notes, pr1_id, pr2_id')
       .eq('id', rs.rfq_id)
       .maybeSingle(),
     db.from('rfq_item_quotes')
@@ -2263,33 +2810,74 @@ export async function fetchSupplierQuoteDetail(
 
   const rfq = rfqRes.data;
 
-  const [pr1Res, pr1ItemsRes, legacyIds, attachments] = await Promise.all([
-    db.from('pr1_requests')
-      .select('pr1_number, department_name_snapshot, purpose, request_type')
-      .eq('id', rfq.pr1_id)
-      .maybeSingle(),
-    db.from('pr1_items')
-      .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material')
-      .eq('pr1_id', rfq.pr1_id)
-      .order('item_order', { ascending: true }),
-    collectLegacyPr1ItemIdsForRfq(rfq.id),
-    fetchPR1Attachments(rfq.pr1_id).catch(() => []),
-  ]);
+  let pr1Header: SupplierQuoteDetail['pr1'];
+  let items: SupplierQuoteDetail['items'];
 
-  if (!pr1Res.data) return null;
+  if (rfq.pr1_id === null) {
+    // Phase 3 (Raw Mats): PR2-native RFQ — no PR1, no warehouse step.
+    const { data: pr2 } = await db
+      .from('pr2_requests')
+      .select('pr2_number, department_name_snapshot, purpose')
+      .eq('id', rfq.pr2_id)
+      .maybeSingle();
+    if (!pr2) return null;
 
-  const attachmentsByItem: Record<string, PR1Attachment[]> = {};
-  for (const att of attachments) {
-    if (!attachmentsByItem[att.pr1_item_id]) attachmentsByItem[att.pr1_item_id] = [];
-    attachmentsByItem[att.pr1_item_id].push(att);
+    const { data: pr2ItemRows } = await db
+      .from('pr2_items')
+      .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material')
+      .eq('pr2_id', rfq.pr2_id)
+      .order('item_order', { ascending: true });
+
+    pr1Header = {
+      pr1_number:               pr2.pr2_number,
+      department_name_snapshot: pr2.department_name_snapshot,
+      purpose:                  pr2.purpose,
+      request_type:             'raw_material',
+    };
+    items = ((pr2ItemRows ?? []) as any[]).map((item) => ({
+      id:                 item.id,
+      item_order:         item.item_order,
+      item_code:          item.item_code,
+      description:        item.description,
+      unit_of_measure:    item.unit_of_measure,
+      quantity_requested: Number(item.quantity_requested) || 0,
+      is_raw_material:    item.is_raw_material === true,
+      attachments:        [],
+    }));
+  } else {
+    const [pr1Res, pr1ItemsRes, legacyIds, attachments] = await Promise.all([
+      db.from('pr1_requests')
+        .select('pr1_number, department_name_snapshot, purpose, request_type')
+        .eq('id', rfq.pr1_id)
+        .maybeSingle(),
+      db.from('pr1_items')
+        .select('id, pr1_id, item_order, item_code, description, unit_of_measure, quantity_requested, is_raw_material')
+        .eq('pr1_id', rfq.pr1_id)
+        .order('item_order', { ascending: true }),
+      collectLegacyPr1ItemIdsForRfq(rfq.id),
+      fetchPR1Attachments(rfq.pr1_id).catch(() => []),
+    ]);
+
+    if (!pr1Res.data) return null;
+
+    const attachmentsByItem: Record<string, PR1Attachment[]> = {};
+    for (const att of attachments) {
+      if (!attachmentsByItem[att.pr1_item_id]) attachmentsByItem[att.pr1_item_id] = [];
+      attachmentsByItem[att.pr1_item_id].push(att);
+    }
+    const pr1Items = ((pr1ItemsRes.data ?? []) as any[]).map(item => ({
+      ...item,
+      attachments: attachmentsByItem[item.id] ?? [],
+    })) as Pr1ItemRfqRow[];
+
+    const warehouse = await fetchWarehouseProcurementByPr1Item(rfq.pr1_id);
+    items = buildRfqLineItems(pr1Items, warehouse, legacyIds);
+
+    pr1Header = {
+      ...pr1Res.data,
+      request_type: ((pr1Res.data as any).request_type ?? 'goods') as 'goods' | 'services',
+    };
   }
-  const pr1Items = ((pr1ItemsRes.data ?? []) as any[]).map(item => ({
-    ...item,
-    attachments: attachmentsByItem[item.id] ?? [],
-  })) as Pr1ItemRfqRow[];
-
-  const warehouse = await fetchWarehouseProcurementByPr1Item(rfq.pr1_id);
-  const items = buildRfqLineItems(pr1Items, warehouse, legacyIds);
 
   // Enrich quotes with supplier-uploaded attachments so the supplier sees
   // previously uploaded files on page reload.
@@ -2305,10 +2893,7 @@ export async function fetchSupplierQuoteDetail(
   return {
     rfqSupplier: rs,
     rfq,
-    pr1: {
-      ...pr1Res.data,
-      request_type: ((pr1Res.data as any).request_type ?? 'goods') as 'goods' | 'services',
-    },
+    pr1: pr1Header,
     items,
     quotes,
   };
@@ -2318,7 +2903,9 @@ export async function fetchSupplierQuoteDetail(
 // ─── Submit supplier quotation ────────────────────────────────────────────────
 
 export interface QuoteDraft {
-  pr1_item_id:          string;
+  pr1_item_id?:         string | null;
+  /** Phase 3 (Raw Mats): set instead of pr1_item_id for PR2-native lines. */
+  pr2_item_id?:         string | null;
   quoted_description:   string;
   is_alternative:       boolean;
   unit_price:           number;
@@ -2400,18 +2987,22 @@ export async function submitSupplierQuotation(
   const rows = quotes.map(q => {
     const status: RfqQuoteResponseStatus =
       q.response_status === 'no_quote' ? 'no_quote' : 'quoted';
+    const base = {
+      rfq_supplier_id: rfqSupplierId,
+      pr1_item_id:     q.pr1_item_id ?? null,
+      pr2_item_id:     q.pr2_item_id ?? null,
+      submitted_at:    now,
+      updated_at:      now,
+    };
     if (status === 'no_quote') {
       const reason = (q.no_quote_reason ?? '').trim();
       return {
-        rfq_supplier_id:     rfqSupplierId,
-        pr1_item_id:         q.pr1_item_id,
+        ...base,
         quoted_description:  'No quote',
         is_alternative:      false,
         unit_price:          0,
         lead_time_days:      0,
         remarks:             q.remarks.trim() || null,
-        submitted_at:        now,
-        updated_at:          now,
         supplier_product_id: null,
         response_status:     'no_quote' as const,
         no_quote_reason:     reason,
@@ -2419,15 +3010,12 @@ export async function submitSupplierQuotation(
       };
     }
     return {
-      rfq_supplier_id:     rfqSupplierId,
-      pr1_item_id:         q.pr1_item_id,
+      ...base,
       quoted_description:  q.quoted_description.trim(),
       is_alternative:      q.is_alternative,
       unit_price:          q.unit_price,
       lead_time_days:      q.lead_time_days,
       remarks:             q.remarks.trim() || null,
-      submitted_at:        now,
-      updated_at:          now,
       supplier_product_id: q.supplier_product_id ?? null,
       response_status:     'quoted' as const,
       no_quote_reason:     null,
@@ -2435,10 +3023,24 @@ export async function submitSupplierQuotation(
     };
   });
 
+  // Remove any legacy duplicate quote row for the same item where pr1_item_id / pr2_item_id were inverted
+  for (const q of quotes) {
+    const itemId = q.pr1_item_id ?? q.pr2_item_id;
+    if (itemId) {
+      if (q.pr1_item_id) {
+        await db.from('rfq_item_quotes').delete().eq('rfq_supplier_id', rfqSupplierId).eq('pr2_item_id', itemId);
+      } else if (q.pr2_item_id) {
+        await db.from('rfq_item_quotes').delete().eq('rfq_supplier_id', rfqSupplierId).eq('pr1_item_id', itemId);
+      }
+    }
+  }
+
+  // Phase 3 (Raw Mats): rfq_item_quotes_supplier_item_key is a single
+  // NULLS NOT DISTINCT composite index over (rfq_supplier_id, pr1_item_id,
+  // pr2_item_id), so one upsert handles both pr1- and pr2-keyed rows.
   const { error: upsertErr } = await db
     .from('rfq_item_quotes')
-    .upsert(rows, { onConflict: 'rfq_supplier_id,pr1_item_id' });
-
+    .upsert(rows, { onConflict: 'rfq_supplier_id,pr1_item_id,pr2_item_id' });
   if (upsertErr) throw upsertErr;
 
   // When a supplier materially changes a quote that procurement had already
@@ -2472,19 +3074,34 @@ export async function submitSupplierQuotation(
 
     const { data: rfq } = await db
       .from('rfq_batches')
-      .select('id, rfq_number, pr1_id')
+      .select('id, rfq_number, pr1_id, pr2_id')
       .eq('id', rs.rfq_id)
       .maybeSingle();
 
-    if (!rfq?.pr1_id) return;
+    if (!rfq) return;
 
-    const { data: pr1 } = await db
-      .from('pr1_requests')
-      .select('pr1_number, requisitioner_id')
-      .eq('id', rfq.pr1_id)
-      .maybeSingle();
-
-    const pr1Label     = pr1?.pr1_number ?? 'a request';
+    // Phase 3 (Raw Mats): a raw-material RFQ has no pr1_id — resolve the
+    // label/requestor through pr2_requests instead.
+    let requestLabel = 'a request';
+    let requisitionerId: string | null = null;
+    if (rfq.pr1_id) {
+      const { data: pr1 } = await db
+        .from('pr1_requests')
+        .select('pr1_number, requisitioner_id')
+        .eq('id', rfq.pr1_id)
+        .maybeSingle();
+      requestLabel     = pr1?.pr1_number ?? requestLabel;
+      requisitionerId  = pr1?.requisitioner_id ?? null;
+    } else if (rfq.pr2_id) {
+      const { data: pr2 } = await db
+        .from('pr2_requests')
+        .select('pr2_number, requisitioner_id')
+        .eq('id', rfq.pr2_id)
+        .maybeSingle();
+      requestLabel     = pr2?.pr2_number ?? requestLabel;
+      requisitionerId  = pr2?.requisitioner_id ?? null;
+    }
+    const pr1Label     = requestLabel;
     const supplierName = rs.supplier_name_snapshot ?? 'A supplier';
 
     await notifyByRole('procurement', {
@@ -2496,14 +3113,16 @@ export async function submitSupplierQuotation(
       action_url:    `/rfq/${rfq.id}`,
     });
 
-    if (alternativeCount > 0) {
+    // Substitute-item review is PR1-only (out of scope for raw material —
+    // see docs/raw-materials-implementation-plan.md Phase 3 limitations).
+    if (rfq.pr1_id && alternativeCount > 0) {
       const altLabel = `${alternativeCount} substitute item${alternativeCount !== 1 ? 's' : ''}`;
 
-      if (pr1?.requisitioner_id) {
+      if (requisitionerId) {
         const { data: existing } = await db
           .from('notifications')
           .select('id')
-          .eq('user_id', pr1.requisitioner_id)
+          .eq('user_id', requisitionerId)
           .eq('document_id', rfq.pr1_id)
           .eq('type', 'action_required')
           .eq('read', false)
@@ -2512,7 +3131,7 @@ export async function submitSupplierQuotation(
 
         if (!existing?.length) {
           await createNotification({
-            user_id:       pr1.requisitioner_id,
+            user_id:       requisitionerId,
             title:         'Substitute Item Review Required',
             body:          `${supplierName} offered ${altLabel} for ${pr1Label}. Review and decide before procurement can award.`,
             type:          'action_required',
@@ -2550,18 +3169,44 @@ export async function fetchProcurementStats(): Promise<{
   high_priority_count: number;
   medium_priority_count: number;
 }> {
-  const [queueRes, openRfqRes, completeRes, highRes, mediumRes] = await Promise.all([
-    db.from('pr1_requests').select('id', { count: 'exact', head: true }).eq('status', 'for_canvassing'),
+  // Services Workflow Alignment Phase 5: Goods and Services both reach
+  // `pr2_approved` when ready for RFQ now (the old for_canvassing/
+  // canvassing_complete statuses are no longer reachable for new services
+  // records) — "ready for RFQ" and its priority breakdown are now type-blind,
+  // matching the canvassing queue itself.
+  const [readyRes, openRfqRes, highRes, mediumRes] = await Promise.all([
+    db.from('pr1_requests').select('id', { count: 'exact', head: true }).eq('status', 'pr2_approved').in('request_type', ['goods', 'services']),
     db.from('rfq_batches').select('id', { count: 'exact', head: true }).eq('status', 'open'),
-    db.from('pr1_requests').select('id', { count: 'exact', head: true }).eq('status', 'canvassing_complete'),
-    db.from('pr1_requests').select('id', { count: 'exact', head: true }).eq('status', 'for_canvassing').eq('priority', 'high'),
-    db.from('pr1_requests').select('id', { count: 'exact', head: true }).eq('status', 'for_canvassing').eq('priority', 'medium'),
+    db.from('pr1_requests').select('id', { count: 'exact', head: true }).eq('status', 'pr2_approved').eq('priority', 'high').in('request_type', ['goods', 'services']),
+    db.from('pr1_requests').select('id', { count: 'exact', head: true }).eq('status', 'pr2_approved').eq('priority', 'medium').in('request_type', ['goods', 'services']),
   ]);
 
+  // canvassingComplete: closed RFQs with no PO generated yet. Not currently
+  // rendered on any dashboard card (checked components/dashboards/
+  // ProcurementDashboard.tsx) — kept correct rather than deleted, in case a
+  // card is added later, but computed cheaply since it's presently unused.
+  const { data: closedRfqs, error: closedErr } = await db
+    .from('rfq_batches')
+    .select('pr2_id')
+    .eq('status', 'closed')
+    .not('pr2_id', 'is', null);
+  if (closedErr) throw closedErr;
+  const closedPr2Ids = Array.from(new Set((closedRfqs ?? []).map((r: any) => r.pr2_id as string)));
+  let canvassingComplete = 0;
+  if (closedPr2Ids.length > 0) {
+    const { data: posForClosed, error: poErr } = await db
+      .from('po_requests')
+      .select('pr2_id')
+      .in('pr2_id', closedPr2Ids);
+    if (poErr) throw poErr;
+    const pr2IdsWithPO = new Set((posForClosed ?? []).map((p: any) => p.pr2_id as string));
+    canvassingComplete = closedPr2Ids.filter((id) => !pr2IdsWithPO.has(id)).length;
+  }
+
   return {
-    forCanvassing:        queueRes.count ?? 0,
+    forCanvassing:        readyRes.count ?? 0,
     openRfqs:             openRfqRes.count ?? 0,
-    canvassingComplete:   completeRes.count ?? 0,
+    canvassingComplete,
     high_priority_count:  highRes.count ?? 0,
     medium_priority_count: mediumRes.count ?? 0,
   };
@@ -2664,10 +3309,13 @@ export async function uploadRfqQuoteAttachment(params: {
   rfqId:           string;
   rfqSupplierId:   string;
   rfqItemQuoteId:  string;
-  pr1ItemId:       string;
+  pr1ItemId?:      string | null;
+  /** Phase 3 (Raw Mats): set instead of pr1ItemId for PR2-native lines. */
+  pr2ItemId?:      string | null;
   file:            File;
 }): Promise<RfqQuoteAttachment> {
-  const { rfqId, rfqSupplierId, rfqItemQuoteId, pr1ItemId, file } = params;
+  const { rfqId, rfqSupplierId, rfqItemQuoteId, pr1ItemId, pr2ItemId, file } = params;
+  const itemId = pr1ItemId ?? pr2ItemId;
 
   if (!ALLOWED_MIME_TYPES.has(file.type)) {
     throw new Error(`File type "${file.type}" is not allowed. Use JPEG, PNG, WebP, GIF, or PDF.`);
@@ -2678,7 +3326,7 @@ export async function uploadRfqQuoteAttachment(params: {
 
   const ts = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const storagePath = `rfq/${rfqId}/${rfqSupplierId}/${pr1ItemId}/${ts}_${safeName}`;
+  const storagePath = `rfq/${rfqId}/${rfqSupplierId}/${itemId}/${ts}_${safeName}`;
 
   const { error: uploadErr } = await supabase.storage
     .from('rfq-attachments')
@@ -2691,7 +3339,8 @@ export async function uploadRfqQuoteAttachment(params: {
       rfq_id:            rfqId,
       rfq_supplier_id:   rfqSupplierId,
       rfq_item_quote_id: rfqItemQuoteId,
-      pr1_item_id:       pr1ItemId,
+      pr1_item_id:       pr1ItemId ?? null,
+      pr2_item_id:       pr2ItemId ?? null,
       uploaded_by:       (await supabase.auth.getUser()).data.user?.id,
       storage_path:      storagePath,
       file_name:         file.name,
@@ -2714,7 +3363,7 @@ export async function uploadRfqQuoteAttachment(params: {
         action:        'RFQ_QUOTE_ATTACHMENT_UPLOADED',
         document_type: 'RFQ',
         document_id:   rfqId,
-        payload:       { rfq_supplier_id: rfqSupplierId, pr1_item_id: pr1ItemId, file_name: file.name, file_size: file.size },
+        payload:       { rfq_supplier_id: rfqSupplierId, item_id: itemId, file_name: file.name, file_size: file.size },
       });
     } catch {}
   }

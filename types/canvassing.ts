@@ -5,7 +5,9 @@ export interface RfqQuoteAttachment {
   rfq_id:            string;
   rfq_supplier_id:   string;
   rfq_item_quote_id: string;
-  pr1_item_id:       string;
+  pr1_item_id:       string | null;
+  /** Phase 3 (Raw Mats): set instead of pr1_item_id for PR2-native lines. */
+  pr2_item_id?:      string | null;
   uploaded_by:       string;
   storage_path:      string;
   file_name:         string;
@@ -76,7 +78,8 @@ export interface SubstituteReviewBundle {
 
 export interface RfqBatch {
   id:         string;
-  pr1_id:     string;
+  pr1_id:     string | null;
+  pr2_id?:    string | null;
   rfq_number: string;
   status:     RfqBatchStatus;
   issued_by:  string;
@@ -111,7 +114,9 @@ export type RfqQuoteResponseStatus = 'quoted' | 'no_quote';
 export interface RfqItemQuote {
   id:                  string;
   rfq_supplier_id:     string;
-  pr1_item_id:         string;
+  pr1_item_id:         string | null;
+  /** Phase 3 (Raw Mats): set instead of pr1_item_id for PR2-native lines. */
+  pr2_item_id?:        string | null;
   quoted_description:  string;
   is_alternative:      boolean;
   unit_price:          number;
@@ -134,7 +139,9 @@ export interface RfqItemQuote {
 export interface SupplierItemSelection {
   id:                       string;
   rfq_id:                   string;
-  pr1_item_id:              string;
+  pr1_item_id:              string | null;
+  /** Phase 3 (Raw Mats): set instead of pr1_item_id for PR2-native lines. */
+  pr2_item_id?:             string | null;
   selected_rfq_supplier_id: string;
   selected_by:              string;
   selected_at:              string;
@@ -159,6 +166,21 @@ export interface CanvassingQueueRow {
   request_type:                'goods' | 'services';
   assigned_buyer_id:            string | null;
   assigned_buyer_name_snapshot: string | null;
+}
+
+/** Phase 3 (Raw Mats): PR2-native canvassing queue row — no PR1, no warehouse step, no buyer/priority fields. */
+export interface RawMaterialCanvassingQueueRow {
+  pr2_id:                      string;
+  pr2_number:                  string;
+  request_type:                'raw_material' | 'services';
+  requisitioner_name_snapshot: string;
+  department_name_snapshot:    string;
+  purpose:                     string;
+  priority?:                   string | null;
+  date_required:               string;
+  rfq_id:                      string | null;
+  rfq_number:                  string | null;
+  rfq_status:                  RfqBatchStatus | null;
 }
 
 /** Phase 7: catalog product summary keyed by supplier_product_id. */
@@ -196,7 +218,7 @@ export interface RfqDetailView {
     department_name_snapshot:    string;
     purpose:                     string;
     date_required:               string;
-    request_type:                'goods' | 'services';
+    request_type:                'goods' | 'services' | 'raw_material';
   };
   items: {
     id:                 string;
