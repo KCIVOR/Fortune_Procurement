@@ -68,7 +68,11 @@ export const ALL_NAV: Record<string, NavItem> = {
     module_key: 'my_requests',
   },
   planningPR2: {
-    label: 'PR2 Requests',
+    // Planning Staff skip the PR1 stage entirely and requisition straight via PR2,
+    // so this *is* their "My Requests" list. `my_requests` (/pr1) is hidden for
+    // that position via module visibility — see migration
+    // `planning_staff_use_pr2_as_my_requests`.
+    label: 'My Requests',
     href: '/planning/pr2',
     icon: 'ClipboardList',
     module_key: 'planning_pr2',

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/context/AuthContext';
 import EmployeeDashboard from '@/components/dashboards/EmployeeDashboard';
+import PlanningDashboard from '@/components/dashboards/PlanningDashboard';
 import WarehouseDashboard from '@/components/dashboards/WarehouseDashboard';
 import ProcurementDashboard from '@/components/dashboards/ProcurementDashboard';
 import ApproverDashboard from '@/components/dashboards/ApproverDashboard';
@@ -41,7 +42,9 @@ export default function DashboardPage() {
 
     switch (profile.role) {
       case 'admin':       return <AdminDashboard profile={profile} />;
-      case 'employee':    return <EmployeeDashboard profile={profile} />;
+      case 'employee':    return profile.position === 'Planning Staff'
+        ? <PlanningDashboard profile={profile} />
+        : <EmployeeDashboard profile={profile} />;
       case 'warehouse':   return <WarehouseDashboard profile={profile} />;
       case 'procurement': return <ProcurementDashboard profile={profile} />;
       case 'approver':    return <ApproverDashboard profile={profile} />;

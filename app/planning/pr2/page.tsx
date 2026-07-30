@@ -148,9 +148,9 @@ export default function RawMaterialPR2ListPage() {
   };
 
   return (
-    <AppShell title="My PR2 Requests">
+    <AppShell title="My Requests">
       <PageHeader
-        title="My PR2 Requests"
+        title="My Requests"
         description="Create and track your Raw Material and Services PR2 requisitions."
         action={
           <Link

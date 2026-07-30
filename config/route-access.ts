@@ -180,6 +180,10 @@ export function isRoleAllowedForPath(
       return true;
     case 'roles': {
       if (role === 'admin' && decision.adminBypass !== false) return true;
+      const path = normalizePathname(pathname);
+      if (position?.trim() === 'Planning Staff' && (path === '/pr1' || path.startsWith('/pr1/'))) {
+        return false;
+      }
       if (decision.roles?.includes(role)) return true;
       if (isDirectorApprover(role, position) && isDirectorLogisticsPath(pathname)) {
         return true;
