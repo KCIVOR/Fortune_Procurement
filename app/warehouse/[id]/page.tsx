@@ -87,7 +87,7 @@ export default function WarehouseValidationPage() {
   }, [pr1Id, profile]);
 
   useEffect(() => {
-    if (!confirmSubmit || !pr1 || pr1.request_type !== 'goods') return;
+    if (!confirmSubmit || !pr1 || (pr1.request_type !== 'goods' && pr1.request_type !== 'services')) return;
     const year = new Date().getFullYear();
     const prefix = `PR2-${year}-`;
     let cancelled = false;
@@ -286,7 +286,7 @@ export default function WarehouseValidationPage() {
       : 'insufficient'
     : null;
 
-  const willCreatePR2 = !isServices && derivedDecision === 'insufficient';
+  const willCreatePR2 = derivedDecision === 'insufficient';
 
   return (
     <AppShell title="Warehouse Validation">

@@ -541,6 +541,17 @@ export async function submitValidationDecision(
   // Material never reaches this function (no PR1/warehouse step for it).
   const createsPR2 = decision === 'insufficient' && (requestType === 'goods' || requestType === 'services');
 
+  // ── Early guard: validate pr2Number BEFORE any DB writes ─────────────────
+  // Without this, the decision is committed to warehouse_validations first and
+  // the missing-number error is thrown mid-transaction, leaving the record in a
+  // broken read-only state with no PR2 created.
+  if (createsPR2) {
+    const pr2NumberEarly = options?.pr2Number?.trim() ?? '';
+    if (!pr2NumberEarly) {
+      throw new Error('PR2 number is required when routing Goods or Services to procurement.');
+    }
+  }
+
   const { error: hErr } = await db
     .from('warehouse_validations')
     .update({
@@ -575,21 +586,18 @@ export async function submitValidationDecision(
     if (iErr) throw iErr;
   }
 
-  // Finalise validation header with decision and submitter snapshot
-  const { error: vErr } = await db
-    .from('warehouse_validations')
-    .update({
-      decision:                    decision,
-      validator_id:                profile.id,
-      validator_name_snapshot:     profile.full_name,
-      validator_position_snapshot: profile.position,
-      validated_at:                now,
-      updated_at:                  now,
-    })
-    .eq('id', validationId);
-
-  if (vErr) throw vErr;
-
+  // Route to procurement (Goods/Services) or resolve internally FIRST, and
+  // only mark the validation header as decided once that succeeds.
+  //
+  // Ordering matters: `isReadOnly` on the warehouse validation page is driven
+  // solely by `warehouse_validations.decision` being set. If that commit
+  // happened before PR2 creation and PR2 creation then failed (e.g. an RLS
+  // gap, a duplicate PR2 number, a stale PR1 status), the record would be
+  // permanently locked read-only with a decision recorded but no PR2 ever
+  // created — unrecoverable from the UI. Committing the decision last means
+  // any failure here leaves the validation exactly as it was before this
+  // call, so the warehouse user can correct the input (e.g. pick a different
+  // PR2 number) and resubmit.
   let pr2Id: string | null = null;
   let nextPR1Status: string;
 
@@ -619,6 +627,23 @@ export async function submitValidationDecision(
       throw new Error('PR1 status could not be updated. It may have already been processed.');
     }
   }
+
+  // Finalise validation header with decision and submitter snapshot — only
+  // reached once PR2 creation (or the internal-resolution PR1 update) above
+  // has actually succeeded.
+  const { error: vErr } = await db
+    .from('warehouse_validations')
+    .update({
+      decision:                    decision,
+      validator_id:                profile.id,
+      validator_name_snapshot:     profile.full_name,
+      validator_position_snapshot: profile.position,
+      validated_at:                now,
+      updated_at:                  now,
+    })
+    .eq('id', validationId);
+
+  if (vErr) throw vErr;
 
   // Quantity overrides: dedicated audit entry + requestor notice, separate
   // from the general validation audit log below so it's easy to filter/render.
