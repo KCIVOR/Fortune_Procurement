@@ -139,7 +139,7 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
 
   return (
     <aside className={cn(
-      'flex flex-col h-screen bg-pq-neutral-900 text-white shrink-0 overflow-y-auto overflow-x-hidden transition-all duration-200',
+      'app-sidebar flex flex-col h-screen bg-pq-neutral-900 text-white shrink-0 overflow-hidden scrollbar-hide transition-all duration-200',
       isCollapsed ? 'w-16' : 'w-64'
     )}>
       {/* Brand */}
@@ -170,7 +170,7 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
 
       {/* Navigation */}
       <nav className={cn(
-        'flex-1 py-4 space-y-0.5 overflow-y-auto transition-all duration-200',
+        'flex-1 py-4 space-y-0.5 overflow-y-auto scrollbar-hide transition-all duration-200',
         isCollapsed ? 'px-1.5' : 'px-3'
       )}>
         {navItems === null ? (
@@ -209,7 +209,7 @@ export default function Sidebar({ onNavigate, isCollapsed = false, onCollapsedCh
 
       {/* User footer */}
       <div className={cn(
-        'border-t border-white/10 transition-all duration-200',
+        'shrink-0 border-t border-white/10 transition-all duration-200',
         isCollapsed ? 'px-1.5 py-2' : 'p-4'
       )}>
         <div className={cn(

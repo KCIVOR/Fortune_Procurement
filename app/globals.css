@@ -90,3 +90,23 @@
     display: none;
   }
 }
+
+/*
+  Sidebar scrollbar suppression — deliberately plain CSS, NOT inside
+  @layer utilities. Rules inside @layer are subject to Tailwind's content
+  purge and lose the cascade to unlayered CSS; the sidebar's scrollbar kept
+  showing when the `.scrollbar-hide` utility got dropped from the build.
+  Plain CSS always ships and always wins, so the chrome stays hidden
+  regardless of what Tailwind emits. Scrolling itself is unaffected.
+*/
+.app-sidebar,
+.app-sidebar nav {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.app-sidebar::-webkit-scrollbar,
+.app-sidebar nav::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
