@@ -1,9 +1,10 @@
 import type { PR1Attachment } from '@/types/pr1';
 
-export type POStatus = 'draft' | 'for_approval' | 'approved' | 'sent' | 'cancelled' | 'rejected';
+export type POStatus = 'draft' | 'revision_requested' | 'for_approval' | 'approved' | 'sent' | 'cancelled' | 'rejected';
 
 export const PO_STATUS_LABELS: Record<POStatus, string> = {
   draft:        'Draft',
+  revision_requested: 'Needs Revision',
   for_approval: 'For Approval',
   approved:     'Approved',
   sent:         'Sent to Supplier',

@@ -619,6 +619,14 @@ export default function GRNDetailPage() {
                                 {item.qa_status === 'approved' && (
                                   <span className="text-[10px] text-pq-success-600 font-semibold">QA Approved</span>
                                 )}
+                                {item.qa_status === 'rejected' && (
+                                  <span
+                                    className="text-[10px] text-pq-danger-600 font-semibold"
+                                    title={item.qa_rejection_reason ?? undefined}
+                                  >
+                                    QA Rejected{item.qa_rejection_reason ? `: ${item.qa_rejection_reason}` : ''}
+                                  </span>
+                                )}
                               </div>
                             ) : (
                               <button

@@ -580,7 +580,7 @@ export default function POApprovalDetailPage() {
                           ? 'Approved — PO fully approved internally'
                           : 'Approved — Advance to next step'
                         : pendingAction === 'rejected'
-                        ? 'Rejected — PO returned to draft'
+                        ? 'Rejected — PO cannot be resubmitted'
                         : 'Request Revision — PO returned to draft'}
                     </strong>?
                     {' '}This cannot be undone.

@@ -18,12 +18,13 @@ import { PO_STATUS_LABELS } from '@/types/po';
 import { format } from 'date-fns';
 import {
   ShoppingCart, Plus, FileText, CalendarDays, Clock, CircleCheck as CheckCircle2,
-  RotateCcw,
+  RotateCcw, Send,
 } from 'lucide-react';
 import PriorityChip from '@/components/shared/PriorityChip';
 
 const STATUS_STYLES: Record<string, string> = {
   draft:        'bg-pq-neutral-50 text-pq-neutral-500 border-pq-neutral-200',
+  revision_requested: 'bg-orange-50 text-orange-700 border-orange-200',
   for_approval: 'bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100',
   approved:     'bg-pq-success-100 text-pq-success-600 border-pq-success-100',
   sent:         'bg-sky-50 text-sky-700 border-sky-200',
@@ -33,6 +34,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 const STATUS_DOT: Record<string, string> = {
   draft:        'bg-pq-neutral-400',
+  revision_requested: 'bg-orange-500',
   for_approval: 'bg-pq-warning-1000 animate-pulse',
   approved:     'bg-pq-success-1000',
   sent:         'bg-sky-500',
@@ -298,6 +300,7 @@ export default function POListPage() {
                   <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50/50">
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">PO No.</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Status</th>
+                    <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Sent</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Purpose</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Supplier</th>
                     <th className="px-5 py-3 text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide text-left">Department</th>
@@ -321,6 +324,24 @@ export default function POListPage() {
                           <span className={`inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 ${STATUS_STYLES[po.status] ?? STATUS_STYLES.draft}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[po.status] ?? 'bg-pq-neutral-400'}`} />
                             {PO_STATUS_LABELS[po.status] ?? po.status}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {!po.supplier_id ? null : po.status !== 'approved' && po.status !== 'sent' ? (
+                          <span className="text-xs text-pq-neutral-300">—</span>
+                        ) : po.sent_at ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 bg-pq-success-100 text-pq-success-600 border-pq-success-100"
+                            title={`Sent ${format(new Date(po.sent_at), 'MMM d, yyyy h:mm a')}`}
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            Sent
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2 py-0.5 bg-pq-warning-100 text-pq-warning-700 border-pq-warning-200">
+                            <Send className="w-3 h-3" />
+                            Not Sent
                           </span>
                         )}
                       </td>

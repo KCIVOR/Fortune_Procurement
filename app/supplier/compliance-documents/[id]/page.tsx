@@ -65,10 +65,23 @@ function ComplianceItemCard({
   const [error,     setError]     = useState('');
 
   const hasDoc = item.documents.length > 0;
+  const MAX_SIZE = 10 * 1024 * 1024;
+  const MAX_ATTACHMENTS = 3;
+  const atLimit = item.documents.length >= MAX_ATTACHMENTS;
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
+    if (item.documents.length >= MAX_ATTACHMENTS) {
+      setError(`Maximum ${MAX_ATTACHMENTS} documents reached. Remove one before uploading another.`);
+      if (inputRef.current) inputRef.current.value = '';
+      return;
+    }
+    if (file.size > MAX_SIZE) {
+      setError(`${file.name} exceeds the 10 MB limit.`);
+      if (inputRef.current) inputRef.current.value = '';
+      return;
+    }
     setUploading(true);
     setError('');
     try {
@@ -156,21 +169,21 @@ function ComplianceItemCard({
           accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
           className="hidden"
           onChange={handleUpload}
-          disabled={uploading}
+          disabled={uploading || atLimit}
         />
         <label
           htmlFor={`compliance-upload-${item.po_item_id}`}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded border cursor-pointer transition-colors ${
-            uploading
+            uploading || atLimit
               ? 'opacity-50 cursor-not-allowed bg-pq-neutral-100 border-pq-neutral-200 text-pq-neutral-500'
               : 'bg-white border-pq-primary-300 text-pq-primary-700 hover:bg-pq-primary-50'
           }`}
         >
           <UploadCloud className="w-3.5 h-3.5" />
-          {uploading ? 'Uploading…' : hasDoc ? 'Upload Another' : 'Upload Document'}
+          {uploading ? 'Uploading…' : atLimit ? 'Maximum reached' : hasDoc ? 'Upload Another' : 'Upload Document'}
         </label>
         <p className="text-[10px] text-pq-neutral-400 mt-1">
-          PDF, JPG, PNG, WEBP, DOC — max 20 MB
+          PDF, JPG, PNG, WEBP, DOC — max 10 MB, up to {MAX_ATTACHMENTS} files ({item.documents.length}/{MAX_ATTACHMENTS})
         </p>
       </div>
 

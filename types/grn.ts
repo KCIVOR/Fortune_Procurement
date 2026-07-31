@@ -6,7 +6,7 @@ export const GRN_STATUS_LABELS: Record<GRNStatus, string> = {
   closed:      'Closed',
 };
 
-export type GRNItemQAStatus = 'pending' | 'approved';
+export type GRNItemQAStatus = 'pending' | 'approved' | 'rejected';
 
 export interface GRNReceipt {
   id: string;
@@ -94,6 +94,9 @@ export interface GRNItem {
   qa_status?: GRNItemQAStatus | null;
   qa_approved_by_id?: string | null;
   qa_approved_at?: string | null;
+  qa_rejection_reason?: string | null;
+  qa_rejected_by_id?: string | null;
+  qa_rejected_at?: string | null;
 
   created_at: string;
   updated_at: string;
@@ -149,6 +152,7 @@ export interface GRNItemDraft {
   quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
   requires_qa?: boolean;
   qa_status?: GRNItemQAStatus | null;
+  qa_rejection_reason?: string | null;
 }
 
 export interface GRNFormValues {

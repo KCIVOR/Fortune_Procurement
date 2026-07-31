@@ -9,6 +9,7 @@ import { ProcurementDashboardVisibilitySkeleton } from '@/components/shared/modu
 import { useModuleVisibility } from '@/hooks/use-module-visibility';
 import { fetchProcurementStats } from '@/lib/canvassing';
 import { fetchProcurementComplianceDashboardStats } from '@/lib/compliance-dashboard';
+import { fetchServicesAwaitingGRNCount } from '@/lib/delivery';
 import {
   SendHorizontal as SendHorizonal,
   ShoppingCart,
@@ -49,6 +50,12 @@ export default function ProcurementDashboard({ profile }: Props) {
     fetchProcurementComplianceDashboardStats().then(setCStats).catch(() => { });
   }, []);
 
+  const [servicesAwaitingGRN, setServicesAwaitingGRN] = useState(0);
+
+  useEffect(() => {
+    fetchServicesAwaitingGRNCount().then(setServicesAwaitingGRN).catch(() => { });
+  }, []);
+
   const cards = [
     { label: 'Awaiting RFQ', value: stats.forCanvassing, icon: PackageSearch, href: '/rfq' },
     { label: 'Open RFQs', value: stats.openRfqs, icon: SendHorizonal, href: '/rfq' },
@@ -68,6 +75,7 @@ export default function ProcurementDashboard({ profile }: Props) {
   const showProductReview = isModuleVisible('product_review');
   const showCanvassingRfq = isModuleVisible('canvassing_rfq');
   const showPurchaseOrders = isModuleVisible('purchase_orders');
+  const showDeliveryTracking = isModuleVisible('delivery_tracking');
 
   const accreditationQueueCard = complianceCards[0];
   const productComplianceCards = complianceCards.slice(1);
@@ -224,6 +232,39 @@ export default function ProcurementDashboard({ profile }: Props) {
                 <div className="space-y-1">
                   <p className="text-3xl font-bold text-pq-neutral-900">{stats.openRfqs}</p>
                   <p className="text-sm text-pq-neutral-500">RFQ{stats.openRfqs !== 1 ? 's' : ''} awaiting supplier response</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Services Awaiting GRN — Warehouse-forwarded deliveries with no GRN opened yet.
+          Neither the GRN queue (no GRN exists yet) nor the delivery list's generic
+          "Awaiting GRN" badge distinguish this from a services delivery still waiting
+          on Warehouse to forward it, so this is currently the only persistent (not
+          just a one-time notification) place Procurement can see this queue. */}
+      {showDeliveryTracking && (
+        <div className={showCanvassingRfq ? 'mt-4' : ''}>
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-pq-neutral-200">
+              <h2 className="text-sm font-semibold text-pq-neutral-900">Services Awaiting GRN</h2>
+              <Link href="/delivery" className="inline-flex items-center gap-1 text-xs text-pq-primary-600 hover:text-pq-neutral-900 font-medium transition">
+                View all <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <div className="px-5 py-6 text-center">
+              {servicesAwaitingGRN === 0 ? (
+                <p className="text-sm text-pq-neutral-400">No service deliveries waiting on you.</p>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-3xl font-bold text-pq-neutral-900">{servicesAwaitingGRN}</p>
+                  <p className="text-sm text-pq-neutral-500">
+                    Service{servicesAwaitingGRN !== 1 ? 's' : ''} forwarded by Warehouse, awaiting GRN
+                  </p>
+                  <Link href="/delivery" className="inline-flex items-center gap-1 mt-2 text-xs text-pq-primary-600 hover:text-pq-neutral-900 font-semibold transition">
+                    Go to delivery tracking <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               )}
             </div>

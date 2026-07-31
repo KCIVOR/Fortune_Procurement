@@ -203,8 +203,42 @@ export default function SupplierDeliveryDetailPage() {
             )}
           </div>
 
+          {/* Items Ordered — no pricing shown on supplier delivery pages */}
+          <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden order-3 lg:order-none">
+            <div className="px-5 py-4 border-b border-pq-neutral-200 bg-pq-neutral-50 flex items-center gap-2">
+              <Package className="w-3.5 h-3.5 text-pq-neutral-400" />
+              <h2 className="text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide">
+                Items Ordered ({delivery.items.length})
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-pq-neutral-200 bg-pq-neutral-50">
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-8">#</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-20">Code</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase">Description</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-16">Unit</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-pq-neutral-500 uppercase w-20">Qty</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-pq-neutral-200">
+                  {delivery.items.map(item => (
+                    <tr key={item.id} className="hover:bg-pq-neutral-50">
+                      <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-pq-neutral-500">{item.item_code || '—'}</td>
+                      <td className="px-4 py-3 text-pq-neutral-900 font-medium">{item.description}</td>
+                      <td className="px-4 py-3 text-center text-pq-neutral-500 text-xs">{item.unit_of_measure}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-pq-neutral-900">{item.quantity_to_purchase}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           {/* Key Dates */}
-          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4 order-3 lg:order-none">
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-4 order-4 lg:order-none">
             <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide">Key Dates</h2>
             {delivery.commitment_date && (
               <InfoField icon={CalendarDays} label="Commitment"
@@ -224,7 +258,7 @@ export default function SupplierDeliveryDetailPage() {
           </div>
 
           {/* References */}
-          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-2 order-4 lg:order-none">
+          <div className="bg-white rounded-md border border-pq-neutral-200 p-5 space-y-2 order-5 lg:order-none">
             <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide mb-2">References</h2>
             <p className="text-xs text-pq-neutral-500 font-mono">PO Ref: {delivery.po_number_snapshot}</p>
             <p className="text-xs text-pq-neutral-500 font-mono">PR2 Ref: {delivery.pr2_number_snapshot}</p>

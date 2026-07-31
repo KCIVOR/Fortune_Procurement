@@ -54,7 +54,7 @@ function rseChip(status: string): { variant: StatusVariant; label: string } {
 function validateDocFile(file: File): string | null {
   const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png']);
   if (!allowed.has(file.type || '')) return 'Allowed types: PDF, JPG, or PNG only.';
-  if (file.size > 20 * 1024 * 1024) return 'File must be 20 MB or smaller.';
+  if (file.size > 10 * 1024 * 1024) return 'File must be 10 MB or smaller.';
   return null;
 }
 

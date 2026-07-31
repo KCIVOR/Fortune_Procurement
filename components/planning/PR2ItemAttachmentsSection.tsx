@@ -161,18 +161,22 @@ export function PR2ItemAttachmentButton({
 
   const ACCEPTED_MIME = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   const MAX_SIZE = 10 * 1024 * 1024;
+  const MAX_ATTACHMENTS = 3;
 
   const totalCount = existingAttachments.length + pendingFiles.length;
+  const atLimit = totalCount >= MAX_ATTACHMENTS;
 
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
 
     const valid: File[] = [];
     const errs: string[] = [];
+    let remaining = MAX_ATTACHMENTS - totalCount;
     Array.from(files).forEach((f) => {
       if (!ACCEPTED_MIME.includes(f.type)) errs.push(`${f.name}: unsupported format.`);
       else if (f.size > MAX_SIZE) errs.push(`${f.name}: exceeds 10 MB.`);
-      else valid.push(f);
+      else if (remaining <= 0) errs.push(`${f.name}: maximum ${MAX_ATTACHMENTS} attachments reached.`);
+      else { valid.push(f); remaining -= 1; }
     });
     if (errs.length) {
       setError(errs.join(' '));
@@ -208,12 +212,13 @@ export function PR2ItemAttachmentButton({
         <PopoverContent align="center" className="w-64 p-3.5 bg-pq-white">
           <div className="flex items-center justify-between border-b border-pq-neutral-100 pb-2 mb-2.5">
             <span className="text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">
-              Attachments ({totalCount})
+              Attachments ({totalCount}/{MAX_ATTACHMENTS})
             </span>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="text-xs font-semibold text-pq-primary-600 hover:text-pq-neutral-900 transition"
+              disabled={atLimit}
+              className="text-xs font-semibold text-pq-primary-600 hover:text-pq-neutral-900 transition disabled:text-pq-neutral-300 disabled:cursor-not-allowed"
             >
               + Add
             </button>
@@ -267,6 +272,9 @@ export function PR2ItemAttachmentButton({
             </div>
           )}
 
+          {atLimit && !error && (
+            <p className="text-[10px] text-pq-neutral-400 mt-2 text-center">Maximum {MAX_ATTACHMENTS} attachments reached.</p>
+          )}
           {error && <p className="text-[10px] text-pq-danger-600 mt-2 text-center">{error}</p>}
         </PopoverContent>
       </Popover>
@@ -276,6 +284,7 @@ export function PR2ItemAttachmentButton({
         type="file"
         accept="image/jpeg,image/png,image/gif,image/webp"
         multiple
+        disabled={atLimit}
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}
       />

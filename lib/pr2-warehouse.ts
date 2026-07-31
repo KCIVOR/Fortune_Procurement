@@ -100,6 +100,7 @@ export async function createPR2FromWarehouseValidation(
       pr2_number:                    pr2Number,
       pr1_id:                        pr1.id,
       rfq_id:                        null,
+      request_type:                  pr1.request_type,
       requisitioner_id:              pr1.requisitioner_id,
       requisitioner_name_snapshot:   pr1.requisitioner_name_snapshot,
       department_id:                 pr1.department_id,

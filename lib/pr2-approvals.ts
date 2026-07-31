@@ -60,7 +60,7 @@ export async function submitPR2ForApproval(
     .maybeSingle();
   if (pr2Err) throw pr2Err;
   if (!pr2) throw new Error('PR2 not found.');
-  if (pr2.status !== 'draft') throw new Error('Only draft PR2s can be submitted for approval.');
+  if (pr2.status !== 'draft' && pr2.status !== 'revision_requested') throw new Error('Only draft or revision-requested PR2s can be submitted for approval.');
 
   // Raw material PR2s are Planning-owned end to end (no procurement editor in
   // between). Guarding here — not just in submitRawMaterialPR2()'s wrapper —
@@ -68,8 +68,8 @@ export async function submitPR2ForApproval(
   // directly: without this, procurement could submit a raw-material PR2 and
   // become approval_instances.started_by, hijacking revision/rejection
   // notifications away from the actual Planning requisitioner.
-  if (pr2.request_type === 'raw_material' && pr2.requisitioner_id !== profile.id) {
-    throw new Error('Only the Planning requisitioner may submit this raw material PR2 for approval.');
+  if (pr2.pr1_id === null && pr2.requisitioner_id !== profile.id) {
+    throw new Error('Only the Planning requisitioner may submit this PR2 for approval.');
   }
 
   // Guard: no existing active Phase 1 instance
@@ -288,10 +288,24 @@ export async function fetchPR2ApprovalDetail(
       .order('acted_at', { ascending: true }),
   ]);
 
-  if (pr2Res.error) throw pr2Res.error;
-  if (!pr2Res.data) return null;
+  let pr2Error = pr2Res.error;
+  let pr2Data = pr2Res.data;
+  let isArchived = false;
 
-  const pr2     = pr2Res.data;
+  if (!pr2Data && !pr2Error) {
+    const archiveRes = await db.from('pr2_requests_archive')
+      .select('id, pr2_number, pr1_number_snapshot, pr1_id, request_type, rfq_id, rfq_number_snapshot, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status, generated_at, remarks, prepared_by_name_snapshot, prepared_by_position_snapshot, prepared_at, generated_by')
+      .eq('id', inst.document_id)
+      .maybeSingle();
+    pr2Error = archiveRes.error;
+    pr2Data = archiveRes.data;
+    if (pr2Data) isArchived = true;
+  }
+
+  if (pr2Error) throw pr2Error;
+  if (!pr2Data) return null;
+
+  const pr2     = { ...pr2Data, is_archived: isArchived };
   const wf      = wfRes.data;
   const steps   = stepsRes.data ?? [];
   const actions = actionsRes.data ?? [];
@@ -365,8 +379,9 @@ export async function fetchPR2ApprovalDetail(
     : [];
 
   // Fetch PR2 items (include rfq_item_quote_id for quote attachment lookup)
+  const itemTableName = (pr2 as any).is_archived ? 'pr2_items_archive' : 'pr2_items';
   const [itemRowsRes, pr1Res] = await Promise.all([
-    db.from('pr2_items')
+    db.from(itemTableName)
       .select('id, item_order, item_code, description, unit_of_measure, quantity_requested, qty_on_hand, qty_incoming, quantity_to_purchase, supplier_name_snapshot, unit_price, total_price, vat_type, vat_rate_applied, pr1_item_id, is_raw_material, quote_justification, pr1_remarks_snapshot, pr1_quantity_requested_snapshot, quantity_override_reason_snapshot, quantity_overridden_by_name_snapshot, rfq_item_quote_id')
       .eq('pr2_id', pr2.id)
       .order('item_order', { ascending: true }),
@@ -431,6 +446,7 @@ export async function fetchPR2ApprovalDetail(
   return {
     pr2_id:                      pr2.id,
     pr2_number:                  pr2.pr2_number,
+    is_archived:                 (pr2 as any).is_archived,
     pr1_number_snapshot:         pr2.pr1_number_snapshot,
     rfq_number_snapshot:         pr2.rfq_number_snapshot,
     requisitioner_name_snapshot: pr2.requisitioner_name_snapshot,
@@ -521,6 +537,9 @@ export async function submitPR2ApprovalAction(
 ): Promise<void> {
   const now = new Date().toISOString();
 
+  // Phase 7: Track if we unwind to PR1 for audit mirroring
+  let unwoundPr1Id: string | null = null;
+
   // 1. Record the approval action snapshot
   const { error: actionErr } = await db
     .from('approval_actions')
@@ -585,28 +604,65 @@ export async function submitPR2ApprovalAction(
       // PR2 status unchanged (still pending_approval)
     }
   } else if (action === 'rejected') {
-    await db
-      .from('approval_instances')
-      .update({ status: 'rejected', completed_at: now })
-      .eq('id', instanceId);
-
-    // Terminal rejection — PR2 gets a distinct 'rejected' status (mirrors PR1),
-    // instead of collapsing back to 'draft' where it looks like a fresh request.
-    await db
+    // 1. Fetch pr1_id to determine if this is a warehouse-originated PR2
+    const { data: pr2Data } = await db
       .from('pr2_requests')
-      .update({ status: 'rejected', updated_at: now })
-      .eq('id', pr2Id);
+      .select('pr1_id')
+      .eq('id', pr2Id)
+      .maybeSingle();
+
+    if (pr2Data?.pr1_id) {
+      unwoundPr1Id = pr2Data.pr1_id;
+      // Phase 7: Unwind to warehouse natively via RPC (Terminal)
+      const { error: unwindErr } = await db.rpc('unwind_pr2_to_warehouse', { p_pr1_id: pr2Data.pr1_id, p_terminal: true });
+      if (unwindErr) throw new Error(unwindErr.message);
+
+      await db
+        .from('approval_instances')
+        .update({ status: 'rejected', completed_at: now })
+        .eq('id', instanceId);
+    } else {
+      // Fall through to original behavior for non-warehouse (e.g. Planning raw material)
+      await db
+        .from('approval_instances')
+        .update({ status: 'rejected', completed_at: now })
+        .eq('id', instanceId);
+
+      await db
+        .from('pr2_requests')
+        .update({ status: 'rejected', updated_at: now })
+        .eq('id', pr2Id);
+    }
   } else {
-    // revision_requested — same as rejected: back to draft
-    await db
-      .from('approval_instances')
-      .update({ status: 'cancelled', completed_at: now })
-      .eq('id', instanceId);
-
-    await db
+    // revision_requested
+    const { data: pr2Data } = await db
       .from('pr2_requests')
-      .update({ status: 'draft', updated_at: now })
-      .eq('id', pr2Id);
+      .select('pr1_id')
+      .eq('id', pr2Id)
+      .maybeSingle();
+
+    if (pr2Data?.pr1_id) {
+      unwoundPr1Id = pr2Data.pr1_id;
+      // Phase 7: Unwind to warehouse natively via RPC (Non-terminal revision)
+      const { error: unwindErr } = await db.rpc('unwind_pr2_to_warehouse', { p_pr1_id: pr2Data.pr1_id, p_terminal: false });
+      if (unwindErr) throw new Error(unwindErr.message);
+
+      await db
+        .from('approval_instances')
+        .update({ status: 'cancelled', completed_at: now })
+        .eq('id', instanceId);
+    } else {
+      // Fall through to original behavior
+      await db
+        .from('approval_instances')
+        .update({ status: 'cancelled', completed_at: now })
+        .eq('id', instanceId);
+
+      await db
+        .from('pr2_requests')
+        .update({ status: 'revision_requested', updated_at: now })
+        .eq('id', pr2Id);
+    }
   }
 
   // Audit log
@@ -634,6 +690,27 @@ export async function submitPR2ApprovalAction(
       position:      profile.position,
     },
   });
+
+  // Phase 7: If we unwound a PR2 back to PR1, add a parallel audit log to PR1
+  // since the PR2 record is now deleted and its audit log is orphaned from most UI.
+  if (unwoundPr1Id) {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        auditAction,
+      document_type: 'PR1',
+      document_id:   unwoundPr1Id,
+      payload: {
+        instance_id:   instanceId,
+        step_order:    stepOrder,
+        workflow_code: workflowCode,
+        action,
+        remarks:       remarks.trim() || null,
+        actor:         profile.full_name,
+        position:      profile.position,
+        note:          'PR2 was unwound; this is a mirrored audit log.',
+      },
+    });
+  }
 
   // Notifications (best-effort — must not fail the approval action)
   try {
@@ -698,50 +775,85 @@ export async function submitPR2ApprovalAction(
         }
       }
     } else {
-      // rejected or revision_requested → notify the person who submitted PR2 for approval
-      const [instData, pr2Data] = await Promise.all([
-        db.from('approval_instances').select('started_by').eq('id', instanceId).maybeSingle(),
-        db.from('pr2_requests').select('pr2_number, requisitioner_id, request_type').eq('id', pr2Id).maybeSingle(),
-      ]);
-      const requesterActionUrl = pr2Data.data?.request_type === 'raw_material' ? `/planning/pr2/${pr2Id}` : `/pr2/${pr2Id}`;
-      const startedByRemark = remarks.trim();
-      if (instData.data?.started_by && pr2Data.data?.pr2_number) {
-        await createNotification({
-          user_id:       instData.data.started_by,
-          title:         action === 'rejected' ? 'PR2 Rejected' : 'PR2 Revision Requested',
-          body:          action === 'rejected'
-            ? (startedByRemark
-                ? `PR2 ${pr2Data.data.pr2_number} was rejected. Reason: "${startedByRemark}"`
-                : `PR2 ${pr2Data.data.pr2_number} was rejected.`)
-            : (startedByRemark
-                ? `Revision requested on PR2 ${pr2Data.data.pr2_number}. Reason: "${startedByRemark}"`
-                : `Revision requested on PR2 ${pr2Data.data.pr2_number}.`),
-          type:          action === 'rejected' ? 'rejected' : 'action_required',
-          document_type: 'pr2',
-          document_id:   pr2Id,
-          action_url:    requesterActionUrl,
-        });
-      }
+      // rejected or revision_requested
+      if (unwoundPr1Id) {
+        // Phase 7: PR2 was unwound to warehouse
+        const startedByRemark = remarks.trim();
+        const { data: pr1Data } = await db.from('pr1_requests').select('pr1_number, requisitioner_id').eq('id', unwoundPr1Id).maybeSingle();
+        
+        if (action === 'revision_requested') {
+          // Notify warehouse about the returned PR1
+          await notifyByRole('warehouse', {
+            title:         'Warehouse Validation Required',
+            body:          startedByRemark 
+              ? `PR1 ${pr1Data?.pr1_number ?? ''} needs re-validation. Approver remarks: "${startedByRemark}"` 
+              : `PR1 ${pr1Data?.pr1_number ?? ''} needs re-validation.`,
+            type:          'action_required',
+            document_type: 'pr1',
+            document_id:   unwoundPr1Id,
+            action_url:    `/warehouse/${unwoundPr1Id}`,
+          }, { dedupeUnreadForDocument: true });
+        } else {
+          // Terminal rejection: notify original PR1 requisitioner directly
+          if (pr1Data?.requisitioner_id) {
+            await createNotification({
+              user_id:       pr1Data.requisitioner_id,
+              title:         'PR1 Rejected',
+              body:          startedByRemark
+                ? `PR1 ${pr1Data.pr1_number ?? ''} was rejected by PR2 approver. Reason: "${startedByRemark}"`
+                : `PR1 ${pr1Data.pr1_number ?? ''} was rejected by PR2 approver.`,
+              type:          'rejected',
+              document_type: 'pr1',
+              document_id:   unwoundPr1Id,
+              action_url:    `/pr1/${unwoundPr1Id}`,
+            });
+          }
+        }
+      } else {
+        // notify the person who submitted PR2 for approval (fallback for non-warehouse PR2)
+        const [instData, pr2Data] = await Promise.all([
+          db.from('approval_instances').select('started_by').eq('id', instanceId).maybeSingle(),
+          db.from('pr2_requests').select('pr2_number, requisitioner_id, request_type').eq('id', pr2Id).maybeSingle(),
+        ]);
+        const requesterActionUrl = pr2Data.data?.request_type === 'raw_material' ? `/planning/pr2/${pr2Id}` : `/pr2/${pr2Id}`;
+        const startedByRemark = remarks.trim();
+        if (instData.data?.started_by && pr2Data.data?.pr2_number) {
+          await createNotification({
+            user_id:       instData.data.started_by,
+            title:         action === 'rejected' ? 'PR2 Rejected' : 'PR2 Revision Requested',
+            body:          action === 'rejected'
+              ? (startedByRemark
+                  ? `PR2 ${pr2Data.data.pr2_number} was rejected. Reason: "${startedByRemark}"`
+                  : `PR2 ${pr2Data.data.pr2_number} was rejected.`)
+              : (startedByRemark
+                  ? `Revision requested on PR2 ${pr2Data.data.pr2_number}. Reason: "${startedByRemark}"`
+                  : `Revision requested on PR2 ${pr2Data.data.pr2_number}.`),
+            type:          action === 'rejected' ? 'rejected' : 'action_required',
+            document_type: 'pr2',
+            document_id:   pr2Id,
+            action_url:    requesterActionUrl,
+          });
+        }
 
-      // On terminal rejection, also notify the requisitioner if they are someone
-      // other than the submitter, so the rejection surfaces in their requests.
-      if (
-        action === 'rejected' &&
-        pr2Data.data?.requisitioner_id &&
-        pr2Data.data?.pr2_number &&
-        pr2Data.data.requisitioner_id !== instData.data?.started_by
-      ) {
-        await createNotification({
-          user_id:       pr2Data.data.requisitioner_id,
-          title:         'PR2 Rejected',
-          body:          startedByRemark
-            ? `PR2 ${pr2Data.data.pr2_number} was rejected. Reason: "${startedByRemark}"`
-            : `PR2 ${pr2Data.data.pr2_number} for your request was rejected.`,
-          type:          'rejected',
-          document_type: 'pr2',
-          document_id:   pr2Id,
-          action_url:    requesterActionUrl,
-        });
+        // On terminal rejection, also notify the requisitioner if they are someone
+        // other than the submitter, so the rejection surfaces in their requests.
+        if (
+          pr2Data.data?.requisitioner_id &&
+          pr2Data.data?.pr2_number &&
+          pr2Data.data.requisitioner_id !== instData.data?.started_by
+        ) {
+          await createNotification({
+            user_id:       pr2Data.data.requisitioner_id,
+            title:         'PR2 Rejected',
+            body:          startedByRemark
+              ? `PR2 ${pr2Data.data.pr2_number} was rejected. Reason: "${startedByRemark}"`
+              : `PR2 ${pr2Data.data.pr2_number} for your request was rejected.`,
+            type:          'rejected',
+            document_type: 'pr2',
+            document_id:   pr2Id,
+            action_url:    requesterActionUrl,
+          });
+        }
       }
     }
   } catch {

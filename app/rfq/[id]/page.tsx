@@ -1516,16 +1516,28 @@ function MatrixRow({
 
                 <div className="text-xs text-pq-neutral-500 leading-snug">
                   <p
-                    className={`font-bold text-sm ${
+                    className={`font-bold text-sm flex items-center flex-wrap gap-1.5 ${
                       quote.substitute_decision === 'rejected'
                         ? 'text-pq-neutral-400 line-through'
                         : 'text-pq-neutral-900'
                     }`}
                   >
-                    {formatCommercialAmount(quote.unit_price, canViewPrices)}
-                    {canViewPrices && (
-                      <span className="text-xs font-normal text-pq-neutral-400">
-                        {' '}/ {row.item.unit_of_measure}
+                    <span>
+                      {formatCommercialAmount(quote.unit_price, canViewPrices)}
+                      {canViewPrices && (
+                        <span className="text-xs font-normal text-pq-neutral-400">
+                          {' '}/ {row.item.unit_of_measure}
+                        </span>
+                      )}
+                    </span>
+                    {canViewPrices && quote.vat_type === 'vat_inclusive' && (
+                      <span className="text-[9px] font-bold tracking-wider text-pq-primary-700 bg-pq-primary-50 border border-pq-primary-200 rounded px-1 py-0.5 uppercase">
+                        VAT In
+                      </span>
+                    )}
+                    {canViewPrices && quote.vat_type === 'vat_exclusive' && (
+                      <span className="text-[9px] font-bold tracking-wider text-pq-neutral-600 bg-pq-neutral-100 border border-pq-neutral-200 rounded px-1 py-0.5 uppercase">
+                        VAT Ex
                       </span>
                     )}
                   </p>

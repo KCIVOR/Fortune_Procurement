@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, ChevronDown, Loader2 } from 'lucide-react';
+import { Bell, Check, Undo2, ChevronDown, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -10,6 +10,7 @@ import {
   fetchMyNotifications,
   fetchUnreadNotificationCount,
   markNotificationRead,
+  markNotificationUnread,
   markAllNotificationsRead,
 } from '@/lib/notifications';
 import type { Notification } from '@/types/database';
@@ -311,6 +312,24 @@ export default function NotificationBell() {
     }
   };
 
+  const handleMarkAsUnread = async (notif: Notification, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent notification click
+    console.log('📕 [NotificationBell] Mark as unread button clicked:', notif.id);
+
+    if (!notif.read) return; // Already unread
+
+    try {
+      await markNotificationUnread(notif.id);
+      console.log('✅ [NotificationBell] Marked as unread');
+      setNotifications(prev =>
+        prev.map(n => (n.id === notif.id ? { ...n, read: false } : n))
+      );
+      setUnreadCount(prev => prev + 1);
+    } catch (err) {
+      console.error('❌ [NotificationBell] Error marking as unread:', err);
+    }
+  };
+
   const handleMarkAllAsRead = async () => {
     if (!profile || unreadCount === 0) return;
     
@@ -450,6 +469,19 @@ export default function NotificationBell() {
                         aria-label="Mark as read"
                       >
                         <Check className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {/* Mark as Unread button - only show for read notifications */}
+                    {notif.read && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleMarkAsUnread(notif, e)}
+                        className="absolute top-4 right-4 p-1.5 rounded-md text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-primary-50 border border-transparent hover:border-pq-primary-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        title="Mark as unread"
+                        aria-label="Mark as unread"
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>

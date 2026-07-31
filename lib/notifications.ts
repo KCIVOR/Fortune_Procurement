@@ -62,6 +62,19 @@ export async function markNotificationRead(notificationId: string): Promise<void
   console.log('✅ [notifications.ts] Marked as read successfully');
 }
 
+export async function markNotificationUnread(notificationId: string): Promise<void> {
+  console.log('📕 [notifications.ts] Marking notification as unread:', notificationId);
+  const { error } = await db
+    .from('notifications')
+    .update({ read: false })
+    .eq('id', notificationId);
+  if (error) {
+    console.error('❌ [notifications.ts] Error marking as unread:', error);
+    throw error;
+  }
+  console.log('✅ [notifications.ts] Marked as unread successfully');
+}
+
 export async function markAllNotificationsRead(userId: string): Promise<void> {
   console.log('📖 [notifications.ts] Marking ALL notifications as read for user:', userId);
   const { error } = await db

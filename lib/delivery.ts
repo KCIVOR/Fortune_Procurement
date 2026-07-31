@@ -225,6 +225,37 @@ export async function fetchDeliveryQueuePaged(params: {
 }
 
 /** Tab badge counts (DB exact counts, same scoping rules as the paged list). */
+/**
+ * Count of service deliveries Warehouse has forwarded to Procurement that
+ * don't have a GRN opened yet — Procurement's actual outstanding work from
+ * that handoff, since neither the GRN queue (no GRN exists yet) nor the
+ * delivery list's generic "Awaiting GRN" badge distinguish this from a
+ * services delivery still waiting on Warehouse to forward it.
+ */
+export async function fetchServicesAwaitingGRNCount(): Promise<number> {
+  // forwarded_to_procurement is only ever set true from forwardServiceDeliveryToProcurement,
+  // which is exclusively gated to services deliveries — no need to also filter by
+  // request_type (which isn't even a raw column on `deliveries`; it's resolved per-row
+  // via an RPC elsewhere, not something you can .eq() against here).
+  const { data: forwarded, error } = await db
+    .from('deliveries')
+    .select('id')
+    .eq('forwarded_to_procurement', true);
+  if (error) throw error;
+
+  const ids = ((forwarded ?? []) as { id: string }[]).map(r => r.id);
+  if (ids.length === 0) return 0;
+
+  const { data: withGrn, error: grnErr } = await db
+    .from('grn_receipts')
+    .select('delivery_id')
+    .in('delivery_id', ids);
+  if (grnErr) throw grnErr;
+
+  const grnDeliveryIds = new Set(((withGrn ?? []) as { delivery_id: string }[]).map(r => r.delivery_id));
+  return ids.filter(id => !grnDeliveryIds.has(id)).length;
+}
+
 export async function fetchDeliveryTabCounts(params: {
   mode: 'procurement' | 'employee';
   requisitionerId?: string;
@@ -376,10 +407,27 @@ export async function fetchDeliveryById(id: string): Promise<DeliveryWithHistory
   // wrong row (or fail ambiguously) if a duplicate exists.
   const { data: resolvedType } = await db.rpc('request_type_for_delivery_display', { p_delivery_id: id });
 
+  // Line items for the delivery's PO — deliberately excludes unit_price/total_price;
+  // pricing is not shown on delivery tracking pages for any role.
+  const { data: itemRows, error: itemsErr } = await db
+    .from('po_items')
+    .select('id, item_order, item_code, description, unit_of_measure, quantity_to_purchase')
+    .eq('po_id', delivery.po_id)
+    .order('item_order', { ascending: true });
+  if (itemsErr) throw itemsErr;
+
   return {
     ...delivery,
     request_type: (resolvedType as 'goods' | 'services' | 'raw_material' | null) ?? 'goods',
     history: (historyRes.data ?? []).map(normalizeHistoryEntry),
+    items: (itemRows ?? []).map((r: any) => ({
+      id:                   r.id,
+      item_order:           r.item_order,
+      item_code:            r.item_code,
+      description:          r.description,
+      unit_of_measure:      r.unit_of_measure,
+      quantity_to_purchase: Number(r.quantity_to_purchase),
+    })),
   };
 }
 

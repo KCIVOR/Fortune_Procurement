@@ -63,8 +63,17 @@ async function resolvePR2ByPR1(pr1Id: string): Promise<ChainDoc> {
     .select('id, pr2_number, status')
     .eq('pr1_id', pr1Id)
     .maybeSingle();
-  if (!data) return { type: 'PR2', id: null, document_number: null, status: null, route: null, exists: false };
-  return { type: 'PR2', id: data.id, document_number: data.pr2_number, status: data.status, route: `/pr2/${data.id}`, exists: true };
+  if (data) return { type: 'PR2', id: data.id, document_number: data.pr2_number, status: data.status, route: `/pr2/${data.id}`, exists: true };
+
+  // Fallback to archive
+  const { data: archiveData } = await db
+    .from('pr2_requests_archive')
+    .select('id, pr2_number, status')
+    .eq('pr1_id', pr1Id)
+    .maybeSingle();
+  if (archiveData) return { type: 'PR2', id: archiveData.id, document_number: archiveData.pr2_number, status: archiveData.status, route: `/pr2/${archiveData.id}`, exists: true };
+
+  return { type: 'PR2', id: null, document_number: null, status: null, route: null, exists: false };
 }
 
 async function resolvePR2ByRFQ(rfqId: string): Promise<ChainDoc> {
@@ -73,8 +82,17 @@ async function resolvePR2ByRFQ(rfqId: string): Promise<ChainDoc> {
     .select('id, pr2_number, status')
     .eq('rfq_id', rfqId)
     .maybeSingle();
-  if (!data) return { type: 'PR2', id: null, document_number: null, status: null, route: null, exists: false };
-  return { type: 'PR2', id: data.id, document_number: data.pr2_number, status: data.status, route: `/pr2/${data.id}`, exists: true };
+  if (data) return { type: 'PR2', id: data.id, document_number: data.pr2_number, status: data.status, route: `/pr2/${data.id}`, exists: true };
+
+  // Fallback to archive
+  const { data: archiveData } = await db
+    .from('pr2_requests_archive')
+    .select('id, pr2_number, status')
+    .eq('rfq_id', rfqId)
+    .maybeSingle();
+  if (archiveData) return { type: 'PR2', id: archiveData.id, document_number: archiveData.pr2_number, status: archiveData.status, route: `/pr2/${archiveData.id}`, exists: true };
+
+  return { type: 'PR2', id: null, document_number: null, status: null, route: null, exists: false };
 }
 
 async function resolvePR2ById(pr2Id: string): Promise<ChainDoc> {
@@ -83,8 +101,17 @@ async function resolvePR2ById(pr2Id: string): Promise<ChainDoc> {
     .select('id, pr2_number, status')
     .eq('id', pr2Id)
     .maybeSingle();
-  if (!data) return { type: 'PR2', id: null, document_number: null, status: null, route: null, exists: false };
-  return { type: 'PR2', id: data.id, document_number: data.pr2_number, status: data.status, route: `/pr2/${data.id}`, exists: true };
+  if (data) return { type: 'PR2', id: data.id, document_number: data.pr2_number, status: data.status, route: `/pr2/${data.id}`, exists: true };
+
+  // Fallback to archive
+  const { data: archiveData } = await db
+    .from('pr2_requests_archive')
+    .select('id, pr2_number, status')
+    .eq('id', pr2Id)
+    .maybeSingle();
+  if (archiveData) return { type: 'PR2', id: archiveData.id, document_number: archiveData.pr2_number, status: archiveData.status, route: `/pr2/${archiveData.id}`, exists: true };
+
+  return { type: 'PR2', id: null, document_number: null, status: null, route: null, exists: false };
 }
 
 /** First PO id for this PR2 (e.g. to resolve Delivery when multiple POs exist). */
@@ -205,7 +232,14 @@ async function getPR2Parents(pr2Id: string): Promise<{ pr1_id: string | null; rf
     .select('pr1_id, rfq_id')
     .eq('id', pr2Id)
     .maybeSingle();
-  return { pr1_id: data?.pr1_id ?? null, rfq_id: data?.rfq_id ?? null };
+  if (data) return { pr1_id: data.pr1_id ?? null, rfq_id: data.rfq_id ?? null };
+
+  const { data: archiveData } = await db
+    .from('pr2_requests_archive')
+    .select('pr1_id, rfq_id')
+    .eq('id', pr2Id)
+    .maybeSingle();
+  return { pr1_id: archiveData?.pr1_id ?? null, rfq_id: archiveData?.rfq_id ?? null };
 }
 
 // ── Main chain builder ────────────────────────────────────────────────────────

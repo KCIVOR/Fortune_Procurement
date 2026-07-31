@@ -328,7 +328,7 @@ export async function updateRawMaterialPR2Draft(
     throw new Error('Not a Planning-direct PR2.');
   }
   if (pr2.requisitioner_id !== profile.id) throw new Error('You may only edit your own requests.');
-  if (pr2.status !== 'draft') throw new Error('Only draft PR2s can be edited.');
+  if (pr2.status !== 'draft' && pr2.status !== 'revision_requested') throw new Error('Only draft or revision-requested PR2s can be edited.');
 
   const patch: Record<string, unknown> = { updated_at: now };
   if (input.purpose !== undefined) patch.purpose = input.purpose;

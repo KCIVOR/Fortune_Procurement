@@ -252,9 +252,9 @@ export default function GRNPrintPage() {
                     {item.requires_qa && (
                       <span style={{
                         marginLeft: 4, fontSize: 7, fontWeight: 'bold',
-                        color: item.qa_status === 'approved' ? '#15803d' : '#b45309',
+                        color: item.qa_status === 'approved' ? '#15803d' : item.qa_status === 'rejected' ? '#b91c1c' : '#b45309',
                       }}>
-                        [QA {item.qa_status === 'approved' ? 'APPROVED' : 'PENDING'}]
+                        [QA {item.qa_status === 'approved' ? 'APPROVED' : item.qa_status === 'rejected' ? 'REJECTED' : 'PENDING'}]
                       </span>
                     )}
                     {item.item_code && (

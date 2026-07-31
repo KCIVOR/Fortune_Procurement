@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import type { SupplierDocument } from '@/types/database';
+import { createNotification } from '@/lib/notifications';
 
 /**
  * Bucket defined in:
@@ -14,7 +15,8 @@ import type { SupplierDocument } from '@/types/database';
 export const ACCREDITATION_DOCS_BUCKET = 'supplier-accreditation-documents' as const;
 
 const ALLOWED_MIME_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
-const MAX_FILE_BYTES     = 20 * 1024 * 1024; // 20 MB
+const MAX_FILE_BYTES     = 10 * 1024 * 1024; // 10 MB
+const MAX_DOCS_PER_ENTITY = 3;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -40,7 +42,19 @@ function validateUploadArgs(entityId: string, file: File): void {
   if (!UUID_RE.test(entityId.trim())) throw new Error('Invalid record id.');
   const mime = file.type || '';
   if (!ALLOWED_MIME_TYPES.has(mime))  throw new Error('Allowed types: PDF, JPG, or PNG only.');
-  if (file.size > MAX_FILE_BYTES)     throw new Error('File must be 20 MB or smaller.');
+  if (file.size > MAX_FILE_BYTES)     throw new Error('File must be 10 MB or smaller.');
+}
+
+/** Counts existing rows matching an equality filter set, throws once at MAX_DOCS_PER_ENTITY. */
+async function assertUnderDocLimit(filters: Record<string, string>): Promise<void> {
+  const db = supabase as any;
+  let query = db.from('supplier_documents').select('id', { count: 'exact', head: true });
+  for (const [col, val] of Object.entries(filters)) query = query.eq(col, val);
+  const { count, error } = await query;
+  if (error) throw error;
+  if ((count ?? 0) >= MAX_DOCS_PER_ENTITY) {
+    throw new Error(`Maximum ${MAX_DOCS_PER_ENTITY} documents reached. Remove one before uploading another.`);
+  }
 }
 
 // ─── Upload result type ───────────────────────────────────────────────────────
@@ -111,6 +125,7 @@ export async function uploadSupplierAccreditationDocument(
   profile:         UserProfile
 ): Promise<UploadResult> {
   validateUploadArgs(accreditationId, file);
+  await assertUnderDocLimit({ accreditation_id: accreditationId, document_type: documentType });
 
   const db = supabase as any;
   const { data: acc, error: accErr } = await db
@@ -151,6 +166,7 @@ export async function uploadSupplierProductDocument(
   profile:      UserProfile
 ): Promise<UploadResult> {
   validateUploadArgs(productId, file);
+  await assertUnderDocLimit({ supplier_product_id: productId, document_type: documentType });
 
   // Fetch the owning supplier_id to store correctly on the document row
   const db = supabase as any;
@@ -195,6 +211,11 @@ export async function uploadRSEReport(
     .eq('id', rseId.trim())
     .maybeSingle();
   if (fetchErr || !rse) throw new Error('RSE record not found or access denied.');
+
+  await assertUnderDocLimit({
+    supplier_product_id: (rse as any).supplier_product_id as string,
+    document_type:        'rse_report',
+  });
 
   const objectPath = buildObjectPath('rse', rseId.trim(), 'reports', file.name);
 
@@ -316,7 +337,7 @@ export async function verifyAccreditationDocument(
   const db = supabase as any;
   const { data: row, error: fetchErr } = await db
     .from('supplier_documents')
-    .select('id, accreditation_id, supplier_product_id, status')
+    .select('id, accreditation_id, supplier_product_id, status, supplier_id')
     .eq('id', documentId)
     .maybeSingle();
   if (fetchErr) throw fetchErr;
@@ -360,6 +381,17 @@ export async function verifyAccreditationDocument(
         accreditation_id: (row as any).accreditation_id,
       },
     });
+    // NOTE (Phase 2, item 3): verifyAccreditationDocument notification is a bonus
+    // beyond the core reject/revision ask — drop this block if not wanted.
+    await createNotification({
+      user_id:       (row as any).supplier_id as string,
+      title:         'Document Verified',
+      body:          'Your accreditation document has been verified by Procurement.',
+      type:          'approved',
+      document_type: 'ACCREDITATION_DOCUMENT',
+      document_id:   documentId,
+      action_url:    '/supplier/accreditation',
+    });
   } catch {
     /* best-effort */
   }
@@ -378,7 +410,7 @@ export async function rejectAccreditationDocument(
   const db = supabase as any;
   const { data: row, error: fetchErr } = await db
     .from('supplier_documents')
-    .select('id, accreditation_id, supplier_product_id, status')
+    .select('id, accreditation_id, supplier_product_id, status, supplier_id')
     .eq('id', documentId)
     .maybeSingle();
   if (fetchErr) throw fetchErr;
@@ -421,6 +453,17 @@ export async function rejectAccreditationDocument(
         reason: note,
         accreditation_id: (row as any).accreditation_id,
       },
+    });
+    await createNotification({
+      user_id:       (row as any).supplier_id as string,
+      title:         'Document Rejected',
+      body:          note
+        ? `Your accreditation document was rejected. Reason: "${note}"`
+        : 'Your accreditation document has been rejected by Procurement.',
+      type:          'rejected',
+      document_type: 'ACCREDITATION_DOCUMENT',
+      document_id:   documentId,
+      action_url:    '/supplier/accreditation',
     });
   } catch {
     /* best-effort */
@@ -500,7 +543,7 @@ export async function requestAccreditationDocumentRevision(
   const db = supabase as any;
   const { data: row, error: fetchErr } = await db
     .from('supplier_documents')
-    .select('id, accreditation_id, supplier_product_id, status')
+    .select('id, accreditation_id, supplier_product_id, status, supplier_id')
     .eq('id', documentId)
     .maybeSingle();
   if (fetchErr) throw fetchErr;
@@ -543,6 +586,17 @@ export async function requestAccreditationDocumentRevision(
         revision_note: note,
         accreditation_id: (row as any).accreditation_id,
       },
+    });
+    await createNotification({
+      user_id:       (row as any).supplier_id as string,
+      title:         'Document Needs Revision',
+      body:          note
+        ? `Revision requested on your accreditation document. Reason: "${note}"`
+        : 'Procurement has requested a revision on your accreditation document.',
+      type:          'action_required',
+      document_type: 'ACCREDITATION_DOCUMENT',
+      document_id:   documentId,
+      action_url:    '/supplier/accreditation',
     });
   } catch {
     /* best-effort */

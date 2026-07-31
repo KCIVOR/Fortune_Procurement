@@ -14,6 +14,7 @@ import {
   submitValidationDecision,
   submitWarehouseTerminalAction,
   computeWarehouseItemRouting,
+  fetchPR1RevisionRemarks,
 } from '@/lib/warehouse';
 import { fetchSuggestedPR2Sequence } from '@/lib/pr2';
 import type { WarehouseTerminalAction } from '@/types/warehouse';
@@ -65,6 +66,7 @@ export default function WarehouseValidationPage() {
   const [suggestedPR2Sequence, setSuggestedPR2Sequence] = useState<string | null>(null);
   const [pendingTerminalAction, setPendingTerminalAction] = useState<WarehouseTerminalAction | null>(null);
   const [terminalRemarks, setTerminalRemarks] = useState('');
+  const [revisionRemarks, setRevisionRemarks] = useState<{ remarks: string; actor: string } | null>(null);
 
   const isReadOnly = Boolean(validation?.decision);
 
@@ -74,11 +76,13 @@ export default function WarehouseValidationPage() {
     Promise.all([
       fetchPR1ById(pr1Id),
       openValidation(pr1Id, profile),
+      fetchPR1RevisionRemarks(pr1Id),
     ])
-      .then(([pr1Data, valData]) => {
+      .then(([pr1Data, valData, remarksData]) => {
         setPR1(pr1Data);
         setValidation(valData);
         setFormValues(buildFormValues(valData));
+        setRevisionRemarks(remarksData);
       })
       .catch((err: { message?: string }) =>
         setError(err?.message ?? 'Failed to load validation data.'),
@@ -334,7 +338,20 @@ export default function WarehouseValidationPage() {
       </div>
 
       <div className="space-y-5">
-        {/* Related Records — full document chain visibility for warehouse */}
+        {/* Banner for PR2 revision request */}
+        {revisionRemarks && !isReadOnly && (
+          <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 shadow-sm flex gap-3 items-start mb-6">
+            <AlertTriangle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-orange-900 m-0">Revision Requested by {revisionRemarks.actor}</h3>
+              <div className="text-sm text-orange-800 mt-1 whitespace-pre-wrap">
+                {revisionRemarks.remarks}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Related Records Panel */}
         {profile && (
           <RelatedRecords baseType="PR1" baseId={pr1Id} role={profile.role} currentDocType="PR1" />
         )}

@@ -372,7 +372,7 @@ export default function PR2DetailPage() {
   };
 
   const isProcurement = profile?.role === 'procurement';
-  const canEdit = isProcurement && pr2?.status === 'draft';
+  const canEdit = isProcurement && pr2?.status === 'draft' && pr2?.pr1_id !== null;
 
   if (loading) return (
     <AppShell title="PR2 Detail">

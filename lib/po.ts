@@ -129,7 +129,7 @@ export async function fetchRevisionDraftPOIds(): Promise<string[]> {
   const { data: drafts, error: draftErr } = await db2
     .from('po_requests')
     .select('id')
-    .eq('status', 'draft')
+    .eq('status', 'revision_requested')
     .in('id', cancelledPoIds);
   if (draftErr) throw draftErr;
 

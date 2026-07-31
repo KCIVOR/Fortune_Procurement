@@ -173,7 +173,7 @@ export default function PODetailPage() {
     }
   };
 
-  const canEdit    = po?.status === 'draft' && profile?.role === 'procurement';
+  const canEdit    = (po?.status === 'draft' || po?.status === 'revision_requested') && profile?.role === 'procurement';
   const canManageCompliance =
     po?.request_type === 'services' && (profile?.role === 'procurement' || profile?.role === 'admin');
 
@@ -245,6 +245,22 @@ export default function PODetailPage() {
               <span className={`inline-flex items-center text-xs font-semibold border rounded-full px-2.5 py-1 ${STATUS_STYLES[po.status] ?? STATUS_STYLES.draft}`}>
                 {PO_STATUS_LABELS[po.status] ?? po.status}
               </span>
+              {!isExternal && (po.status === 'approved' || po.status === 'sent') && (
+                po.sent_at ? (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-1 bg-pq-success-100 text-pq-success-600 border-pq-success-100"
+                    title={`Sent ${format(new Date(po.sent_at), 'MMMM d, yyyy h:mm a')}`}
+                  >
+                    <CheckCircle2 className="w-3 h-3" />
+                    Sent to Supplier
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-1 bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100">
+                    <Send className="w-3 h-3" />
+                    Not Yet Sent
+                  </span>
+                )
+              )}
               <RequestTypeBadge type={po.request_type ?? 'goods'} />
               {canUpdatePriority ? (
                 <PrioritySelector
@@ -747,7 +763,7 @@ export default function PODetailPage() {
           )}
 
           {/* Revision banner — shown when PO was returned for revision */}
-          {po.status === 'draft' && approvalDetail?.instance_status === 'cancelled' && (() => {
+          {po.status === 'revision_requested' && approvalDetail && (() => {
             const revisionAction = approvalDetail.actions.find(a => a.action === 'revision_requested');
             return revisionAction ? (
               <div className="bg-pq-warning-50 border border-pq-warning-200 rounded-md px-5 py-4 space-y-1">

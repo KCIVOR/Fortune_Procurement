@@ -16,7 +16,7 @@ const db = supabase as any;
 type GRNItemQARow = { requires_qa?: boolean; qa_status?: string | null };
 
 export function hasUnresolvedQAItems(items: GRNItemQARow[]): boolean {
-  return items.some((i) => i.requires_qa === true && i.qa_status === 'pending');
+  return items.some((i) => i.requires_qa === true && (i.qa_status === 'pending' || i.qa_status === 'rejected'));
 }
 
 export async function evaluateGRNQAStatus(grnId: string): Promise<'open' | 'pending_qa' | null> {
@@ -144,6 +144,9 @@ function normalizeItem(row: any, quoteAttachmentsByQuote: Record<string, RfqQuot
     qa_status:         row.qa_status ?? null,
     qa_approved_by_id: row.qa_approved_by_id ?? null,
     qa_approved_at:    row.qa_approved_at ?? null,
+    qa_rejection_reason: row.qa_rejection_reason ?? null,
+    qa_rejected_by_id: row.qa_rejected_by_id ?? null,
+    qa_rejected_at:    row.qa_rejected_at ?? null,
     created_at:        row.created_at,
     updated_at:        row.updated_at,
   };

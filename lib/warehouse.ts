@@ -201,6 +201,43 @@ export async function fetchValidationByPR1Id(
   };
 }
 
+/** Fetch any pending revision remarks if this PR1 was kicked back from PR2 approval. */
+export async function fetchPR1RevisionRemarks(pr1Id: string): Promise<{ remarks: string; actor: string } | null> {
+  const { data: pr2Archived } = await db
+    .from('pr2_requests_archive')
+    .select('id')
+    .eq('pr1_id', pr1Id)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (!pr2Archived || pr2Archived.length === 0) return null;
+  const pr2Id = pr2Archived[0].id;
+
+  const { data: instances } = await db
+    .from('approval_instances')
+    .select('id')
+    .eq('document_id', pr2Id);
+
+  if (!instances || instances.length === 0) return null;
+  const instanceIds = instances.map((i: any) => i.id);
+
+  const { data: actions } = await db
+    .from('approval_actions')
+    .select('remarks, actor_name_snapshot, actor_position_snapshot')
+    .in('instance_id', instanceIds)
+    .eq('action', 'revision_requested')
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (!actions || actions.length === 0) return null;
+  const action = actions[0];
+
+  return {
+    remarks: action.remarks || 'No remarks provided',
+    actor: `${action.actor_name_snapshot} (${action.actor_position_snapshot})`
+  };
+}
+
 // ─── Open / initialise validation ────────────────────────────────────────────
 // Idempotent: if a validation already exists for this PR1, return it.
 // Otherwise create a new one and seed its items from pr1_items.

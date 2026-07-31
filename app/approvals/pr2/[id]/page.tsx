@@ -268,6 +268,16 @@ export default function PR2ApprovalDetailPage() {
 
       <div className="space-y-5">
 
+        {detail.is_archived && (
+          <div className="bg-amber-50 border border-amber-200 rounded-md px-6 py-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">This PR2 was rejected and archived.</p>
+              <p className="text-xs text-amber-700 mt-0.5">It has been returned to the warehouse for revision and cannot be acted upon.</p>
+            </div>
+          </div>
+        )}
+
         {/* PR2 details */}
         <DetailCard overflow>
           <DetailCardHeader
@@ -540,7 +550,7 @@ export default function PR2ApprovalDetailPage() {
         />
 
         {/* Action panel */}
-        {!isClosed && canAct && (
+        {!isClosed && canAct && !detail.is_archived && (
           <div className="bg-white rounded-md border border-pq-warning-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-amber-100 bg-pq-warning-100">
               <h2 className="text-xs font-semibold text-pq-warning-600 uppercase tracking-wide">
@@ -625,7 +635,7 @@ export default function PR2ApprovalDetailPage() {
         )}
 
         {/* Read-only notice */}
-        {!isClosed && !canAct && (profile?.role === 'approver' || profile?.role === 'procurement') && (
+        {!isClosed && !canAct && !detail.is_archived && (profile?.role === 'approver' || profile?.role === 'procurement') && (
           <div className="flex items-start gap-3 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-5 py-4">
             <Lock className="w-4 h-4 text-pq-neutral-400 mt-0.5 shrink-0" />
             <div>

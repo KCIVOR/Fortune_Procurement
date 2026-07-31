@@ -25,6 +25,7 @@ import {
   Ban,
   ExternalLink,
   ClipboardList,
+  Send,
 } from 'lucide-react';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import PriorityChip from '@/components/shared/PriorityChip';
@@ -269,7 +270,17 @@ export default function DeliveryQueuePage() {
                           </td>
                         )}
                         <td className="px-5 py-3.5">
-                          {d.status === 'delivered' && !d.has_grn ? (
+                          {d.status === 'delivered' && !d.has_grn && d.request_type === 'services' && !d.forwarded_to_procurement ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-0.5 bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100">
+                              <Clock className="w-3 h-3" />
+                              Pending Warehouse Handoff
+                            </span>
+                          ) : d.status === 'delivered' && !d.has_grn && d.request_type === 'services' && d.forwarded_to_procurement ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-0.5 bg-teal-50 text-teal-700 border-teal-200">
+                              <Send className="w-3 h-3" />
+                              Forwarded — Awaiting GRN
+                            </span>
+                          ) : d.status === 'delivered' && !d.has_grn ? (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold border rounded-full px-2.5 py-0.5 bg-pq-warning-100 text-pq-warning-600 border-pq-warning-100">
                               <ClipboardList className="w-3 h-3" />
                               Awaiting GRN

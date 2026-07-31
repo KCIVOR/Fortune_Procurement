@@ -70,8 +70,23 @@ export interface DeliveryHistoryEntry {
   created_at: string;
 }
 
+/**
+ * Line item for the delivery's PO — intentionally excludes unit_price/total_price.
+ * Pricing is not shown anywhere on delivery tracking pages, so it's left out of
+ * the query entirely rather than fetched and hidden in the UI.
+ */
+export interface DeliveryItem {
+  id: string;
+  item_order: number;
+  item_code: string;
+  description: string;
+  unit_of_measure: string;
+  quantity_to_purchase: number;
+}
+
 export interface DeliveryWithHistory extends Delivery {
   history: DeliveryHistoryEntry[];
+  items: DeliveryItem[];
 }
 
 // Supplier update form

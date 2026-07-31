@@ -57,7 +57,7 @@ export async function submitPOForApproval(
     .maybeSingle();
   if (poErr) throw poErr;
   if (!po) throw new Error('PO not found.');
-  if (po.status !== 'draft') throw new Error('Only draft POs can be submitted for approval.');
+  if (po.status !== 'draft' && po.status !== 'revision_requested') throw new Error('Only draft or revision-requested POs can be submitted for approval.');
 
   const { data: existing } = await db
     .from('approval_instances')
@@ -467,7 +467,7 @@ export async function submitPOApprovalAction(
       .eq('id', instanceId);
     await db
       .from('po_requests')
-      .update({ status: 'draft', updated_at: now, approval_instance_id: null })
+      .update({ status: 'revision_requested', updated_at: now, approval_instance_id: null })
       .eq('id', poId);
   }
 
@@ -596,11 +596,11 @@ export async function submitPOApprovalAction(
         });
       }
 
-      // On terminal rejection, also notify the employee requisitioner so the
-      // rejection surfaces in their My Requests / Raw Material Requests view.
+      // Also notify the employee requisitioner (PR1/PR2 originator) so the
+      // outcome surfaces in their My Requests / Raw Material Requests view.
       // Resolve via PO → PR2 → PR1 (goods); raw material has no PR1, so fall
       // back to pr2.requisitioner_id directly.
-      if (action === 'rejected' && poRow.data?.pr2_id && poRow.data?.po_number) {
+      if (poRow.data?.pr2_id && poRow.data?.po_number) {
         const { data: pr2 } = await db
           .from('pr2_requests')
           .select('pr1_id, request_type, requisitioner_id')
@@ -626,11 +626,15 @@ export async function submitPOApprovalAction(
           const trimmedRemark = remarks.trim();
           await createNotification({
             user_id:       notifyUserId,
-            title:         'Purchase Order Rejected',
-            body:          trimmedRemark
-              ? `PO ${poRow.data.po_number} was rejected. Reason: "${trimmedRemark}"`
-              : `The Purchase Order for your request (${poRow.data.po_number}) was rejected.`,
-            type:          'rejected',
+            title:         action === 'rejected' ? 'Purchase Order Rejected' : 'Purchase Order Revision Requested',
+            body:          action === 'rejected'
+              ? (trimmedRemark
+                  ? `PO ${poRow.data.po_number} was rejected. Reason: "${trimmedRemark}"`
+                  : `The Purchase Order for your request (${poRow.data.po_number}) was rejected.`)
+              : (trimmedRemark
+                  ? `Revision requested on PO ${poRow.data.po_number}. Reason: "${trimmedRemark}"`
+                  : `Revision requested on the Purchase Order for your request (${poRow.data.po_number}).`),
+            type:          action === 'rejected' ? 'rejected' : 'action_required',
             document_type: 'po',
             document_id:   poId,
             action_url:    notifyActionUrl,

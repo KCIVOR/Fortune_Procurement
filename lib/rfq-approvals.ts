@@ -507,6 +507,50 @@ export async function submitRfqApprovalAction(
           action_url:    `/rfq/${rfqId}`,
         });
       }
+
+      // Also notify the original employee requisitioner (PR1 or PR2 originator)
+      // for both rejected and revision_requested, deduped against started_by.
+      if (rfq?.rfq_number) {
+        let notifyUserId: string | null = null;
+        let notifyActionUrl = '';
+
+        if (rfq.pr1_id) {
+          const { data: pr1Row } = await db
+            .from('pr1_requests')
+            .select('requisitioner_id')
+            .eq('id', rfq.pr1_id)
+            .maybeSingle();
+          notifyUserId = pr1Row?.requisitioner_id ?? null;
+          notifyActionUrl = `/pr1/${rfq.pr1_id}`;
+        } else if (rfq.pr2_id) {
+          const { data: pr2Row } = await db
+            .from('pr2_requests')
+            .select('requisitioner_id')
+            .eq('id', rfq.pr2_id)
+            .maybeSingle();
+          notifyUserId = pr2Row?.requisitioner_id ?? null;
+          notifyActionUrl = `/planning/pr2/${rfq.pr2_id}`;
+        }
+
+        if (notifyUserId && notifyUserId !== instData?.started_by) {
+          const trimmedRemark = remarks.trim();
+          await createNotification({
+            user_id:       notifyUserId,
+            title:         action === 'rejected' ? 'RFQ Rejected' : 'RFQ Revision Requested',
+            body:          action === 'rejected'
+              ? (trimmedRemark
+                  ? `RFQ ${rfq.rfq_number} was rejected. Reason: "${trimmedRemark}"`
+                  : `RFQ ${rfq.rfq_number} was rejected.`)
+              : (trimmedRemark
+                  ? `Revision requested on RFQ ${rfq.rfq_number}. The RFQ has been reopened. Reason: "${trimmedRemark}"`
+                  : `Revision requested on RFQ ${rfq.rfq_number}. The RFQ has been reopened.`),
+            type:          action === 'rejected' ? 'rejected' : 'action_required',
+            document_type: 'rfq',
+            document_id:   rfqId,
+            action_url:    notifyActionUrl,
+          });
+        }
+      }
     }
   } catch {
     // best-effort

@@ -15,6 +15,8 @@ function actionUrl(documentType: string, instanceId: string): string {
       return `/approvals/pr2/${instanceId}`;
     case 'PO':
       return `/approvals/po/${instanceId}`;
+    case 'RFQ':
+      return `/approvals/rfq/${instanceId}`;
     default:
       return '/approvals/history';
   }
@@ -46,8 +48,8 @@ async function resolveSearchInstanceIds(
   const pattern = `%${safe}%`;
   const instanceIds = new Set<string>();
 
-  const docTypes: Array<'PR1' | 'PR2' | 'PO'> =
-    documentType === 'all' ? ['PR1', 'PR2', 'PO'] : [documentType];
+  const docTypes: Array<'PR1' | 'PR2' | 'PO' | 'RFQ'> =
+    documentType === 'all' ? ['PR1', 'PR2', 'PO', 'RFQ'] : [documentType as any];
 
   for (const dt of docTypes) {
     if (dt === 'PR1') {
@@ -74,7 +76,7 @@ async function resolveSearchInstanceIds(
         .in('document_id', ids);
       if (e2) throw e2;
       for (const r of (inst ?? []) as { id: string }[]) instanceIds.add(r.id);
-    } else {
+    } else if (dt === 'PO') {
       const { data, error } = await db.from('po_requests').select('id').ilike('po_number', pattern);
       if (error) throw error;
       const ids = ((data ?? []) as { id: string }[]).map((r) => r.id).filter(Boolean);
@@ -83,6 +85,18 @@ async function resolveSearchInstanceIds(
         .from('approval_instances')
         .select('id')
         .eq('document_type', 'PO')
+        .in('document_id', ids);
+      if (e2) throw e2;
+      for (const r of (inst ?? []) as { id: string }[]) instanceIds.add(r.id);
+    } else if (dt === 'RFQ') {
+      const { data, error } = await db.from('rfq_batches').select('id').ilike('rfq_number', pattern);
+      if (error) throw error;
+      const ids = ((data ?? []) as { id: string }[]).map((r) => r.id).filter(Boolean);
+      if (ids.length === 0) continue;
+      const { data: inst, error: e2 } = await db
+        .from('approval_instances')
+        .select('id')
+        .eq('document_type', 'RFQ')
         .in('document_id', ids);
       if (e2) throw e2;
       for (const r of (inst ?? []) as { id: string }[]) instanceIds.add(r.id);
@@ -237,6 +251,7 @@ export async function fetchMyApprovalHistoryPaged(
   const pr1Ids = new Set<string>();
   const pr2Ids = new Set<string>();
   const poIds = new Set<string>();
+  const rfqIds = new Set<string>();
 
   for (const row of raw) {
     const inst = Array.isArray(row.approval_instances)
@@ -248,19 +263,24 @@ export async function fetchMyApprovalHistoryPaged(
     if (dt === 'PR1') pr1Ids.add(did);
     else if (dt === 'PR2') pr2Ids.add(did);
     else if (dt === 'PO') poIds.add(did);
+    else if (dt === 'RFQ') rfqIds.add(did);
   }
 
-  const [pr1Res, poRes] = await Promise.all([
+  const [pr1Res, poRes, rfqRes] = await Promise.all([
     pr1Ids.size > 0
       ? db.from('pr1_requests').select('id, pr1_number, request_type').in('id', Array.from(pr1Ids))
       : Promise.resolve({ data: [] as any[], error: null }),
     poIds.size > 0
       ? db.from('po_requests').select('id, po_number, pr2_id').in('id', Array.from(poIds))
       : Promise.resolve({ data: [] as any[], error: null }),
+    rfqIds.size > 0
+      ? db.from('rfq_batches').select('id, rfq_number, pr1_id, pr2_id').in('id', Array.from(rfqIds))
+      : Promise.resolve({ data: [] as any[], error: null }),
   ]);
 
   if (pr1Res.error) throw pr1Res.error;
   if (poRes.error) throw poRes.error;
+  if (rfqRes.error) throw rfqRes.error;
 
   // PO rows carry their request_type via pr2_id, not their own column — merge
   // those pr2_ids into the same pr2_requests lookup used for direct PR2 rows.
@@ -268,28 +288,69 @@ export async function fetchMyApprovalHistoryPaged(
     if (po.pr2_id) pr2Ids.add(po.pr2_id);
   }
 
-  const pr2Res = pr2Ids.size > 0
-    ? await db.from('pr2_requests').select('id, pr2_number, request_type').in('id', Array.from(pr2Ids))
-    : { data: [] as any[], error: null };
-  if (pr2Res.error) throw pr2Res.error;
+  // RFQ rows also carry request_type via either pr1_id or pr2_id
+  for (const rfq of (rfqRes.data ?? []) as any[]) {
+    if (rfq.pr1_id) pr1Ids.add(rfq.pr1_id);
+    if (rfq.pr2_id) pr2Ids.add(rfq.pr2_id);
+  }
+
+  // If RFQ caused new PR1s to be added, re-fetch them
+  let extraPr1ResData: any[] = [];
+  const fetchedPr1Ids = new Set(((pr1Res.data ?? []) as any[]).map(r => r.id));
+  const missingPr1Ids = Array.from(pr1Ids).filter(id => !fetchedPr1Ids.has(id));
+  if (missingPr1Ids.length > 0) {
+    const { data: missingPr1s, error: missingPr1sErr } = await db.from('pr1_requests').select('id, pr1_number, request_type').in('id', missingPr1Ids);
+    if (missingPr1sErr) throw missingPr1sErr;
+    extraPr1ResData = missingPr1s ?? [];
+  }
+  const finalPr1ResData = ((pr1Res.data ?? []) as any[]).concat(extraPr1ResData);
+
+  let pr2ResData: any[] = [];
+  if (pr2Ids.size > 0) {
+    const { data, error } = await db.from('pr2_requests').select('id, pr2_number, request_type').in('id', Array.from(pr2Ids));
+    if (error) throw error;
+    pr2ResData = data ?? [];
+
+    const foundIds = new Set(pr2ResData.map(r => r.id));
+    const missingIds = Array.from(pr2Ids).filter(id => !foundIds.has(id));
+
+    if (missingIds.length > 0) {
+      const { data: archData, error: archErr } = await db.from('pr2_requests_archive').select('id, pr2_number, request_type').in('id', missingIds);
+      if (archErr) throw archErr;
+      pr2ResData = pr2ResData.concat(archData ?? []);
+    }
+  }
 
   const pr1Num: Record<string, string> = Object.fromEntries(
-    ((pr1Res.data ?? []) as any[]).map((r: any) => [r.id, r.pr1_number]),
+    finalPr1ResData.map((r: any) => [r.id, r.pr1_number]),
   );
   const pr1Type: Record<string, string> = Object.fromEntries(
-    ((pr1Res.data ?? []) as any[]).map((r: any) => [r.id, r.request_type ?? 'goods']),
+    finalPr1ResData.map((r: any) => [r.id, r.request_type ?? 'goods']),
   );
   const pr2Num: Record<string, string> = Object.fromEntries(
-    ((pr2Res.data ?? []) as any[]).map((r: any) => [r.id, r.pr2_number]),
+    pr2ResData.map((r: any) => [r.id, r.pr2_number]),
   );
   const pr2Type: Record<string, string> = Object.fromEntries(
-    ((pr2Res.data ?? []) as any[]).map((r: any) => [r.id, r.request_type ?? 'goods']),
+    pr2ResData.map((r: any) => [r.id, r.request_type ?? 'goods']),
   );
   const poNum: Record<string, string> = Object.fromEntries(
     ((poRes.data ?? []) as any[]).map((r: any) => [r.id, r.po_number]),
   );
   const poPr2Id: Record<string, string> = Object.fromEntries(
     ((poRes.data ?? []) as any[])
+      .filter((r: any) => !!r.pr2_id)
+      .map((r: any) => [r.id, r.pr2_id]),
+  );
+  const rfqNum: Record<string, string> = Object.fromEntries(
+    ((rfqRes.data ?? []) as any[]).map((r: any) => [r.id, r.rfq_number]),
+  );
+  const rfqPr1Id: Record<string, string> = Object.fromEntries(
+    ((rfqRes.data ?? []) as any[])
+      .filter((r: any) => !!r.pr1_id)
+      .map((r: any) => [r.id, r.pr1_id]),
+  );
+  const rfqPr2Id: Record<string, string> = Object.fromEntries(
+    ((rfqRes.data ?? []) as any[])
       .filter((r: any) => !!r.pr2_id)
       .map((r: any) => [r.id, r.pr2_id]),
   );
@@ -302,7 +363,7 @@ export async function fetchMyApprovalHistoryPaged(
       : row.approval_instances;
     if (!inst?.document_id || !inst?.document_type) continue;
 
-    const dt = inst.document_type as 'PR1' | 'PR2' | 'PO';
+    const dt = inst.document_type as 'PR1' | 'PR2' | 'PO' | 'RFQ';
     const docId = inst.document_id as string;
 
     let document_number = '—';
@@ -317,6 +378,15 @@ export async function fetchMyApprovalHistoryPaged(
       document_number = poNum[docId] ?? '—';
       const linkedPr2Id = poPr2Id[docId];
       request_type = (linkedPr2Id ? (pr2Type[linkedPr2Id] as 'goods' | 'services' | 'raw_material' | undefined) : undefined) ?? 'goods';
+    } else if (dt === 'RFQ') {
+      document_number = rfqNum[docId] ?? '—';
+      const linkedPr1Id = rfqPr1Id[docId];
+      const linkedPr2Id = rfqPr2Id[docId];
+      if (linkedPr1Id) {
+        request_type = (pr1Type[linkedPr1Id] as 'goods' | 'services' | undefined) ?? 'goods';
+      } else if (linkedPr2Id) {
+        request_type = (pr2Type[linkedPr2Id] as 'goods' | 'services' | 'raw_material' | undefined) ?? 'goods';
+      }
     }
 
     rows.push({

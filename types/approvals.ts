@@ -14,104 +14,105 @@ export interface ApprovalPreparerInfo {
 // ─── PR2 approval types ───────────────────────────────────────────────────────
 
 export interface PR2ApprovalQueueRow {
-  pr2_id:                      string;
-  pr2_number:                  string;
+  pr2_id: string;
+  pr2_number: string;
   requisitioner_name_snapshot: string;
-  department_name_snapshot:    string;
-  department_id:               string | null;
-  purpose:                     string;
-  date_required:               string;
-  pr2_status:                  string;
-  instance_id:                 string;
-  workflow_code:               string;
-  current_step:                number;
-  instance_status:             ApprovalInstanceStatus;
-  started_at:                  string;
-  step_position_required:      string;
-  step_role_required:          string;
-  step_action_label:           string;
-  step_is_final:               boolean;
-  pr1_priority?:               'normal' | 'medium' | 'high';
-  request_type?:               'goods' | 'services' | 'raw_material';
+  department_name_snapshot: string;
+  department_id: string | null;
+  purpose: string;
+  date_required: string;
+  pr2_status: string;
+  instance_id: string;
+  workflow_code: string;
+  current_step: number;
+  instance_status: ApprovalInstanceStatus;
+  started_at: string;
+  step_position_required: string;
+  step_role_required: string;
+  step_action_label: string;
+  step_is_final: boolean;
+  pr1_priority?: 'normal' | 'medium' | 'high';
+  request_type?: 'goods' | 'services' | 'raw_material';
 }
 
 export interface PR2ApprovalDetail {
-  pr2_id:                      string;
-  pr2_number:                  string;
-  pr1_number_snapshot:         string;
-  rfq_number_snapshot:         string;
+  pr2_id: string;
+  pr2_number: string;
+  is_archived?: boolean;
+  pr1_number_snapshot: string;
+  rfq_number_snapshot: string;
   requisitioner_name_snapshot: string;
-  department_name_snapshot:    string;
-  department_id:               string | null;
-  purpose:                     string;
-  date_required:               string;
-  pr2_status:                  string;
-  generated_at:                string;
-  remarks:                     string | null;
-  pr1_priority?:               'normal' | 'medium' | 'high';
-  request_type?:               'goods' | 'services' | 'raw_material';
+  department_name_snapshot: string;
+  department_id: string | null;
+  purpose: string;
+  date_required: string;
+  pr2_status: string;
+  generated_at: string;
+  remarks: string | null;
+  pr1_priority?: 'normal' | 'medium' | 'high';
+  request_type?: 'goods' | 'services' | 'raw_material';
   /** Rev #9: needed to edit priority from the approval detail page. */
-  pr1_id?:                     string | null;
+  pr1_id?: string | null;
   /** Intersection ensures `pr1_item_id` for canvass lookups even if tooling resolves an older PR2ApprovalItem shape */
   items: Array<PR2ApprovalItem & { pr1_item_id: string | null }>;
   // Phase 1 instance (always present once submitted)
-  phase1_instance_id:     string;
-  phase1_workflow_id:     string;
-  phase1_current_step:    number;
+  phase1_instance_id: string;
+  phase1_workflow_id: string;
+  phase1_current_step: number;
   phase1_instance_status: ApprovalInstanceStatus;
-  phase1_steps:           WorkflowStep[];
-  phase1_actions:         ApprovalActionRecord[];
+  phase1_steps: WorkflowStep[];
+  phase1_actions: ApprovalActionRecord[];
   // Phase 2 instance (null until phase 1 approved)
-  phase2_instance_id:     string | null;
-  phase2_workflow_id:     string | null;
-  phase2_current_step:    number | null;
+  phase2_instance_id: string | null;
+  phase2_workflow_id: string | null;
+  phase2_current_step: number | null;
   phase2_instance_status: ApprovalInstanceStatus | null;
-  phase2_steps:           WorkflowStep[];
-  phase2_actions:         ApprovalActionRecord[];
+  phase2_steps: WorkflowStep[];
+  phase2_actions: ApprovalActionRecord[];
   // Which phase/instance the user is currently looking at (active one)
-  active_instance_id:     string | null;
-  active_workflow_code:   string | null;
-  active_current_step:    number | null;
+  active_instance_id: string | null;
+  active_workflow_code: string | null;
+  active_current_step: number | null;
   active_instance_status: ApprovalInstanceStatus | null;
-  active_steps:           WorkflowStep[];
+  active_steps: WorkflowStep[];
   /** Warehouse (Goods) or creator who prepared the PR2 before approval routing. */
-  preparer?:              ApprovalPreparerInfo | null;
+  preparer?: ApprovalPreparerInfo | null;
 }
 
 export interface PR2ApprovalItem {
-  id:                      string;
+  id: string;
   /** Links PR2 line to PR1 item for canvass / rfq_item_quotes lookups */
-  pr1_item_id:             string | null;
-  item_order:              number;
-  item_code:               string;
-  description:             string;
-  unit_of_measure:         string;
-  quantity_requested:      number;
-  qty_on_hand:             number;
-  qty_incoming:            number;
-  quantity_to_purchase:    number;
-  supplier_name_snapshot:  string;
-  unit_price:              number;
-  total_price:             number;
+  pr1_item_id: string | null;
+  item_order: number;
+  item_code: string;
+  description: string;
+  unit_of_measure: string;
+  quantity_requested: number;
+  qty_on_hand: number;
+  qty_incoming: number;
+  quantity_to_purchase: number;
+  supplier_name_snapshot: string;
+  unit_price: number;
+  total_price: number;
   /** Rev #1 (VAT): forwarded from `pr2_items` snapshot. */
-  vat_type?:               'vat_inclusive' | 'vat_exclusive' | null;
-  vat_rate_applied?:       number | null;
+  vat_type?: 'vat_inclusive' | 'vat_exclusive' | null;
+  vat_rate_applied?: number | null;
   /** Phase 9 (Raw Mats): forwarded from `pr2_items.is_raw_material` snapshot. */
-  is_raw_material?:        boolean;
+  is_raw_material?: boolean;
   /** Phase 9 (Raw Mats): forwarded from `pr2_items.quote_justification`. */
-  quote_justification?:    string | null;
+  quote_justification?: string | null;
   /** Read-only, forwarded from `pr2_items.pr1_remarks_snapshot`. */
-  pr1_remarks_snapshot?:   string | null;
+  pr1_remarks_snapshot?: string | null;
   /** Read-only, forwarded from `pr2_items.pr1_quantity_requested_snapshot`. */
-  pr1_quantity_requested_snapshot?:      number | null;
+  pr1_quantity_requested_snapshot?: number | null;
   /** Read-only, forwarded from `pr2_items.quantity_override_reason_snapshot`. */
-  quantity_override_reason_snapshot?:    string | null;
+  quantity_override_reason_snapshot?: string | null;
   /** Read-only, forwarded from `pr2_items.quantity_overridden_by_name_snapshot`. */
   quantity_overridden_by_name_snapshot?: string | null;
   /** Supplier quote attachments loaded at read time via rfq_item_quote_id. */
-  quote_attachments?:      import('./canvassing').RfqQuoteAttachment[];
+  quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
   /** Requestor PR1 item attachments, forwarded via pr1_item_id at read time. */
-  attachments?:            PR1Attachment[];
+  attachments?: PR1Attachment[];
 }
 
 // Must match approval_instances_status_check constraint: active | approved | rejected | cancelled

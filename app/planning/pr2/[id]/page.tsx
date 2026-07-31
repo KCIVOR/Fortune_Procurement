@@ -141,9 +141,9 @@ export default function RawMaterialPR2DetailPage() {
 
   const isOwner = !!profile && !!pr2 && pr2.requisitioner_id === profile.id;
   const isDraft = pr2?.status === 'draft';
-  const canEdit = isOwner && isDraft;
-  const wasRevisionRequested =
-    isDraft && approvalDetail?.phase1_instance_status === 'cancelled';
+  const isRevisionRequested = pr2?.status === 'revision_requested';
+  const canEdit = isOwner && (isDraft || isRevisionRequested);
+  const wasRevisionRequested = isRevisionRequested; // direct status read, not a derived join
 
   /** Shared by Save Draft and Submit: persist header/items, then reconcile attachments. */
   const persistItemsAndAttachments = async () => {
@@ -270,7 +270,7 @@ export default function RawMaterialPR2DetailPage() {
               label="Print"
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-white border border-pq-neutral-200 hover:border-pq-neutral-300 text-pq-neutral-700 text-sm font-medium rounded-md transition"
             />
-            {canEdit && (
+            {isOwner && isDraft && (
               <button
                 type="button"
                 onClick={handleDelete}
