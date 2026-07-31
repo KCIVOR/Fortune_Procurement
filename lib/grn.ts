@@ -667,13 +667,16 @@ export async function saveGRNProgress(
     };
 
     if (requiresQA) {
-      if (qaStatusById[item.id] !== 'approved') {
+      if (qaStatusById[item.id] !== 'approved' && qaStatusById[item.id] !== 'rejected') {
         itemUpdate.qa_status = 'pending';
       }
     } else {
       itemUpdate.qa_status = null;
       itemUpdate.qa_approved_by_id = null;
       itemUpdate.qa_approved_at = null;
+      itemUpdate.qa_rejection_reason = null;
+      itemUpdate.qa_rejected_by_id = null;
+      itemUpdate.qa_rejected_at = null;
     }
 
     await db.from('grn_items').update(itemUpdate).eq('id', item.id);
