@@ -772,13 +772,14 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
   quotes     = quotesRes.data ?? [];
   selections = selectionsRes.data ?? [];
 
-  // Fetch substitute decisions for this PR1 (covers all alternative quotes in the RFQ)
+  // Fetch substitute decisions for alternative quotes on this RFQ (PR1 or PR2-native).
   let substituteDecisions: SubstituteDecisionRow[] = [];
-  if (rfq.pr1_id) {
+  const decisionQuoteIds = (quotes as any[]).map((q: any) => q.id as string);
+  if (decisionQuoteIds.length > 0) {
     const { data: decisionData } = await db
       .from('substitute_decisions')
       .select('*')
-      .eq('pr1_id', rfq.pr1_id);
+      .in('rfq_item_quote_id', decisionQuoteIds);
     substituteDecisions = (decisionData ?? []) as SubstituteDecisionRow[];
   }
 
