@@ -94,22 +94,39 @@ export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: 
   const rows = (posRes.data ?? []) as any[];
   const pr2Ids = Array.from(new Set(rows.map(r => r.pr2_id).filter(Boolean)));
   let priorityByPr2Id: Record<string, string> = {};
+  // po_requests has no request_type column of its own — the true type lives on
+  // the source pr2_requests row (goods/services/raw_material). Resolved here so
+  // normalizePO() doesn't silently default every PO to 'goods'.
+  let requestTypeByPr2Id: Record<string, 'goods' | 'services' | 'raw_material'> = {};
   if (pr2Ids.length > 0) {
-    const { data: pr2s } = await db.from('pr2_requests').select('id, pr1_id').in('id', pr2Ids);
+    const { data: pr2s } = await db.from('pr2_requests').select('id, pr1_id, request_type').in('id', pr2Ids);
     const pr1Ids = Array.from(new Set(((pr2s ?? []) as any[]).map(p => p.pr1_id).filter(Boolean)));
     const { data: pr1s } = pr1Ids.length > 0
-      ? await db.from('pr1_requests').select('id, priority').in('id', pr1Ids)
+      ? await db.from('pr1_requests').select('id, priority, request_type').in('id', pr1Ids)
       : { data: [] as any[] };
     const priorityByPr1Id: Record<string, string> = Object.fromEntries(
       ((pr1s ?? []) as any[]).map(p => [p.id, p.priority ?? 'normal'])
     );
+    const pr1TypeById: Record<string, 'goods' | 'services'> = Object.fromEntries(
+      ((pr1s ?? []) as any[]).map(p => [p.id, p.request_type ?? 'goods'])
+    );
     priorityByPr2Id = Object.fromEntries(
       ((pr2s ?? []) as any[]).map(p => [p.id, priorityByPr1Id[p.pr1_id] ?? 'normal'])
+    );
+    requestTypeByPr2Id = Object.fromEntries(
+      ((pr2s ?? []) as any[]).map(p => [
+        p.id,
+        resolvePR2RequestType(p, p.pr1_id ? { request_type: pr1TypeById[p.pr1_id] } : null),
+      ])
     );
   }
 
   return {
-    pos: rows.map(r => normalizePO({ ...r, pr1_priority: priorityByPr2Id[r.pr2_id] ?? 'normal' })),
+    pos: rows.map(r => normalizePO({
+      ...r,
+      pr1_priority: priorityByPr2Id[r.pr2_id] ?? 'normal',
+      request_type: requestTypeByPr2Id[r.pr2_id] ?? 'goods',
+    })),
     total_count: countRes.count ?? 0,
   };
 }
@@ -211,30 +228,43 @@ export async function fetchPOById(id: string): Promise<POWithItems | null> {
 
 // ─── Fetch PO(s) by PR2 ID ─────────────────────────────────────────────────────
 
+/**
+ * po_requests has no request_type column of its own — resolve the true type
+ * from the source pr2_requests row (falling back to its linked pr1_requests
+ * row for legacy pre-Phase-1 records), the same resolution fetchPOById does.
+ */
+async function resolveRequestTypeForPr2(pr2Id: string): Promise<'goods' | 'services' | 'raw_material'> {
+  const { data: pr2 } = await db.from('pr2_requests').select('pr1_id, request_type').eq('id', pr2Id).maybeSingle();
+  if (!pr2) return 'goods';
+  let pr1: { request_type: 'goods' | 'services' } | null = null;
+  if (pr2.pr1_id) {
+    const { data: pr1Row } = await db.from('pr1_requests').select('request_type').eq('id', pr2.pr1_id).maybeSingle();
+    pr1 = pr1Row ? { request_type: pr1Row.request_type ?? 'goods' } : null;
+  }
+  return resolvePR2RequestType(pr2, pr1);
+}
+
 /** All POs created from a given PR2 (one per supplier when multi-supplier awards). */
 export async function fetchPOsByPR2Id(pr2Id: string): Promise<PORequest[]> {
-  const { data, error } = await db
-    .from('po_requests')
-    .select('*')
-    .eq('pr2_id', pr2Id)
-    .order('generated_at', { ascending: false });
+  const [{ data, error }, requestType] = await Promise.all([
+    db.from('po_requests').select('*').eq('pr2_id', pr2Id).order('generated_at', { ascending: false }),
+    resolveRequestTypeForPr2(pr2Id),
+  ]);
   if (error) throw error;
-  return (data ?? []).map(normalizePO);
+  return (data ?? []).map((row: any) => normalizePO({ ...row, request_type: requestType }));
 }
 
 export async function fetchPOByPR2AndSupplier(
   pr2Id: string,
   supplierProfileId: string
 ): Promise<PORequest | null> {
-  const { data, error } = await db
-    .from('po_requests')
-    .select('*')
-    .eq('pr2_id', pr2Id)
-    .eq('supplier_id', supplierProfileId)
-    .maybeSingle();
+  const [{ data, error }, requestType] = await Promise.all([
+    db.from('po_requests').select('*').eq('pr2_id', pr2Id).eq('supplier_id', supplierProfileId).maybeSingle(),
+    resolveRequestTypeForPr2(pr2Id),
+  ]);
   if (error) throw error;
   if (!data) return null;
-  return normalizePO(data);
+  return normalizePO({ ...data, request_type: requestType });
 }
 
 /** @deprecated Multiple POs per PR2 exist when several suppliers are awarded; prefer fetchPOsByPR2Id. */
@@ -747,7 +777,7 @@ function normalizePO(row: any): PORequest {
     packing:                     row.packing,
     remarks:                     row.remarks,
     department_id:               row.department_id ?? null,
-    request_type:                (row.request_type ?? 'goods') as 'goods' | 'services',
+    request_type:                (row.request_type ?? 'goods') as 'goods' | 'services' | 'raw_material',
     status:                      row.status,
     generated_by:                row.generated_by,
     generated_at:                row.generated_at,

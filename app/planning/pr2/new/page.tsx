@@ -1,20 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Save, Send, TriangleAlert as AlertTriangle } from 'lucide-react';
+import { format } from 'date-fns';
 import AppShell from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/utils';
 import { canRequestRawMaterials } from '@/lib/raw-material-access';
+import { useDropdownOptions } from '@/hooks/useDropdownOptions';
 import {
   createRawMaterialPR2,
   submitRawMaterialPR2,
   fetchSuggestedRawMaterialPR2Sequence,
   uploadPR2ItemAttachment,
+  checkPR2NumberExists,
+  PR2_NUMBER_DUPLICATE_ERROR,
   type RawMaterialPR2ItemInput,
 } from '@/lib/pr2-planning';
 import RawMaterialPR2ItemsEditor from '@/components/planning/RawMaterialPR2ItemsEditor';
@@ -30,7 +35,6 @@ export default function NewRawMaterialPR2Page() {
   const [suffix, setSuffix] = useState('');
   const [suggestedSequence, setSuggestedSequence] = useState<string | null>(null);
   const [requisitionerName, setRequisitionerName] = useState('');
-  const [purpose, setPurpose] = useState('');
   const [dateRequired, setDateRequired] = useState('');
   const [priority, setPriority] = useState<'normal' | 'medium' | 'high'>('normal');
   const [remarks, setRemarks] = useState('');
@@ -41,6 +45,14 @@ export default function NewRawMaterialPR2Page() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState<Partial<Record<'pr2_number' | 'purpose', string>>>({});
+
+  // Purpose dropdown state — mirrors PR1Form's PURPOSE_OPTIONS + "Other" pattern.
+  const { options: purposeOpts } = useDropdownOptions('PURPOSE_OPTIONS');
+  const purposeValues = useMemo(() => purposeOpts.map((o) => o.option_value), [purposeOpts]);
+  const [purposeSel, setPurposeSel] = useState('');
+  const [purposeCustom, setPurposeCustom] = useState('');
+  const finalPurpose = purposeSel === 'Other' ? purposeCustom.trim() : purposeSel;
 
   useEffect(() => {
     if (!profile) return;
@@ -59,9 +71,25 @@ export default function NewRawMaterialPR2Page() {
 
   const normalizeSuffix = (value: string) => value.trim().replace(/^PR2-RM-\d{4}-/i, '').replace(/^PR2-\d{4}-/i, '').replace(/^PR2-/i, '').replace(/\D/g, '');
 
+  const handlePR2NumberBlur = useCallback(async () => {
+    const num = `${pr2Prefix}${suffix}`.trim();
+    if (!suffix.trim()) return;
+    const exists = await checkPR2NumberExists(num);
+    setErrors((e) => ({ ...e, pr2_number: exists ? PR2_NUMBER_DUPLICATE_ERROR : undefined }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suffix, pr2Prefix]);
+
   const validate = (): string | null => {
     if (!suffix.trim()) return 'PR2 number is required.';
-    if (!purpose.trim()) return 'Purpose is required.';
+    if (errors.pr2_number) return errors.pr2_number;
+    if (!purposeSel) {
+      setErrors((e) => ({ ...e, purpose: 'Purpose is required.' }));
+      return 'Purpose is required.';
+    }
+    if (purposeSel === 'Other' && !purposeCustom.trim()) {
+      setErrors((e) => ({ ...e, purpose: 'Please specify the purpose.' }));
+      return 'Please specify the purpose.';
+    }
     if (!dateRequired) return 'Date required is required.';
     if (items.length === 0) return 'At least one line item is required.';
     for (const item of items) {
@@ -83,11 +111,19 @@ export default function NewRawMaterialPR2Page() {
       return;
     }
     setError('');
+
+    const pr2Number = `${pr2Prefix}${suffix}`;
+    if (await checkPR2NumberExists(pr2Number)) {
+      setErrors((e) => ({ ...e, pr2_number: PR2_NUMBER_DUPLICATE_ERROR }));
+      setError(PR2_NUMBER_DUPLICATE_ERROR);
+      return;
+    }
+
     submitAfter ? setSubmitting(true) : setSaving(true);
     try {
-      const { id: pr2Id, items: savedItems } = await createRawMaterialPR2(profile, `${pr2Prefix}${suffix}`, {
+      const { id: pr2Id, items: savedItems } = await createRawMaterialPR2(profile, pr2Number, {
         requisitioner_name: requisitionerName || null,
-        purpose,
+        purpose: finalPurpose,
         date_required: dateRequired,
         priority,
         remarks: remarks || null,
@@ -147,21 +183,24 @@ export default function NewRawMaterialPR2Page() {
           </div>
 
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-            <div className="md:col-span-2">
+            {/* Request Type */}
+            <div className="col-span-full">
               <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
                 Request Type <span className="text-pq-danger-600">*</span>
               </label>
-              <div className="flex gap-2">
-                {(['raw_material', 'services'] as const).map((rt) => (
+              <div className="inline-flex rounded-md border border-pq-neutral-300 overflow-hidden">
+                {(['raw_material', 'services'] as const).map((rt, i) => (
                   <button
                     key={rt}
                     type="button"
                     onClick={() => setRequestType(rt)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium border transition ${
+                    className={cn(
+                      'px-5 py-2 text-sm font-medium transition',
+                      i > 0 && 'border-l border-pq-neutral-300',
                       requestType === rt
-                        ? 'bg-pq-primary-600 border-pq-primary-600 text-white'
-                        : 'bg-white border-pq-neutral-200 text-pq-neutral-700 hover:border-pq-neutral-300'
-                    }`}
+                        ? 'bg-pq-primary-600 text-white border-pq-primary-600'
+                        : 'bg-white text-pq-neutral-600 hover:bg-pq-neutral-50',
+                    )}
                   >
                     {rt === 'raw_material' ? 'Raw Material' : 'Services'}
                   </button>
@@ -169,18 +208,48 @@ export default function NewRawMaterialPR2Page() {
               </div>
             </div>
 
+            {/* Requisitioner */}
+            <div>
+              <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                Requisitioner / User
+              </label>
+              <Input
+                value={requisitionerName}
+                onChange={(e) => setRequisitionerName(e.target.value)}
+                placeholder={profile?.full_name || 'Enter requestor name'}
+              />
+            </div>
+
+            {/* Department (read-only) */}
+            <div>
+              <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                Department
+              </label>
+              <div className="px-3 py-2.5 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md text-sm text-pq-neutral-900 font-medium">
+                {profile?.department}
+              </div>
+            </div>
+
+            {/* PR2 Number */}
             <div>
               <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
                 PR2 Number <span className="text-pq-danger-600">*</span>
               </label>
-              <div className="flex items-center border border-pq-neutral-300 rounded-md overflow-hidden transition bg-pq-white focus-within:ring-2 focus-within:ring-pq-primary-500/25 focus-within:border-pq-primary-500">
+              <div className={cn(
+                'flex items-center border rounded-md overflow-hidden transition bg-pq-white focus-within:ring-2 focus-within:ring-pq-primary-500/25 focus-within:border-pq-primary-500',
+                errors.pr2_number ? 'border-pq-danger-300 bg-pq-danger-50' : 'border-pq-neutral-300'
+              )}>
                 <div className="px-3 py-2.5 bg-pq-neutral-50 border-r border-pq-neutral-200 text-sm font-mono text-pq-neutral-400 whitespace-nowrap pointer-events-none select-none">
                   {pr2Prefix}
                 </div>
                 <Input
                   type="text"
                   value={suffix}
-                  onChange={(e) => setSuffix(normalizeSuffix(e.target.value))}
+                  onChange={(e) => {
+                    setSuffix(normalizeSuffix(e.target.value));
+                    setErrors((err) => ({ ...err, pr2_number: undefined }));
+                  }}
+                  onBlur={handlePR2NumberBlur}
                   placeholder={suggestedSequence ?? '0001'}
                   className="flex-1 border-0 rounded-none rounded-r-md font-mono focus-visible:ring-0 focus-visible:border-0 bg-transparent h-10"
                 />
@@ -190,8 +259,61 @@ export default function NewRawMaterialPR2Page() {
                   ? `Suggested: ${pr2Prefix}${suggestedSequence} — you may edit this number.`
                   : 'Enter a 4-digit sequence (e.g. 0001) or use the suggested value when it loads.'}
               </p>
+              {errors.pr2_number && (
+                <p className="mt-1 text-xs text-pq-danger-600">{errors.pr2_number}</p>
+              )}
             </div>
 
+            {/* Date (read-only today's date) */}
+            <div>
+              <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                Date
+              </label>
+              <div className="px-3 py-2.5 bg-pq-neutral-50 border border-pq-neutral-200 rounded-md text-sm text-pq-neutral-900">
+                {format(new Date(), 'MMMM d, yyyy')}
+              </div>
+            </div>
+
+            {/* Purpose */}
+            <div>
+              <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+                Purpose <span className="text-pq-danger-600">*</span>
+              </label>
+              <select
+                value={purposeSel}
+                onChange={(e) => {
+                  setPurposeSel(e.target.value);
+                  setErrors((err) => ({ ...err, purpose: undefined }));
+                }}
+                className={cn(
+                  'w-full h-10 px-3 py-2.5 border rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] focus:border-transparent transition appearance-none',
+                  errors.purpose && !purposeSel ? 'border-red-300 bg-pq-danger-100' : 'border-pq-neutral-200'
+                )}
+              >
+                <option value="">— Select purpose —</option>
+                {purposeValues.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+              {purposeSel === 'Other' && (
+                <Input
+                  type="text"
+                  value={purposeCustom}
+                  onChange={(e) => {
+                    setPurposeCustom(e.target.value);
+                    setErrors((err) => ({ ...err, purpose: undefined }));
+                  }}
+                  placeholder={requestType === 'services' ? 'Why this service is needed' : 'Why this raw material is needed'}
+                  className={cn(
+                    'mt-2 text-sm',
+                    errors.purpose ? 'border-pq-danger-300 bg-pq-danger-50' : 'border-pq-neutral-300'
+                  )}
+                />
+              )}
+              {errors.purpose && <p className="mt-1 text-xs text-pq-danger-600">{errors.purpose}</p>}
+            </div>
+
+            {/* Date Required */}
             <div>
               <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
                 Date Required <span className="text-pq-danger-600">*</span>
@@ -204,6 +326,7 @@ export default function NewRawMaterialPR2Page() {
               />
             </div>
 
+            {/* Priority — PR2-only field, no PR1 equivalent */}
             <div>
               <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
                 Priority <span className="text-pq-danger-600">*</span>
@@ -219,28 +342,7 @@ export default function NewRawMaterialPR2Page() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
-                Requisitioner / User
-              </label>
-              <Input
-                value={requisitionerName}
-                onChange={(e) => setRequisitionerName(e.target.value)}
-                placeholder={profile?.full_name || 'Enter requestor name'}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
-                Purpose <span className="text-pq-danger-600">*</span>
-              </label>
-              <Input
-                value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
-                placeholder={requestType === 'services' ? 'Why this service is needed' : 'Why this raw material is needed'}
-              />
-            </div>
-
+            {/* Remarks — PR2-only field, no PR1 equivalent */}
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
                 Remarks

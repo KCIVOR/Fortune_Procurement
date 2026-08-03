@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDropdownOptions } from '@/hooks/useDropdownOptions';
@@ -99,6 +99,19 @@ export default function RawMaterialPR2ItemsEditor({
     setUnitStates((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const moveItem = (idx: number, dir: -1 | 1) => {
+    const next = idx + dir;
+    if (next < 0 || next >= items.length) return;
+    const reordered = [...items];
+    [reordered[idx], reordered[next]] = [reordered[next], reordered[idx]];
+    onChange(reordered.map((it, i) => ({ ...it, item_order: i + 1 })));
+    setUnitStates((prev) => {
+      const states = [...prev];
+      [states[idx], states[next]] = [states[next], states[idx]];
+      return states;
+    });
+  };
+
   return (
     <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-pq-neutral-200">
@@ -135,8 +148,32 @@ export default function RawMaterialPR2ItemsEditor({
               const uState = unitStates[idx] ?? { sel: '', custom: '' };
               const itemKey = item.id ?? '';
               return (
-                <TableRow key={idx}>
-                  <TableCell className="px-4 py-2 text-pq-neutral-500">{idx + 1}</TableCell>
+                <TableRow key={idx} className="group">
+                  <TableCell className="px-4 py-2 text-pq-neutral-500 align-middle">
+                    {disabled ? (
+                      idx + 1
+                    ) : (
+                      <div className="flex flex-col items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => moveItem(idx, -1)}
+                          disabled={idx === 0}
+                          className="text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
+                        >
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <span className="text-xs text-pq-neutral-400 font-mono">{idx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => moveItem(idx, 1)}
+                          disabled={idx === items.length - 1}
+                          className="text-pq-neutral-400 hover:text-pq-neutral-500 disabled:opacity-0 transition"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="px-4 py-2">
                     <Input
                       value={item.item_code}
@@ -207,14 +244,15 @@ export default function RawMaterialPR2ItemsEditor({
                   )}
                   {!disabled && (
                     <TableCell className="px-4 py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => removeItem(idx)}
-                        disabled={items.length <= 1}
-                        className="text-pq-neutral-400 hover:text-pq-danger-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItem(idx)}
+                          className="text-pq-neutral-400 hover:text-pq-danger-600 transition opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>

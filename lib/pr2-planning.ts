@@ -22,13 +22,14 @@ export async function fetchMyRawMaterialPR2s(
     limit?:       number;
     offset?:      number;
     status?:      string;
+    priority?:    string;
     search?:      string;
     dateFrom?:    string;
     dateTo?:      string;
     requestType?: 'raw_material' | 'services' | 'all';
   } = {}
 ): Promise<{ requests: PR2Request[]; total_count: number }> {
-  const { limit, offset = 0, status, search, dateFrom, dateTo, requestType = 'raw_material' } = options;
+  const { limit, offset = 0, status, priority, search, dateFrom, dateTo, requestType = 'raw_material' } = options;
 
   const applyFilters = (q: any) => {
     q = q.eq('requisitioner_id', requisitionerId);
@@ -38,6 +39,9 @@ export async function fetchMyRawMaterialPR2s(
 
     if (status && status !== 'all') {
       q = q.eq('status', status);
+    }
+    if (priority && priority !== 'all') {
+      q = q.eq('priority', priority);
     }
     if (search && search.trim()) {
       const t = `%${search.trim()}%`;
@@ -101,6 +105,28 @@ export async function fetchSuggestedRawMaterialPR2Sequence(year?: number): Promi
   const { data, error } = await db.rpc('next_pr2_sequence', { p_year: y });
   if (error) throw error;
   return String(data ?? '0001');
+}
+
+export const PR2_NUMBER_DUPLICATE_ERROR =
+  'This PR2 number is already in use. Please choose a different number.';
+
+/**
+ * Duplicate check via SECURITY DEFINER RPC — runs across ALL pr2 rows regardless of
+ * the caller's RLS. Planning requestors only see their own PR2s under RLS
+ * ("Requestors can read own PR2 requests"), so a direct table query here would be
+ * blind to other users' PR2 numbers, mirroring the PR1 duplicate-check hazard
+ * (see checkPR1NumberExists in lib/pr1.ts).
+ */
+export async function checkPR2NumberExists(
+  pr2Number: string,
+  excludeId?: string
+): Promise<boolean> {
+  const { data, error } = await db.rpc('pr2_number_exists', {
+    p_number:     pr2Number.trim(),
+    p_exclude_id: excludeId ?? null,
+  });
+  if (error) throw error;
+  return data === true;
 }
 
 function buildItemRows(

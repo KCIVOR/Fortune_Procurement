@@ -126,13 +126,27 @@ export async function submitPR2ForApproval(
     .single();
   if (instErr) throw instErr;
 
-  // Transition PR2 status
-  const { error: updErr } = await db
+  // Transition PR2 status — filter against pr2.status (captured above, either
+  // 'draft' or 'revision_requested' per the guard at the top of this function),
+  // not a hardcoded 'draft'. A resubmit from revision_requested previously
+  // matched zero rows here (Postgres/PostgREST treats that as a silent
+  // success, not an error), leaving the PR2 stuck at revision_requested
+  // forever while the approval_instances row inserted above was already
+  // committed as 'active' — an orphaned instance that then blocked every
+  // future resubmit with "An active approval instance already exists".
+  // .select('id') + a length check turns any other no-op update (e.g. a
+  // concurrent submit) into an explicit error instead of a silent no-op.
+  // Mirrors submitPR1()'s status-transition pattern in lib/pr1.ts.
+  const { data: updatedRows, error: updErr } = await db
     .from('pr2_requests')
     .update({ status: 'pending_approval', updated_at: now })
     .eq('id', pr2Id)
-    .eq('status', 'draft');
+    .eq('status', pr2.status)
+    .select('id');
   if (updErr) throw updErr;
+  if (!updatedRows || updatedRows.length === 0) {
+    throw new Error('PR2 could not be submitted. It may have already been submitted or does not exist.');
+  }
 
   await db.from('audit_logs').insert({
     actor_id:      profile.id,

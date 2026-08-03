@@ -27,7 +27,7 @@ import type { PR2WithItems, PR2ItemAttachment } from '@/types/pr2';
 import { PR2_STATUS_LABELS } from '@/types/pr2';
 import type { PR2ApprovalDetail } from '@/types/approvals';
 import { format } from 'date-fns';
-import { Save, Send, Trash2, User, FileText, CalendarDays, Clock, TriangleAlert as AlertTriangle, RotateCcw } from 'lucide-react';
+import { Save, Send, Trash2, User, FileText, CalendarDays, Clock, TriangleAlert as AlertTriangle, RotateCcw, Flag } from 'lucide-react';
 import DetailBackButton from '@/components/shared/DetailBackButton';
 import DetailHeaderLayout from '@/components/shared/DetailHeaderLayout';
 import DetailTitleRow from '@/components/shared/DetailTitleRow';
@@ -70,6 +70,7 @@ export default function RawMaterialPR2DetailPage() {
 
   const [purpose, setPurpose] = useState('');
   const [dateRequired, setDateRequired] = useState('');
+  const [priority, setPriority] = useState<'normal' | 'medium' | 'high'>('normal');
   const [remarks, setRemarks] = useState('');
   const [items, setItems] = useState<RawMaterialPR2ItemInput[]>([]);
 
@@ -100,6 +101,7 @@ export default function RawMaterialPR2DetailPage() {
       setApprovalDetail(approval);
       setPurpose(data.purpose ?? '');
       setDateRequired(data.date_required ?? '');
+      setPriority(data.priority ?? 'normal');
       setRemarks(data.remarks ?? '');
       setItems(
         data.items.map((item, idx) => ({
@@ -145,12 +147,29 @@ export default function RawMaterialPR2DetailPage() {
   const canEdit = isOwner && (isDraft || isRevisionRequested);
   const wasRevisionRequested = isRevisionRequested; // direct status read, not a derived join
 
+  /** Mirrors the "New Request" form's validate() — the edit page previously had none. */
+  const validate = (): string | null => {
+    if (!purpose.trim()) return 'Purpose is required.';
+    if (!dateRequired) return 'Date required is required.';
+    if (items.length === 0) return 'At least one line item is required.';
+    for (const item of items) {
+      if (!item.description.trim() || !item.unit_of_measure.trim()) {
+        return 'Every line item needs a description and unit of measure.';
+      }
+      if (!item.quantity_requested || item.quantity_requested <= 0) {
+        return 'Every line item needs a quantity greater than zero.';
+      }
+    }
+    return null;
+  };
+
   /** Shared by Save Draft and Submit: persist header/items, then reconcile attachments. */
   const persistItemsAndAttachments = async () => {
     if (!profile || !pr2) return;
     const { items: syncedItems } = await updateRawMaterialPR2Draft(pr2.id, profile, {
       purpose,
       date_required: dateRequired,
+      priority,
       remarks: remarks || null,
       items,
     });
@@ -183,6 +202,11 @@ export default function RawMaterialPR2DetailPage() {
 
   const handleSaveDraft = async () => {
     if (!profile || !pr2) return;
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setError('');
     setSaving(true);
     try {
@@ -197,6 +221,11 @@ export default function RawMaterialPR2DetailPage() {
 
   const handleSubmit = async () => {
     if (!profile || !pr2) return;
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setError('');
     setSubmitting(true);
     try {
@@ -334,6 +363,25 @@ export default function RawMaterialPR2DetailPage() {
                   />
                 ) : (
                   format(new Date(pr2.date_required), 'MMMM d, yyyy')
+                )
+              }
+            />
+            <DetailInfoField
+              icon={<Flag className="w-3.5 h-3.5 text-pq-neutral-400" />}
+              label="Priority"
+              value={
+                canEdit ? (
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value as 'normal' | 'medium' | 'high')}
+                    className="w-full h-9 px-2.5 py-1.5 border border-pq-neutral-200 rounded-md text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-pq-primary-500"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                ) : (
+                  <PriorityChip priority={pr2.priority ?? 'normal'} />
                 )
               }
             />

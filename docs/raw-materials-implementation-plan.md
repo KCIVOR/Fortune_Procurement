@@ -140,7 +140,7 @@ if (pr2.pr1_id) {
 **Raw-material PR2-direct** must route to `PR2_FINAL` (not `PR2_PHASE1`). Procurement notification on final approve **already fires** for any `PR2_FINAL` completion (`lib/pr2-approvals.ts` ~637). PR1 status update is **already skipped** when `pr1_id` is null (~539) — Phase 2 mainly adds workflow routing + Planning create path.
 
 ---
-
+  
 ### 1.5 Downstream flows (verified in app code)
 
 #### RFQ creation (`lib/canvassing.ts` → `createRfq`)

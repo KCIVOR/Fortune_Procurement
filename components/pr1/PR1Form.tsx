@@ -13,6 +13,7 @@ import {
   deleteDraftPR1,
   uploadPR1Attachment,
   deletePR1Attachment,
+  updatePR1Priority,
 } from '@/lib/pr1';
 import type { PR1WithItems, PR1FormValues, PR1ItemDraft, PR1Attachment, PR1RequestType } from '@/types/pr1';
 import { EMPTY_ITEM } from '@/types/pr1';
@@ -94,6 +95,11 @@ export default function PR1Form({ existing }: PR1FormProps) {
   const router = useRouter();
 
   const [values, setValues] = useState<PR1FormValues>(() => buildInitialValues(existing));
+  // Priority lives outside PR1FormValues/saveDraftPR1 — set via the same
+  // updatePR1Priority() path the PR1 detail page's PriorityChip already uses,
+  // so it stays audit-logged and buyer/procurement-notified consistently.
+  const initialPriority = existing?.priority ?? 'normal';
+  const [priority, setPriority] = useState<'normal' | 'medium' | 'high'>(initialPriority);
   const [suggestedSequence, setSuggestedSequence] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -354,7 +360,11 @@ export default function PR1Form({ existing }: PR1FormProps) {
     setGlobalError('');
     try {
       const { id: pr1Id, items: savedItems } = await saveDraftPR1(buildResolvedValues(), profile, existing?.id);
-      
+
+      if (priority !== initialPriority) {
+        await updatePR1Priority(pr1Id, priority, profile);
+      }
+
       // 1. Process deletions
       const deletePromises = Object.keys(attachmentsToDelete).map(async (attId) => {
         let foundAtt: PR1Attachment | undefined;
@@ -409,6 +419,10 @@ export default function PR1Form({ existing }: PR1FormProps) {
     try {
       // 1. Save as draft first
       const { id: pr1Id, items: savedItems } = await saveDraftPR1(buildResolvedValues(), profile, existing?.id);
+
+      if (priority !== initialPriority) {
+        await updatePR1Priority(pr1Id, priority, profile);
+      }
 
       // 2. Process deletions
       const deletePromises = Object.keys(attachmentsToDelete).map(async (attId) => {
@@ -654,6 +668,22 @@ export default function PR1Form({ existing }: PR1FormProps) {
             {errors.date_required && (
               <p className="mt-1 text-xs text-pq-danger-600">{errors.date_required}</p>
             )}
+          </div>
+
+          {/* Priority */}
+          <div>
+            <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
+              Priority <span className="text-pq-danger-600">*</span>
+            </label>
+            <select
+              value={priority}
+              onChange={e => setPriority(e.target.value as 'normal' | 'medium' | 'high')}
+              className={`${selectBaseHeader} border-pq-neutral-200`}
+            >
+              <option value="normal">Normal</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
           </div>
         </div>
       </div>

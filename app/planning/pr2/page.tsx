@@ -67,18 +67,15 @@ export default function RawMaterialPR2ListPage() {
       limit:       rowsPerPage,
       offset,
       status:      selectedStatus,
+      priority:    selectedPriority,
       search:      appliedSearch.trim() || undefined,
       dateFrom:    appliedDateRange[0] || undefined,
       dateTo:      appliedDateRange[1] || undefined,
       requestType: 'all',
     })
       .then((result) => {
-        let filtered = result.requests;
-        if (selectedPriority !== 'all') {
-          filtered = filtered.filter((r) => (r.priority ?? 'normal') === selectedPriority);
-        }
-        setRequests(filtered);
-        setTotalCount(selectedPriority !== 'all' ? filtered.length : result.total_count);
+        setRequests(result.requests);
+        setTotalCount(result.total_count);
       })
       .catch(() => setError('Failed to load requests.'))
       .finally(() => setLoading(false));
