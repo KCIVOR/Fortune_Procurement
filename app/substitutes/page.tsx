@@ -205,7 +205,14 @@ export default function SubstitutesIndexPage() {
                     const total   = bundle.substitutes.length;
                     return (
                       <tr key={bundle.pr1.id} className="hover:bg-pq-neutral-50 transition">
-                        <td className="px-5 py-3.5 font-mono font-bold text-pq-neutral-900 whitespace-nowrap">{bundle.pr1.pr1_number}</td>
+                        <td className="px-5 py-3.5 font-mono font-bold text-pq-neutral-900 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5">
+                            {bundle.pr1.pr1_number}
+                            {bundle.source === 'pr2' && (
+                              <span className="text-[10px] uppercase tracking-wide text-pq-neutral-400">PR2</span>
+                            )}
+                          </span>
+                        </td>
                         <td className="px-5 py-3.5 text-pq-neutral-500 max-w-[200px] truncate">{bundle.pr1.purpose}</td>
                         {isProcurement && (
                           <td className="px-5 py-3.5 text-pq-neutral-500 whitespace-nowrap">{bundle.pr1.requisitioner_name_snapshot}</td>

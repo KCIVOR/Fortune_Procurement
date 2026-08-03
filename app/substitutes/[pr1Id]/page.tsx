@@ -7,7 +7,7 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import EmptyState from '@/components/shared/EmptyState';
 import { useAuth } from '@/context/AuthContext';
-import { fetchSubstituteBundleForPr1, saveSubstituteDecision, isSubstituteActionable } from '@/lib/canvassing';
+import { fetchSubstituteBundleForRequest, saveSubstituteDecision, isSubstituteActionable } from '@/lib/canvassing';
 import type { SubstituteReviewBundle, SubstituteReviewItem } from '@/types/canvassing';
 import {
   ChevronLeft,
@@ -35,9 +35,9 @@ export default function SubstituteReviewPage() {
   const load = useCallback(() => {
     if (!pr1Id) return;
     setLoading(true);
-    fetchSubstituteBundleForPr1(pr1Id)
+    fetchSubstituteBundleForRequest(pr1Id)
       .then(b => {
-        if (!b) { setError('PR1 not found.'); return; }
+        if (!b) { setError('Request not found.'); return; }
         setBundle(b);
       })
       .catch(() => setError('Failed to load substitutes.'))
@@ -97,7 +97,7 @@ export default function SubstituteReviewPage() {
       {!canAct && (
         <div className="flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-6">
           <AlertTriangle className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-pq-warning-600">Only the requestor or procurement can accept or reject substitutes for this PR1.</p>
+          <p className="text-sm text-pq-warning-600">Only the requestor or procurement can accept or reject substitutes for this request.</p>
         </div>
       )}
 
@@ -105,7 +105,7 @@ export default function SubstituteReviewPage() {
         <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title="No substitutes offered"
-            description="Suppliers have not proposed any alternatives for this PR1."
+            description="Suppliers have not proposed any alternatives for this request."
             icon={Replace}
           />
         </div>
