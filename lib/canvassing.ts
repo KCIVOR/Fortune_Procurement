@@ -2231,97 +2231,225 @@ export async function fetchSubstituteReviewBundles(): Promise<SubstituteReviewBu
   const rfqIds = Array.from(new Set(supplierArr.map(rs => rs.rfq_id)));
   const { data: rfqs } = await db
     .from('rfq_batches')
-    .select('id, rfq_number, status, pr1_id')
+    .select('id, rfq_number, status, pr1_id, pr2_id')
     .in('id', rfqIds);
   const rfqArr: any[] = rfqs ?? [];
   if (rfqArr.length === 0) return [];
 
-  const pr1Ids = Array.from(new Set(rfqArr.map(r => r.pr1_id)));
-  const { data: pr1s } = await db
-    .from('pr1_requests')
-    .select('id, pr1_number, purpose, department_name_snapshot, requisitioner_id, requisitioner_name_snapshot, priority')
-    .in('id', pr1Ids)
-    .order('created_at', { ascending: false });
-  const pr1Arr: any[] = pr1s ?? [];
-  if (pr1Arr.length === 0) return [];
-
-  const itemIds  = Array.from(new Set(quoteArr.map(q => q.pr1_item_id)));
-  const quoteIds = quoteArr.map(q => q.id);
-
-  const [itemsRes, decisionsRes, attachmentsByQuote, selectionsRes] = await Promise.all([
-    db.from('pr1_items')
-      .select('id, item_order, item_code, description, unit_of_measure, quantity_requested')
-      .in('id', itemIds),
-    db.from('substitute_decisions').select('*').in('rfq_item_quote_id', quoteIds),
-    fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({} as Record<string, RfqQuoteAttachment[]>)),
-    db.from('supplier_item_selections').select('rfq_id, pr1_item_id').in('rfq_id', rfqIds),
-  ]);
-
-  const itemMap: Record<string, any>     = Object.fromEntries(((itemsRes.data ?? []) as any[]).map((i: any) => [i.id, i]));
   const supplierMap: Record<string, any> = Object.fromEntries(supplierArr.map(rs => [rs.id, rs]));
   const rfqMap: Record<string, any>      = Object.fromEntries(rfqArr.map(r => [r.id, r]));
-  const decisionRows = (decisionsRes.data ?? []) as SubstituteDecisionRow[];
-  const decisionMap: Record<string, SubstituteDecisionRow> = Object.fromEntries(
-    decisionRows.map(d => [d.rfq_item_quote_id, d])
-  );
-  const awardedKeys = new Set<string>(
-    ((selectionsRes.data ?? []) as any[]).map((s: any) => `${s.rfq_id}|${s.pr1_item_id}`)
-  );
-  const deciderRoleMap = await buildDeciderRoleMap(decisionRows);
 
-  const whByPr1: Record<string, Awaited<ReturnType<typeof fetchWarehouseProcurementByPr1Item>>> = {};
-  await Promise.all(pr1Ids.map(async id => { whByPr1[id] = await fetchWarehouseProcurementByPr1Item(id); }));
+  const pr1Rfqs = rfqArr.filter(r => r.pr1_id);
+  const pr2Rfqs = rfqArr.filter(r => !r.pr1_id && r.pr2_id);
 
-  const bundlesByPr1: Record<string, SubstituteReviewItem[]> = Object.fromEntries(pr1Ids.map(id => [id, []]));
+  const pr1Ids = Array.from(new Set(pr1Rfqs.map(r => r.pr1_id as string)));
+  const pr2Ids = Array.from(new Set(pr2Rfqs.map(r => r.pr2_id as string)));
 
-  for (const q of quoteArr) {
-    const item     = itemMap[q.pr1_item_id];
-    const supplier = supplierMap[q.rfq_supplier_id];
-    if (!item || !supplier) continue;
-    const rfq = rfqMap[supplier.rfq_id];
-    if (!rfq || !bundlesByPr1[rfq.pr1_id]) continue;
+  // ── PR1 bundles (existing path — keep query/loop semantics) ───────────────
+  let pr1Bundles: SubstituteReviewBundle[] = [];
+  if (pr1Ids.length > 0) {
+    const { data: pr1s } = await db
+      .from('pr1_requests')
+      .select('id, pr1_number, purpose, department_name_snapshot, requisitioner_id, requisitioner_name_snapshot, priority')
+      .in('id', pr1Ids)
+      .order('created_at', { ascending: false });
+    const pr1Arr: any[] = pr1s ?? [];
 
-    const decision = decisionMap[q.id] ?? null;
-    const wh = whByPr1[rfq.pr1_id];
-    const rfqQty = !wh?.validated
-      ? Number(item.quantity_requested) || 0
-      : (wh.byPr1ItemId[item.id] !== undefined && wh.byPr1ItemId[item.id] > 0
-          ? wh.byPr1ItemId[item.id]
-          : Number(item.quantity_requested) || 0);
+    if (pr1Arr.length > 0) {
+      const pr1RfqIdSet = new Set(pr1Rfqs.map(r => r.id as string));
+      const pr1QuoteArr = quoteArr.filter(q => {
+        const supplier = supplierMap[q.rfq_supplier_id];
+        return supplier && pr1RfqIdSet.has(supplier.rfq_id);
+      });
+      const itemIds  = Array.from(new Set(pr1QuoteArr.map(q => q.pr1_item_id).filter(Boolean)));
+      const quoteIds = pr1QuoteArr.map(q => q.id);
+      const pr1RfqIds = Array.from(pr1RfqIdSet);
 
-    bundlesByPr1[rfq.pr1_id].push({
-      quote_id:             q.id,
-      rfq_id:               supplier.rfq_id,
-      rfq_number:           rfq.rfq_number ?? '',
-      rfq_supplier_id:      supplier.id,
-      supplier_name:        supplier.supplier_name_snapshot,
-      pr1_item_id:          item.id,
-      item_order:           item.item_order,
-      item_code:            item.item_code,
-      original_description: item.description,
-      original_quantity:    rfqQty,
-      unit_of_measure:      item.unit_of_measure,
-      quoted_description:   q.quoted_description,
-      unit_price:           Number(q.unit_price),
-      lead_time_days:       q.lead_time_days,
-      remarks:              q.remarks,
-      submitted_at:         q.submitted_at,
-      decision:             decision?.decision ?? null,
-      decided_at:           decision?.decided_at ?? null,
-      decision_notes:       decision?.notes ?? null,
-      decided_by_role:      decision ? (deciderRoleMap[decision.decided_by] ?? null) : null,
-      attachments:          attachmentsByQuote[q.id] ?? [],
-      rfq_status:           rfq.status ?? 'open',
-      is_awarded:           awardedKeys.has(`${supplier.rfq_id}|${item.id}`),
-    });
+      const [itemsRes, decisionsRes, attachmentsByQuote, selectionsRes] = await Promise.all([
+        itemIds.length > 0
+          ? db.from('pr1_items')
+              .select('id, item_order, item_code, description, unit_of_measure, quantity_requested')
+              .in('id', itemIds)
+          : Promise.resolve({ data: [] as any[] }),
+        quoteIds.length > 0
+          ? db.from('substitute_decisions').select('*').in('rfq_item_quote_id', quoteIds)
+          : Promise.resolve({ data: [] as any[] }),
+        fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({} as Record<string, RfqQuoteAttachment[]>)),
+        db.from('supplier_item_selections').select('rfq_id, pr1_item_id').in('rfq_id', pr1RfqIds),
+      ]);
+
+      const itemMap: Record<string, any> = Object.fromEntries(((itemsRes.data ?? []) as any[]).map((i: any) => [i.id, i]));
+      const decisionRows = (decisionsRes.data ?? []) as SubstituteDecisionRow[];
+      const decisionMap: Record<string, SubstituteDecisionRow> = Object.fromEntries(
+        decisionRows.map(d => [d.rfq_item_quote_id, d])
+      );
+      const awardedKeys = new Set<string>(
+        ((selectionsRes.data ?? []) as any[]).map((s: any) => `${s.rfq_id}|${s.pr1_item_id}`)
+      );
+      const deciderRoleMap = await buildDeciderRoleMap(decisionRows);
+
+      const whByPr1: Record<string, Awaited<ReturnType<typeof fetchWarehouseProcurementByPr1Item>>> = {};
+      await Promise.all(pr1Ids.map(async id => { whByPr1[id] = await fetchWarehouseProcurementByPr1Item(id); }));
+
+      const bundlesByPr1: Record<string, SubstituteReviewItem[]> = Object.fromEntries(pr1Ids.map(id => [id, []]));
+
+      for (const q of pr1QuoteArr) {
+        const item     = itemMap[q.pr1_item_id];
+        const supplier = supplierMap[q.rfq_supplier_id];
+        if (!item || !supplier) continue;
+        const rfq = rfqMap[supplier.rfq_id];
+        if (!rfq || !bundlesByPr1[rfq.pr1_id]) continue;
+
+        const decision = decisionMap[q.id] ?? null;
+        const wh = whByPr1[rfq.pr1_id];
+        const rfqQty = !wh?.validated
+          ? Number(item.quantity_requested) || 0
+          : (wh.byPr1ItemId[item.id] !== undefined && wh.byPr1ItemId[item.id] > 0
+              ? wh.byPr1ItemId[item.id]
+              : Number(item.quantity_requested) || 0);
+
+        bundlesByPr1[rfq.pr1_id].push({
+          quote_id:             q.id,
+          rfq_id:               supplier.rfq_id,
+          rfq_number:           rfq.rfq_number ?? '',
+          rfq_supplier_id:      supplier.id,
+          supplier_name:        supplier.supplier_name_snapshot,
+          pr1_item_id:          item.id,
+          item_order:           item.item_order,
+          item_code:            item.item_code,
+          original_description: item.description,
+          original_quantity:    rfqQty,
+          unit_of_measure:      item.unit_of_measure,
+          quoted_description:   q.quoted_description,
+          unit_price:           Number(q.unit_price),
+          lead_time_days:       q.lead_time_days,
+          remarks:              q.remarks,
+          submitted_at:         q.submitted_at,
+          decision:             decision?.decision ?? null,
+          decided_at:           decision?.decided_at ?? null,
+          decision_notes:       decision?.notes ?? null,
+          decided_by_role:      decision ? (deciderRoleMap[decision.decided_by] ?? null) : null,
+          attachments:          attachmentsByQuote[q.id] ?? [],
+          rfq_status:           rfq.status ?? 'open',
+          is_awarded:           awardedKeys.has(`${supplier.rfq_id}|${item.id}`),
+        });
+      }
+
+      pr1Bundles = pr1Arr
+        .map(pr1 => ({
+          source: 'pr1' as const,
+          pr1,
+          substitutes: (bundlesByPr1[pr1.id] ?? []).sort((a, b) => a.item_order - b.item_order),
+        }))
+        .filter(b => b.substitutes.length > 0);
+    }
   }
 
-  return pr1Arr
-    .map(pr1 => ({
-      pr1,
-      substitutes: (bundlesByPr1[pr1.id] ?? []).sort((a, b) => a.item_order - b.item_order),
-    }))
-    .filter(b => b.substitutes.length > 0);
+  // ── PR2-native bundles (parallel path; no warehouse qty step) ─────────────
+  let pr2Bundles: SubstituteReviewBundle[] = [];
+  if (pr2Ids.length > 0) {
+    const { data: pr2s } = await db
+      .from('pr2_requests')
+      .select('id, pr2_number, purpose, department_name_snapshot, requisitioner_id, requisitioner_name_snapshot, priority')
+      .in('id', pr2Ids)
+      .order('created_at', { ascending: false });
+    const pr2Arr: any[] = pr2s ?? [];
+
+    if (pr2Arr.length > 0) {
+      const pr2RfqIdSet = new Set(pr2Rfqs.map(r => r.id as string));
+      const pr2QuoteArr = quoteArr.filter(q => {
+        const supplier = supplierMap[q.rfq_supplier_id];
+        return supplier && pr2RfqIdSet.has(supplier.rfq_id) && q.pr2_item_id;
+      });
+      const itemIds  = Array.from(new Set(pr2QuoteArr.map(q => q.pr2_item_id).filter(Boolean)));
+      const quoteIds = pr2QuoteArr.map(q => q.id);
+      const pr2RfqIds = Array.from(pr2RfqIdSet);
+
+      const [itemsRes, decisionsRes, attachmentsByQuote, selectionsRes] = await Promise.all([
+        itemIds.length > 0
+          ? db.from('pr2_items')
+              .select('id, item_order, item_code, description, unit_of_measure, quantity_requested')
+              .in('id', itemIds)
+          : Promise.resolve({ data: [] as any[] }),
+        quoteIds.length > 0
+          ? db.from('substitute_decisions').select('*').in('rfq_item_quote_id', quoteIds)
+          : Promise.resolve({ data: [] as any[] }),
+        fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({} as Record<string, RfqQuoteAttachment[]>)),
+        db.from('supplier_item_selections')
+          .select('rfq_id, pr1_item_id, pr2_item_id')
+          .in('rfq_id', pr2RfqIds),
+      ]);
+
+      const itemMap: Record<string, any> = Object.fromEntries(((itemsRes.data ?? []) as any[]).map((i: any) => [i.id, i]));
+      const decisionRows = (decisionsRes.data ?? []) as SubstituteDecisionRow[];
+      const decisionMap: Record<string, SubstituteDecisionRow> = Object.fromEntries(
+        decisionRows.map(d => [d.rfq_item_quote_id, d])
+      );
+      const awardedKeys = new Set<string>(
+        ((selectionsRes.data ?? []) as any[])
+          .filter((s: any) => s.pr2_item_id)
+          .map((s: any) => `${s.rfq_id}|${s.pr2_item_id}`)
+      );
+      const deciderRoleMap = await buildDeciderRoleMap(decisionRows);
+
+      const bundlesByPr2: Record<string, SubstituteReviewItem[]> = Object.fromEntries(pr2Ids.map(id => [id, []]));
+
+      for (const q of pr2QuoteArr) {
+        const item     = itemMap[q.pr2_item_id];
+        const supplier = supplierMap[q.rfq_supplier_id];
+        if (!item || !supplier) continue;
+        const rfq = rfqMap[supplier.rfq_id];
+        if (!rfq || !bundlesByPr2[rfq.pr2_id]) continue;
+
+        const decision = decisionMap[q.id] ?? null;
+
+        bundlesByPr2[rfq.pr2_id].push({
+          quote_id:             q.id,
+          rfq_id:               supplier.rfq_id,
+          rfq_number:           rfq.rfq_number ?? '',
+          rfq_supplier_id:      supplier.id,
+          supplier_name:        supplier.supplier_name_snapshot,
+          pr1_item_id:          null,
+          pr2_item_id:          item.id,
+          item_order:           item.item_order,
+          item_code:            item.item_code,
+          original_description: item.description,
+          original_quantity:    Number(item.quantity_requested) || 0,
+          unit_of_measure:      item.unit_of_measure,
+          quoted_description:   q.quoted_description,
+          unit_price:           Number(q.unit_price),
+          lead_time_days:       q.lead_time_days,
+          remarks:              q.remarks,
+          submitted_at:         q.submitted_at,
+          decision:             decision?.decision ?? null,
+          decided_at:           decision?.decided_at ?? null,
+          decision_notes:       decision?.notes ?? null,
+          decided_by_role:      decision ? (deciderRoleMap[decision.decided_by] ?? null) : null,
+          attachments:          attachmentsByQuote[q.id] ?? [],
+          rfq_status:           rfq.status ?? 'open',
+          is_awarded:           awardedKeys.has(`${supplier.rfq_id}|${item.id}`),
+        });
+      }
+
+      pr2Bundles = pr2Arr
+        .map(pr2 => ({
+          source: 'pr2' as const,
+          pr1: {
+            id:                          pr2.id,
+            pr1_number:                  pr2.pr2_number,
+            purpose:                     pr2.purpose,
+            department_name_snapshot:    pr2.department_name_snapshot,
+            requisitioner_id:            pr2.requisitioner_id,
+            requisitioner_name_snapshot: pr2.requisitioner_name_snapshot,
+            priority:                    pr2.priority ?? 'normal',
+          },
+          substitutes: (bundlesByPr2[pr2.id] ?? []).sort((a, b) => a.item_order - b.item_order),
+        }))
+        .filter(b => b.substitutes.length > 0);
+    }
+  }
+
+  return pr1Bundles.concat(pr2Bundles);
 }
 
 /**
@@ -2349,6 +2477,28 @@ export async function fetchSubstituteBundleForPr1(
   return loadSubstitutesForPr1(pr1);
 }
 
+export async function fetchSubstituteBundleForPr2(
+  pr2Id: string
+): Promise<SubstituteReviewBundle | null> {
+  const { data: pr2 } = await db
+    .from('pr2_requests')
+    .select('id, pr2_number, purpose, department_name_snapshot, requisitioner_id, requisitioner_name_snapshot, priority')
+    .eq('id', pr2Id)
+    .maybeSingle();
+
+  if (!pr2) return null;
+  return loadSubstitutesForPr2(pr2);
+}
+
+/** Detail page entry: try PR1 first (unchanged path), then PR2. */
+export async function fetchSubstituteBundleForRequest(
+  requestId: string
+): Promise<SubstituteReviewBundle | null> {
+  const pr1Bundle = await fetchSubstituteBundleForPr1(requestId);
+  if (pr1Bundle) return { ...pr1Bundle, source: 'pr1' as const };
+  return fetchSubstituteBundleForPr2(requestId);
+}
+
 async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle | null> {
   // Find all RFQ batches linked to this PR1
   const { data: rfqs } = await db
@@ -2358,7 +2508,7 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
 
   const rfqArr: any[] = rfqs ?? [];
   if (rfqArr.length === 0) {
-    return { pr1, substitutes: [] };
+    return { source: 'pr1', pr1, substitutes: [] };
   }
 
   const rfqIds = rfqArr.map(r => r.id);
@@ -2371,7 +2521,7 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
 
   const supplierArr: any[] = rfqSuppliers ?? [];
   if (supplierArr.length === 0) {
-    return { pr1, substitutes: [] };
+    return { source: 'pr1', pr1, substitutes: [] };
   }
 
   const rfqSupplierIds = supplierArr.map(rs => rs.id);
@@ -2386,7 +2536,7 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
 
   const quoteArr: any[] = quotes ?? [];
   if (quoteArr.length === 0) {
-    return { pr1, substitutes: [] };
+    return { source: 'pr1', pr1, substitutes: [] };
   }
 
   // Items + decisions in parallel
@@ -2462,12 +2612,132 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
     .filter((s): s is SubstituteReviewItem => s !== null)
     .sort((a, b) => a.item_order - b.item_order);
 
-  return { pr1, substitutes };
+  return { source: 'pr1', pr1, substitutes };
+}
+
+async function loadSubstitutesForPr2(pr2: any): Promise<SubstituteReviewBundle | null> {
+  const header = {
+    id:                          pr2.id,
+    pr1_number:                  pr2.pr2_number,
+    purpose:                     pr2.purpose,
+    department_name_snapshot:    pr2.department_name_snapshot,
+    requisitioner_id:            pr2.requisitioner_id,
+    requisitioner_name_snapshot: pr2.requisitioner_name_snapshot,
+    priority:                    pr2.priority ?? 'normal',
+  };
+
+  const { data: rfqs } = await db
+    .from('rfq_batches')
+    .select('id, rfq_number, status')
+    .eq('pr2_id', pr2.id)
+    .is('pr1_id', null);
+
+  const rfqArr: any[] = rfqs ?? [];
+  if (rfqArr.length === 0) {
+    return { source: 'pr2', pr1: header, substitutes: [] };
+  }
+
+  const rfqIds = rfqArr.map(r => r.id);
+
+  const { data: rfqSuppliers } = await db
+    .from('rfq_suppliers')
+    .select('id, rfq_id, supplier_name_snapshot')
+    .in('rfq_id', rfqIds);
+
+  const supplierArr: any[] = rfqSuppliers ?? [];
+  if (supplierArr.length === 0) {
+    return { source: 'pr2', pr1: header, substitutes: [] };
+  }
+
+  const rfqSupplierIds = supplierArr.map(rs => rs.id);
+
+  const { data: quotes } = await db
+    .from('rfq_item_quotes')
+    .select('*')
+    .in('rfq_supplier_id', rfqSupplierIds)
+    .eq('is_alternative', true)
+    .not('submitted_at', 'is', null);
+
+  const quoteArr: any[] = quotes ?? [];
+  if (quoteArr.length === 0) {
+    return { source: 'pr2', pr1: header, substitutes: [] };
+  }
+
+  const itemIds = Array.from(new Set(quoteArr.map(q => q.pr2_item_id).filter(Boolean)));
+  const quoteIds = quoteArr.map(q => q.id);
+
+  const [itemsRes, decisionsRes, attachmentsByQuote, selectionsRes] = await Promise.all([
+    itemIds.length > 0
+      ? db.from('pr2_items')
+          .select('id, item_order, item_code, description, unit_of_measure, quantity_requested')
+          .in('id', itemIds)
+      : Promise.resolve({ data: [] as any[] }),
+    db.from('substitute_decisions')
+      .select('*')
+      .in('rfq_item_quote_id', quoteIds),
+    fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({} as Record<string, RfqQuoteAttachment[]>)),
+    db.from('supplier_item_selections')
+      .select('rfq_id, pr1_item_id, pr2_item_id')
+      .in('rfq_id', rfqIds),
+  ]);
+
+  const itemMap: Record<string, any> = Object.fromEntries(((itemsRes.data ?? []) as any[]).map((i: any) => [i.id, i]));
+  const supplierMap: Record<string, any> = Object.fromEntries(supplierArr.map(rs => [rs.id, rs]));
+  const rfqMap: Record<string, any> = Object.fromEntries(rfqArr.map(r => [r.id, r]));
+  const decisionRows = (decisionsRes.data ?? []) as SubstituteDecisionRow[];
+  const decisionMap: Record<string, SubstituteDecisionRow> = Object.fromEntries(
+    decisionRows.map(d => [d.rfq_item_quote_id, d])
+  );
+  const awardedKeys = new Set<string>(
+    ((selectionsRes.data ?? []) as any[])
+      .filter((s: any) => s.pr2_item_id)
+      .map((s: any) => `${s.rfq_id}|${s.pr2_item_id}`)
+  );
+  const deciderRoleMap = await buildDeciderRoleMap(decisionRows);
+
+  const substitutes: SubstituteReviewItem[] = quoteArr
+    .map((q: any): SubstituteReviewItem | null => {
+      const item     = itemMap[q.pr2_item_id];
+      const supplier = supplierMap[q.rfq_supplier_id];
+      if (!item || !supplier) return null;
+      const rfq = rfqMap[supplier.rfq_id];
+      const decision = decisionMap[q.id] ?? null;
+      return {
+        quote_id:             q.id,
+        rfq_id:               supplier.rfq_id,
+        rfq_number:           rfq?.rfq_number ?? '',
+        rfq_supplier_id:      supplier.id,
+        supplier_name:        supplier.supplier_name_snapshot,
+        pr1_item_id:          null,
+        pr2_item_id:          item.id,
+        item_order:           item.item_order,
+        item_code:            item.item_code,
+        original_description: item.description,
+        original_quantity:    Number(item.quantity_requested) || 0,
+        unit_of_measure:      item.unit_of_measure,
+        quoted_description:   q.quoted_description,
+        unit_price:           Number(q.unit_price),
+        lead_time_days:       q.lead_time_days,
+        remarks:              q.remarks,
+        submitted_at:         q.submitted_at,
+        decision:             decision?.decision ?? null,
+        decided_at:           decision?.decided_at ?? null,
+        decision_notes:       decision?.notes ?? null,
+        decided_by_role:      decision ? (deciderRoleMap[decision.decided_by] ?? null) : null,
+        attachments:          attachmentsByQuote[q.id] ?? [],
+        rfq_status:           rfq?.status ?? 'open',
+        is_awarded:           awardedKeys.has(`${supplier.rfq_id}|${item.id}`),
+      };
+    })
+    .filter((s): s is SubstituteReviewItem => s !== null)
+    .sort((a, b) => a.item_order - b.item_order);
+
+  return { source: 'pr2', pr1: header, substitutes };
 }
 
 export async function saveSubstituteDecision(
   quoteId: string,
-  pr1Id: string,
+  parentRequestId: string,
   decision: SubstituteDecision,
   notes: string,
   profile: UserProfile
@@ -2475,12 +2745,44 @@ export async function saveSubstituteDecision(
   const now = new Date().toISOString();
   const actingAsProcurement = profile.role === 'procurement';
 
+  const { data: quote } = await db
+    .from('rfq_item_quotes')
+    .select('id, rfq_supplier_id, is_alternative, quoted_description')
+    .eq('id', quoteId)
+    .maybeSingle();
+  if (!quote) throw new Error('Quote not found.');
+  if (!quote.is_alternative) throw new Error('Not an alternative quote.');
+
+  const { data: rs } = await db
+    .from('rfq_suppliers')
+    .select('rfq_id, supplier_name_snapshot')
+    .eq('id', quote.rfq_supplier_id)
+    .maybeSingle();
+  if (!rs?.rfq_id) throw new Error('RFQ assignment not found.');
+
+  const { data: rfq } = await db
+    .from('rfq_batches')
+    .select('id, pr1_id, pr2_id, rfq_number')
+    .eq('id', rs.rfq_id)
+    .maybeSingle();
+  if (!rfq) throw new Error('RFQ not found.');
+
+  const isPr1 = !!rfq.pr1_id;
+  const isPr2 = !rfq.pr1_id && !!rfq.pr2_id;
+  if (!isPr1 && !isPr2) throw new Error('RFQ has no parent request.');
+
+  const expectedParent = isPr1 ? rfq.pr1_id : rfq.pr2_id;
+  if (parentRequestId !== expectedParent) {
+    throw new Error('Substitute parent mismatch.');
+  }
+
   const { error } = await db
     .from('substitute_decisions')
     .upsert(
       {
         rfq_item_quote_id: quoteId,
-        pr1_id:            pr1Id,
+        pr1_id:            isPr1 ? rfq.pr1_id : null,
+        pr2_id:            isPr2 ? rfq.pr2_id : null,
         decision,
         decided_by:        profile.id,
         decided_at:        now,
@@ -2497,7 +2799,8 @@ export async function saveSubstituteDecision(
     document_type: 'RFQ_QUOTE',
     document_id:   quoteId,
     payload:       {
-      pr1_id:     pr1Id,
+      pr1_id:     isPr1 ? rfq.pr1_id : null,
+      pr2_id:     isPr2 ? rfq.pr2_id : null,
       notes,
       actor_role: profile.role,
       on_behalf:  actingAsProcurement,
@@ -2505,54 +2808,78 @@ export async function saveSubstituteDecision(
   });
 
   try {
-    const { data: quote } = await db
-      .from('rfq_item_quotes')
-      .select('quoted_description, rfq_supplier_id')
-      .eq('id', quoteId)
-      .maybeSingle();
-
-    const [{ data: pr1 }, { data: rs }] = await Promise.all([
-      db.from('pr1_requests').select('pr1_number, requisitioner_id').eq('id', pr1Id).maybeSingle(),
-      quote?.rfq_supplier_id
-        ? db
-            .from('rfq_suppliers')
-            .select('rfq_id, supplier_name_snapshot')
-            .eq('id', quote.rfq_supplier_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]);
-
-    if (!rs?.rfq_id) return;
-
-    const pr1Label     = pr1?.pr1_number ?? 'PR1';
     const supplierName = rs.supplier_name_snapshot ?? 'A supplier';
-    const itemDesc     = (quote?.quoted_description ?? 'substitute item').trim();
+    const itemDesc     = (quote.quoted_description ?? 'substitute item').trim();
     const accepted     = decision === 'accepted';
 
-    if (actingAsProcurement) {
-      // Procurement decided on the requestor's behalf — notify the requestor,
-      // not procurement (they already know, they made the decision).
-      if (pr1?.requisitioner_id) {
-        await db.from('notifications').insert({
-          user_id:       pr1.requisitioner_id,
-          title:         accepted ? 'Substitute Item Accepted On Your Behalf' : 'Substitute Item Rejected On Your Behalf',
-          body:          `Procurement ${accepted ? 'accepted' : 'rejected'} ${supplierName}'s substitute offer "${itemDesc}" for ${pr1Label} on your behalf.`,
+    if (isPr1) {
+      const pr1Id = rfq.pr1_id as string;
+      const { data: pr1 } = await db
+        .from('pr1_requests')
+        .select('pr1_number, requisitioner_id')
+        .eq('id', pr1Id)
+        .maybeSingle();
+
+      const pr1Label = pr1?.pr1_number ?? 'PR1';
+
+      if (actingAsProcurement) {
+        // Procurement decided on the requestor's behalf — notify the requestor,
+        // not procurement (they already know, they made the decision).
+        if (pr1?.requisitioner_id) {
+          await db.from('notifications').insert({
+            user_id:       pr1.requisitioner_id,
+            title:         accepted ? 'Substitute Item Accepted On Your Behalf' : 'Substitute Item Rejected On Your Behalf',
+            body:          `Procurement ${accepted ? 'accepted' : 'rejected'} ${supplierName}'s substitute offer "${itemDesc}" for ${pr1Label} on your behalf.`,
+            type:          'info',
+            document_type: 'rfq',
+            document_id:   rs.rfq_id,
+            action_url:    `/substitutes/${pr1Id}`,
+            read:          false,
+          });
+        }
+      } else {
+        await notifyByRole('procurement', {
+          title:         accepted ? 'Substitute Item Accepted' : 'Substitute Item Rejected',
+          body:          `Requestor ${accepted ? 'accepted' : 'rejected'} ${supplierName}'s substitute offer "${itemDesc}" for ${pr1Label}.`,
           type:          'info',
           document_type: 'rfq',
           document_id:   rs.rfq_id,
-          action_url:    `/substitutes/${pr1Id}`,
-          read:          false,
+          action_url:    `/rfq/${rs.rfq_id}`,
         });
       }
     } else {
-      await notifyByRole('procurement', {
-        title:         accepted ? 'Substitute Item Accepted' : 'Substitute Item Rejected',
-        body:          `Requestor ${accepted ? 'accepted' : 'rejected'} ${supplierName}'s substitute offer "${itemDesc}" for ${pr1Label}.`,
-        type:          'info',
-        document_type: 'rfq',
-        document_id:   rs.rfq_id,
-        action_url:    `/rfq/${rs.rfq_id}`,
-      });
+      const pr2Id = rfq.pr2_id as string;
+      const { data: pr2 } = await db
+        .from('pr2_requests')
+        .select('pr2_number, requisitioner_id')
+        .eq('id', pr2Id)
+        .maybeSingle();
+
+      const pr2Label = pr2?.pr2_number ?? 'PR2';
+
+      if (actingAsProcurement) {
+        if (pr2?.requisitioner_id) {
+          await db.from('notifications').insert({
+            user_id:       pr2.requisitioner_id,
+            title:         accepted ? 'Substitute Item Accepted On Your Behalf' : 'Substitute Item Rejected On Your Behalf',
+            body:          `Procurement ${accepted ? 'accepted' : 'rejected'} ${supplierName}'s substitute offer "${itemDesc}" for ${pr2Label} on your behalf.`,
+            type:          'info',
+            document_type: 'rfq',
+            document_id:   rs.rfq_id,
+            action_url:    `/substitutes/${pr2Id}`,
+            read:          false,
+          });
+        }
+      } else {
+        await notifyByRole('procurement', {
+          title:         accepted ? 'Substitute Item Accepted' : 'Substitute Item Rejected',
+          body:          `Requestor ${accepted ? 'accepted' : 'rejected'} ${supplierName}'s substitute offer "${itemDesc}" for ${pr2Label}.`,
+          type:          'info',
+          document_type: 'rfq',
+          document_id:   rs.rfq_id,
+          action_url:    `/rfq/${rs.rfq_id}`,
+        });
+      }
     }
   } catch {
     // Notifications are best-effort; do not fail substitute decision
@@ -3113,8 +3440,8 @@ export async function submitSupplierQuotation(
       action_url:    `/rfq/${rfq.id}`,
     });
 
-    // Substitute-item review is PR1-only (out of scope for raw material —
-    // see docs/raw-materials-implementation-plan.md Phase 3 limitations).
+    // Substitute-item review: PR1-originated RFQs, plus PR2-native (Planning-direct /
+    // raw-mat) RFQs that have no pr1_id.
     if (rfq.pr1_id && alternativeCount > 0) {
       const altLabel = `${alternativeCount} substitute item${alternativeCount !== 1 ? 's' : ''}`;
 
@@ -3138,6 +3465,45 @@ export async function submitSupplierQuotation(
             document_type: 'pr1',
             document_id:   rfq.pr1_id,
             action_url:    `/substitutes/${rfq.pr1_id}`,
+          });
+        }
+      }
+
+      await notifyByRole(
+        'procurement',
+        {
+          title:         'Substitute Items Pending Requestor Review',
+          body:          `${supplierName} submitted ${altLabel} for ${pr1Label}. Award is blocked until the requestor decides.`,
+          type:          'action_required',
+          document_type: 'rfq',
+          document_id:   rfq.id,
+          action_url:    `/rfq/${rfq.id}`,
+        },
+        { dedupeUnreadForDocument: true }
+      );
+    } else if (rfq.pr2_id && alternativeCount > 0) {
+      const altLabel = `${alternativeCount} substitute item${alternativeCount !== 1 ? 's' : ''}`;
+
+      if (requisitionerId) {
+        const { data: existing } = await db
+          .from('notifications')
+          .select('id')
+          .eq('user_id', requisitionerId)
+          .eq('document_id', rfq.pr2_id)
+          .eq('type', 'action_required')
+          .eq('read', false)
+          .ilike('title', 'Substitute Item%')
+          .limit(1);
+
+        if (!existing?.length) {
+          await createNotification({
+            user_id:       requisitionerId,
+            title:         'Substitute Item Review Required',
+            body:          `${supplierName} offered ${altLabel} for ${pr1Label}. Review and decide before procurement can award.`,
+            type:          'action_required',
+            document_type: 'pr2',
+            document_id:   rfq.pr2_id,
+            action_url:    `/substitutes/${rfq.pr2_id}`,
           });
         }
       }
