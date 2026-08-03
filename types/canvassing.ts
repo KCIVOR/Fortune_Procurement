@@ -23,7 +23,10 @@ export type SubstituteDecision = 'accepted' | 'rejected';
 export interface SubstituteDecisionRow {
   id:                string;
   rfq_item_quote_id: string;
-  pr1_id:            string;
+  /** Set for PR1-originated RFQs; null for PR2-native. */
+  pr1_id:            string | null;
+  /** Set for PR2-native RFQs; null for PR1-originated. */
+  pr2_id?:           string | null;
   decision:          SubstituteDecision;
   decided_by:        string;
   decided_at:        string;
@@ -37,7 +40,10 @@ export interface SubstituteReviewItem {
   rfq_number:            string;
   rfq_supplier_id:       string;
   supplier_name:         string;
-  pr1_item_id:           string;
+  /** PR1 line id when source is PR1; null for PR2-native. */
+  pr1_item_id:           string | null;
+  /** PR2 line id when source is PR2-native; null for PR1. */
+  pr2_item_id?:          string | null;
   item_order:            number;
   item_code:             string;
   original_description:  string;
@@ -61,6 +67,13 @@ export interface SubstituteReviewItem {
 }
 
 export interface SubstituteReviewBundle {
+  /** Which parent document this bundle belongs to. */
+  source: 'pr1' | 'pr2';
+  /**
+   * Display header. For source='pr1' this is the real PR1.
+   * For source='pr2', fields are mapped: id=pr2.id, pr1_number=pr2.pr2_number.
+   * Keeping this shape avoids rewriting every index/detail consumer.
+   */
   pr1: {
     id:                          string;
     pr1_number:                  string;
@@ -68,7 +81,6 @@ export interface SubstituteReviewBundle {
     department_name_snapshot:    string;
     requisitioner_id:            string;
     requisitioner_name_snapshot: string;
-    /** Rev #9: PR1 priority, selected directly (pr1_requests is the source of truth). */
     priority?:                   string;
   };
   substitutes: SubstituteReviewItem[];
