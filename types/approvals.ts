@@ -251,7 +251,7 @@ export interface FetchMyApprovalHistoryPagedOptions {
 export interface ApprovalHistoryRow {
   approval_action_id: string;
   instance_id: string;
-  document_type: 'PR1' | 'PR2' | 'PO';
+  document_type: 'PR1' | 'PR2' | 'PO' | 'RFQ';
   document_id: string;
   document_number: string;
   action: ApprovalAction;
