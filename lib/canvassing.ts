@@ -229,6 +229,22 @@ async function fetchRfqLineCountsByPr1Id(pr1Ids: string[]): Promise<Record<strin
   return out;
 }
 
+/**
+ * Count of RFQ lines per PR2, for PR2-native RFQs (raw material / services
+ * created directly by Planning, no PR1 and no warehouse validation step —
+ * every pr2_items row is meant for supplier quoting, unlike PR1's routing).
+ */
+async function fetchRfqLineCountsByPr2Id(pr2Ids: string[]): Promise<Record<string, number>> {
+  if (pr2Ids.length === 0) return {};
+  const { data: itemRows } = await db.from('pr2_items').select('pr2_id').in('pr2_id', pr2Ids);
+  const out: Record<string, number> = {};
+  for (const r of itemRows ?? []) {
+    const pid = (r as any).pr2_id as string;
+    out[pid] = (out[pid] ?? 0) + 1;
+  }
+  return out;
+}
+
 // ─── Canvassing queue (procurement) ──────────────────────────────────────────
 // Returns PR1s with status=for_canvassing, joined with their RFQ if one exists.
 
@@ -3024,21 +3040,35 @@ export async function fetchSupplierInboxPaged(
 
   const { data: rfqs, error: rfqErr } = await db
     .from('rfq_batches')
-    .select('id, rfq_number, status, deadline, pr1_id')
+    .select('id, rfq_number, status, deadline, pr1_id, pr2_id')
     .in('id', rfqIds);
 
   if (rfqErr) throw rfqErr;
 
   const pr1Ids: string[] = Array.from(
-    new Set(((rfqs ?? []) as any[]).map((r: any) => r.pr1_id as string)),
+    new Set(((rfqs ?? []) as any[]).filter((r: any) => r.pr1_id).map((r: any) => r.pr1_id as string)),
+  );
+  // PR2-native RFQs (raw material / services created directly by Planning —
+  // no PR1 in the chain). Without this branch, Purpose/Department/Item count
+  // silently resolved to empty/zero for every such RFQ (only pr1_id was ever
+  // checked), mirroring the same pr1-only-join bug already fixed elsewhere
+  // for request_type/priority resolution.
+  const pr2Ids: string[] = Array.from(
+    new Set(((rfqs ?? []) as any[]).filter((r: any) => !r.pr1_id && r.pr2_id).map((r: any) => r.pr2_id as string)),
   );
 
-  const itemCounts = await fetchRfqLineCountsByPr1Id(pr1Ids);
+  const [itemCounts, pr2ItemCounts] = await Promise.all([
+    fetchRfqLineCountsByPr1Id(pr1Ids),
+    fetchRfqLineCountsByPr2Id(pr2Ids),
+  ]);
 
-  const [pr1Res, quotesRes] = await Promise.all([
+  const [pr1Res, pr2Res, quotesRes] = await Promise.all([
     db.from('pr1_requests')
       .select('id, pr1_number, department_name_snapshot, purpose')
       .in('id', pr1Ids),
+    db.from('pr2_requests')
+      .select('id, pr2_number, department_name_snapshot, purpose')
+      .in('id', pr2Ids),
     db.from('rfq_item_quotes')
       .select('rfq_supplier_id, pr1_item_id, submitted_at')
       .in('rfq_supplier_id', (assignments as any[]).map((a: any) => a.id)),
@@ -3046,12 +3076,14 @@ export async function fetchSupplierInboxPaged(
 
   const rfqMap:   Record<string, any> = Object.fromEntries(((rfqs ?? []) as any[]).map((r: any) => [r.id, r]));
   const pr1Map:   Record<string, any> = Object.fromEntries(((pr1Res.data ?? []) as any[]).map((r: any) => [r.id, r]));
+  const pr2Map:   Record<string, any> = Object.fromEntries(((pr2Res.data ?? []) as any[]).map((r: any) => [r.id, r]));
   const quotesArr: any[] = quotesRes.data ?? [];
 
   return {
     inbox: (assignments as any[]).map((assignment: any) => {
       const rfq = rfqMap[assignment.rfq_id];
-      const pr1 = rfq ? pr1Map[rfq.pr1_id] : null;
+      const pr1 = rfq?.pr1_id ? pr1Map[rfq.pr1_id] : null;
+      const pr2 = !rfq?.pr1_id && rfq?.pr2_id ? pr2Map[rfq.pr2_id] : null;
       const quotesForThis = quotesArr.filter(
         q => q.rfq_supplier_id === assignment.id && q.submitted_at !== null
       );
@@ -3062,10 +3094,10 @@ export async function fetchSupplierInboxPaged(
         rfq_status:       rfq?.status ?? 'open',
         rfq_deadline:     rfq?.deadline ?? null,
         supplier_status:  assignment.status,
-        pr1_number:       pr1?.pr1_number ?? '',
-        department_name:  pr1?.department_name_snapshot ?? '',
-        purpose:          pr1?.purpose ?? '',
-        item_count:       rfq ? (itemCounts[rfq.pr1_id] ?? 0) : 0,
+        pr1_number:       pr1?.pr1_number ?? pr2?.pr2_number ?? '',
+        department_name:  pr1?.department_name_snapshot ?? pr2?.department_name_snapshot ?? '',
+        purpose:          pr1?.purpose ?? pr2?.purpose ?? '',
+        item_count:       pr1 ? (itemCounts[rfq.pr1_id] ?? 0) : pr2 ? (pr2ItemCounts[rfq.pr2_id] ?? 0) : 0,
         quotes_submitted: quotesForThis.length,
       };
     }),

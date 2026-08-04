@@ -296,8 +296,11 @@ async function syncRawMaterialItems(
   const incomingIds = new Set(validIncoming.map((i) => i.id).filter(Boolean) as string[]);
   const idsToDelete = Array.from(dbIds).filter((id) => !incomingIds.has(id));
   if (idsToDelete.length > 0) {
-    const { error: delErr } = await db.from('pr2_items').delete().in('id', idsToDelete);
+    const { data: delRows, error: delErr } = await db.from('pr2_items').delete().in('id', idsToDelete).select('id');
     if (delErr) throw delErr;
+    if (!delRows || delRows.length !== idsToDelete.length) {
+      throw new Error('Some items could not be removed — this request may no longer be editable.');
+    }
   }
 
   const toUpdate = validIncoming.filter((i) => i.id && dbIds.has(i.id));
@@ -305,7 +308,7 @@ async function syncRawMaterialItems(
 
   const updated: Array<{ id: string; item_order: number }> = [];
   for (const item of toUpdate) {
-    const { error: updErr } = await db
+    const { data: updRows, error: updErr } = await db
       .from('pr2_items')
       .update({
         item_order:           item.item_order,
@@ -316,8 +319,12 @@ async function syncRawMaterialItems(
         quantity_to_purchase: item.quantity_requested,
         remarks:              item.remarks ?? null,
       })
-      .eq('id', item.id);
+      .eq('id', item.id)
+      .select('id');
     if (updErr) throw updErr;
+    if (!updRows || updRows.length === 0) {
+      throw new Error(`Failed to save changes to item "${item.description}" — it may no longer be editable.`);
+    }
     updated.push({ id: item.id!, item_order: item.item_order });
   }
 

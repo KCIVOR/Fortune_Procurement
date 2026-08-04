@@ -200,7 +200,7 @@ export async function fetchPR2ApprovalQueue(): Promise<PR2ApprovalQueueRow[]> {
 
   const [pr2Res, workflowRes, stepsRes] = await Promise.all([
     db.from('pr2_requests')
-      .select('id, pr2_number, pr1_id, request_type, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
+      .select('id, pr2_number, pr1_id, request_type, priority, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
       .in('id', pr2Ids),
     db.from('approval_workflows')
       .select('id, code')
@@ -240,7 +240,10 @@ export async function fetchPR2ApprovalQueue(): Promise<PR2ApprovalQueueRow[]> {
     );
     if (!pr2 || !step) return [];
 
-    const pr1Priority = pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined;
+    // Prefer the PR2's own priority (Planning-direct raw-material/services);
+    // fall back to the linked PR1's priority for goods/services-via-warehouse
+    // PR2s, mirroring resolvePR2RequestType()'s same prefer-pr2-then-pr1 pattern.
+    const priority = pr2.priority ?? (pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined) ?? 'normal';
     const requestType = resolvePR2RequestType(pr2, pr2.pr1_id ? { request_type: pr1TypeMap[pr2.pr1_id] } : null);
 
     return [{
@@ -261,7 +264,7 @@ export async function fetchPR2ApprovalQueue(): Promise<PR2ApprovalQueueRow[]> {
       step_role_required:          step.role_required,
       step_action_label:           step.action_label,
       step_is_final:               step.is_final,
-      pr1_priority:                pr1Priority as 'normal' | 'medium' | 'high' | undefined,
+      pr1_priority:                priority as 'normal' | 'medium' | 'high',
       request_type:                requestType,
     }] as PR2ApprovalQueueRow[];
   }),
@@ -288,7 +291,7 @@ export async function fetchPR2ApprovalDetail(
 
   const [pr2Res, wfRes, stepsRes, actionsRes] = await Promise.all([
     db.from('pr2_requests')
-      .select('id, pr2_number, pr1_number_snapshot, pr1_id, request_type, rfq_id, rfq_number_snapshot, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status, generated_at, remarks, prepared_by_name_snapshot, prepared_by_position_snapshot, prepared_at, generated_by')
+      .select('id, pr2_number, pr1_number_snapshot, pr1_id, request_type, priority, rfq_id, rfq_number_snapshot, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status, generated_at, remarks, prepared_by_name_snapshot, prepared_by_position_snapshot, prepared_at, generated_by')
       .eq('id', inst.document_id)
       .maybeSingle(),
     db.from('approval_workflows').select('id, code').eq('id', inst.workflow_id).maybeSingle(),
@@ -422,11 +425,13 @@ export async function fetchPR2ApprovalDetail(
       : Promise.resolve({}),
   ]) as [Record<string, RfqQuoteAttachment[]>, Record<string, PR1Attachment[]>];
 
-  // Fetch PR1 priority and request_type from related PR1 record
-  let pr1Priority: 'normal' | 'medium' | 'high' | undefined;
-  if (pr1Res.data?.priority) {
-    pr1Priority = pr1Res.data.priority as 'normal' | 'medium' | 'high';
-  }
+  // Prefer the PR2's own priority (Planning-direct raw-material/services);
+  // fall back to the linked PR1's priority for goods/services-via-warehouse
+  // PR2s, mirroring resolvePR2RequestType()'s same prefer-pr2-then-pr1 pattern.
+  const priority: 'normal' | 'medium' | 'high' =
+    ((pr2 as any).priority as 'normal' | 'medium' | 'high' | undefined)
+    ?? (pr1Res.data?.priority as 'normal' | 'medium' | 'high' | undefined)
+    ?? 'normal';
   const requestType = resolvePR2RequestType(pr2 as any, (pr1Res.data as any) ?? null);
 
   let preparer: PR2ApprovalDetail['preparer'] = null;
@@ -471,7 +476,7 @@ export async function fetchPR2ApprovalDetail(
     pr2_status:                  pr2.status,
     generated_at:                pr2.generated_at,
     remarks:                     pr2.remarks,
-    pr1_priority:                pr1Priority,
+    pr1_priority:                priority,
     request_type:                requestType,
     pr1_id:                      pr2.pr1_id ?? null,
     items:                       (itemRows as any[]).map((i: any) => ({

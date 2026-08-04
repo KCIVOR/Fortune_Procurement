@@ -606,28 +606,28 @@ export default function GRNDetailPage() {
                         )}
                         {!isReadOnly && (grn.request_type === 'goods' || grn.request_type === 'services') && (
                           <td className="px-3 py-3 text-center whitespace-nowrap">
-                            {item.is_raw_material ? (
+                            {item.qa_status === 'approved' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-pq-success-600 bg-pq-success-100 border border-pq-success-100 rounded shadow-sm">
+                                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                                Validated
+                              </span>
+                            ) : item.qa_status === 'rejected' ? (
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-pq-danger-600 bg-pq-danger-100 border border-pq-danger-100 rounded shadow-sm"
+                                title={item.qa_rejection_reason ?? undefined}
+                              >
+                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                Not Validated{item.qa_rejection_reason ? `: ${item.qa_rejection_reason}` : ''}
+                              </span>
+                            ) : item.is_raw_material ? (
                               <span className="inline-flex items-center text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1">
                                 Mandatory QA
                               </span>
                             ) : item.requires_qa ? (
-                              <div className="inline-flex flex-col items-center gap-1">
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-purple-900 bg-purple-100 border border-purple-300 rounded shadow-sm">
-                                  <Clock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                                  Sent to QA
-                                </span>
-                                {item.qa_status === 'approved' && (
-                                  <span className="text-[10px] text-pq-success-600 font-semibold">QA Approved</span>
-                                )}
-                                {item.qa_status === 'rejected' && (
-                                  <span
-                                    className="text-[10px] text-pq-danger-600 font-semibold"
-                                    title={item.qa_rejection_reason ?? undefined}
-                                  >
-                                    QA Rejected{item.qa_rejection_reason ? `: ${item.qa_rejection_reason}` : ''}
-                                  </span>
-                                )}
-                              </div>
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-purple-900 bg-purple-100 border border-purple-300 rounded shadow-sm">
+                                <Clock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                Sent to QA
+                              </span>
                             ) : (
                               <button
                                 type="button"

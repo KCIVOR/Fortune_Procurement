@@ -843,10 +843,15 @@ export async function updatePODraft(
   poId: string,
   values: { po_date: string; delivery_address: string; warehouse: string; payment_terms: string; packing: string; remarks: string }
 ): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('po_requests')
     .update({ ...values, updated_at: new Date().toISOString() })
     .eq('id', poId)
-    .eq('status', 'draft');
+    .in('status', ['draft', 'revision_requested'])
+    .select('id')
+    .maybeSingle();
   if (error) throw error;
+  if (!data) {
+    throw new Error('PO could not be updated. It may no longer be editable.');
+  }
 }

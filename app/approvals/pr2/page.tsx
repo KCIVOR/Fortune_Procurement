@@ -128,7 +128,7 @@ export default function PR2ApprovalsPage() {
         const [pr2Res, rfqRes, workflowRes, stepsRes, actionsRes] = await Promise.all([
           pr2Ids.length
             ? db.from('pr2_requests')
-                .select('id, pr2_number, pr1_id, request_type, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
+                .select('id, pr2_number, pr1_id, request_type, priority, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
                 .in('id', pr2Ids)
             : Promise.resolve({ data: [], error: null }),
           rfqIds.length
@@ -160,7 +160,7 @@ export default function PR2ApprovalsPage() {
         if (linkedPr2Ids.length > 0) {
           const { data: linkedPr2s, error: linkedErr } = await db
             .from('pr2_requests')
-            .select('id, pr2_number, pr1_id, request_type, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
+            .select('id, pr2_number, pr1_id, request_type, priority, requisitioner_name_snapshot, department_name_snapshot, department_id, purpose, date_required, status')
             .in('id', linkedPr2Ids);
           if (linkedErr) throw linkedErr;
           pr2Map = {
@@ -247,7 +247,10 @@ export default function PR2ApprovalsPage() {
             displayStatus = 'active';
           }
 
-          const pr1Priority = pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined;
+          // Prefer the PR2's own priority (Planning-direct raw-material/services);
+          // fall back to the linked PR1's priority for goods/services-via-warehouse
+          // PR2s, mirroring resolvePR2RequestType()'s same prefer-pr2-then-pr1 pattern.
+          const priority = pr2.priority ?? (pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined) ?? 'normal';
 
           rows.push({
             pr2_id: pr2.id,
@@ -267,7 +270,7 @@ export default function PR2ApprovalsPage() {
             step_role_required: displayStep.role_required,
             step_action_label: displayStep.action_label,
             step_is_final: displayStep.is_final,
-            pr1_priority: pr1Priority as 'normal' | 'medium' | 'high' | undefined,
+            pr1_priority: priority as 'normal' | 'medium' | 'high',
             request_type: pr2.request_type,
           });
         }
@@ -303,7 +306,10 @@ export default function PR2ApprovalsPage() {
             displayStatus = 'active';
           }
 
-          const pr1Priority = pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined;
+          // Prefer the PR2's own priority (Planning-direct raw-material/services);
+          // fall back to the linked PR1's priority for goods/services-via-warehouse
+          // PR2s, mirroring resolvePR2RequestType()'s same prefer-pr2-then-pr1 pattern.
+          const priority = pr2.priority ?? (pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined) ?? 'normal';
 
           rows.push({
             pr2_id: pr2.id,
@@ -323,7 +329,7 @@ export default function PR2ApprovalsPage() {
             step_role_required: displayStep.role_required,
             step_action_label: displayStep.action_label,
             step_is_final: displayStep.is_final,
-            pr1_priority: pr1Priority as 'normal' | 'medium' | 'high' | undefined,
+            pr1_priority: priority as 'normal' | 'medium' | 'high',
             request_type: pr2.request_type,
           });
         }
