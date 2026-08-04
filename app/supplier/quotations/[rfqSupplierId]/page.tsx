@@ -199,7 +199,7 @@ export default function SupplierQuotationPage() {
               : (existing?.quoted_description ?? item.description),
             is_alternative:      existing?.is_alternative ?? false,
             unit_price:          existing ? Number(existing.unit_price) : 0,
-            lead_time_days:      existing?.lead_time_days ?? 0,
+            lead_time_days:      existing?.lead_time_days ?? '',
             remarks:             existing?.remarks ?? '',
             supplier_product_id: isNoQuote ? null : (existing?.supplier_product_id ?? null),
             response_status:     isNoQuote ? 'no_quote' : 'quoted',
@@ -387,7 +387,7 @@ export default function SupplierQuotationPage() {
         response_status:     'no_quote',
         supplier_product_id: null,
         unit_price:          0,
-        lead_time_days:      0,
+        lead_time_days:      '',
         is_alternative:      false,
         quoted_description:  'No quote',
         no_quote_reason:     null,
@@ -1042,15 +1042,14 @@ export default function SupplierQuotationPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-pq-neutral-500 uppercase tracking-wide mb-1.5">
-                        {isServiceRfq ? 'Delivery Timeline (days)' : 'Lead Time (days)'} <span className="text-pq-danger-600">*</span>
+                        {isServiceRfq ? 'Delivery Timeline' : 'Lead Time'} <span className="text-pq-danger-600">*</span>
                       </label>
                       <input
-                        type="number"
-                        min="0"
+                        type="text"
                         value={draft.lead_time_days || ''}
-                        onChange={e => updateDraft(index, 'lead_time_days', parseInt(e.target.value, 10) || 0)}
+                        onChange={e => updateDraft(index, 'lead_time_days', e.target.value)}
                         disabled={isReadOnly}
-                        placeholder="0"
+                        placeholder="e.g. 2-3 working days"
                         className="w-full px-3 py-2 border border-pq-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E4BFF] disabled:bg-pq-neutral-50"
                       />
                     </div>

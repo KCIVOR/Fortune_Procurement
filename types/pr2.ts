@@ -66,7 +66,7 @@ export interface PR2Item {
   quoted_description:      string;
   is_alternative:          boolean;
   unit_price:              number;
-  lead_time_days:          number;
+  lead_time_days:          string;
   total_price:             number;
   /** Rev #1 (VAT): snapshotted at PR2 generation time; null when the winning quote's supplier is not VAT-registered. */
   vat_type?:               'vat_inclusive' | 'vat_exclusive' | null;
@@ -149,7 +149,7 @@ export interface PR2ItemDraft {
   quoted_description:      string;
   is_alternative:          boolean;
   unit_price:              number;
-  lead_time_days:          number;
+  lead_time_days:          string;
   total_price:             number;
   /** Rev #1 (VAT): carried through from the PR2 item row so edits can recompute total_price without losing the VAT snapshot. */
   vat_type?:               'vat_inclusive' | 'vat_exclusive' | null;

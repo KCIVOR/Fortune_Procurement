@@ -71,7 +71,7 @@ interface EditableItem {
   quoted_description: string;
   is_alternative:   boolean;
   unit_price:       number;
-  lead_time_days:   number;
+  lead_time_days:   string;
   total_price:      number;
   vat_type?:        'vat_inclusive' | 'vat_exclusive' | null;
   vat_rate_applied?: number | null;
@@ -790,8 +790,8 @@ export default function PR2DetailPage() {
                               overriddenBy={item.quantity_overridden_by_name_snapshot}
                             />
                           )}
-                        {item.lead_time_days > 0 && (
-                          <p className="text-xs text-pq-neutral-400 mt-0.5">Lead: {item.lead_time_days}d</p>
+                        {item.lead_time_days && (
+                          <p className="text-xs text-pq-neutral-400 mt-0.5">Lead: {item.lead_time_days}</p>
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs text-center text-pq-neutral-500">{item.unit_of_measure}</td>

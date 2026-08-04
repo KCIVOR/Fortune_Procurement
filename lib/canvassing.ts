@@ -1025,7 +1025,7 @@ export function buildQuoteMatrix(detail: RfqDetailView): QuoteMatrixRow[] {
         quoted_description:      quote?.quoted_description ?? '',
         is_alternative:          quote?.is_alternative ?? false,
         unit_price:              quote ? Number(quote.unit_price) : 0,
-        lead_time_days:          quote?.lead_time_days ?? 0,
+        lead_time_days:          quote?.lead_time_days ?? '',
         remarks:                 quote?.remarks ?? null,
         total_price:             totalPrice,
         is_selected:             selection?.selected_rfq_supplier_id === supplier.id,
@@ -3269,7 +3269,7 @@ export interface QuoteDraft {
   quoted_description:   string;
   is_alternative:       boolean;
   unit_price:           number;
-  lead_time_days:       number;
+  lead_time_days:       string;
   remarks:              string;
   /** Phase 7: optional link to a verified catalog product. */
   supplier_product_id?: string | null;
@@ -3361,7 +3361,7 @@ export async function submitSupplierQuotation(
         quoted_description:  'No quote',
         is_alternative:      false,
         unit_price:          0,
-        lead_time_days:      0,
+        lead_time_days:      '',
         remarks:             q.remarks.trim() || null,
         supplier_product_id: null,
         response_status:     'no_quote' as const,

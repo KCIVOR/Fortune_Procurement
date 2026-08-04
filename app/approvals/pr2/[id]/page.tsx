@@ -67,7 +67,7 @@ export default function PR2ApprovalDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [pendingAction, setPendingAction] = useState<ApprovalAction | null>(null);
-  const [quotesMap, setQuotesMap]   = useState<Record<string, Array<{ supplier: string; unit_price: number; lead_time: number; is_external: boolean }>>>({});
+  const [quotesMap, setQuotesMap]   = useState<Record<string, Array<{ supplier: string; unit_price: number; lead_time: string; is_external: boolean }>>>({});
   const [priorityUpdating, setPriorityUpdating] = useState(false);
   const [priorityError, setPriorityError]       = useState('');
 
@@ -104,13 +104,13 @@ export default function PR2ApprovalDetailPage() {
           console.log('Quotes count:', quotes?.length);
 
           if (!quotesErr && quotes) {
-            const qMap: Record<string, Array<{ supplier: string; unit_price: number; lead_time: number; is_external: boolean }>> = {};
+            const qMap: Record<string, Array<{ supplier: string; unit_price: number; lead_time: string; is_external: boolean }>> = {};
             quotes.forEach((q: any) => {
               if (!qMap[q.pr1_item_id]) qMap[q.pr1_item_id] = [];
               qMap[q.pr1_item_id].push({
                 supplier: q.rfq_suppliers?.supplier_name_snapshot || 'Unknown',
                 unit_price: q.unit_price,
-                lead_time: q.lead_time_days || 0,
+                lead_time: q.lead_time_days || '',
                 is_external: q.rfq_suppliers?.is_external ?? false,
               });
             });
@@ -493,7 +493,7 @@ export default function PR2ApprovalDetailPage() {
                                         )}
                                       </div>
                                       <div className="text-pq-neutral-900 font-semibold">{formatCommercialAmount(q.unit_price, true)}</div>
-                                      <div className="text-pq-neutral-400 text-xs">{q.lead_time}d</div>
+                                      <div className="text-pq-neutral-400 text-xs">{q.lead_time}</div>
                                     </div>
                                   ))}
                                 </div>

@@ -235,7 +235,7 @@ function SubstituteCard({
             </div>
             <div>
               <p className="text-xs text-pq-neutral-500">Lead time</p>
-              <p className="text-sm font-semibold text-pq-neutral-500">{substitute.lead_time_days} day{substitute.lead_time_days !== 1 ? 's' : ''}</p>
+              <p className="text-sm font-semibold text-pq-neutral-500">{substitute.lead_time_days}</p>
             </div>
           </div>
           {substitute.remarks && (

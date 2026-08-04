@@ -51,7 +51,7 @@ export interface SubstituteReviewItem {
   unit_of_measure:       string;
   quoted_description:    string;
   unit_price:            number;
-  lead_time_days:        number;
+  lead_time_days:        string;
   remarks:               string | null;
   submitted_at:          string | null;
   decision:              SubstituteDecision | null;
@@ -132,7 +132,7 @@ export interface RfqItemQuote {
   quoted_description:  string;
   is_alternative:      boolean;
   unit_price:          number;
-  lead_time_days:      number;
+  lead_time_days:      string;
   remarks:             string | null;
   submitted_at:        string | null;
   created_at:          string;
@@ -291,7 +291,7 @@ export interface QuoteMatrixRow {
     quoted_description:    string;
     is_alternative:        boolean;
     unit_price:            number;
-    lead_time_days:        number;
+    lead_time_days:        string;
     remarks:               string | null;
     total_price:           number;
     is_selected:           boolean;

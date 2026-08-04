@@ -358,7 +358,7 @@ function ReadOnlyQuoteCell({
           )}
         </p>
         <p>
-          Total {formatCommercialAmount(quote.total_price, canViewPrices)} · Lead {quote.lead_time_days}d
+          Total {formatCommercialAmount(quote.total_price, canViewPrices)} · Lead {quote.lead_time_days}
         </p>
       </div>
 

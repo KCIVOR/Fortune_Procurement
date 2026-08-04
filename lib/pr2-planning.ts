@@ -153,7 +153,7 @@ function buildItemRows(
     quoted_description:                   item.description,
     is_alternative:                       false,
     unit_price:                           0,
-    lead_time_days:                       0,
+    lead_time_days:                       '',
     total_price:                          0,
     vat_type:                             null,
     vat_rate_applied:                     null,

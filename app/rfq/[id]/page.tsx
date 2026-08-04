@@ -128,7 +128,7 @@ export default function RfqDetailPage() {
     pr1ItemId: string;
     rfqSupplierId: string;
     itemDescription: string;
-    existing: { unit_price: number; quoted_description: string; lead_time_days: number; remarks?: string | null; attachments?: RfqQuoteAttachment[]; vat_type?: 'vat_inclusive' | 'vat_exclusive' | null } | null;
+    existing: { unit_price: number; quoted_description: string; lead_time_days: string; remarks?: string | null; attachments?: RfqQuoteAttachment[]; vat_type?: 'vat_inclusive' | 'vat_exclusive' | null } | null;
   }) => {
     setExtQuoteError('');
     setExtQuote({
@@ -168,10 +168,10 @@ export default function RfqDetailPage() {
   const handleSaveExternalQuote = async () => {
     if (!extQuote || !detail) return;
     const price = Number(extQuote.unitPrice);
-    const lead = Number(extQuote.leadTimeDays);
+    const lead = extQuote.leadTimeDays.trim();
     if (!extQuote.quotedDescription.trim()) { setExtQuoteError('Description is required.'); return; }
     if (!Number.isFinite(price) || price <= 0) { setExtQuoteError('Enter a valid unit price.'); return; }
-    if (!Number.isFinite(lead) || lead < 0) { setExtQuoteError('Enter a valid lead time.'); return; }
+    if (!lead) { setExtQuoteError('Enter a valid lead time.'); return; }
     if (extQuote.isVatRegistered && !extQuote.vatType) {
       setExtQuoteError('Select VAT-Inclusive or VAT-Exclusive for this vendor.');
       return;
@@ -1102,12 +1102,13 @@ export default function RfqDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-pq-neutral-600 mb-1">Lead time (days)</label>
+                  <label className="block text-xs font-semibold text-pq-neutral-600 mb-1">Lead time</label>
                   <input
-                    type="number" min="0" step="1"
+                    type="text"
                     value={extQuote.leadTimeDays}
                     onChange={e => setExtQuote(prev => prev && { ...prev, leadTimeDays: e.target.value })}
                     disabled={extQuoteBusy}
+                    placeholder="e.g. 2-3 working days"
                     className="w-full h-9 rounded-md border border-pq-neutral-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-pq-primary-600/30"
                   />
                 </div>
@@ -1311,7 +1312,7 @@ function MatrixRow({
     pr1ItemId: string;
     rfqSupplierId: string;
     itemDescription: string;
-    existing: { unit_price: number; quoted_description: string; lead_time_days: number; remarks?: string | null; attachments?: RfqQuoteAttachment[]; vat_type?: 'vat_inclusive' | 'vat_exclusive' | null } | null;
+    existing: { unit_price: number; quoted_description: string; lead_time_days: string; remarks?: string | null; attachments?: RfqQuoteAttachment[]; vat_type?: 'vat_inclusive' | 'vat_exclusive' | null } | null;
   }) => void;
 }) {
   // Catalog products are only ever categorized 'goods' | 'services' — raw
@@ -1543,7 +1544,7 @@ function MatrixRow({
                   </p>
                   <p>
                     Total {formatCommercialAmount(quote.total_price, canViewPrices)}
-                    {' · '}Lead {quote.lead_time_days}d
+                    {' · '}Lead {quote.lead_time_days}
                   </p>
                 </div>
                 {quote.remarks && (
