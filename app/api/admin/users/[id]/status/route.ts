@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 /** Permanent ban sentinel — unban by passing ban_duration: 'none' */
 const PERMANENT_BAN = '876000h'; // ~100 years
@@ -15,6 +16,9 @@ export async function PATCH(
 ) {
   try {
     const targetUserId = params.id;
+
+    const limited = rateLimit(req, { key: 'admin:users:status', limit: 20, windowMs: 60_000 }); // TEMP: lowered for manual testing, revert to limit: 30, windowMs: 5 * 60_000
+    if (limited) return limited;
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {

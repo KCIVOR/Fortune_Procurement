@@ -318,8 +318,14 @@ export default function GRNPrintPage() {
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
-                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
-                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                {canViewPrices ? (
+                  <>
+                    <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                    <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                  </>
+                ) : (
+                  <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -385,17 +391,23 @@ export default function GRNPrintPage() {
               <td style={{ width: '25%', border: '1px solid #000', borderTop: 'none', borderLeft: 'none', padding: '8px', textAlign: 'center', verticalAlign: 'top' }}>
                 <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 8 }}>Inspected By:</div>
                 <div style={{ fontSize: 8, color: '#666', marginBottom: 6 }}>Warehouse Staff</div>
-                <div style={{ borderTop: '1px solid #000', paddingTop: 6, minHeight: 28 }}>&nbsp;</div>
+                <div style={{ borderTop: '1px solid #000', paddingTop: 6, minHeight: 28 }}>
+                  <div style={{ fontSize: 8, color: '#999', fontStyle: 'italic' }}>For manual signature</div>
+                </div>
               </td>
               <td style={{ width: '25%', border: '1px solid #000', borderTop: 'none', borderLeft: 'none', padding: '8px', textAlign: 'center', verticalAlign: 'top' }}>
                 <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 8 }}>Checked By:</div>
                 <div style={{ fontSize: 8, color: '#666', marginBottom: 6 }}>Procurement Officer</div>
-                <div style={{ borderTop: '1px solid #000', paddingTop: 6, minHeight: 28 }}>&nbsp;</div>
+                <div style={{ borderTop: '1px solid #000', paddingTop: 6, minHeight: 28 }}>
+                  <div style={{ fontSize: 8, color: '#999', fontStyle: 'italic' }}>For manual signature</div>
+                </div>
               </td>
               <td style={{ width: '25%', border: '1px solid #000', borderTop: 'none', borderLeft: 'none', padding: '8px', textAlign: 'center', verticalAlign: 'top' }}>
                 <div style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 8 }}>Noted By:</div>
                 <div style={{ fontSize: 8, color: '#666', marginBottom: 6 }}>Department Head</div>
-                <div style={{ borderTop: '1px solid #000', paddingTop: 6, minHeight: 28 }}>&nbsp;</div>
+                <div style={{ borderTop: '1px solid #000', paddingTop: 6, minHeight: 28 }}>
+                  <div style={{ fontSize: 8, color: '#999', fontStyle: 'italic' }}>For manual signature</div>
+                </div>
               </td>
             </tr>
           </tbody>

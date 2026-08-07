@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireApiAuth, isAuthError } from '@/lib/api-auth';
+import { rateLimit } from '@/lib/rate-limit';
 
 type Body = {
   supplier_id?: string;
@@ -27,6 +28,9 @@ function optionalTrimmed(value: unknown): string | null {
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = rateLimit(req, { key: 'procurement:products:create', limit: 30, windowMs: 5 * 60_000 });
+    if (limited) return limited;
+
     const auth = await requireApiAuth(req, ['procurement', 'admin']);
     if (isAuthError(auth)) return auth;
 

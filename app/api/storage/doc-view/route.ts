@@ -2,8 +2,12 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCREDITATION_DOCS_BUCKET } from '@/lib/accreditation-documents';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
+  const limited = rateLimit(req, { key: 'storage:doc-view', limit: 60, windowMs: 60_000 });
+  if (limited) return limited;
+
   const path = req.nextUrl.searchParams.get('path');
   if (!path) return new NextResponse('Missing path', { status: 400 });
 

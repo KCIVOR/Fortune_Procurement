@@ -14,6 +14,7 @@ import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { canActOnPR2Step } from '@/lib/pr2-approvals';
+import { resolvePR2Priority } from '@/lib/pr2-classification';
 import { canActOnRfqStep, getPr2QueueReviewUrl } from '@/lib/rfq-approvals';
 import type { ApprovalInstanceStatus } from '@/types/approvals';
 import {
@@ -247,10 +248,10 @@ export default function PR2ApprovalsPage() {
             displayStatus = 'active';
           }
 
-          // Prefer the PR2's own priority (Planning-direct raw-material/services);
-          // fall back to the linked PR1's priority for goods/services-via-warehouse
-          // PR2s, mirroring resolvePR2RequestType()'s same prefer-pr2-then-pr1 pattern.
-          const priority = pr2.priority ?? (pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined) ?? 'normal';
+          const priority = resolvePR2Priority(
+            pr2,
+            pr2.pr1_id && pr1PriorityMap[pr2.pr1_id] ? { priority: pr1PriorityMap[pr2.pr1_id] as 'normal' | 'medium' | 'high' } : null
+          );
 
           rows.push({
             pr2_id: pr2.id,
@@ -306,10 +307,10 @@ export default function PR2ApprovalsPage() {
             displayStatus = 'active';
           }
 
-          // Prefer the PR2's own priority (Planning-direct raw-material/services);
-          // fall back to the linked PR1's priority for goods/services-via-warehouse
-          // PR2s, mirroring resolvePR2RequestType()'s same prefer-pr2-then-pr1 pattern.
-          const priority = pr2.priority ?? (pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined) ?? 'normal';
+          const priority = resolvePR2Priority(
+            pr2,
+            pr2.pr1_id && pr1PriorityMap[pr2.pr1_id] ? { priority: pr1PriorityMap[pr2.pr1_id] as 'normal' | 'medium' | 'high' } : null
+          );
 
           rows.push({
             pr2_id: pr2.id,

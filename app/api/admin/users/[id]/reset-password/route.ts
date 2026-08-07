@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 type ResetPasswordBody = {
   new_password?: string;
@@ -11,6 +12,9 @@ export async function POST(
 ) {
   try {
     const targetUserId = params.id;
+
+    const limited = rateLimit(req, { key: 'admin:users:reset-password', limit: 10, windowMs: 10 * 60_000 });
+    if (limited) return limited;
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

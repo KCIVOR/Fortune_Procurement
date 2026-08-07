@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { isAuthError, requireApiAuth } from '@/lib/api-auth';
+import { rateLimit } from '@/lib/rate-limit';
 
 const SEVERITIES = new Set(['low', 'medium', 'high']);
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = rateLimit(req, { key: 'bugtrack:send-email', limit: 20, windowMs: 10 * 60_000 });
+    if (limited) return limited;
+
     const auth = await requireApiAuth(req);
     if (isAuthError(auth)) return auth;
 

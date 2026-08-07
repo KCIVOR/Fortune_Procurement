@@ -12,7 +12,7 @@ import { fetchRfqQuoteAttachmentsByRfq } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { fetchPR1Attachments } from '@/lib/pr1';
 import type { PR1Attachment } from '@/types/pr1';
-import { resolvePR2RequestType } from '@/lib/pr2-classification';
+import { resolvePR2RequestType, resolvePR2Priority } from '@/lib/pr2-classification';
 
 const db = supabase as any;
 
@@ -240,10 +240,10 @@ export async function fetchPR2ApprovalQueue(): Promise<PR2ApprovalQueueRow[]> {
     );
     if (!pr2 || !step) return [];
 
-    // Prefer the PR2's own priority (Planning-direct raw-material/services);
-    // fall back to the linked PR1's priority for goods/services-via-warehouse
-    // PR2s, mirroring resolvePR2RequestType()'s same prefer-pr2-then-pr1 pattern.
-    const priority = pr2.priority ?? (pr2.pr1_id ? pr1PriorityMap[pr2.pr1_id] : undefined) ?? 'normal';
+    const priority = resolvePR2Priority(
+      pr2,
+      pr2.pr1_id && pr1PriorityMap[pr2.pr1_id] ? { priority: pr1PriorityMap[pr2.pr1_id] as 'normal' | 'medium' | 'high' } : null
+    );
     const requestType = resolvePR2RequestType(pr2, pr2.pr1_id ? { request_type: pr1TypeMap[pr2.pr1_id] } : null);
 
     return [{
@@ -425,13 +425,7 @@ export async function fetchPR2ApprovalDetail(
       : Promise.resolve({}),
   ]) as [Record<string, RfqQuoteAttachment[]>, Record<string, PR1Attachment[]>];
 
-  // Prefer the PR2's own priority (Planning-direct raw-material/services);
-  // fall back to the linked PR1's priority for goods/services-via-warehouse
-  // PR2s, mirroring resolvePR2RequestType()'s same prefer-pr2-then-pr1 pattern.
-  const priority: 'normal' | 'medium' | 'high' =
-    ((pr2 as any).priority as 'normal' | 'medium' | 'high' | undefined)
-    ?? (pr1Res.data?.priority as 'normal' | 'medium' | 'high' | undefined)
-    ?? 'normal';
+  const priority = resolvePR2Priority(pr2 as any, (pr1Res.data as any) ?? null);
   const requestType = resolvePR2RequestType(pr2 as any, (pr1Res.data as any) ?? null);
 
   let preparer: PR2ApprovalDetail['preparer'] = null;

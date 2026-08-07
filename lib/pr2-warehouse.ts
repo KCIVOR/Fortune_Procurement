@@ -42,7 +42,7 @@ export async function createPR2FromWarehouseValidation(
   const { data: pr1, error: pr1Err } = await db
     .from('pr1_requests')
     .select(
-      'id, pr1_number, request_type, requisitioner_id, requisitioner_name_snapshot, department_id, department_name_snapshot, purpose, date_required, status',
+      'id, pr1_number, request_type, priority, requisitioner_id, requisitioner_name_snapshot, department_id, department_name_snapshot, purpose, date_required, status',
     )
     .eq('id', pr1Id)
     .maybeSingle();
@@ -101,6 +101,7 @@ export async function createPR2FromWarehouseValidation(
       pr1_id:                        pr1.id,
       rfq_id:                        null,
       request_type:                  pr1.request_type,
+      priority:                      pr1.priority ?? 'normal',
       requisitioner_id:              pr1.requisitioner_id,
       requisitioner_name_snapshot:   pr1.requisitioner_name_snapshot,
       department_id:                 pr1.department_id,

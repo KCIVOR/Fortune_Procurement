@@ -8,7 +8,7 @@ import type { PR1Attachment } from '@/types/pr1';
 import { fetchPR2ItemAttachments } from '@/lib/pr2-planning';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { getVatSettings, computeLineVat, aggregateVat } from '@/lib/vat';
-import { resolvePR2RequestType } from '@/lib/pr2-classification';
+import { resolvePR2RequestType, resolvePR2Priority } from '@/lib/pr2-classification';
 
 const db = supabase as any;
 
@@ -102,7 +102,13 @@ export async function fetchPR2s(options: {
   }
 
   return {
-    pr2s:        rows.map(r => ({ ...r, pr1_priority: priorityByPr1Id[r.pr1_id] ?? 'normal' })) as PR2Request[],
+    pr2s: rows.map(r => ({
+      ...r,
+      pr1_priority: resolvePR2Priority(
+        r,
+        r.pr1_id && priorityByPr1Id[r.pr1_id] ? { priority: priorityByPr1Id[r.pr1_id] as 'normal' | 'medium' | 'high' } : null
+      ),
+    })) as PR2Request[],
     total_count: countRes.count ?? 0,
   };
 }
@@ -163,7 +169,84 @@ export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
   // Phase 1 (Raw Mats): pr2.request_type is now the source of truth; the PR1
   // join is only a fallback for rows generated before the column existed.
   const request_type = resolvePR2RequestType(pr2, (pr1Res.data as any) ?? null);
-  const pr1_priority = (pr1Res.data as any)?.priority ?? 'normal';
+  const pr1_priority = resolvePR2Priority(pr2, (pr1Res.data as any) ?? null);
+  return { ...pr2, request_type, pr1_priority, items: itemsWithAttachments } as PR2WithItems;
+}
+
+/**
+ * Print-only variant of fetchPR2ById: falls back to pr2_requests_archive /
+ * pr2_items_archive when the PR2 was unwound back to Warehouse (rejected or
+ * sent for revision after creation) and no longer has a live row. Kept
+ * separate from fetchPR2ById — which editable detail pages rely on — so
+ * those pages never silently load frozen archived data.
+ */
+export async function fetchPR2ForPrint(id: string): Promise<PR2WithItems | null> {
+  const { data: liveRow, error } = await db
+    .from('pr2_requests')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  let pr2 = liveRow;
+  let itemsTable = 'pr2_items';
+
+  if (!pr2) {
+    const { data: archivedRow, error: archiveErr } = await db
+      .from('pr2_requests_archive')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (archiveErr) throw archiveErr;
+    if (!archivedRow) return null;
+    pr2 = archivedRow;
+    itemsTable = 'pr2_items_archive';
+  }
+
+  const { data: items, error: itemsErr } = await db
+    .from(itemsTable)
+    .select('*')
+    .eq('pr2_id', id)
+    .order('item_order', { ascending: true });
+
+  if (itemsErr) throw itemsErr;
+
+  const [pr1Attachments, pr2ItemAttachments, quoteAttachmentsByQuote, pr1Res] = await Promise.all([
+    pr2.pr1_id
+      ? fetchPR1Attachments(pr2.pr1_id).catch(() => [] as PR1Attachment[])
+      : Promise.resolve([] as PR1Attachment[]),
+    pr2.request_type === 'raw_material'
+      ? fetchPR2ItemAttachments(pr2.id).catch(() => [] as PR2ItemAttachment[])
+      : Promise.resolve([] as PR2ItemAttachment[]),
+    pr2.rfq_id
+      ? fetchRfqQuoteAttachmentsByRfq(pr2.rfq_id).catch(() => ({} as Record<string, RfqQuoteAttachment[]>))
+      : Promise.resolve({} as Record<string, RfqQuoteAttachment[]>),
+    pr2.pr1_id
+      ? db.from('pr1_requests').select('request_type, priority').eq('id', pr2.pr1_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const attachmentsByItem: Record<string, PR1Attachment[]> = {};
+  for (const att of pr1Attachments) {
+    if (!attachmentsByItem[att.pr1_item_id]) attachmentsByItem[att.pr1_item_id] = [];
+    attachmentsByItem[att.pr1_item_id].push(att);
+  }
+
+  const pr2AttachmentsByItem: Record<string, PR2ItemAttachment[]> = {};
+  for (const att of pr2ItemAttachments) {
+    if (!pr2AttachmentsByItem[att.pr2_item_id]) pr2AttachmentsByItem[att.pr2_item_id] = [];
+    pr2AttachmentsByItem[att.pr2_item_id].push(att);
+  }
+
+  const itemsWithAttachments = (items ?? []).map((item: any) => ({
+    ...item,
+    attachments:       item.pr1_item_id ? (attachmentsByItem[item.pr1_item_id] ?? []) : (pr2AttachmentsByItem[item.id] ?? []),
+    quote_attachments: item.rfq_item_quote_id ? (quoteAttachmentsByQuote[item.rfq_item_quote_id] ?? []) : [],
+  }));
+
+  const request_type = resolvePR2RequestType(pr2, (pr1Res.data as any) ?? null);
+  const pr1_priority = resolvePR2Priority(pr2, (pr1Res.data as any) ?? null);
   return { ...pr2, request_type, pr1_priority, items: itemsWithAttachments } as PR2WithItems;
 }
 

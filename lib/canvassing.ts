@@ -579,6 +579,7 @@ export async function fetchCanvassingQueueCounts(): Promise<{
   active: number;
   complete: number;
   issued: number;
+  planningDirect: number;
 }> {
   const { data: rfqs, error: rfqErr } = await db
     .from('rfq_batches')
@@ -607,7 +608,15 @@ export async function fetchCanvassingQueueCounts(): Promise<{
   const awaiting = eligibleIds.filter((id) => !rfqPr1Ids.has(id)).length;
   const issued   = rfqPr1Ids.size;
 
-  return { awaiting, active, complete, issued };
+  const { count: planningDirectCount, error: planningDirectErr } = await db
+    .from('pr2_requests')
+    .select('id', { count: 'exact', head: true })
+    .in('request_type', ['raw_material', 'services'])
+    .is('pr1_id', null)
+    .eq('status', 'approved');
+  if (planningDirectErr) throw planningDirectErr;
+
+  return { awaiting, active, complete, issued, planningDirect: planningDirectCount ?? 0 };
 }
 
 // ─── Planning-direct canvassing queue (Phase 3, no PR1) ──────────────────────
@@ -619,33 +628,94 @@ export async function fetchCanvassingQueueCounts(): Promise<{
 // `.is('pr1_id', null)` excludes PR1-linked Services PR2s, which already
 // surface in the main PR1-based queue instead.
 
-export async function fetchRawMaterialCanvassingQueue(): Promise<RawMaterialCanvassingQueueRow[]> {
-  let pr2s: any[] = [];
-  const { data, error: pr2Err } = await db
-    .from('pr2_requests')
-    .select('id, pr2_number, request_type, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, priority')
-    .in('request_type', ['raw_material', 'services'])
-    .is('pr1_id', null)
-    .eq('status', 'approved')
-    .order('generated_at', { ascending: false });
+export async function fetchRawMaterialCanvassingQueue(options: {
+  limit: number;
+  offset: number;
+  search?: string;
+  departmentId?: string;
+  priorityFilter?: string;
+}): Promise<{ rows: RawMaterialCanvassingQueueRow[]; total_count: number }> {
+  const { limit, offset, search, departmentId, priorityFilter } = options;
+  const term = search?.trim();
 
-  if (pr2Err && (pr2Err.code === '42703' || String(pr2Err.message ?? '').includes('priority'))) {
-    const { data: fallbackData, error: fallbackErr } = await db
-      .from('pr2_requests')
-      .select('id, pr2_number, request_type, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required')
-      .in('request_type', ['raw_material', 'services'])
-      .is('pr1_id', null)
-      .eq('status', 'approved')
-      .order('generated_at', { ascending: false });
-    if (fallbackErr) throw fallbackErr;
-    pr2s = fallbackData ?? [];
-  } else if (pr2Err) {
-    throw pr2Err;
+  const applyFilters = (q: any, includesPriority: boolean) => {
+    if (term) {
+      const p = `%${term}%`;
+      q = q.or(
+        `pr2_number.ilike.${p},purpose.ilike.${p},department_name_snapshot.ilike.${p},requisitioner_name_snapshot.ilike.${p}`
+      );
+    }
+    if (departmentId) {
+      q = q.eq('department_id', departmentId);
+    }
+    if (includesPriority && priorityFilter && priorityFilter !== 'all') {
+      q = q.eq('priority', priorityFilter);
+    }
+    return q;
+  };
+
+  let pr2s: any[] = [];
+  let totalCount = 0;
+
+  const [dataRes, countRes] = await Promise.all([
+    applyFilters(
+      db
+        .from('pr2_requests')
+        .select('id, pr2_number, request_type, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, priority, department_id')
+        .in('request_type', ['raw_material', 'services'])
+        .is('pr1_id', null)
+        .eq('status', 'approved'),
+      true
+    )
+      .order('generated_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+    applyFilters(
+      db
+        .from('pr2_requests')
+        .select('id', { count: 'exact', head: true })
+        .in('request_type', ['raw_material', 'services'])
+        .is('pr1_id', null)
+        .eq('status', 'approved'),
+      true
+    ),
+  ]);
+
+  if (dataRes.error && (dataRes.error.code === '42703' || String(dataRes.error.message ?? '').includes('priority'))) {
+    const [fallbackDataRes, fallbackCountRes] = await Promise.all([
+      applyFilters(
+        db
+          .from('pr2_requests')
+          .select('id, pr2_number, request_type, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, department_id')
+          .in('request_type', ['raw_material', 'services'])
+          .is('pr1_id', null)
+          .eq('status', 'approved'),
+        false
+      )
+        .order('generated_at', { ascending: false })
+        .range(offset, offset + limit - 1),
+      applyFilters(
+        db
+          .from('pr2_requests')
+          .select('id', { count: 'exact', head: true })
+          .in('request_type', ['raw_material', 'services'])
+          .is('pr1_id', null)
+          .eq('status', 'approved'),
+        false
+      ),
+    ]);
+    if (fallbackDataRes.error) throw fallbackDataRes.error;
+    if (fallbackCountRes.error) throw fallbackCountRes.error;
+    pr2s = fallbackDataRes.data ?? [];
+    totalCount = fallbackCountRes.count ?? 0;
+  } else if (dataRes.error) {
+    throw dataRes.error;
   } else {
-    pr2s = data ?? [];
+    if (countRes.error) throw countRes.error;
+    pr2s = dataRes.data ?? [];
+    totalCount = countRes.count ?? 0;
   }
 
-  if (pr2s.length === 0) return [];
+  if (pr2s.length === 0) return { rows: [], total_count: totalCount };
 
   const pr2Ids = pr2s.map((r: any) => r.id);
 
@@ -661,7 +731,7 @@ export async function fetchRawMaterialCanvassingQueue(): Promise<RawMaterialCanv
     rfqMap[rfq.pr2_id] = rfq;
   }
 
-  return (pr2s as any[]).map((pr2: any) => {
+  const rows = (pr2s as any[]).map((pr2: any) => {
     const rfq = rfqMap[pr2.id] ?? null;
     return {
       pr2_id:                      pr2.id,
@@ -677,6 +747,8 @@ export async function fetchRawMaterialCanvassingQueue(): Promise<RawMaterialCanv
       rfq_status:                  rfq?.status ?? null,
     };
   });
+
+  return { rows, total_count: totalCount };
 }
 
 // ─── RFQ detail (procurement) ─────────────────────────────────────────────────

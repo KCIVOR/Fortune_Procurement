@@ -50,10 +50,11 @@ export default function RFQQueuePage() {
 
   const [view, setView] = useState<'awaiting' | 'issued' | 'raw_material'>('awaiting');
   const [viewInitialized, setViewInitialized] = useState(false);
-  const [counts, setCounts] = useState<{ awaiting: number; active: number; complete: number; issued: number } | null>(null);
+  const [counts, setCounts] = useState<{ awaiting: number; active: number; complete: number; issued: number; planningDirect: number } | null>(null);
 
   // Phase 3 (Raw Mats): separate queue — PR2-native, no PR1/warehouse step.
   const [rawRows, setRawRows]       = useState<RawMaterialCanvassingQueueRow[]>([]);
+  const [rawTotalCount, setRawTotalCount] = useState(0);
   const [rawLoading, setRawLoading] = useState(false);
   const [rawError, setRawError]     = useState('');
   const [creatingRaw, setCreatingRaw] = useState(false);
@@ -167,27 +168,46 @@ export default function RFQQueuePage() {
   }, [currentPage, appliedSearch, selectedDept, canFilterByDept, view, assignedFilter, profile?.id, selectedPriority]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadRaw = () => {
+    const offset = (currentPage - 1) * rowsPerPage;
     setRawLoading(true);
     setRawError('');
-    fetchRawMaterialCanvassingQueue()
-      .then(setRawRows)
+    fetchRawMaterialCanvassingQueue({
+      limit: rowsPerPage,
+      offset,
+      search: appliedSearch.trim() || undefined,
+      departmentId: canFilterByDept && selectedDept !== 'all' ? selectedDept : undefined,
+      priorityFilter: selectedPriority,
+    })
+      .then(result => {
+        setRawRows(result.rows);
+        setRawTotalCount(result.total_count);
+      })
       .catch(() => setRawError('Failed to load Planning-direct queue.'))
       .finally(() => setRawLoading(false));
   };
 
-  // Fetch unconditionally (not gated on the active tab) so the "Planning
-  // Direct" tab badge reflects the real count immediately — otherwise it
-  // shows a misleading "0" until the user happens to click into that tab.
+  // The "Planning Direct" tab badge reads from `counts.planningDirect` (an
+  // unfiltered total fetched alongside the other tab badges), so this only
+  // needs to run when the tab is actually active.
   useEffect(() => {
+    if (view !== 'raw_material') return;
     loadRaw();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, appliedSearch, selectedDept, canFilterByDept, view, selectedPriority]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.ceil(totalCount / rowsPerPage);
+  const rawTotalPages = Math.ceil(rawTotalCount / rowsPerPage);
+  const displayedTotalCount = view === 'raw_material' ? rawTotalCount : totalCount;
+  const displayedTotalPages = view === 'raw_material' ? rawTotalPages : totalPages;
 
   const handleViewChange = (next: 'awaiting' | 'issued' | 'raw_material') => {
     if (next === view) return;
     setView(next);
     setCurrentPage(1);
+    setSearch('');
+    setAppliedSearch('');
+    setSelectedDept('all');
+    setAssignedFilter('all');
+    setSelectedPriority('all');
   };
 
   const handleOpenCreateRaw = (row: RawMaterialCanvassingQueueRow) => {
@@ -292,17 +312,19 @@ export default function RFQQueuePage() {
       type: 'search',
       id: 'rfq-search',
       label: 'Search',
-      placeholder: 'PR1 number, purpose, department, requester, or RFQ number…',
+      placeholder: view === 'raw_material'
+        ? 'PR2 number, purpose, department, or requester…'
+        : 'PR1 number, purpose, department, requester, or RFQ number…',
       value: search,
       onChange: (value) => setSearch(value as string),
     },
-    {
-      type: 'select',
+    ...(view !== 'raw_material' ? [{
+      type: 'select' as const,
       id: 'rfq-assigned',
       label: 'Assigned',
       placeholder: 'All',
       value: assignedFilter,
-      onChange: (value) => {
+      onChange: (value: string | [string, string]) => {
         setAssignedFilter(value as 'all' | 'mine' | 'unassigned');
         setCurrentPage(1);
       },
@@ -311,7 +333,7 @@ export default function RFQQueuePage() {
         { value: 'mine', label: 'Assigned to Me' },
         { value: 'unassigned', label: 'Unassigned' },
       ],
-    },
+    }] : []),
     ...(canFilterByDept ? [{
       type: 'select' as const,
       id: 'rfq-dept',
@@ -371,8 +393,8 @@ export default function RFQQueuePage() {
         filters={filters}
         onApply={handleApply}
         onClear={handleClear}
-        loading={loading}
-        resultCount={totalCount}
+        loading={view === 'raw_material' ? rawLoading : loading}
+        resultCount={displayedTotalCount}
         resultLabel="item"
         className="mb-4"
       />
@@ -422,7 +444,7 @@ export default function RFQQueuePage() {
               active={view === 'raw_material'}
               onClick={() => handleViewChange('raw_material')}
               label="Planning Direct"
-              count={rawRows.length}
+              count={counts?.planningDirect}
               accent="slate"
             />
           </div>
@@ -435,8 +457,12 @@ export default function RFQQueuePage() {
             ) : rawRows.length === 0 ? (
               <div className="bg-white rounded-md border border-pq-neutral-200">
                 <EmptyState
-                  title="No Planning-direct requests ready"
-                  description="Approved Raw Material and Services PR2s created directly by Planning, with no RFQ yet, will appear here."
+                  title={appliedSearch.trim() ? 'No matching PR2s' : 'No Planning-direct requests ready'}
+                  description={
+                    appliedSearch.trim()
+                      ? 'No queue items match your search. Try different keywords or Clear search.'
+                      : 'Approved Raw Material and Services PR2s created directly by Planning, with no RFQ yet, will appear here.'
+                  }
                   icon={SendHorizonal}
                 />
               </div>
@@ -558,17 +584,17 @@ export default function RFQQueuePage() {
             </div>
           )}
 
-          {view !== 'raw_material' && totalCount > 0 && (
+          {displayedTotalCount > 0 && (
             <PaginationControls
               currentPage={currentPage}
-              totalPages={totalPages}
+              totalPages={displayedTotalPages}
               pageSize={rowsPerPage}
-              totalCount={totalCount}
+              totalCount={displayedTotalCount}
               entityLabel="items"
-              loading={loading}
+              loading={view === 'raw_material' ? rawLoading : loading}
               onPageChange={(page) => {
                 if (page < currentPage) setCurrentPage(p => Math.max(1, p - 1));
-                else setCurrentPage(p => Math.min(totalPages, p + 1));
+                else setCurrentPage(p => Math.min(displayedTotalPages, p + 1));
               }}
             />
           )}

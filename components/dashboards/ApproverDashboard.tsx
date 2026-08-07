@@ -12,6 +12,7 @@ import LoadingState from '@/components/shared/LoadingState';
 import { DashboardQueueSkeleton } from '@/components/shared/structural-skeletons';
 import { fetchApprovalQueue, fetchApproverStats, canActOnStep } from '@/lib/approvals';
 import { fetchPR2ApprovalQueue, canActOnPR2Step } from '@/lib/pr2-approvals';
+import { canActOnRfqStep, getPr2QueueReviewUrl } from '@/lib/rfq-approvals';
 import { fetchPOApprovalQueue, canActOnPOStep } from '@/lib/po-approvals';
 import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import PriorityChip from '@/components/shared/PriorityChip';
@@ -56,7 +57,9 @@ export default function ApproverDashboard({ profile }: Props) {
       fetchApproverStats(profile.id),
     ]).then(([pr1, pr2, po, s]) => {
       const myPR1 = pr1.filter(row => canActOnStep(profile, row.step_position_required, row.department_id));
-      const myPR2 = pr2.filter(row => canActOnPR2Step(profile, row.step_role_required, row.step_position_required, row.department_id));
+      const myPR2 = pr2.filter(row => row.workflow_code === 'RFQ_APPROVAL'
+        ? canActOnRfqStep(profile, row.step_role_required, row.step_position_required, row.department_id)
+        : canActOnPR2Step(profile, row.step_role_required, row.step_position_required, row.department_id));
       const myPO = po.filter(row => canActOnPOStep(profile, row.step_role_required, row.step_position_required, row.department_id));
       
       const trueAwaiting = myPR1.length + myPR2.length + myPO.length;
@@ -82,7 +85,7 @@ export default function ApproverDashboard({ profile }: Props) {
           priority: r.pr1_priority || 'normal',
           date_required: r.date_required,
           current_step: r.current_step,
-          url: `/approvals/pr2/${r.instance_id}`
+          url: getPr2QueueReviewUrl(r)
         })),
         ...myPO.map(r => ({
           instance_id: r.instance_id,

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 /**
  * Public login helper: returns whether an email belongs to a deactivated profile.
@@ -7,6 +8,9 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function POST(req: NextRequest) {
   try {
+    const limited = rateLimit(req, { key: 'auth:account-status', limit: 10, windowMs: 5 * 60_000 });
+    if (limited) return limited;
+
     let body: { email?: string };
     try {
       body = await req.json();

@@ -9,6 +9,7 @@ import LoadingState from '@/components/shared/LoadingState';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
 import { fetchPR2ById, savePR2Items, calcPR2VatBreakdown, updatePR2ItemRawMaterial } from '@/lib/pr2';
+import { getPr2PrintUrl } from '@/lib/pr2-classification';
 import { computeLineVat } from '@/lib/vat';
 import { submitPR2ForApproval, canActOnPR2Step, fetchPR2ApprovalDetail } from '@/lib/pr2-approvals';
 import { fetchPOsByPR2Id } from '@/lib/po';
@@ -509,7 +510,7 @@ export default function PR2DetailPage() {
               </>
             )}
             <DetailPrintButton
-              href={`/pr2/${pr2.id}/print`}
+              href={getPr2PrintUrl(pr2.id, pr2.request_type)}
               label="Print"
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-pq-neutral-800 hover:bg-pq-neutral-900 text-white text-sm font-semibold rounded-md transition"
             />

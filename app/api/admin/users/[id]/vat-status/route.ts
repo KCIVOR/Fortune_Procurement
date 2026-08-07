@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 type VatStatusBody = {
   is_vat_registered?: boolean;
@@ -11,6 +12,9 @@ export async function PATCH(
 ) {
   try {
     const targetUserId = params.id;
+
+    const limited = rateLimit(req, { key: 'admin:users:vat-status', limit: 30, windowMs: 5 * 60_000 });
+    if (limited) return limited;
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

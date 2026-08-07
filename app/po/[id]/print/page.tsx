@@ -133,6 +133,7 @@ export default function POPrintPage() {
   const { profile } = useAuth();
   const [po, setPO] = useState<POWithItems | null>(null);
   const [approvalDetail, setApprovalDetail] = useState<POApprovalDetail | null>(null);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -142,9 +143,12 @@ export default function POPrintPage() {
         fetchPOById(id as string),
         fetchPOApprovalDetailByPOId(id as string),
       ]);
+      if (!poData) { setError('PO not found.'); return; }
       setPO(poData);
       setApprovalDetail(detail);
-    })().finally(() => setLoading(false));
+    })()
+      .catch(() => setError('Failed to load PO.'))
+      .finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -153,10 +157,18 @@ export default function POPrintPage() {
     }
   }, [loading, po]);
 
-  if (loading || !po) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-sm text-pq-neutral-500">Preparing print view...</p>
+      </div>
+    );
+  }
+
+  if (error || !po) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-sm text-pq-neutral-500">{error || 'PO not found.'}</p>
       </div>
     );
   }
@@ -387,8 +399,14 @@ export default function POPrintPage() {
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
                 <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
-                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
-                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                {canViewPrices ? (
+                  <>
+                    <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                    <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                  </>
+                ) : (
+                  <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 6px' }}></td>
+                )}
               </tr>
             ))}
           </tbody>

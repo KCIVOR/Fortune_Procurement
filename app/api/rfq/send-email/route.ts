@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireApiAuth } from '@/lib/api-auth';
+import { rateLimit } from '@/lib/rate-limit';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -24,6 +25,9 @@ function isValidRfqEmailBody(body: unknown): body is {
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = rateLimit(req, { key: 'rfq:send-email', limit: 20, windowMs: 10 * 60_000 });
+    if (limited) return limited;
+
     const auth = await requireApiAuth(req, ['procurement']);
     if (isAuthError(auth)) return auth;
 

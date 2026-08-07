@@ -28,3 +28,32 @@ export function isPr2NativeDirectRequest(pr2: PR2RequestTypeSource): boolean {
   const type = resolvePR2RequestType(pr2);
   return !pr2.pr1_id && (type === 'raw_material' || type === 'services');
 }
+
+type PR2PrioritySource = Pick<PR2Request, 'priority' | 'pr1_id'>;
+
+/**
+ * Prefer pr2.priority (set at creation for warehouse-generated PR2s, or
+ * chosen directly for Planning-native PR2s) over a PR1 join. Falls back to
+ * pr1?.priority only for rows generated before priority was copied at
+ * creation, then to 'normal'.
+ */
+export function resolvePR2Priority(
+  pr2: PR2PrioritySource,
+  pr1?: { priority: 'normal' | 'medium' | 'high' } | null
+): 'normal' | 'medium' | 'high' {
+  return (pr2.priority as 'normal' | 'medium' | 'high' | undefined) ?? pr1?.priority ?? 'normal';
+}
+
+/**
+ * Raw Material and Services PR2s (Planning-native) print on their own
+ * simpler template — the Goods/Services canvass-slip template renders
+ * Supplier/RFQ/pricing columns that don't apply to them.
+ */
+export function getPr2PrintUrl(
+  pr2Id: string,
+  requestType: 'goods' | 'services' | 'raw_material' | undefined | null
+): string {
+  return requestType === 'raw_material' || requestType === 'services'
+    ? `/planning/pr2/${pr2Id}/print`
+    : `/pr2/${pr2Id}/print`;
+}

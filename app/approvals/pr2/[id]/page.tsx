@@ -23,6 +23,7 @@ import PriorityChip from '@/components/shared/PriorityChip';
 import PrioritySelector from '@/components/shared/PrioritySelector';
 import { canUpdatePR1Priority, updatePR1Priority } from '@/lib/pr1';
 import { calcPR2VatBreakdown } from '@/lib/pr2';
+import { getPr2PrintUrl } from '@/lib/pr2-classification';
 import DocumentStatusChip from '@/components/shared/DocumentStatusChip';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import ApprovalPhaseTimeline from '@/components/approvals/ApprovalPhaseTimeline';
@@ -247,7 +248,7 @@ export default function PR2ApprovalDetailPage() {
         right={
           <div className="flex items-center gap-2">
             <DetailPrintButton
-              href={`/pr2/${detail.pr2_id}/print`}
+              href={getPr2PrintUrl(detail.pr2_id, detail.request_type)}
               label="Print"
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-pq-white border border-pq-neutral-200 hover:border-pq-neutral-300 text-pq-neutral-700 text-sm font-medium rounded-md transition"
             />

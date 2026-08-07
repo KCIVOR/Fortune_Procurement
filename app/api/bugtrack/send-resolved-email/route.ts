@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireApiAuth } from '@/lib/api-auth';
+import { rateLimit } from '@/lib/rate-limit';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = rateLimit(req, { key: 'bugtrack:send-resolved-email', limit: 20, windowMs: 10 * 60_000 });
+    if (limited) return limited;
+
     const auth = await requireApiAuth(req, ['admin']);
     if (isAuthError(auth)) return auth;
 

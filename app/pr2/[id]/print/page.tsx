@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPR2ById, calcPR2VatBreakdown } from '@/lib/pr2';
+import { fetchPR2ForPrint, calcPR2VatBreakdown } from '@/lib/pr2';
 import { canViewCommercialPricing, formatCommercialAmount } from '@/lib/price-visibility';
 import { fetchPR2ApprovalDetailByPR2Id } from '@/lib/pr2-approvals';
 import { labelForApprovalAction, latestActionForStep } from '@/lib/print-approval-signatures';
@@ -84,7 +84,7 @@ export default function PR2PrintPage() {
     if (!id) return;
 
     async function load() {
-      const pr2Data = await fetchPR2ById(id as string);
+      const pr2Data = await fetchPR2ForPrint(id as string);
       setPR2(pr2Data);
 
       if (pr2Data) {

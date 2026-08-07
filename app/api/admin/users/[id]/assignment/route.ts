@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 type AssignmentBody = {
   role_id?: string | null;
@@ -13,6 +14,9 @@ export async function PATCH(
 ) {
   try {
     const targetUserId = params.id;
+
+    const limited = rateLimit(req, { key: 'admin:users:assignment', limit: 30, windowMs: 5 * 60_000 });
+    if (limited) return limited;
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

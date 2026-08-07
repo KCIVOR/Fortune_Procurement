@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { fetchPR2ById } from '@/lib/pr2';
+import { fetchPR2ForPrint } from '@/lib/pr2';
 import { fetchPR2ApprovalDetailByPR2Id } from '@/lib/pr2-approvals';
 import { labelForApprovalAction, latestActionForStep } from '@/lib/print-approval-signatures';
 import type { PR2WithItems } from '@/types/pr2';
@@ -60,7 +60,7 @@ export default function RawMaterialPR2PrintPage() {
     if (!id) return;
     (async () => {
       const [pr2Row, approval] = await Promise.all([
-        fetchPR2ById(id),
+        fetchPR2ForPrint(id),
         fetchPR2ApprovalDetailByPR2Id(id).catch(() => null),
       ]);
       setPR2(pr2Row);

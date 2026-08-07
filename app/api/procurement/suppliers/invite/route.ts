@@ -6,6 +6,7 @@ import {
   resolveSupplierDefaults,
 } from '@/lib/procurement-supplier-defaults';
 import { getServerAppUrl } from '@/lib/site-url';
+import { rateLimit } from '@/lib/rate-limit';
 
 const ASSIGNMENT_KEYS = ['role_id', 'position_id', 'department_id'] as const;
 
@@ -19,6 +20,9 @@ function normalizePaymentTerms(value: unknown): string | null | undefined {
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = rateLimit(req, { key: 'procurement:suppliers:invite', limit: 20, windowMs: 10 * 60_000 });
+    if (limited) return limited;
+
     const auth = await requireApiAuth(req, ['procurement', 'admin']);
     if (isAuthError(auth)) return auth;
 

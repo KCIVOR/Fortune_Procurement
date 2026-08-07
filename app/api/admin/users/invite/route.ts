@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerAppUrl } from '@/lib/site-url';
+import { rateLimit } from '@/lib/rate-limit';
 
 /**
  * Supabase Dashboard (Auth → URL): allow redirect URLs including:
@@ -10,6 +11,9 @@ import { getServerAppUrl } from '@/lib/site-url';
  */
 export async function POST(req: NextRequest) {
   try {
+    const limited = rateLimit(req, { key: 'admin:users:invite', limit: 20, windowMs: 10 * 60_000 });
+    if (limited) return limited;
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
