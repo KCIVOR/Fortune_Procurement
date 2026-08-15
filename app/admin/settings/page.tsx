@@ -33,6 +33,7 @@ import {
   X,
   Save,
 } from 'lucide-react';
+import SmtpSettingsCard from '@/components/admin/SmtpSettingsCard';
 
 // ─── VAT Rate Card ────────────────────────────────────────────────────────────
 
@@ -559,6 +560,7 @@ export default function AdminSettingsPage() {
               {error}
             </div>
           )}
+          <SmtpSettingsCard />
         </div>
 
         {/* Dropdown Options Manager — full width always, flex-1 on desktop */}

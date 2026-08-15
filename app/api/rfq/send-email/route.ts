@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireApiAuth } from '@/lib/api-auth';
 import { rateLimit } from '@/lib/rate-limit';
+import { sendSmtpMail, smtpErrorMessage } from '@/lib/smtp-mail';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -45,16 +46,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, message: 'No suppliers to notify.' });
     }
 
-    const BREVO_API_KEY = process.env.BREVO_API_KEY;
-
     const results = await Promise.all(
       supplierEmails.map(async (email: string, idx: number) => {
         const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL}${actionUrls[idx]}`;
-        const payload = {
-          sender: { name: 'Fortune Procurement', email: 'johndaveb892@gmail.com' },
-          to: [{ email }],
-          subject: `RFQ Issued: ${rfqNumber}`,
-          htmlContent: `<!DOCTYPE html>
+        const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -168,27 +163,24 @@ export async function POST(req: NextRequest) {
     </tr>
   </table>
 </body>
-</html>`,
-        };
+</html>`;
 
-        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            accept: 'application/json',
-            'api-key': BREVO_API_KEY || '',
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await res.json();
-
-        return {
-          email,
-          success: res.ok,
-          data,
-          error: !res.ok ? data : null,
-        };
+        try {
+          const result = await sendSmtpMail({
+            to: email,
+            subject: `RFQ Issued: ${rfqNumber}`,
+            html: htmlContent,
+            fromName: 'Fortune Procurement',
+          });
+          return { email, success: true, data: result, error: null };
+        } catch (error: unknown) {
+          return {
+            email,
+            success: false,
+            data: null,
+            error: { message: smtpErrorMessage(error) },
+          };
+        }
       }),
     );
 
