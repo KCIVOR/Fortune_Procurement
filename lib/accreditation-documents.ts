@@ -10,7 +10,6 @@ import { createNotification } from '@/lib/notifications';
  * Path conventions:
  *   supplier-accreditations/{accreditation_id}/documents/{ts}_{filename}
  *   supplier-products/{product_id}/documents/{ts}_{filename}
- *   rse/{rse_id}/reports/{ts}_{filename}
  */
 export const ACCREDITATION_DOCS_BUCKET = 'supplier-accreditation-documents' as const;
 
@@ -195,41 +194,6 @@ export async function uploadSupplierProductDocument(
   });
 }
 
-// ─── TSQA: upload RSE evaluation report ──────────────────────────────────────
-
-export async function uploadRSEReport(
-  rseId:   string,
-  file:    File,
-  profile: UserProfile
-): Promise<UploadResult> {
-  validateUploadArgs(rseId, file);
-
-  const db = supabase as any;
-  const { data: rse, error: fetchErr } = await db
-    .from('rse_records')
-    .select('supplier_id, accreditation_id, supplier_product_id')
-    .eq('id', rseId.trim())
-    .maybeSingle();
-  if (fetchErr || !rse) throw new Error('RSE record not found or access denied.');
-
-  await assertUnderDocLimit({
-    supplier_product_id: (rse as any).supplier_product_id as string,
-    document_type:        'rse_report',
-  });
-
-  const objectPath = buildObjectPath('rse', rseId.trim(), 'reports', file.name);
-
-  return uploadAndRecord(objectPath, file, {
-    supplier_id:         (rse as any).supplier_id as string,
-    accreditation_id:    (rse as any).accreditation_id as string | null,
-    supplier_product_id: (rse as any).supplier_product_id as string,
-    document_type:       'rse_report',
-    file_name:           file.name,
-    uploaded_by:         profile.id,
-    expires_at:          null,
-  });
-}
-
 // ─── Get signed URL for any document in the bucket ───────────────────────────
 
 export async function getAccreditationDocumentSignedUrl(
@@ -274,36 +238,9 @@ export async function getDocumentsByProductId(
   return (data ?? []) as SupplierDocument[];
 }
 
-// ─── List documents by RSE id ─────────────────────────────────────────────────
-
-export async function getDocumentsByRSEId(
-  rseId: string
-): Promise<SupplierDocument[]> {
-  const db = supabase as any;
-  // RSE reports are linked via supplier_product_id (accreditation_id may vary).
-  // Filter by document_type = rse_report within the product's documents isn't
-  // reliable here, so we look up the RSE's product_id first then filter type.
-  const { data: rse, error: rseErr } = await db
-    .from('rse_records')
-    .select('supplier_product_id')
-    .eq('id', rseId)
-    .maybeSingle();
-  if (rseErr) throw rseErr;
-  if (!rse) return [];
-
-  const { data, error } = await db
-    .from('supplier_documents')
-    .select('*')
-    .eq('supplier_product_id', (rse as any).supplier_product_id as string)
-    .eq('document_type', 'rse_report')
-    .order('uploaded_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as SupplierDocument[];
-}
-
 // ─── Procurement: verify / reject / edit expiry (accreditation application docs) ─
 // DB values stay uploaded|accepted|rejected|expired (UI: Pending|Verified|…).
-// Scope: accreditation_id set AND supplier_product_id null (not product/RSE rows).
+// Scope: accreditation_id set AND supplier_product_id null (not product rows).
 
 function assertAccreditationApplicationDoc(row: {
   accreditation_id: string | null;

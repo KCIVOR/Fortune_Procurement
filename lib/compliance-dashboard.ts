@@ -26,7 +26,6 @@ export interface ProcurementComplianceDashboardStats {
   productsPendingTsqa:        number;
   verifiedProducts:           number;
   rejectedProducts:           number;
-  rsePendingTsqa:             number;
 }
 
 /** Supplier dashboard — counts only; no hard-coded totals. */
@@ -163,7 +162,6 @@ export async function fetchProcurementComplianceDashboardStats(): Promise<Procur
     prodTsqa,
     verified,
     rejected,
-    rseActive,
   ] = await Promise.all([
     db
       .from('supplier_accreditations')
@@ -185,10 +183,6 @@ export async function fetchProcurementComplianceDashboardStats(): Promise<Procur
       .from('supplier_products')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'rejected'),
-    db
-      .from('rse_records')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['created', 'assigned', 'under_review']),
   ]);
 
   return {
@@ -197,6 +191,5 @@ export async function fetchProcurementComplianceDashboardStats(): Promise<Procur
     productsPendingTsqa:        prodTsqa.count ?? 0,
     verifiedProducts:           verified.count ?? 0,
     rejectedProducts:           rejected.count ?? 0,
-    rsePendingTsqa:             rseActive.count ?? 0,
   };
 }

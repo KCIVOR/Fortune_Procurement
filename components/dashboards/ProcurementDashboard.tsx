@@ -39,7 +39,6 @@ export default function ProcurementDashboard({ profile }: Props) {
     productsPendingTsqa: 0,
     verifiedProducts: 0,
     rejectedProducts: 0,
-    rsePendingTsqa: 0,
   });
 
   useEffect(() => {
@@ -65,7 +64,7 @@ export default function ProcurementDashboard({ profile }: Props) {
 
   const complianceCards = [
     { label: 'Accreditation queue', value: cStats.accreditationPendingReview, href: '/accreditation', icon: BadgeCheck },
-    { label: 'Pending TSQA', value: cStats.productsPendingTsqa + cStats.rsePendingTsqa, href: '/accreditation/products', icon: FlaskConical },
+    { label: 'Pending TSQA', value: cStats.productsPendingTsqa, href: '/accreditation/products', icon: FlaskConical },
   ];
 
   const kpiCardClass =

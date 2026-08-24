@@ -681,7 +681,7 @@ export default function AccreditationDetailPage() {
               </span>
             </div>
             <p className="px-5 py-2 text-xs text-pq-neutral-400 border-b border-pq-neutral-200">
-              Verify each accreditation document and set its expiry. Product/RSE files linked to this application are view-only here.
+              Verify each accreditation document and set its expiry. Product files linked to this application are view-only here.
             </p>
 
             {docsLoading ? (
@@ -873,7 +873,7 @@ function DocumentRow({
             {doc.expires_at
               ? ` · Expires ${format(new Date(doc.expires_at), 'MMM d, yyyy')}`
               : ''}
-            {!isApplicationDoc ? ' · Product/RSE linked' : ''}
+            {!isApplicationDoc ? ' · Product linked' : ''}
           </p>
           {doc.revision_note && (
             <p className={`text-xs mt-1 ${doc.status === 'rejected' ? 'text-pq-danger-600' : 'text-pq-warning-600'}`}>

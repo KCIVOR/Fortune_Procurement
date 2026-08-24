@@ -21,7 +21,6 @@ const SAMPLE_STATS = {
   canvassingDone: 3,
   purchaseOrders: 0,
   pendingTsqa: 2,
-  rsePendingTsqa: 2,
   verifiedProducts: 1,
   rejectedProducts: 0,
 };
@@ -154,7 +153,6 @@ export default function TestDashboardPage() {
         <SectionHeader title="Compliance Status" description="Product verification and TSQA evaluation" icon={<Package className="w-3.5 h-3.5" />} />
         <div className={KPI_GRID}>
           <EnhancedStatCard label="Pending TSQA" value={stats.pendingTsqa} icon={<Package className="w-5 h-5" />} href="/accreditation/products" accent="amber" subtext="products awaiting eval" />
-          <EnhancedStatCard label="RSE Pending" value={stats.rsePendingTsqa} icon={<FlaskConical className="w-5 h-5" />} href="/tsqa/rse" accent="amber" subtext="evaluations pending" />
           <EnhancedStatCard label="Verified" value={stats.verifiedProducts} icon={<CheckCircle2 className="w-5 h-5" />} href="/accreditation/products" accent="green" subtext="products approved" />
           <EnhancedStatCard label="Rejected" value={stats.rejectedProducts} icon={<XCircle className="w-5 h-5" />} href="/accreditation/products" accent="red" showClearState />
         </div>
@@ -228,7 +226,6 @@ export default function TestDashboardPage() {
             <div className="p-4 space-y-2.5">
               {[
                 { label: 'Pending TSQA', value: stats.pendingTsqa, warning: true },
-                { label: 'RSE pending', value: stats.rsePendingTsqa, warning: true },
                 { label: 'Verified products', value: stats.verifiedProducts, success: true },
                 { label: 'Rejected', value: stats.rejectedProducts, danger: true },
               ].map(item => (

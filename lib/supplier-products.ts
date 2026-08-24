@@ -163,7 +163,7 @@ export async function markProductUnderReview(
   if (error) throw error;
 }
 
-// ─── Procurement: verify product directly (no TSQA/RSE required) ─────────────
+// ─── Procurement: verify product directly (no TSQA required) ─────────────────
 // Only Procurement can verify directly. Verified products can later be
 // offered in RFQ (Phase 4 onwards — not connected here).
 

@@ -55,7 +55,7 @@ export default function ComplianceTraceability({ anchor, role, hideIfEmpty = tru
           Compliance traceability
         </h2>
         <span className="text-[10px] text-pq-neutral-400 ml-auto normal-case font-normal">
-          Accreditation · Products · RSE · TSQA
+          Accreditation · Products
         </span>
       </div>
       <div className="divide-y divide-pq-neutral-200">
