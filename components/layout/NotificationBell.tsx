@@ -24,7 +24,6 @@ const TYPE_DOT: Record<string, string> = {
 };
 
 export default function NotificationBell() {
-  console.log('🚨 [DEBUG] NotificationBell component is being rendered!');
   const { profile } = useAuth();
   const router = useRouter();
 
@@ -40,61 +39,36 @@ export default function NotificationBell() {
   // Number of notifications to fetch per page
   const PAGE_SIZE = 20;
 
-  // Debug: Component mount
-  useEffect(() => {
-    console.log('🚀 [NotificationBell] Component mounted');
-    console.log('👤 [NotificationBell] User ID:', profile?.id);
-    console.log('🔢 [NotificationBell] Initial unread count:', unreadCount);
-  }, []);
-
-  // Debug: Track unread count changes
-  useEffect(() => {
-    console.log('🔄 [NotificationBell] Unread count changed to:', unreadCount);
-  }, [unreadCount]);
-
   // Fetch unread count on mount
   useEffect(() => {
     if (!profile) return;
-    console.log('📥 [NotificationBell] Fetching initial unread count for user:', profile.id);
     fetchUnreadNotificationCount(profile.id)
-      .then(count => {
-        console.log('✅ [NotificationBell] Initial count fetched:', count);
-        setUnreadCount(count);
-      })
-      .catch(err => {
-        console.error('❌ [NotificationBell] Error fetching initial count:', err);
-      });
+      .then(count => setUnreadCount(count))
+      .catch(() => {});
   }, [profile]);
 
   // Polling interval: refresh unread count every 30 seconds
   useEffect(() => {
     if (!profile) return;
-    console.log('⏰ [NotificationBell] Starting polling interval (30s) for user:', profile.id);
 
     const interval = setInterval(() => {
-      console.log('⏰ [NotificationBell] Polling: Fetching unread count...');
       fetchUnreadNotificationCount(profile.id)
-        .then(count => {
-          console.log('✅ [NotificationBell] Polling: Count fetched:', count);
-          setUnreadCount(count);
-        })
-        .catch(err => {
-          console.error('❌ [NotificationBell] Polling: Error:', err);
-        });
+        .then(count => setUnreadCount(count))
+        .catch(() => {});
     }, 30_000);
 
-    return () => {
-      console.log('🛑 [NotificationBell] Stopping polling interval');
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [profile]);
 
   // Realtime subscription: instant update when new notification arrives
   useEffect(() => {
     if (!profile) return;
 
-    console.log('📡 [NotificationBell] Setting up realtime subscription for user:', profile.id);
-    console.log('📡 [NotificationBell] Channel name:', `notifications:${profile.id}`);
+    const refreshCount = () => {
+      fetchUnreadNotificationCount(profile.id)
+        .then(count => setUnreadCount(count))
+        .catch(() => {});
+    };
 
     const channel = supabase
       .channel(`notifications:${profile.id}`)
@@ -106,21 +80,7 @@ export default function NotificationBell() {
           table: 'notifications',
           filter: `user_id=eq.${profile.id}`,
         },
-        (payload) => {
-          console.log('🔔 [NotificationBell] REALTIME INSERT EVENT RECEIVED!');
-          console.log('🔔 [NotificationBell] Payload:', payload);
-          console.log('📊 [NotificationBell] Current count before refresh:', unreadCount);
-          
-          // New notification inserted — refresh count
-          fetchUnreadNotificationCount(profile.id)
-            .then(count => {
-              console.log('✅ [NotificationBell] Count after INSERT:', count);
-              setUnreadCount(count);
-            })
-            .catch(err => {
-              console.error('❌ [NotificationBell] Error fetching count after INSERT:', err);
-            });
-        }
+        refreshCount
       )
       .on(
         'postgres_changes',
@@ -130,41 +90,11 @@ export default function NotificationBell() {
           table: 'notifications',
           filter: `user_id=eq.${profile.id}`,
         },
-        (payload) => {
-          console.log('🔄 [NotificationBell] REALTIME UPDATE EVENT RECEIVED!');
-          console.log('🔄 [NotificationBell] Payload:', payload);
-          console.log('📊 [NotificationBell] Current count before refresh:', unreadCount);
-          
-          // Notification updated (e.g., marked read) — refresh count
-          fetchUnreadNotificationCount(profile.id)
-            .then(count => {
-              console.log('✅ [NotificationBell] Count after UPDATE:', count);
-              setUnreadCount(count);
-            })
-            .catch(err => {
-              console.error('❌ [NotificationBell] Error fetching count after UPDATE:', err);
-            });
-        }
+        refreshCount
       )
-      .subscribe((status, err) => {
-        if (err) {
-          console.error('❌ [NotificationBell] Subscription ERROR:', err);
-        }
-        console.log('📡 [NotificationBell] Subscription status:', status);
-        
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ [NotificationBell] Successfully SUBSCRIBED to realtime!');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [NotificationBell] Channel error - Realtime may not be working');
-        } else if (status === 'TIMED_OUT') {
-          console.error('❌ [NotificationBell] Subscription timed out');
-        } else if (status === 'CLOSED') {
-          console.log('🔌 [NotificationBell] Subscription closed');
-        }
-      });
+      .subscribe();
 
     return () => {
-      console.log('🛑 [NotificationBell] Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   }, [profile]);
@@ -199,7 +129,6 @@ export default function NotificationBell() {
 
   const loadNotifications = useCallback(async () => {
     if (!profile) return;
-    console.log('📥 [NotificationBell] Loading notifications for dropdown...');
     setLoading(true);
     setHasMore(true);
     try {
@@ -207,15 +136,13 @@ export default function NotificationBell() {
         fetchMyNotifications(profile.id, PAGE_SIZE),
         fetchUnreadNotificationCount(profile.id),
       ]);
-      console.log('✅ [NotificationBell] Loaded notifications:', notifs.length);
-      console.log('✅ [NotificationBell] Refreshed count:', count);
       setNotifications(notifs);
       setUnreadCount(count);
-      
+
       // If we got fewer than PAGE_SIZE, there are no more notifications
       setHasMore(notifs.length >= PAGE_SIZE);
-    } catch (err) {
-      console.error('❌ [NotificationBell] Error loading notifications:', err);
+    } catch {
+      // best-effort
     } finally {
       setLoading(false);
     }
@@ -223,8 +150,7 @@ export default function NotificationBell() {
 
   const loadOlderNotifications = useCallback(async () => {
     if (!profile || loadingOlder || !hasMore || notifications.length === 0) return;
-    
-    console.log('📥 [NotificationBell] Loading older notifications...');
+
     setLoadingOlder(true);
     try {
       // Get the oldest notification's timestamp as cursor
@@ -234,23 +160,21 @@ export default function NotificationBell() {
         PAGE_SIZE,
         oldestNotification.created_at
       );
-      
-      console.log('✅ [NotificationBell] Loaded older notifications:', olderNotifs.length);
-      
+
       if (olderNotifs.length === 0) {
         setHasMore(false);
         return;
       }
-      
+
       // If we got fewer than PAGE_SIZE, no more older notifications
       if (olderNotifs.length < PAGE_SIZE) {
         setHasMore(false);
       }
-      
+
       // Append older notifications to the list
       setNotifications(prev => [...prev, ...olderNotifs]);
-    } catch (err) {
-      console.error('❌ [NotificationBell] Error loading older notifications:', err);
+    } catch {
+      // best-effort
     } finally {
       setLoadingOlder(false);
     }
@@ -263,99 +187,70 @@ export default function NotificationBell() {
   };
 
   const handleNotificationClick = async (notif: Notification) => {
-    console.log('👆 [NotificationBell] Notification clicked:', notif.id);
     setOpen(false);
 
     if (!notif.read) {
-      console.log('📖 [NotificationBell] Marking notification as read:', notif.id);
       try {
         await markNotificationRead(notif.id);
-        console.log('✅ [NotificationBell] Marked as read');
         setNotifications(prev =>
           prev.map(n => (n.id === notif.id ? { ...n, read: true } : n))
         );
-        setUnreadCount(prev => {
-          const newCount = Math.max(0, prev - 1);
-          console.log('📊 [NotificationBell] Decremented count:', prev, '→', newCount);
-          return newCount;
-        });
-      } catch (err) {
-        console.error('❌ [NotificationBell] Error marking as read:', err);
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch {
+        // best-effort
       }
     }
 
     if (notif.action_url) {
-      console.log('🔗 [NotificationBell] Navigating to:', notif.action_url);
       router.push(notif.action_url);
     }
   };
 
   const handleMarkAsRead = async (notif: Notification, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent notification click
-    console.log('📖 [NotificationBell] Mark as read button clicked:', notif.id);
-    
     if (notif.read) return; // Already read
 
     try {
       await markNotificationRead(notif.id);
-      console.log('✅ [NotificationBell] Marked as read');
       setNotifications(prev =>
         prev.map(n => (n.id === notif.id ? { ...n, read: true } : n))
       );
-      setUnreadCount(prev => {
-        const newCount = Math.max(0, prev - 1);
-        console.log('📊 [NotificationBell] Decremented count:', prev, '→', newCount);
-        return newCount;
-      });
-    } catch (err) {
-      console.error('❌ [NotificationBell] Error marking as read:', err);
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch {
+      // best-effort
     }
   };
 
   const handleMarkAsUnread = async (notif: Notification, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent notification click
-    console.log('📕 [NotificationBell] Mark as unread button clicked:', notif.id);
-
     if (!notif.read) return; // Already unread
 
     try {
       await markNotificationUnread(notif.id);
-      console.log('✅ [NotificationBell] Marked as unread');
       setNotifications(prev =>
         prev.map(n => (n.id === notif.id ? { ...n, read: false } : n))
       );
       setUnreadCount(prev => prev + 1);
-    } catch (err) {
-      console.error('❌ [NotificationBell] Error marking as unread:', err);
+    } catch {
+      // best-effort
     }
   };
 
   const handleMarkAllAsRead = async () => {
     if (!profile || unreadCount === 0) return;
-    
-    console.log('📖 [NotificationBell] Mark all as read clicked');
-    
+
     try {
       await markAllNotificationsRead(profile.id);
-      console.log('✅ [NotificationBell] All marked as read');
-      
-      // Update local state
       setNotifications(prev =>
         prev.map(n => ({ ...n, read: true }))
       );
       setUnreadCount(0);
-      console.log('📊 [NotificationBell] Count reset to 0');
-    } catch (err) {
-      console.error('❌ [NotificationBell] Error marking all as read:', err);
+    } catch {
+      // best-effort
     }
   };
 
   if (!profile) return null;
-
-  // Debug: Log when badge should be visible
-  if (unreadCount > 0) {
-    console.log('🔴 [NotificationBell] Badge SHOULD BE VISIBLE with count:', unreadCount);
-  }
 
   return (
     <div ref={containerRef} className="relative">

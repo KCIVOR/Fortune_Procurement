@@ -5,7 +5,7 @@ import type { PORequest, POWithItems, POFormValues, POGenerationCandidate } from
 import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { computeLineVat, aggregateVat } from '@/lib/vat';
-import { resolvePR2RequestType } from '@/lib/pr2-classification';
+import { resolvePR2RequestType, resolvePR2Priority } from '@/lib/pr2-classification';
 
 const db = supabase as any;
 
@@ -36,17 +36,31 @@ export interface POFilters {
 export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: PORequest[]; total_count: number }> {
   const { limit = 25, offset = 0, search, status, departmentId, ids, priority } = filters;
 
-  // Priority pre-filter: pr1 -> pr2 -> po, ID-based (never pr1_number/po_number text).
+  // Priority pre-filter: ID-based, mirrors resolvePR2Priority()'s precedence
+  // exactly (pr2.priority first, pr1.priority only as a fallback for legacy
+  // rows with no priority of their own) so filter results always agree with
+  // what listPOsWithCount() displays for the same row.
   let priorityPr2Ids: string[] | null = null;
   if (priority && priority !== 'all') {
-    const { data: pr1Hits } = await db.from('pr1_requests').select('id').eq('priority', priority);
-    const pr1Ids = ((pr1Hits ?? []) as any[]).map(r => r.id);
-    if (pr1Ids.length > 0) {
-      const { data: pr2Hits } = await db.from('pr2_requests').select('id').in('pr1_id', pr1Ids);
-      priorityPr2Ids = ((pr2Hits ?? []) as any[]).map(r => r.id);
-    } else {
-      priorityPr2Ids = [];
+    // Primary: any pr2 row whose own priority matches — covers both
+    // PR2-native rows (no pr1_id) and PR1-linked rows, since pr2.priority
+    // always wins when present.
+    const { data: directHits } = await db.from('pr2_requests').select('id').eq('priority', priority);
+    const directIds = ((directHits ?? []) as any[]).map(r => r.id);
+
+    // Fallback: legacy pr2 rows with no priority of their own — resolve via
+    // their linked pr1's priority instead, same as resolvePR2Priority() does.
+    const { data: unsetPr2Rows } = await db.from('pr2_requests').select('id, pr1_id').is('priority', null);
+    const unsetRows = (unsetPr2Rows ?? []) as any[];
+    const fallbackPr1Ids = Array.from(new Set(unsetRows.map(r => r.pr1_id).filter(Boolean)));
+    let fallbackIds: string[] = [];
+    if (fallbackPr1Ids.length > 0) {
+      const { data: pr1Hits } = await db.from('pr1_requests').select('id').eq('priority', priority).in('id', fallbackPr1Ids);
+      const matchingPr1Ids = new Set(((pr1Hits ?? []) as any[]).map(r => r.id));
+      fallbackIds = unsetRows.filter(r => r.pr1_id && matchingPr1Ids.has(r.pr1_id)).map(r => r.id);
     }
+
+    priorityPr2Ids = Array.from(new Set([...directIds, ...fallbackIds]));
   }
 
   const buildBaseQuery = () => {
@@ -99,7 +113,7 @@ export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: 
   // normalizePO() doesn't silently default every PO to 'goods'.
   let requestTypeByPr2Id: Record<string, 'goods' | 'services' | 'raw_material'> = {};
   if (pr2Ids.length > 0) {
-    const { data: pr2s } = await db.from('pr2_requests').select('id, pr1_id, request_type').in('id', pr2Ids);
+    const { data: pr2s } = await db.from('pr2_requests').select('id, pr1_id, request_type, priority').in('id', pr2Ids);
     const pr1Ids = Array.from(new Set(((pr2s ?? []) as any[]).map(p => p.pr1_id).filter(Boolean)));
     const { data: pr1s } = pr1Ids.length > 0
       ? await db.from('pr1_requests').select('id, priority, request_type').in('id', pr1Ids)
@@ -111,7 +125,10 @@ export async function listPOsWithCount(filters: POFilters = {}): Promise<{ pos: 
       ((pr1s ?? []) as any[]).map(p => [p.id, p.request_type ?? 'goods'])
     );
     priorityByPr2Id = Object.fromEntries(
-      ((pr2s ?? []) as any[]).map(p => [p.id, priorityByPr1Id[p.pr1_id] ?? 'normal'])
+      ((pr2s ?? []) as any[]).map(p => [
+        p.id,
+        resolvePR2Priority(p, p.pr1_id ? { priority: priorityByPr1Id[p.pr1_id] as 'normal' | 'medium' | 'high' } : null),
+      ])
     );
     requestTypeByPr2Id = Object.fromEntries(
       ((pr2s ?? []) as any[]).map(p => [
@@ -207,14 +224,18 @@ export async function fetchPOById(id: string): Promise<POWithItems | null> {
     quoteIds.length > 0
       ? fetchRfqQuoteAttachmentsByQuoteIds(quoteIds).catch(() => ({} as Record<string, RfqQuoteAttachment[]>))
       : Promise.resolve({} as Record<string, RfqQuoteAttachment[]>),
-    db.from('pr2_requests').select('pr1_id, request_type').eq('id', po.pr2_id).maybeSingle(),
+    db.from('pr2_requests').select('pr1_id, request_type, priority').eq('id', po.pr2_id).maybeSingle(),
   ]);
 
   const request_type = (pr2Res.data?.request_type as 'goods' | 'services' | 'raw_material') ?? 'goods';
   let pr1_priority = 'normal';
-  if (pr2Res.data?.pr1_id) {
-    const { data: pr1Data } = await db.from('pr1_requests').select('priority').eq('id', pr2Res.data.pr1_id).maybeSingle();
-    pr1_priority = (pr1Data as any)?.priority ?? 'normal';
+  if (pr2Res.data) {
+    let pr1Data: any = null;
+    if (pr2Res.data.pr1_id) {
+      const { data } = await db.from('pr1_requests').select('priority').eq('id', pr2Res.data.pr1_id).maybeSingle();
+      pr1Data = data;
+    }
+    pr1_priority = resolvePR2Priority(pr2Res.data, pr1Data);
   }
 
   return {

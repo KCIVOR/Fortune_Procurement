@@ -14,6 +14,7 @@ import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { fetchPR1Attachments } from '@/lib/pr1';
 import type { PR1Attachment } from '@/types/pr1';
+import { resolvePR2Priority } from '@/lib/pr2-classification';
 
 const db = supabase as any;
 
@@ -157,7 +158,7 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
     (poRes.data ?? []).map((po: any) => po.pr2_id).filter(Boolean)
   ));
   const { data: pr2s } = pr2Ids.length > 0
-    ? await db.from('pr2_requests').select('id, pr1_id, request_type').in('id', pr2Ids)
+    ? await db.from('pr2_requests').select('id, pr1_id, request_type, priority').in('id', pr2Ids)
     : { data: [] };
   const pr2Map: Record<string, any> = Object.fromEntries(
     ((pr2s ?? []) as any[]).map((pr2: any) => [pr2.id, pr2])
@@ -181,9 +182,13 @@ export async function fetchPOApprovalQueue(): Promise<POApprovalQueueRow[]> {
     );
     if (!po || !step) return [];
 
-    // Priority is PR1-only; request_type reads pr2.request_type directly.
-    const pr1Id       = po.pr2_id && pr2Map[po.pr2_id]?.pr1_id ? pr2Map[po.pr2_id].pr1_id : undefined;
-    const pr1Priority = pr1Id ? pr1PriorityMap[pr1Id] : undefined;
+    // Prefer pr2.priority (resolvePR2Priority) over the PR1-only join — a
+    // Planning-native Raw Material/Services PO has no pr1_id at all.
+    const pr2Row       = po.pr2_id ? pr2Map[po.pr2_id] : undefined;
+    const pr1Id        = pr2Row?.pr1_id ?? undefined;
+    const pr1Priority  = pr2Row
+      ? resolvePR2Priority(pr2Row, pr1Id ? { priority: pr1PriorityMap[pr1Id] as 'normal' | 'medium' | 'high' } : null)
+      : undefined;
     const requestType = po.pr2_id ? pr2Map[po.pr2_id]?.request_type : undefined;
 
     return [{
@@ -247,25 +252,29 @@ export async function fetchPOApprovalDetail(
 
   const po = poRes.data;
 
-  // Priority is PR1-only; request_type reads pr2.request_type directly.
+  // Prefer pr2.priority (resolvePR2Priority) over the PR1-only join — a
+  // Planning-native Raw Material/Services PO has no pr1_id at all.
+  // request_type reads pr2.request_type directly.
   let pr1Priority: 'normal' | 'medium' | 'high' | undefined;
   let requestType: 'goods' | 'services' | 'raw_material' = 'goods';
   if (po.pr2_id) {
     const { data: pr2Data } = await db
       .from('pr2_requests')
-      .select('pr1_id, request_type')
+      .select('pr1_id, request_type, priority')
       .eq('id', po.pr2_id)
       .maybeSingle();
     requestType = (pr2Data?.request_type as 'goods' | 'services' | 'raw_material') ?? 'goods';
+    let pr1Data: any = null;
     if (pr2Data?.pr1_id) {
-      const { data: pr1Data } = await db
+      const { data } = await db
         .from('pr1_requests')
         .select('priority')
         .eq('id', pr2Data.pr1_id)
         .maybeSingle();
-      if (pr1Data?.priority) {
-        pr1Priority = pr1Data.priority as 'normal' | 'medium' | 'high';
-      }
+      pr1Data = data;
+    }
+    if (pr2Data) {
+      pr1Priority = resolvePR2Priority(pr2Data, pr1Data);
     }
   }
 

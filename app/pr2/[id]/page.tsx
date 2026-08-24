@@ -712,26 +712,28 @@ export default function PR2DetailPage() {
             headerClassName="px-5 py-3.5"
           >
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[1100px] table-fixed text-sm">
                 <thead>
                   <tr className="bg-pq-neutral-50 border-b border-pq-neutral-200">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500 w-6">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500">Description</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-pq-neutral-500 w-14">Unit</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-16">Req.</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-20">SOH</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-20">In-Transit</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-20">To Buy</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500">Supplier</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500 w-[2%]">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500 w-[15%]">Description</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500 w-[13%]">Remarks</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500 w-[13%]">Warehouse Notes</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-pq-neutral-500 w-[4%]">Unit</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-[4%]">Req.</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-[4%]">SOH</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-[6%]">In-Transit</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-[4%]">To Buy</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-pq-neutral-500 w-[8%]">Supplier</th>
                     {canViewPrices ? (
                       <>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-24">Unit Price</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-28">Total</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-[7%]">Unit Price</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-pq-neutral-500 w-[8%]">Total</th>
                       </>
                     ) : (
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-pq-neutral-500 w-28">Pricing</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-pq-neutral-500 w-[15%]">Pricing</th>
                     )}
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-pq-neutral-500 w-24">Attachments</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-pq-neutral-500 w-[12%]">Attachments</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-pq-neutral-200">
@@ -779,9 +781,15 @@ export default function PR2DetailPage() {
                             </span>
                           </p>
                         )}
-                        {item.pr1_remarks_snapshot && (
+                      </td>
+                      <td className="px-4 py-3">
+                        {item.pr1_remarks_snapshot ? (
                           <RequestorRemarks text={item.pr1_remarks_snapshot} />
+                        ) : (
+                          <span className="text-xs text-pq-neutral-300">—</span>
                         )}
+                      </td>
+                      <td className="px-4 py-3">
                         {item.pr1_quantity_requested_snapshot != null &&
                           item.pr1_quantity_requested_snapshot !== item.quantity_requested && (
                             <WarehouseQtyOverrideNote
@@ -794,6 +802,11 @@ export default function PR2DetailPage() {
                         {item.lead_time_days && (
                           <p className="text-xs text-pq-neutral-400 mt-0.5">Lead: {item.lead_time_days}</p>
                         )}
+                        {!(item.pr1_quantity_requested_snapshot != null &&
+                          item.pr1_quantity_requested_snapshot !== item.quantity_requested) &&
+                          !item.lead_time_days && (
+                            <span className="text-xs text-pq-neutral-300">—</span>
+                          )}
                       </td>
                       <td className="px-4 py-3 text-xs text-center text-pq-neutral-500">{item.unit_of_measure}</td>
                       <td className="px-4 py-3 text-right text-sm text-pq-neutral-900">{item.quantity_requested}</td>
@@ -849,15 +862,15 @@ export default function PR2DetailPage() {
                         </td>
                       )}
                       <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1.5 items-start">
+                        <div className="flex flex-col gap-1.5 items-start min-w-0">
                           {(item.attachments?.length ?? 0) > 0 && (
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center flex-wrap gap-1.5 min-w-0">
                               <span className="text-[10px] font-semibold text-pq-neutral-400 uppercase tracking-wide w-9 shrink-0">Req.</span>
                               <PR1AttachmentsGallery attachments={item.attachments!} />
                             </div>
                           )}
                           {(item.quote_attachments?.length ?? 0) > 0 && (
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center flex-wrap gap-1.5 min-w-0">
                               <span className="text-[10px] font-semibold text-pq-neutral-400 uppercase tracking-wide w-9 shrink-0">Quote</span>
                               <QuoteAttachmentPills attachments={item.quote_attachments!} />
                             </div>
@@ -875,7 +888,7 @@ export default function PR2DetailPage() {
                     {vatBreakdown && vatBreakdown.vatAmount > 0 && (
                       <>
                         <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                          <td colSpan={10} className="px-4 py-3 text-right text-sm text-pq-neutral-500">
+                          <td colSpan={11} className="px-4 py-3 text-right text-sm text-pq-neutral-500">
                             Subtotal
                           </td>
                           <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">
@@ -884,7 +897,7 @@ export default function PR2DetailPage() {
                           <td className="px-4 py-3"></td>
                         </tr>
                         <tr className="bg-pq-neutral-50">
-                          <td colSpan={10} className="px-4 py-3 text-right text-sm text-pq-neutral-500">
+                          <td colSpan={11} className="px-4 py-3 text-right text-sm text-pq-neutral-500">
                             VAT
                           </td>
                           <td className="px-4 py-3 text-right text-sm text-pq-neutral-500">
@@ -895,7 +908,7 @@ export default function PR2DetailPage() {
                       </>
                     )}
                     <tr className="bg-pq-neutral-50 border-t-2 border-pq-neutral-200">
-                      <td colSpan={10} className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">
+                      <td colSpan={11} className="px-4 py-3 text-right text-sm font-semibold text-pq-neutral-900">
                         Grand Total
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-bold text-pq-neutral-900">

@@ -216,7 +216,10 @@ export default function PODetailPage() {
   const canViewPrices = canViewCommercialPricing(profile);
   const vatBreakdown = canViewPrices ? calcPOVatBreakdown(po.items) : null;
 
-  const canUpdatePriority = profile && canUpdatePR1Priority(profile);
+  // Priority edits write through updatePR1Priority(po.pr1_id, ...) — there is
+  // no PR2-native equivalent, so a PR2-native PO (no pr1_id) must not show an
+  // editor that silently no-ops. Falls back to the read-only PriorityChip below.
+  const canUpdatePriority = profile && !!po.pr1_id && canUpdatePR1Priority(profile);
   const handlePriorityChange = async (newPriority: 'normal' | 'medium' | 'high') => {
     if (!po.pr1_id || !profile || newPriority === po.pr1_priority) return;
     setPriorityUpdating(true);

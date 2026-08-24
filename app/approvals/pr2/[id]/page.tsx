@@ -83,26 +83,14 @@ export default function PR2ApprovalDetailPage() {
           return;
         }
 
-        // DEBUG: Log PR2 items
-        console.log('PR2 items:', d.items);
-        console.log('PR2 items count:', d.items.length);
-        console.log('Sample item pr1_item_id:', d.items[0]?.pr1_item_id);
-
         // Fetch canvass quotes for all items
         const pr1ItemIds = d.items.map(i => i.pr1_item_id).filter(Boolean);
-        console.log('PR1 item IDs:', pr1ItemIds);
-        console.log('PR1 item IDs count:', pr1ItemIds.length);
 
         if (pr1ItemIds.length > 0) {
           const { data: quotes, error: quotesErr } = await (supabase as any)
             .from('rfq_item_quotes')
             .select('pr1_item_id, unit_price, lead_time_days, rfq_supplier_id, rfq_suppliers!rfq_item_quotes_rfq_supplier_id_fkey(supplier_name_snapshot, is_external)')
             .in('pr1_item_id', pr1ItemIds);
-
-          // DEBUG: Log query results
-          console.log('Quotes query error:', quotesErr);
-          console.log('Quotes query result:', quotes);
-          console.log('Quotes count:', quotes?.length);
 
           if (!quotesErr && quotes) {
             const qMap: Record<string, Array<{ supplier: string; unit_price: number; lead_time: string; is_external: boolean }>> = {};
@@ -115,14 +103,8 @@ export default function PR2ApprovalDetailPage() {
                 is_external: q.rfq_suppliers?.is_external ?? false,
               });
             });
-            console.log('quotesMap:', qMap);
-            console.log('quotesMap size:', Object.keys(qMap).length);
             setQuotesMap(qMap);
-          } else {
-            console.log('Query failed or no data - quotesErr:', quotesErr);
           }
-        } else {
-          console.log('No PR1 item IDs found - skipping quotes fetch');
         }
       } catch (err) {
         setError('Failed to load approval details.');
@@ -381,16 +363,6 @@ export default function PR2ApprovalDetailPage() {
               <tbody className="divide-y divide-pq-neutral-200">
                 {detail.items.map(item => {
                   const quotes = item.pr1_item_id ? quotesMap[item.pr1_item_id] || [] : [];
-                  // DEBUG: Log per-item lookup
-                  if (item.item_order === 1) {
-                    console.log(`Item ${item.item_order}:`, {
-                      pr1_item_id: item.pr1_item_id,
-                      description: item.description,
-                      quotesFromMap: quotes,
-                      quotesCount: quotes.length,
-                      quotesMapKeys: Object.keys(quotesMap)
-                    });
-                  }
                   return (
                     <>
                       <tr key={item.id} className="hover:bg-pq-neutral-50">

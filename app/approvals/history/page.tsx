@@ -34,6 +34,7 @@ const TABS: { value: ApprovalHistoryDocumentFilter; label: string }[] = [
   { value: 'PR1', label: 'PR1' },
   { value: 'PR2', label: 'PR2' },
   { value: 'PO', label: 'PO' },
+  { value: 'RFQ', label: 'RFQ' },
 ];
 
 const ACTION_OPTIONS: { value: ApprovalHistoryActionFilter; label: string }[] = [
@@ -222,7 +223,7 @@ export default function ApprovalsHistoryPage() {
         <div className="bg-white rounded-md border border-pq-neutral-200">
           <EmptyState
             title="No signed actions yet"
-            description="When you approve, reject, or request revision on a PR1, PR2, or PO, it will appear here."
+            description="When you approve, reject, or request revision on a PR1, PR2, RFQ, or PO, it will appear here."
             icon={History}
           />
         </div>

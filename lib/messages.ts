@@ -125,6 +125,13 @@ export interface DirectoryQuery {
   position?: string;
   /** Exact department name to filter by */
   department?: string;
+  /**
+   * Role to exclude from results — used to keep requestors and suppliers
+   * from finding each other in the directory (they're also blocked
+   * server-side by `create_or_get_conversation`, this just keeps them out
+   * of the picker in the first place).
+   */
+  excludeRole?: string;
   limit: number;
   offset: number;
 }
@@ -146,7 +153,7 @@ export interface DirectoryPage {
  */
 export async function fetchDirectoryUsers(
   currentUserId: string,
-  { search, position, department, limit, offset }: DirectoryQuery,
+  { search, position, department, excludeRole, limit, offset }: DirectoryQuery,
 ): Promise<DirectoryPage> {
   // Switch to inner joins only when filtering on that relation, otherwise a
   // user with a null position/department would be silently dropped.
@@ -168,6 +175,15 @@ export async function fetchDirectoryUsers(
 
   if (position) query = query.eq('positions.title', position);
   if (department) query = query.eq('departments.name', department);
+
+  if (excludeRole) {
+    const { data: roleRow } = await db
+      .from('roles')
+      .select('id')
+      .eq('name', excludeRole)
+      .maybeSingle();
+    if (roleRow?.id) query = query.neq('role_id', roleRow.id);
+  }
 
   const term = search?.trim();
   if (term) {

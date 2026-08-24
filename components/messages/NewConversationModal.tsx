@@ -27,8 +27,18 @@ interface NewConversationModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserId: string;
+  /** Current user's role — used to keep requestors and suppliers apart in the directory. */
+  currentUserRole?: string;
   onConversationReady: (conversation: ConversationWithProfiles) => void;
 }
+
+// Requestors and suppliers cannot message each other directly (must route
+// through Procurement) — mirrors the block enforced by the
+// create_or_get_conversation RPC and the messages INSERT RLS policy.
+const DIRECTORY_EXCLUDED_ROLE: Record<string, string> = {
+  employee: 'supplier',
+  supplier: 'employee',
+};
 
 // ─── Role config ──────────────────────────────────────────────────────────────
 
@@ -83,6 +93,7 @@ export default function NewConversationModal({
   isOpen,
   onClose,
   currentUserId,
+  currentUserRole,
   onConversationReady,
 }: NewConversationModalProps) {
   const [users,         setUsers]         = useState<DirectoryUser[]>([]);
@@ -142,6 +153,7 @@ export default function NewConversationModal({
           search: appliedSearch,
           position: positionFilter,
           department: deptFilter,
+          excludeRole: currentUserRole ? DIRECTORY_EXCLUDED_ROLE[currentUserRole] : undefined,
           limit: PAGE_SIZE,
           offset: (page - 1) * PAGE_SIZE,
         });
@@ -161,7 +173,7 @@ export default function NewConversationModal({
     })();
 
     return () => { cancelled = true; };
-  }, [isOpen, currentUserId, appliedSearch, positionFilter, deptFilter, page]);
+  }, [isOpen, currentUserId, currentUserRole, appliedSearch, positionFilter, deptFilter, page]);
 
   // Reset everything on close
   useEffect(() => {

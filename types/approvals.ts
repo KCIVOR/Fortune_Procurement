@@ -231,7 +231,7 @@ export interface ApprovalActionRecord {
 
 // ─── Approver signing history (/approvals/history) ─────────────────────────────
 
-export type ApprovalHistoryDocumentFilter = 'all' | 'PR1' | 'PR2' | 'PO';
+export type ApprovalHistoryDocumentFilter = 'all' | 'PR1' | 'PR2' | 'PO' | 'RFQ';
 
 /** Action filter for `/approvals/history` (excluding `'all'` means no filter). */
 export type ApprovalHistoryActionFilter = 'all' | ApprovalAction;

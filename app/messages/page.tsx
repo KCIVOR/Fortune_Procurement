@@ -192,6 +192,7 @@ function MessagesContent() {
         isOpen={isNewConvOpen}
         onClose={() => setIsNewConvOpen(false)}
         currentUserId={profile.id}
+        currentUserRole={profile.role}
         onConversationReady={handleConversationReady}
       />
     </>
