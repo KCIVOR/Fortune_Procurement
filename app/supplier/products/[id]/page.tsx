@@ -12,7 +12,6 @@ import StatusChip from '@/components/shared/StatusChip';
 import type { StatusVariant } from '@/components/shared/StatusChip';
 import { useAuth } from '@/context/AuthContext';
 import { getSupplierProductById } from '@/lib/supplier-products';
-import { getRSERecordsByProductId, type RSEWithReview } from '@/lib/rse';
 import type { SupplierProduct } from '@/types/database';
 import { format } from 'date-fns';
 import {
@@ -49,7 +48,6 @@ export default function SupplierProductDetailPage() {
   const [product, setProduct] = useState<SupplierProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [rseRecords, setRseRecords] = useState<RSEWithReview[]>([]);
 
   const isRawMatSupplier =
     profile?.role === 'supplier' && profile.supplier_supply_type === 'raw_material';
@@ -70,8 +68,6 @@ export default function SupplierProductDetailPage() {
       const p = await getSupplierProductById(id);
       if (!p) { setError('Product not found.'); return; }
       setProduct(p);
-      const rse = await getRSERecordsByProductId(p.id);
-      setRseRecords(rse);
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to load product.');
     } finally {
@@ -257,25 +253,6 @@ export default function SupplierProductDetailPage() {
             )}
           </div>
 
-          {!isService && rseRecords.length > 0 && (
-            <div className="bg-white rounded-md border border-pq-neutral-200">
-              <div className="px-5 py-3.5 border-b border-pq-neutral-200">
-                <h2 className="text-sm font-semibold text-pq-neutral-900">Technical Evaluation (RSE)</h2>
-              </div>
-              <div className="divide-y divide-pq-neutral-200">
-                {rseRecords.map(rse => (
-                  <SupplierRSERow key={rse.id} rse={rse} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!isService && product?.status === 'pending_tsqa' && rseRecords.length === 0 && (
-            <div className="bg-pq-neutral-50 border border-pq-neutral-200 rounded-md px-4 py-3 text-sm text-pq-neutral-500">
-              This product is currently under technical evaluation by TSQA. Results will be reflected here once complete.
-            </div>
-          )}
-
         </div>
       )}
     </AppShell>
@@ -287,51 +264,6 @@ function InfoField({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-xs text-pq-neutral-400 mb-0.5">{label}</p>
       <p className="text-sm text-pq-neutral-900 whitespace-pre-wrap">{value}</p>
-    </div>
-  );
-}
-
-function SupplierRSERow({ rse }: { rse: RSEWithReview }) {
-  const resultColor =
-    rse.tsqa_result === 'passed'
-      ? 'text-pq-success-600 bg-pq-success-100 border-pq-success-100'
-      : rse.tsqa_result === 'failed'
-        ? 'text-pq-danger-600 bg-pq-danger-100 border-pq-danger-100'
-        : 'text-pq-neutral-500 bg-pq-neutral-50 border-pq-neutral-200';
-
-  return (
-    <div className="px-5 py-4 space-y-2">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="font-mono text-xs font-bold text-pq-neutral-900">
-          {rse.rse_number ?? rse.id.slice(0, 8).toUpperCase()}
-        </span>
-        <span className="text-xs text-pq-neutral-400">RSE Status: {rse.status.replace(/_/g, ' ')}</span>
-        {rse.tsqa_result && (
-          <span className={`inline-flex items-center gap-1 text-xs font-medium border rounded-full px-2.5 py-1 ${resultColor}`}>
-            {rse.tsqa_result === 'passed' ? (
-              <CheckCircle2 className="w-3 h-3" />
-            ) : (
-              <Circle className="w-3 h-3" />
-            )}
-            TSQA Result: {rse.tsqa_result.charAt(0).toUpperCase() + rse.tsqa_result.slice(1)}
-          </span>
-        )}
-      </div>
-      {rse.tsqa_remarks && (
-        <p className="text-xs text-pq-neutral-500">
-          <span className="font-semibold">Remarks:</span> {rse.tsqa_remarks}
-        </p>
-      )}
-      {rse.tsqa_test_findings && (
-        <p className="text-xs text-pq-neutral-500">
-          <span className="font-semibold">Test Findings:</span> {rse.tsqa_test_findings}
-        </p>
-      )}
-      {rse.completed_at && (
-        <p className="text-xs text-pq-neutral-400">
-          Completed {format(new Date(rse.completed_at), 'MMM d, yyyy')}
-        </p>
-      )}
     </div>
   );
 }

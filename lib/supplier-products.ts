@@ -396,6 +396,29 @@ export async function getActiveProductsForCurrentSupplier(
   return (data ?? []) as SupplierProduct[];
 }
 
+// ─── Procurement: products linked to a specific accreditation ─────────────────
+
+export interface ProductWithAccreditationSummary {
+  id:           string;
+  product_name: string;
+  product_code: string | null;
+  status:       string;
+  verified_at:  string | null;
+  rejected_at:  string | null;
+}
+
+export async function getProductsByAccreditationId(
+  accreditationId: string
+): Promise<ProductWithAccreditationSummary[]> {
+  const { data: products, error } = await db
+    .from('supplier_products')
+    .select('id, product_name, product_code, status, verified_at, rejected_at')
+    .eq('accreditation_id', accreditationId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (products ?? []) as ProductWithAccreditationSummary[];
+}
+
 // ─── RFQ product proposal — denied (procurement owns catalog) ─────────────────
 
 export interface RFQProductProposalInput {

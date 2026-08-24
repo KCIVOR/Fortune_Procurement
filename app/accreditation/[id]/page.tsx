@@ -27,8 +27,8 @@ import {
 } from '@/lib/accreditation-documents';
 import {
   getProductsByAccreditationId,
-  type ProductWithRSESummary,
-} from '@/lib/rse';
+  type ProductWithAccreditationSummary,
+} from '@/lib/supplier-products';
 import type { SupplierAccreditation, SupplierDocument } from '@/types/database';
 import type { UserProfile } from '@/types/auth';
 import { format } from 'date-fns';
@@ -85,7 +85,7 @@ export default function AccreditationDetailPage() {
 
   const [documents, setDocuments]         = useState<SupplierDocument[]>([]);
   const [docsLoading, setDocsLoading]     = useState(false);
-  const [linkedProducts, setLinkedProducts] = useState<ProductWithRSESummary[]>([]);
+  const [linkedProducts, setLinkedProducts] = useState<ProductWithAccreditationSummary[]>([]);
 
   const loadDocs = useCallback(async (accId: string) => {
     setDocsLoading(true);
@@ -752,7 +752,7 @@ function InfoField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function LinkedProductRow({ product }: { product: ProductWithRSESummary }) {
+function LinkedProductRow({ product }: { product: ProductWithAccreditationSummary }) {
   const canOffer = product.status === 'verified';
 
   const statusLabel: Record<string, string> = {
@@ -778,16 +778,6 @@ function LinkedProductRow({ product }: { product: ProductWithRSESummary }) {
           <span className="text-xs text-pq-neutral-500">
             {statusLabel[product.status] ?? product.status}
           </span>
-          {product.latest_rse_status && (
-            <span className="text-xs text-pq-neutral-400">
-              RSE: {product.latest_rse_status.replace(/_/g, ' ')}
-            </span>
-          )}
-          {product.latest_tsqa_result && (
-            <span className={`text-xs font-semibold ${product.latest_tsqa_result === 'passed' ? 'text-pq-success-600' : 'text-pq-danger-600'}`}>
-              TSQA: {product.latest_tsqa_result}
-            </span>
-          )}
         </div>
       </div>
       <div className={`shrink-0 text-xs font-semibold ${canOffer ? 'text-pq-success-600' : 'text-pq-neutral-400'}`}>
