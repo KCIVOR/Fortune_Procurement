@@ -28,7 +28,6 @@ export type ModuleKey =
   | 'supplier_po'
   | 'supplier_delivery'
   | 'tsqa_dashboard'
-  | 'tsqa_rse'
   | 'tsqa_grn'
   | 'admin_users'
   | 'admin_roles'
@@ -281,12 +280,6 @@ export const ALL_NAV: Record<string, NavItem> = {
     icon: 'LayoutDashboard',
     module_key: 'tsqa_dashboard',
   },
-  tsqaRse: {
-    label: 'RSE Queue',
-    href: '/tsqa/rse',
-    icon: 'ClipboardList',
-    module_key: 'tsqa_rse',
-  },
   tsqaGrn: {
     label: 'GRN QA Queue',
     href: '/tsqa/grn',
@@ -371,7 +364,6 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
   // TSQA: Already simple, no changes needed
   tsqa: [
     ALL_NAV.tsqaDashboard,
-    ALL_NAV.tsqaRse,
     ALL_NAV.tsqaGrn,
   ],
 };

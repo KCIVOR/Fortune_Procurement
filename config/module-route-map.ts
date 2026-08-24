@@ -32,7 +32,6 @@ export const MODULE_ROUTE_PREFIX: Partial<Record<ModuleKey, string>> = {
   supplier_delivery: '/supplier',
   supplier_compliance_documents: '/supplier',
   tsqa_dashboard: '/tsqa',
-  tsqa_rse: '/tsqa',
   tsqa_grn: '/tsqa',
   admin_users: '/admin',
   admin_roles: '/admin',
