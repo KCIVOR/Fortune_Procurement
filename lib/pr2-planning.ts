@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
-import type { PR2Request, PR2ItemAttachment } from '@/types/pr2';
+import type { PR2Request, PR2ItemAttachment, PR2Status, PR2LifecycleSummary } from '@/types/pr2';
+import { PR2_STATUS_LABELS } from '@/types/pr2';
+import type { StatusVariant } from '@/components/shared/StatusChip';
 import { canRequestRawMaterials } from '@/lib/raw-material-access';
 import { submitPR2ForApproval } from '@/lib/pr2-approvals';
 import { requireAuthUserId } from '@/lib/auth-session';
@@ -16,6 +18,230 @@ const ATTACHMENT_SIGNED_URL_TTL = 3600; // 1 hour
  * 'all' to fetch both types together (used by the combined list page once
  * Services entry ships).
  */
+// ─── Downstream lifecycle (PO/delivery/GRN) for the Planning "My Requests" list ─
+// Mirrors deriveEmployeeLifecycleSummary / fetchPR1LifecycleSummaries in lib/pr1.ts,
+// scoped to PR2-native requests (raw material / Planning-direct services). Unlike
+// PR1, a PR2-native row already carries its own rfq_id, so there's no PR1->PR2
+// hop to walk — just this PR2's own RFQ and POs.
+
+export const PR2_LIFECYCLE_LABELS = {
+  COMPLETED_GRN:        'Completed (GRN Closed)',
+  PARTIAL_GRN:          'Partial GRN',
+  DELIVERED:            'Delivered',
+  DELIVERY_IN_PROGRESS: 'Delivery In Progress',
+  PO_SENT:              'PO — Sent to Supplier',
+  PARTIAL_PO_SENT:      'Partial PO — Sent to Supplier',
+  PO_REJECTED:          'PO — Rejected',
+  CANVASSING_COMPLETE:  'Canvassing Complete',
+} as const;
+
+/**
+ * Status-filter options for the Planning PR2 list, in lifecycle order. Values
+ * are the exact `lifecycle_display_label` strings produced below, so filtering
+ * matches on the label the user actually sees.
+ */
+export const PR2_LIFECYCLE_FILTER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: PR2_STATUS_LABELS.draft,               label: PR2_STATUS_LABELS.draft },
+  { value: PR2_STATUS_LABELS.pending_approval,    label: PR2_STATUS_LABELS.pending_approval },
+  { value: PR2_STATUS_LABELS.revision_requested,  label: PR2_STATUS_LABELS.revision_requested },
+  { value: PR2_STATUS_LABELS.approved,            label: PR2_STATUS_LABELS.approved },
+  { value: PR2_LIFECYCLE_LABELS.CANVASSING_COMPLETE,  label: PR2_LIFECYCLE_LABELS.CANVASSING_COMPLETE },
+  { value: PR2_LIFECYCLE_LABELS.PARTIAL_PO_SENT,      label: PR2_LIFECYCLE_LABELS.PARTIAL_PO_SENT },
+  { value: PR2_LIFECYCLE_LABELS.PO_SENT,              label: PR2_LIFECYCLE_LABELS.PO_SENT },
+  { value: PR2_LIFECYCLE_LABELS.PO_REJECTED,          label: PR2_LIFECYCLE_LABELS.PO_REJECTED },
+  { value: PR2_LIFECYCLE_LABELS.DELIVERY_IN_PROGRESS, label: PR2_LIFECYCLE_LABELS.DELIVERY_IN_PROGRESS },
+  { value: PR2_LIFECYCLE_LABELS.DELIVERED,            label: PR2_LIFECYCLE_LABELS.DELIVERED },
+  { value: PR2_LIFECYCLE_LABELS.PARTIAL_GRN,          label: PR2_LIFECYCLE_LABELS.PARTIAL_GRN },
+  { value: PR2_LIFECYCLE_LABELS.COMPLETED_GRN,        label: PR2_LIFECYCLE_LABELS.COMPLETED_GRN },
+  { value: PR2_STATUS_LABELS.rejected,            label: PR2_STATUS_LABELS.rejected },
+  { value: PR2_STATUS_LABELS.cancelled,           label: PR2_STATUS_LABELS.cancelled },
+];
+
+const PR2_RAW_CHIP: Record<PR2Status, StatusVariant> = {
+  draft:                'draft',
+  pending_approval:     'in_review',
+  approved:             'approved',
+  revision_requested:   'in_review',
+  rejected:             'rejected',
+  cancelled:            'cancelled',
+};
+
+const RM_PO_ISSUED_STATUSES = new Set(['approved', 'sent']);
+const RM_DELIVERY_IN_PROGRESS_STATUSES = new Set(['pending', 'scheduled', 'in_transit', 'delayed']);
+
+type RawMatPOSummary = {
+  poId: string;
+  poStatus: string;
+  deliveryStatus: string | null;
+  grnStatus: string | null;
+};
+
+function pickPreferredRawMatDelivery(
+  rows: { id: string; po_id: string; status: string }[]
+): { id: string; status: string } | null {
+  if (rows.length === 0) return null;
+  const rank: Record<string, number> = {
+    delivered:  5,
+    in_transit: 4,
+    scheduled:  3,
+    delayed:    3,
+    pending:    2,
+    cancelled:  0,
+  };
+  return rows.reduce((best, cur) =>
+    (rank[cur.status] ?? 1) > (rank[best.status] ?? 1) ? cur : best
+  );
+}
+
+/** Pure derivation — no DB reads. */
+export function deriveRawMaterialLifecycleSummary(
+  rawStatus: PR2Status,
+  rfqStatus: string | null,
+  poSummaries: RawMatPOSummary[],
+): PR2LifecycleSummary {
+  const nPo = poSummaries.length;
+
+  if (nPo > 0) {
+    // Terminal PO rejection surfaces to Planning. If every PO tied to this
+    // PR2 was rejected, the request is dead at the PO stage.
+    if (poSummaries.every(s => s.poStatus === 'rejected')) {
+      return { lifecycle_display_label: PR2_LIFECYCLE_LABELS.PO_REJECTED, lifecycle_display_chip: 'rejected' };
+    }
+
+    const closedGrn = poSummaries.filter(s => s.grnStatus === 'closed').length;
+    if (closedGrn === nPo) {
+      return { lifecycle_display_label: PR2_LIFECYCLE_LABELS.COMPLETED_GRN, lifecycle_display_chip: 'completed' };
+    }
+    if (closedGrn > 0) {
+      return { lifecycle_display_label: PR2_LIFECYCLE_LABELS.PARTIAL_GRN, lifecycle_display_chip: 'in_review' };
+    }
+
+    const allHaveDelivery = poSummaries.every(s => s.deliveryStatus !== null);
+    const allDelivered =
+      allHaveDelivery && poSummaries.every(s => s.deliveryStatus === 'delivered');
+    if (allDelivered) {
+      return { lifecycle_display_label: PR2_LIFECYCLE_LABELS.DELIVERED, lifecycle_display_chip: 'received' };
+    }
+
+    const anyDelivery = poSummaries.some(s => s.deliveryStatus !== null);
+    const anyInFlight = poSummaries.some(
+      s => s.deliveryStatus !== null && RM_DELIVERY_IN_PROGRESS_STATUSES.has(s.deliveryStatus),
+    );
+    if (anyDelivery && (!allDelivered || anyInFlight)) {
+      return { lifecycle_display_label: PR2_LIFECYCLE_LABELS.DELIVERY_IN_PROGRESS, lifecycle_display_chip: 'sent' };
+    }
+
+    let nIssued = 0;
+    for (const s of poSummaries) {
+      if (RM_PO_ISSUED_STATUSES.has(s.poStatus)) nIssued++;
+    }
+    if (nIssued === nPo) {
+      return { lifecycle_display_label: PR2_LIFECYCLE_LABELS.PO_SENT, lifecycle_display_chip: 'sent' };
+    }
+    if (nIssued > 0) {
+      return { lifecycle_display_label: PR2_LIFECYCLE_LABELS.PARTIAL_PO_SENT, lifecycle_display_chip: 'in_review' };
+    }
+  }
+
+  if (rfqStatus === 'closed') {
+    return { lifecycle_display_label: PR2_LIFECYCLE_LABELS.CANVASSING_COMPLETE, lifecycle_display_chip: 'approved' };
+  }
+
+  return {
+    lifecycle_display_label: PR2_STATUS_LABELS[rawStatus],
+    lifecycle_display_chip:  PR2_RAW_CHIP[rawStatus],
+  };
+}
+
+/** Batched lifecycle labels for the Planning PR2 list. Uses existing FK graph only. */
+export async function fetchPR2LifecycleSummaries(
+  pr2Rows: Array<{ id: string; status: PR2Status; rfq_id: string | null }>,
+): Promise<Record<string, PR2LifecycleSummary>> {
+  const empty: Record<string, PR2LifecycleSummary> = {};
+  if (pr2Rows.length === 0) return empty;
+
+  const pr2Ids = pr2Rows.map(r => r.id);
+  const rfqIds = Array.from(new Set(pr2Rows.map(r => r.rfq_id).filter(Boolean))) as string[];
+
+  const [{ data: rfqRows }, { data: poRows }] = await Promise.all([
+    rfqIds.length > 0
+      ? db.from('rfq_batches').select('id, status').in('id', rfqIds)
+      : Promise.resolve({ data: [] as any[] }),
+    db.from('po_requests').select('id, pr2_id, status').in('pr2_id', pr2Ids),
+  ]);
+
+  const rfqStatusById: Record<string, string> = Object.fromEntries(
+    ((rfqRows ?? []) as { id: string; status: string }[]).map(r => [r.id, r.status]),
+  );
+
+  const poList = (poRows ?? []) as { id: string; pr2_id: string; status: string }[];
+  const pr2ToPos = new Map<string, { id: string; status: string }[]>();
+  for (const po of poList) {
+    const list = pr2ToPos.get(po.pr2_id) ?? [];
+    list.push({ id: po.id, status: po.status });
+    pr2ToPos.set(po.pr2_id, list);
+  }
+
+  const poIds = poList.map(p => p.id);
+  const deliveriesByPo = new Map<string, { id: string; po_id: string; status: string }[]>();
+
+  if (poIds.length > 0) {
+    const { data: delRows } = await db
+      .from('deliveries')
+      .select('id, po_id, status')
+      .in('po_id', poIds);
+    for (const d of (delRows ?? []) as { id: string; po_id: string; status: string }[]) {
+      const list = deliveriesByPo.get(d.po_id) ?? [];
+      list.push(d);
+      deliveriesByPo.set(d.po_id, list);
+    }
+  }
+
+  const preferredDeliveryByPo = new Map<string, { id: string; status: string } | null>();
+  for (const poId of poIds) {
+    const picked = pickPreferredRawMatDelivery(deliveriesByPo.get(poId) ?? []);
+    preferredDeliveryByPo.set(poId, picked ? { id: picked.id, status: picked.status } : null);
+  }
+
+  const deliveryIds: string[] = [];
+  preferredDeliveryByPo.forEach(d => {
+    if (d) deliveryIds.push(d.id);
+  });
+
+  const grnByDeliveryId = new Map<string, { status: string }>();
+  if (deliveryIds.length > 0) {
+    const { data: grnRows } = await db
+      .from('grn_receipts')
+      .select('delivery_id, status')
+      .in('delivery_id', deliveryIds);
+    for (const g of (grnRows ?? []) as { delivery_id: string; status: string }[]) {
+      const prev = grnByDeliveryId.get(g.delivery_id);
+      if (!prev || (g.status === 'closed' && prev.status !== 'closed')) {
+        grnByDeliveryId.set(g.delivery_id, { status: g.status });
+      }
+    }
+  }
+
+  const out: Record<string, PR2LifecycleSummary> = {};
+  for (const row of pr2Rows) {
+    const pos = pr2ToPos.get(row.id) ?? [];
+    const poSummaries: RawMatPOSummary[] = pos.map(po => {
+      const del = preferredDeliveryByPo.get(po.id) ?? null;
+      const grn = del ? grnByDeliveryId.get(del.id) ?? null : null;
+      return {
+        poId:           po.id,
+        poStatus:       po.status,
+        deliveryStatus: del?.status ?? null,
+        grnStatus:      grn?.status ?? null,
+      };
+    });
+    const rfqSt = row.rfq_id ? rfqStatusById[row.rfq_id] ?? null : null;
+    out[row.id] = deriveRawMaterialLifecycleSummary(row.status, rfqSt, poSummaries);
+  }
+
+  return out;
+}
+
 export async function fetchMyRawMaterialPR2s(
   requisitionerId: string,
   options: {
@@ -31,13 +257,22 @@ export async function fetchMyRawMaterialPR2s(
 ): Promise<{ requests: PR2Request[]; total_count: number }> {
   const { limit, offset = 0, status, priority, search, dateFrom, dateTo, requestType = 'raw_material' } = options;
 
+  // The status filter targets the *derived* lifecycle label (e.g. "Completed
+  // (GRN Closed)"), which is computed from downstream PO/delivery/GRN/RFQ
+  // state — not a column on pr2_requests. A raw PR2Status value (draft,
+  // pending_approval, revision_requested, approved, rejected, cancelled) can
+  // still run in SQL directly; anything else is a lifecycle label and needs
+  // fetch-all + enrich + filter-in-memory, same as fetchMyPR1s in lib/pr1.ts.
+  const rawStatusValues = new Set<string>(Object.keys(PR2_STATUS_LABELS));
+  const isLifecycleFilter = !!status && status !== 'all' && !rawStatusValues.has(status);
+
   const applyFilters = (q: any) => {
     q = q.eq('requisitioner_id', requisitionerId);
     q = requestType === 'all'
       ? q.in('request_type', ['raw_material', 'services'])
       : q.eq('request_type', requestType);
 
-    if (status && status !== 'all') {
+    if (status && status !== 'all' && !isLifecycleFilter) {
       q = q.eq('status', status);
     }
     if (priority && priority !== 'all') {
@@ -57,6 +292,26 @@ export async function fetchMyRawMaterialPR2s(
     return q;
   };
 
+  if (isLifecycleFilter) {
+    const listRes = await applyFilters(db.from('pr2_requests').select('*')).order(
+      'created_at',
+      { ascending: false },
+    );
+    if (listRes.error) throw listRes.error;
+
+    const all = (listRes.data ?? []) as PR2Request[];
+    const summaries = await fetchPR2LifecycleSummaries(
+      all.map(r => ({ id: r.id, status: r.status, rfq_id: r.rfq_id })),
+    );
+    const enrichedAll: PR2Request[] = all.map(r => ({ ...r, ...summaries[r.id] }));
+    const filtered = enrichedAll.filter(r => r.lifecycle_display_label === status);
+
+    const page =
+      limit != null && limit > 0 ? filtered.slice(offset, offset + limit) : filtered;
+
+    return { requests: page, total_count: filtered.length };
+  }
+
   let dataQuery = applyFilters(db.from('pr2_requests').select('*')).order(
     'created_at',
     { ascending: false }
@@ -73,8 +328,17 @@ export async function fetchMyRawMaterialPR2s(
   if (listRes.error) throw listRes.error;
   if (countRes.error) throw countRes.error;
 
+  const requests = (listRes.data ?? []) as PR2Request[];
+  const summaries = await fetchPR2LifecycleSummaries(
+    requests.map(r => ({ id: r.id, status: r.status, rfq_id: r.rfq_id })),
+  );
+  const enriched: PR2Request[] = requests.map(r => ({
+    ...r,
+    ...summaries[r.id],
+  }));
+
   return {
-    requests:    (listRes.data ?? []) as PR2Request[],
+    requests:    enriched,
     total_count: countRes.count ?? 0,
   };
 }

@@ -193,6 +193,8 @@ export interface RawMaterialCanvassingQueueRow {
   rfq_id:                      string | null;
   rfq_number:                  string | null;
   rfq_status:                  RfqBatchStatus | null;
+  assigned_buyer_id:            string | null;
+  assigned_buyer_name_snapshot: string | null;
 }
 
 /** Phase 7: catalog product summary keyed by supplier_product_id. */

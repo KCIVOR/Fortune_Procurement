@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Bell, Check, Undo2, ChevronDown, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
@@ -25,7 +25,6 @@ const TYPE_DOT: Record<string, string> = {
 
 export default function NotificationBell() {
   const { profile } = useAuth();
-  const router = useRouter();
 
   const [open, setOpen]                     = useState(false);
   const [notifications, setNotifications]   = useState<Notification[]>([]);
@@ -186,24 +185,20 @@ export default function NotificationBell() {
     if (next) loadNotifications();
   };
 
-  const handleNotificationClick = async (notif: Notification) => {
+  const markOpenedNotificationRead = (notif: Notification) => {
     setOpen(false);
+    if (notif.read) return;
 
-    if (!notif.read) {
-      try {
-        await markNotificationRead(notif.id);
+    void markNotificationRead(notif.id)
+      .then(() => {
         setNotifications(prev =>
           prev.map(n => (n.id === notif.id ? { ...n, read: true } : n))
         );
         setUnreadCount(prev => Math.max(0, prev - 1));
-      } catch {
+      })
+      .catch(() => {
         // best-effort
-      }
-    }
-
-    if (notif.action_url) {
-      router.push(notif.action_url);
-    }
+      });
   };
 
   const handleMarkAsRead = async (notif: Notification, e: React.MouseEvent) => {
@@ -324,42 +319,30 @@ export default function NotificationBell() {
                       !notif.read ? 'bg-pq-primary-50/60' : 'bg-white'
                     }`}
                   >
-                    <button
-                      type="button"
-                      onClick={() => handleNotificationClick(notif)}
-                      className={`w-full text-left px-4 py-4 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors`}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        {/* Type-coloured dot */}
-                        <span
-                          className={`mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 ${
-                            !notif.read
-                              ? (TYPE_DOT[notif.type] ?? 'bg-pq-neutral-400')
-                              : 'bg-pq-neutral-200'
-                          }`}
-                        />
-                        <div className="flex-1 min-w-0 pr-8">
-                          <p className={`text-xs font-semibold truncate ${
-                            !notif.read ? 'text-pq-neutral-900' : 'text-pq-neutral-500'
-                          }`}>
-                            {notif.title}
-                          </p>
-                          <p className="text-xs text-pq-neutral-500 mt-0.5 line-clamp-2 leading-relaxed">
-                            {notif.body}
-                          </p>
-                          <p className="text-[10px] text-pq-neutral-400 mt-1">
-                            {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
+                    {notif.action_url ? (
+                      <Link
+                        href={notif.action_url}
+                        onClick={() => markOpenedNotificationRead(notif)}
+                        className="block w-full text-left px-4 py-4 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+                      >
+                        <NotificationRowBody notif={notif} />
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => markOpenedNotificationRead(notif)}
+                        className="w-full text-left px-4 py-4 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition-colors"
+                      >
+                        <NotificationRowBody notif={notif} />
+                      </button>
+                    )}
                     
                     {/* Mark as Read button - only show for unread notifications */}
                     {!notif.read && (
                       <button
                         type="button"
                         onClick={(e) => handleMarkAsRead(notif, e)}
-                        className="absolute top-4 right-4 p-1.5 rounded-md text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-primary-50 border border-transparent hover:border-pq-primary-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        className="absolute top-4 right-4 p-1.5 rounded-md text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-primary-50 border border-transparent hover:border-pq-primary-200 transition-colors opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus:opacity-100 focus:pointer-events-auto"
                         title="Mark as read"
                         aria-label="Mark as read"
                       >
@@ -372,7 +355,7 @@ export default function NotificationBell() {
                       <button
                         type="button"
                         onClick={(e) => handleMarkAsUnread(notif, e)}
-                        className="absolute top-4 right-4 p-1.5 rounded-md text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-primary-50 border border-transparent hover:border-pq-primary-200 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        className="absolute top-4 right-4 p-1.5 rounded-md text-pq-neutral-400 hover:text-pq-primary-600 hover:bg-pq-primary-50 border border-transparent hover:border-pq-primary-200 transition-colors opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus:opacity-100 focus:pointer-events-auto"
                         title="Mark as unread"
                         aria-label="Mark as unread"
                       >
@@ -412,6 +395,33 @@ export default function NotificationBell() {
         </div>
         </>
       )}
+    </div>
+  );
+}
+
+function NotificationRowBody({ notif }: { notif: Notification }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span
+        className={`mt-[5px] w-1.5 h-1.5 rounded-full shrink-0 ${
+          !notif.read
+            ? (TYPE_DOT[notif.type] ?? 'bg-pq-neutral-400')
+            : 'bg-pq-neutral-200'
+        }`}
+      />
+      <div className="flex-1 min-w-0 pr-8">
+        <p className={`text-xs font-semibold truncate ${
+          !notif.read ? 'text-pq-neutral-900' : 'text-pq-neutral-500'
+        }`}>
+          {notif.title}
+        </p>
+        <p className="text-xs text-pq-neutral-500 mt-0.5 line-clamp-2 leading-relaxed">
+          {notif.body}
+        </p>
+        <p className="text-[10px] text-pq-neutral-400 mt-1">
+          {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
+        </p>
+      </div>
     </div>
   );
 }

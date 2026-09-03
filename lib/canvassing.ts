@@ -567,6 +567,118 @@ export async function unassignPr1FromBuyer(
   }
 }
 
+// ─── Planning Direct (PR2-native) buyer assignment ───────────────────────────
+// Mirrors assignPr1ToBuyer/unassignPr1FromBuyer above, scoped to pr2_requests
+// for the "Planning Direct" tab's raw-material/services rows (no pr1_id).
+
+export async function assignPr2ToBuyer(
+  pr2Id:   string,
+  buyerId: string,
+  profile: UserProfile
+): Promise<void> {
+  const { data: buyer, error: buyerErr } = await db
+    .from('profiles')
+    .select('full_name')
+    .eq('id', buyerId)
+    .maybeSingle();
+  if (buyerErr) throw buyerErr;
+  if (!buyer) throw new Error('Selected buyer not found.');
+
+  const { data: pr2, error: pr2Err } = await db
+    .from('pr2_requests')
+    .select('pr2_number')
+    .eq('id', pr2Id)
+    .maybeSingle();
+  if (pr2Err) throw pr2Err;
+  if (!pr2) throw new Error('PR2 not found.');
+
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from('pr2_requests')
+    .update({
+      assigned_buyer_id:            buyerId,
+      assigned_buyer_name_snapshot: (buyer as any).full_name,
+      assigned_at:                  now,
+      assigned_by:                  profile.id,
+      updated_at:                   now,
+    })
+    .eq('id', pr2Id);
+  if (error) throw error;
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'PR2_ASSIGNED_TO_BUYER',
+      document_type: 'PR2',
+      document_id:   pr2Id,
+      payload: {
+        pr2_number:       (pr2 as any).pr2_number,
+        assigned_to:      buyerId,
+        assigned_to_name: (buyer as any).full_name,
+        by:               profile.full_name,
+      },
+    });
+  } catch {
+    /* best-effort audit */
+  }
+
+  try {
+    await createNotification({
+      user_id:       buyerId,
+      title:         'PR2 Assigned to You',
+      body:          `PR2 ${(pr2 as any).pr2_number} has been assigned to you for canvassing/RFQ processing.`,
+      type:          'action_required',
+      document_type: 'PR2',
+      document_id:   pr2Id,
+      action_url:    '/rfq',
+    });
+  } catch {
+    /* non-blocking */
+  }
+}
+
+export async function unassignPr2FromBuyer(
+  pr2Id:   string,
+  profile: UserProfile
+): Promise<void> {
+  const { data: pr2, error: pr2Err } = await db
+    .from('pr2_requests')
+    .select('pr2_number, assigned_buyer_id')
+    .eq('id', pr2Id)
+    .maybeSingle();
+  if (pr2Err) throw pr2Err;
+  if (!pr2) throw new Error('PR2 not found.');
+
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from('pr2_requests')
+    .update({
+      assigned_buyer_id:            null,
+      assigned_buyer_name_snapshot: null,
+      assigned_at:                  null,
+      assigned_by:                  null,
+      updated_at:                   now,
+    })
+    .eq('id', pr2Id);
+  if (error) throw error;
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'PR2_UNASSIGNED',
+      document_type: 'PR2',
+      document_id:   pr2Id,
+      payload: {
+        pr2_number:          (pr2 as any).pr2_number,
+        previous_buyer_id:   (pr2 as any).assigned_buyer_id,
+        by:                  profile.full_name,
+      },
+    });
+  } catch {
+    /* best-effort audit */
+  }
+}
+
 // ─── Canvassing queue: global KPI counts ─────────────────────────────────────
 // Accurate totals across the whole canvassing pipeline (not page-scoped):
 //   awaiting = canvassing PR1s with no RFQ yet
@@ -634,8 +746,11 @@ export async function fetchRawMaterialCanvassingQueue(options: {
   search?: string;
   departmentId?: string;
   priorityFilter?: string;
+  /** 'mine' = assigned to viewerId; 'unassigned' = no buyer set; 'all' = no filter. */
+  assignedFilter?: 'all' | 'mine' | 'unassigned';
+  viewerId?: string;
 }): Promise<{ rows: RawMaterialCanvassingQueueRow[]; total_count: number }> {
-  const { limit, offset, search, departmentId, priorityFilter } = options;
+  const { limit, offset, search, departmentId, priorityFilter, assignedFilter = 'all', viewerId } = options;
   const term = search?.trim();
 
   const applyFilters = (q: any, includesPriority: boolean) => {
@@ -651,6 +766,11 @@ export async function fetchRawMaterialCanvassingQueue(options: {
     if (includesPriority && priorityFilter && priorityFilter !== 'all') {
       q = q.eq('priority', priorityFilter);
     }
+    if (assignedFilter === 'mine' && viewerId) {
+      q = q.eq('assigned_buyer_id', viewerId);
+    } else if (assignedFilter === 'unassigned') {
+      q = q.is('assigned_buyer_id', null);
+    }
     return q;
   };
 
@@ -661,7 +781,7 @@ export async function fetchRawMaterialCanvassingQueue(options: {
     applyFilters(
       db
         .from('pr2_requests')
-        .select('id, pr2_number, request_type, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, priority, department_id')
+        .select('id, pr2_number, request_type, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, priority, department_id, assigned_buyer_id, assigned_buyer_name_snapshot')
         .in('request_type', ['raw_material', 'services'])
         .is('pr1_id', null)
         .eq('status', 'approved'),
@@ -685,7 +805,7 @@ export async function fetchRawMaterialCanvassingQueue(options: {
       applyFilters(
         db
           .from('pr2_requests')
-          .select('id, pr2_number, request_type, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, department_id')
+          .select('id, pr2_number, request_type, requisitioner_name_snapshot, department_name_snapshot, purpose, date_required, department_id, assigned_buyer_id, assigned_buyer_name_snapshot')
           .in('request_type', ['raw_material', 'services'])
           .is('pr1_id', null)
           .eq('status', 'approved'),
@@ -745,6 +865,8 @@ export async function fetchRawMaterialCanvassingQueue(options: {
       rfq_id:                      rfq?.id ?? null,
       rfq_number:                  rfq?.rfq_number ?? null,
       rfq_status:                  rfq?.status ?? null,
+      assigned_buyer_id:            pr2.assigned_buyer_id ?? null,
+      assigned_buyer_name_snapshot: pr2.assigned_buyer_name_snapshot ?? null,
     };
   });
 
@@ -1679,22 +1801,35 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
 
   // 3. Notify each invited supplier (best-effort)
   try {
-    // Fetch RFQ + PR1 details for the email
+    // Fetch RFQ + PR1/PR2 details for the email
     const { data: rfq } = await db
       .from('rfq_batches')
-      .select('rfq_number, deadline, notes, pr1_id')
+      .select('rfq_number, deadline, notes, pr1_id, pr2_id')
       .eq('id', rfqId)
       .single();
-    
+
     if (!rfq) return;
 
-    const { data: pr1 } = await db
-      .from('pr1_requests')
-      .select('department_name_snapshot, purpose')
-      .eq('id', rfq.pr1_id)
-      .single();
+    // Planning-direct RFQs (raw material / services) have no pr1_id — their
+    // department/purpose live on pr2_requests instead.
+    let requestHeader: { department_name_snapshot: string; purpose: string } | null = null;
+    if (rfq.pr1_id) {
+      const { data: pr1 } = await db
+        .from('pr1_requests')
+        .select('department_name_snapshot, purpose')
+        .eq('id', rfq.pr1_id)
+        .single();
+      requestHeader = pr1 ?? null;
+    } else if (rfq.pr2_id) {
+      const { data: pr2 } = await db
+        .from('pr2_requests')
+        .select('department_name_snapshot, purpose')
+        .eq('id', rfq.pr2_id)
+        .single();
+      requestHeader = pr2 ?? null;
+    }
 
-    if (!pr1) return;
+    if (!requestHeader) return;
 
     // Fetch assigned suppliers
     const { data: suppliers } = await db
@@ -1762,8 +1897,8 @@ export async function issueRfq(rfqId: string, profile: UserProfile): Promise<voi
         body: JSON.stringify({
           rfqId,
           rfqNumber: rfq.rfq_number,
-          department: pr1.department_name_snapshot,
-          purpose: pr1.purpose,
+          department: requestHeader.department_name_snapshot,
+          purpose: requestHeader.purpose,
           deadline: rfq.deadline,
           supplierEmails: emailTargets.map(t => t.email),
           actionUrls: emailTargets.map(t => t.actionUrl),

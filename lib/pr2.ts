@@ -3,12 +3,18 @@ import type { UserProfile } from '@/types/auth';
 import type { PR2Request, PR2WithItems, PR2ItemDraft, PR2ItemAttachment } from '@/types/pr2';
 import { createNotification } from '@/lib/notifications';
 import { fetchWarehouseProcurementByPr1Item, fetchRfqQuoteAttachmentsByRfq } from '@/lib/canvassing';
-import { fetchPR1Attachments } from './pr1';
+import { fetchPR1Attachments, canUpdatePR1Priority } from './pr1';
 import type { PR1Attachment } from '@/types/pr1';
 import { fetchPR2ItemAttachments } from '@/lib/pr2-planning';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { getVatSettings, computeLineVat, aggregateVat } from '@/lib/vat';
 import { resolvePR2RequestType, resolvePR2Priority } from '@/lib/pr2-classification';
+import {
+  EMPTY_WAREHOUSE_REMARKS,
+  mergeWarehouseRemarksIntoPr2Items,
+  type WarehouseLineRemark,
+  type WarehouseRemarksForPr1,
+} from '@/lib/warehouse-pr2-remarks';
 
 const db = supabase as any;
 
@@ -131,13 +137,13 @@ export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
 
   if (itemsErr) throw itemsErr;
 
-  const [pr1Attachments, pr2ItemAttachments, quoteAttachmentsByQuote, pr1Res] = await Promise.all([
+  const [pr1Attachments, pr2ItemAttachments, quoteAttachmentsByQuote, pr1Res, warehouseRemarks] = await Promise.all([
     pr2.pr1_id
       ? fetchPR1Attachments(pr2.pr1_id).catch(() => [] as PR1Attachment[])
       : Promise.resolve([] as PR1Attachment[]),
     // Raw-material items have no pr1_item_id to hang a pr1_attachments row
     // off, so they carry their own pr2_item_attachments instead.
-    pr2.request_type === 'raw_material'
+    pr2.request_type === 'raw_material' || pr2.request_type === 'services'
       ? fetchPR2ItemAttachments(pr2.id).catch(() => [] as PR2ItemAttachment[])
       : Promise.resolve([] as PR2ItemAttachment[]),
     pr2.rfq_id
@@ -146,6 +152,9 @@ export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
     pr2.pr1_id
       ? db.from('pr1_requests').select('request_type, priority').eq('id', pr2.pr1_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    pr2.pr1_id
+      ? fetchWarehouseRemarksForPr1(pr2.pr1_id).catch(() => EMPTY_WAREHOUSE_REMARKS)
+      : Promise.resolve(EMPTY_WAREHOUSE_REMARKS),
   ]);
 
   const attachmentsByItem: Record<string, PR1Attachment[]> = {};
@@ -170,7 +179,13 @@ export async function fetchPR2ById(id: string): Promise<PR2WithItems | null> {
   // join is only a fallback for rows generated before the column existed.
   const request_type = resolvePR2RequestType(pr2, (pr1Res.data as any) ?? null);
   const pr1_priority = resolvePR2Priority(pr2, (pr1Res.data as any) ?? null);
-  return { ...pr2, request_type, pr1_priority, items: itemsWithAttachments } as PR2WithItems;
+  return {
+    ...pr2,
+    request_type,
+    pr1_priority,
+    warehouse_notes: warehouseRemarks.notes,
+    items: mergeWarehouseRemarksIntoPr2Items(itemsWithAttachments, warehouseRemarks),
+  } as PR2WithItems;
 }
 
 /**
@@ -212,11 +227,11 @@ export async function fetchPR2ForPrint(id: string): Promise<PR2WithItems | null>
 
   if (itemsErr) throw itemsErr;
 
-  const [pr1Attachments, pr2ItemAttachments, quoteAttachmentsByQuote, pr1Res] = await Promise.all([
+  const [pr1Attachments, pr2ItemAttachments, quoteAttachmentsByQuote, pr1Res, warehouseRemarks] = await Promise.all([
     pr2.pr1_id
       ? fetchPR1Attachments(pr2.pr1_id).catch(() => [] as PR1Attachment[])
       : Promise.resolve([] as PR1Attachment[]),
-    pr2.request_type === 'raw_material'
+    pr2.request_type === 'raw_material' || pr2.request_type === 'services'
       ? fetchPR2ItemAttachments(pr2.id).catch(() => [] as PR2ItemAttachment[])
       : Promise.resolve([] as PR2ItemAttachment[]),
     pr2.rfq_id
@@ -225,6 +240,9 @@ export async function fetchPR2ForPrint(id: string): Promise<PR2WithItems | null>
     pr2.pr1_id
       ? db.from('pr1_requests').select('request_type, priority').eq('id', pr2.pr1_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    pr2.pr1_id
+      ? fetchWarehouseRemarksForPr1(pr2.pr1_id).catch(() => EMPTY_WAREHOUSE_REMARKS)
+      : Promise.resolve(EMPTY_WAREHOUSE_REMARKS),
   ]);
 
   const attachmentsByItem: Record<string, PR1Attachment[]> = {};
@@ -247,34 +265,51 @@ export async function fetchPR2ForPrint(id: string): Promise<PR2WithItems | null>
 
   const request_type = resolvePR2RequestType(pr2, (pr1Res.data as any) ?? null);
   const pr1_priority = resolvePR2Priority(pr2, (pr1Res.data as any) ?? null);
-  return { ...pr2, request_type, pr1_priority, items: itemsWithAttachments } as PR2WithItems;
+  return {
+    ...pr2,
+    request_type,
+    pr1_priority,
+    warehouse_notes: warehouseRemarks.notes,
+    items: mergeWarehouseRemarksIntoPr2Items(itemsWithAttachments, warehouseRemarks),
+  } as PR2WithItems;
 }
 
-/** Per-line warehouse quantity override reason/actor, keyed by pr1_item_id — forwarded onto pr2_items as a read-only snapshot at generation time. */
-async function fetchWarehouseOverridesByPr1Item(
-  pr1Id: string
-): Promise<Record<string, { reason: string; overridden_by_name: string | null }>> {
-  const { data: wv } = await db
+/** Live warehouse header + line remarks for a PR1, keyed by pr1_item_id. */
+export async function fetchWarehouseRemarksForPr1(
+  pr1Id: string,
+): Promise<WarehouseRemarksForPr1> {
+  if (!pr1Id) return EMPTY_WAREHOUSE_REMARKS;
+
+  const { data: wv, error: wvErr } = await db
     .from('warehouse_validations')
-    .select('id')
+    .select('id, notes')
     .eq('pr1_id', pr1Id)
     .maybeSingle();
-  if (!wv?.id) return {};
+  if (wvErr) throw wvErr;
+  if (!wv?.id) return EMPTY_WAREHOUSE_REMARKS;
 
-  const { data: rows } = await db
+  const { data: rows, error: itemsErr } = await db
     .from('warehouse_validation_items')
-    .select('pr1_item_id, quantity_override_reason, quantity_overridden_by_name_snapshot')
-    .eq('validation_id', wv.id)
-    .not('quantity_overridden_by', 'is', null);
+    .select('pr1_item_id, quantity_override_reason, quantity_overridden_by_name_snapshot, item_notes, validated_soh')
+    .eq('validation_id', wv.id);
+  if (itemsErr) throw itemsErr;
 
-  const map: Record<string, { reason: string; overridden_by_name: string | null }> = {};
-  for (const r of (rows ?? []) as any[]) {
-    map[r.pr1_item_id] = {
-      reason:              r.quantity_override_reason ?? '',
-      overridden_by_name:  r.quantity_overridden_by_name_snapshot ?? null,
+  const byPr1ItemId: Record<string, WarehouseLineRemark> = {};
+  for (const row of (rows ?? []) as any[]) {
+    if (!row.pr1_item_id) continue;
+    const parsedSoh = row.validated_soh == null ? null : Number(row.validated_soh);
+    byPr1ItemId[row.pr1_item_id] = {
+      overrideReason: (row.quantity_override_reason as string | null)?.trim() || null,
+      overriddenByName: (row.quantity_overridden_by_name_snapshot as string | null)?.trim() || null,
+      itemNotes: (row.item_notes as string | null)?.trim() || null,
+      validatedSoh: parsedSoh == null || !Number.isFinite(parsedSoh) ? null : parsedSoh,
     };
   }
-  return map;
+
+  return {
+    notes: (wv.notes as string | null)?.trim() || null,
+    byPr1ItemId,
+  };
 }
 
 export async function fetchPR2ByRfqId(rfqId: string): Promise<PR2Request | null> {
@@ -289,6 +324,63 @@ export async function fetchPR2ByRfqId(rfqId: string): Promise<PR2Request | null>
 }
 
 
+
+// updatePr2Priority updates the priority of a PR2-native request (raw material /
+// Planning-direct services — no pr1_id, so there is no pr1_requests row to write
+// priority onto instead). Mirrors updatePR1Priority in lib/pr1.ts; reuses its
+// canUpdatePR1Priority authorization check since that check is role/ownership
+// based, not table-specific.
+export async function updatePr2Priority(
+  pr2Id: string,
+  priority: 'normal' | 'medium' | 'high',
+  profile: UserProfile
+): Promise<void> {
+  const validPriorities = ['normal', 'medium', 'high'];
+  if (!validPriorities.includes(priority)) {
+    throw new Error(`Invalid priority value: '${priority}'. Must be one of: ${validPriorities.join(', ')}`);
+  }
+
+  const { data: pr2, error: fetchErr } = await db
+    .from('pr2_requests')
+    .select('id, pr2_number, priority, requisitioner_id')
+    .eq('id', pr2Id)
+    .maybeSingle();
+
+  if (fetchErr) throw fetchErr;
+  if (!pr2) throw new Error(`PR2 not found (id: ${pr2Id}).`);
+
+  if (!canUpdatePR1Priority(profile, pr2.requisitioner_id)) {
+    throw new Error(`User role '${profile.role}' is not authorized to update this PR2's priority.`);
+  }
+
+  const oldPriority = pr2.priority;
+  const now = new Date().toISOString();
+  const { error: updateErr } = await db
+    .from('pr2_requests')
+    .update({ priority, updated_at: now })
+    .eq('id', pr2Id);
+
+  if (updateErr) throw updateErr;
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'PR2_PRIORITY_UPDATED',
+      document_type: 'PR2',
+      document_id:   pr2Id,
+      payload: {
+        pr2_number:   pr2.pr2_number,
+        old_priority: oldPriority,
+        new_priority: priority,
+        updated_by:   profile.full_name,
+        role:         profile.role,
+        position:     profile.position,
+      },
+    });
+  } catch {
+    // Audit logging is best-effort; do not fail the update if it fails.
+  }
+}
 
 // Rev #1 (VAT): aggregates a PR2's line-level VAT snapshots into a Subtotal/VAT/Total split.
 export function calcPR2VatBreakdown(

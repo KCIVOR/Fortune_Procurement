@@ -120,8 +120,9 @@ export interface GRNQueueRow {
   status: GRNStatus;
   closed_at: string | null;
   received_by_name_snapshot: string;
-  request_type: 'goods' | 'services';
-  /** Rev #9: resolved from pr1_requests.priority via ID-based join at read time. */
+  request_type: 'goods' | 'services' | 'raw_material';
+  /** Resolved from pr1_requests.priority (goods/services) or pr2_requests.priority
+   *  (raw material / Planning-direct services, no pr1_id) via ID-based join at read time. */
   priority?: string;
 }
 

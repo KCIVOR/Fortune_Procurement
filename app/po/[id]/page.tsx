@@ -376,6 +376,25 @@ export default function PODetailPage() {
         </div>
       )}
 
+      {/* Revision requested notice — shown when PO was returned for revision */}
+      {po.status === 'revision_requested' && approvalDetail && (() => {
+        const revisionAction = approvalDetail.actions.find(a => a.action === 'revision_requested');
+        return revisionAction ? (
+          <div className="flex items-start gap-3 bg-pq-warning-50 border border-pq-warning-200 rounded-md px-5 py-4 mb-6">
+            <RotateCcw className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-pq-warning-700">Revision Requested</p>
+              <p className="text-xs text-pq-neutral-500 mt-0.5">
+                {revisionAction.actor_name_snapshot} · {format(new Date(revisionAction.acted_at), 'MMM d, yyyy h:mm a')}
+              </p>
+              {revisionAction.remarks && (
+                <p className="text-sm text-pq-neutral-800 mt-1">"{revisionAction.remarks}"</p>
+              )}
+            </div>
+          </div>
+        ) : null;
+      })()}
+
       {/* External vendor notice */}
       {isExternal && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-md px-5 py-4 mb-6">
@@ -764,25 +783,6 @@ export default function PODetailPage() {
               <span>{submitError}</span>
             </div>
           )}
-
-          {/* Revision banner — shown when PO was returned for revision */}
-          {po.status === 'revision_requested' && approvalDetail && (() => {
-            const revisionAction = approvalDetail.actions.find(a => a.action === 'revision_requested');
-            return revisionAction ? (
-              <div className="bg-pq-warning-50 border border-pq-warning-200 rounded-md px-5 py-4 space-y-1">
-                <div className="flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4 text-pq-warning-600 shrink-0" />
-                  <p className="text-sm font-semibold text-pq-warning-700">Revision Requested</p>
-                </div>
-                <p className="text-xs text-pq-neutral-500">
-                  {revisionAction.actor_name_snapshot} · {format(new Date(revisionAction.acted_at), 'MMM d, yyyy h:mm a')}
-                </p>
-                {revisionAction.remarks && (
-                  <p className="text-sm text-pq-neutral-800 mt-1 pl-6">"{revisionAction.remarks}"</p>
-                )}
-              </div>
-            ) : null;
-          })()}
 
           {/* Status note for draft without active approval */}
           {po.status === 'draft' && !approvalDetail && profile?.position === 'Buyer' && (

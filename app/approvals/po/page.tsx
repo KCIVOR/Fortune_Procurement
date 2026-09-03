@@ -14,6 +14,7 @@ import { KPI_GRID_CLASS } from '@/components/shared/kpi-grid';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { canActOnPOStep } from '@/lib/po-approvals';
+import { resolvePR2Priority } from '@/lib/pr2-classification';
 import type { ApprovalInstanceStatus } from '@/types/approvals';
 import {
   SquareCheck as CheckSquare,
@@ -144,14 +145,17 @@ export default function POApprovalsPage() {
           (poRes.data ?? []).map((po: any) => po.pr2_id).filter(Boolean)
         ));
         const { data: pr2s } = pr2Ids.length > 0
-          ? await db.from('pr2_requests').select('id, pr1_id, request_type').in('id', pr2Ids)
+          ? await db.from('pr2_requests').select('id, pr1_id, request_type, priority').in('id', pr2Ids)
           : { data: [] };
         const pr2Map: Record<string, any> = Object.fromEntries(
           ((pr2s ?? []) as any[]).map((pr2: any) => [pr2.id, pr2])
         );
 
-        // Priority is PR1-only; request_type reads pr2.request_type directly
-        // (a PR1-only hop would silently default raw material to 'goods').
+        // PR2-native POs (raw material / Planning-direct services, no pr1_id)
+        // carry priority on pr2_requests directly; goods/services POs still
+        // hop through pr1_requests. resolvePR2Priority() below picks the
+        // right source. request_type reads pr2.request_type directly (a
+        // PR1-only hop would silently default raw material to 'goods').
         const pr1Ids = Array.from(new Set(
           Object.values(pr2Map).map((pr2: any) => pr2.pr1_id).filter(Boolean)
         ));
@@ -208,8 +212,14 @@ export default function POApprovalsPage() {
             displayStatus = 'active';
           }
 
-          const pr1Id = po.pr2_id && pr2Map[po.pr2_id]?.pr1_id ? pr2Map[po.pr2_id].pr1_id : undefined;
-          const pr1Priority = pr1Id ? pr1PriorityMap[pr1Id] : undefined;
+          const pr2ForPo = po.pr2_id ? pr2Map[po.pr2_id] : undefined;
+          const pr1Id = pr2ForPo?.pr1_id ?? undefined;
+          const pr1Priority = pr2ForPo
+            ? resolvePR2Priority(
+                pr2ForPo,
+                pr1Id && pr1PriorityMap[pr1Id] ? { priority: pr1PriorityMap[pr1Id] as 'normal' | 'medium' | 'high' } : null,
+              )
+            : undefined;
           const requestType = po.pr2_id ? pr2Map[po.pr2_id]?.request_type : undefined;
 
           rows.push({

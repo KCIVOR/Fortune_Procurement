@@ -26,7 +26,8 @@ import {
 } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { fetchPR2ByRfqId } from '@/lib/pr2';
-import { fetchRfqApprovalInstanceForRfq } from '@/lib/rfq-approvals';
+import { fetchRfqApprovalInstanceForRfq, fetchRfqApprovalDetail, type RfqApprovalDetail } from '@/lib/rfq-approvals';
+import ApprovalPhaseTimeline from '@/components/approvals/ApprovalPhaseTimeline';
 import type { RfqDetailView, QuoteMatrixRow, CanvassSupplierCandidate } from '@/types/canvassing';
 import {
   SUPPLY_TYPE_FILTER_OPTIONS,
@@ -89,6 +90,7 @@ export default function RfqDetailPage() {
     status: string;
     current_step: number;
   } | null>(null);
+  const [rfqApprovalDetail, setRfqApprovalDetail] = useState<RfqApprovalDetail | null>(null);
 
   // Supplier assignment panel
   const [assigning, setAssigning]       = useState(false);
@@ -237,6 +239,13 @@ export default function RfqDetailPage() {
         setMatrix(buildQuoteMatrix(d));
         setExistingPR2Id(pr2?.id ?? d.rfq.pr2_id ?? null);
         setRfqApproval(approval);
+        if (approval?.id) {
+          fetchRfqApprovalDetail(approval.id)
+            .then(setRfqApprovalDetail)
+            .catch(() => setRfqApprovalDetail(null));
+        } else {
+          setRfqApprovalDetail(null);
+        }
       })
       .catch(() => setError('Failed to load RFQ.'))
       .finally(() => setLoading(false));
@@ -491,6 +500,10 @@ export default function RfqDetailPage() {
 
   const rfqApprovalApproved = rfqApproval?.status === 'approved';
   const rfqApprovalPending = rfqApproval?.status === 'active';
+  const rfqApprovalRevisionRequested = rfqApprovalDetail?.instance_status === 'cancelled';
+  const lastRevisionAction = rfqApprovalDetail?.actions
+    .filter(a => a.action === 'revision_requested')
+    .slice(-1)[0] ?? null;
 
   const handleCopyForViber = (supplierAssignmentId?: string) => {
     if (!detail) return;
@@ -658,16 +671,18 @@ export default function RfqDetailPage() {
               {isPr2Native ? 'PR2' : 'PR1'} <span className="font-semibold text-pq-neutral-900">{pr1.pr1_number}</span>
               {' '}· {pr1.department_name_snapshot} · {pr1.purpose}
             </p>
-            {isClosed && existingPR2Id && (
+            {(isClosed || rfqApprovalRevisionRequested) && existingPR2Id && (
               <p className="text-xs text-pq-neutral-400 italic mt-1">
                 {followsApprovalFlow
                   ? rfqApprovalApproved
                     ? 'RFQ approved — procurement may create PO from the linked PR2.'
-                    : rfqApprovalPending
-                      ? 'RFQ closed — pending Director approval.'
-                      : isPr2Native
-                        ? 'Linked PR2 was created directly by Planning.'
-                        : 'Linked PR2 was created at warehouse validation.'
+                    : rfqApprovalRevisionRequested
+                      ? 'Director requested revision — see the notice above.'
+                      : rfqApprovalPending
+                        ? 'RFQ closed — pending Director approval.'
+                        : isPr2Native
+                          ? 'Linked PR2 was created directly by Planning.'
+                          : 'Linked PR2 was created at warehouse validation.'
                   : 'A PR2 has already been generated from this RFQ — it can no longer be reopened.'}
               </p>
             )}
@@ -675,7 +690,7 @@ export default function RfqDetailPage() {
         }
         right={
           <div className="flex items-center gap-2 shrink-0">
-            {isClosed && existingPR2Id && (
+            {(isClosed || rfqApprovalRevisionRequested) && existingPR2Id && (
               <ActionButton
                 icon={ClipboardList}
                 label="View PR2"
@@ -703,7 +718,7 @@ export default function RfqDetailPage() {
                 disabled={working}
               />
             )}
-            {isDraft && suppliers.length >= 2 && (
+            {isDraft && suppliers.length >= 1 && (
               <ActionButton
                 icon={Send}
                 label="Issue RFQ"
@@ -768,13 +783,31 @@ export default function RfqDetailPage() {
       )}
 
       {/* Guidance banners */}
-      {isDraft && suppliers.length < 2 && (
-        <div className="flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-6">
-          <AlertTriangle className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-pq-warning-600">Assign at least 2 suppliers before you can issue this RFQ.</p>
+      {rfqApprovalRevisionRequested && (
+        <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-md px-5 py-4 mb-6">
+          <RotateCcw className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-orange-800">
+              Revision requested by {lastRevisionAction?.actor_name_snapshot ?? 'the approver'}
+            </p>
+            {lastRevisionAction?.remarks && (
+              <p className="text-xs text-orange-700 mt-0.5">
+                &ldquo;{lastRevisionAction.remarks}&rdquo;
+              </p>
+            )}
+            <p className="text-xs text-orange-700 mt-1">
+              This RFQ was reopened for canvassing. Update as needed, then close it again to resubmit for approval.
+            </p>
+          </div>
         </div>
       )}
-      {isDraft && suppliers.length >= 2 && (
+      {isDraft && suppliers.length < 1 && (
+        <div className="flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-6">
+          <AlertTriangle className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-pq-warning-600">Assign at least 1 supplier before you can issue this RFQ.</p>
+        </div>
+      )}
+      {isDraft && suppliers.length >= 1 && (
         <div className="flex items-start gap-3 bg-pq-primary-50 border border-pq-primary-200 rounded-md px-5 py-4 mb-6">
           <CircleDot className="w-4 h-4 text-pq-primary-600 mt-0.5 shrink-0" />
           <p className="text-sm text-pq-primary-600">Ready to issue. Click &ldquo;Issue RFQ&rdquo; to open it to suppliers.</p>
@@ -850,6 +883,18 @@ export default function RfqDetailPage() {
               </div>
             )}
           </div>
+
+          {rfqApprovalDetail && (
+            <ApprovalPhaseTimeline
+              phaseLabel="Approval"
+              phaseSubLabel={`Canvassing sign-off for ${rfq.rfq_number}`}
+              steps={rfqApprovalDetail.steps}
+              actions={rfqApprovalDetail.actions}
+              currentStep={rfqApprovalDetail.current_step}
+              instanceStatus={rfqApprovalDetail.instance_status}
+              preparer={rfqApprovalDetail.preparer}
+            />
+          )}
 
           {/* Items list */}
           <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
@@ -1539,6 +1584,11 @@ function MatrixRow({
                     {canViewPrices && quote.vat_type === 'vat_exclusive' && (
                       <span className="text-[9px] font-bold tracking-wider text-pq-neutral-600 bg-pq-neutral-100 border border-pq-neutral-200 rounded px-1 py-0.5 uppercase">
                         VAT Ex
+                      </span>
+                    )}
+                    {canViewPrices && quote.vat_type == null && (
+                      <span className="text-[9px] font-bold tracking-wider text-pq-neutral-500 bg-pq-neutral-50 border border-pq-neutral-200 rounded px-1 py-0.5 uppercase">
+                        No VAT
                       </span>
                     )}
                   </p>

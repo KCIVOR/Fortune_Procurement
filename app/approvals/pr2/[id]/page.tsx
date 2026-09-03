@@ -301,6 +301,11 @@ export default function PR2ApprovalDetailPage() {
               value={format(new Date(detail.generated_at), 'MMMM d, yyyy')}
             />
             <DetailWideInfoRow label="Purpose">{detail.purpose}</DetailWideInfoRow>
+            {detail.warehouse_notes && (
+              <DetailWideInfoRow label="Warehouse Notes" valueClassName="italic">
+                {`"${detail.warehouse_notes}"`}
+              </DetailWideInfoRow>
+            )}
             {detail.remarks && (
               <DetailWideInfoRow label="Remarks" valueClassName="italic">
                 {`"${detail.remarks}"`}
@@ -393,13 +398,19 @@ export default function PR2ApprovalDetailPage() {
                                 overriddenBy={item.quantity_overridden_by_name_snapshot}
                               />
                             )}
+                          {item.warehouse_item_notes && (
+                            <RequestorRemarks text={item.warehouse_item_notes} label="Warehouse notes" />
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-1.5 items-start">
                             {(item.attachments?.length ?? 0) > 0 && (
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] font-semibold text-pq-neutral-400 uppercase tracking-wide w-9 shrink-0">Req.</span>
-                                <PR1AttachmentsGallery attachments={item.attachments!} />
+                                {/* PR2-native items (raw material / services) carry PR2ItemAttachment
+                                    instead of PR1Attachment — the gallery only reads id/file_name/
+                                    signed_url/mime_type, which both shapes have. */}
+                                <PR1AttachmentsGallery attachments={item.attachments as import('@/types/pr1').PR1Attachment[]} />
                               </div>
                             )}
                             {(item.quote_attachments?.length ?? 0) > 0 && (

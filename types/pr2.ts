@@ -1,5 +1,6 @@
 import type { PR1Attachment } from './pr1';
 import type { RfqQuoteAttachment } from './canvassing';
+import type { StatusVariant } from '@/components/shared/StatusChip';
 
 export type PR2Status =
   | 'draft'
@@ -47,6 +48,14 @@ export interface PR2Request {
   priority?:                   'normal' | 'medium' | 'high';
   /** Rev #9: resolved from pr1_requests.priority via ID-based join at read time. */
   pr1_priority?:               string;
+  /** Downstream lifecycle (PO/delivery/GRN), derived at read time — see deriveRawMaterialLifecycleSummary. */
+  lifecycle_display_label?:    string;
+  lifecycle_display_chip?:     StatusVariant;
+}
+
+export interface PR2LifecycleSummary {
+  lifecycle_display_label: string;
+  lifecycle_display_chip:  StatusVariant;
 }
 
 export interface PR2Item {
@@ -101,6 +110,8 @@ export interface PR2Item {
   quantity_override_reason_snapshot?:    string | null;
   /** Read-only, forwarded from warehouse_validation_items.quantity_overridden_by_name_snapshot. */
   quantity_overridden_by_name_snapshot?: string | null;
+  /** Read-only, live warehouse_validation_items.item_notes for this PR1 line. */
+  warehouse_item_notes?: string | null;
   /** FK back to the winning rfq_item_quotes row. Null for manually-created PR2s. */
   rfq_item_quote_id?:      string | null;
   created_at:              string;
@@ -131,6 +142,8 @@ export interface PR2ItemAttachment {
 
 export interface PR2WithItems extends PR2Request {
   items: PR2Item[];
+  /** Read-only, live warehouse_validations.notes for the source PR1. */
+  warehouse_notes?: string | null;
 }
 
 // Draft used when generating or editing PR2 items

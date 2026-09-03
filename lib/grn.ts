@@ -10,6 +10,7 @@ import type {
 import { createNotification, notifyByRole } from '@/lib/notifications';
 import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
+import { resolvePR2RequestType, resolvePR2Priority } from '@/lib/pr2-classification';
 
 const db = supabase as any;
 
@@ -173,20 +174,28 @@ export async function fetchGRNQueuePaged(options: {
   limit: number;
   offset: number;
   search?: string;
-  /** Rev #9: priority lives on pr1_requests only — resolved/filtered via ID-based join chain. */
+  /** Rev #9: priority lives on pr1_requests (goods/services) or pr2_requests
+   *  (raw material / Planning-direct services, no pr1_id) — resolved/filtered
+   *  via ID-based join chain. */
   priority?: string;
 }): Promise<{ grns: GRNQueueRow[]; total_count: number }> {
   const { statusFilter, limit, offset, search, priority } = options;
 
   // Priority pre-filter: pr1 -> pr2 -> po -> deliveries -> grn_receipts, ID-based.
+  // Two sources feed pr2Ids: goods/services PR2s via their pr1_id's priority,
+  // and PR2-native (raw material / Planning-direct services, no pr1_id) rows
+  // via pr2_requests.priority directly.
   let priorityDeliveryIds: string[] | null = null;
   if (priority && priority !== 'all') {
-    const { data: pr1Hits } = await db.from('pr1_requests').select('id').eq('priority', priority);
+    const [{ data: pr1Hits }, { data: pr2NativeHits }] = await Promise.all([
+      db.from('pr1_requests').select('id').eq('priority', priority),
+      db.from('pr2_requests').select('id').is('pr1_id', null).eq('priority', priority),
+    ]);
     const pr1Ids = ((pr1Hits ?? []) as any[]).map(r => r.id);
-    let pr2Ids: string[] = [];
+    let pr2Ids: string[] = ((pr2NativeHits ?? []) as any[]).map(r => r.id);
     if (pr1Ids.length > 0) {
       const { data: pr2Hits } = await db.from('pr2_requests').select('id').in('pr1_id', pr1Ids);
-      pr2Ids = ((pr2Hits ?? []) as any[]).map(r => r.id);
+      pr2Ids = pr2Ids.concat(((pr2Hits ?? []) as any[]).map(r => r.id));
     }
     let poIds: string[] = [];
     if (pr2Ids.length > 0) {
@@ -231,11 +240,15 @@ export async function fetchGRNQueuePaged(options: {
   if (error) throw error;
 
   const rawRows = (data ?? []) as any[];
-  // Resolve request_type via the unambiguous FK chain (deliveries -> po_requests ->
-  // pr2_requests -> pr1_requests), not by matching pr1_number_snapshot text — PR1
-  // numbers are not guaranteed unique, and a text match can silently resolve to the
-  // wrong row when a duplicate exists.
-  const typeByDeliveryId: Record<string, 'goods' | 'services'> = {};
+  // Resolve request_type/priority via the unambiguous FK chain (deliveries ->
+  // po_requests -> pr2_requests [-> pr1_requests]), not by matching
+  // pr1_number_snapshot text — PR1 numbers are not guaranteed unique, and a
+  // text match can silently resolve to the wrong row when a duplicate exists.
+  // PR2-native deliveries (raw material / Planning-direct services, no
+  // pr1_id) carry their own request_type/priority directly on pr2_requests —
+  // resolvePR2RequestType/resolvePR2Priority prefer that column and only
+  // fall back to the pr1 join for older goods/services rows.
+  const typeByDeliveryId: Record<string, 'goods' | 'services' | 'raw_material'> = {};
   const priorityByDeliveryId: Record<string, string> = {};
   const deliveryIds = Array.from(new Set(rawRows.map((r: any) => r.delivery_id).filter(Boolean)));
   if (deliveryIds.length > 0) {
@@ -251,7 +264,7 @@ export async function fetchGRNQueuePaged(options: {
     const pr2Ids = Array.from(new Set((poData ?? []).map((p: any) => p.pr2_id).filter(Boolean)));
 
     const { data: pr2Data } = pr2Ids.length > 0
-      ? await db.from('pr2_requests').select('id, pr1_id').in('id', pr2Ids)
+      ? await db.from('pr2_requests').select('id, pr1_id, request_type, priority').in('id', pr2Ids)
       : { data: [] as any[] };
     const pr1Ids = Array.from(new Set((pr2Data ?? []).map((p: any) => p.pr1_id).filter(Boolean)));
 
@@ -259,24 +272,20 @@ export async function fetchGRNQueuePaged(options: {
       ? await db.from('pr1_requests').select('id, request_type, priority').in('id', pr1Ids)
       : { data: [] as any[] };
 
-    const pr1TypeById: Record<string, 'goods' | 'services'> = Object.fromEntries(
-      ((pr1Data ?? []) as any[]).map(p => [p.id, p.request_type ?? 'goods'])
-    );
-    const pr1PriorityById: Record<string, string> = Object.fromEntries(
-      ((pr1Data ?? []) as any[]).map(p => [p.id, p.priority ?? 'normal'])
-    );
-    const pr1IdByPr2Id: Record<string, string> = Object.fromEntries(
-      ((pr2Data ?? []) as any[]).map(p => [p.id, p.pr1_id])
+    const pr1ById: Record<string, { request_type: 'goods' | 'services'; priority: 'normal' | 'medium' | 'high' }> =
+      Object.fromEntries(((pr1Data ?? []) as any[]).map(p => [p.id, p]));
+    const pr2ById: Record<string, any> = Object.fromEntries(
+      ((pr2Data ?? []) as any[]).map(p => [p.id, p])
     );
     const pr2IdByPoId: Record<string, string> = Object.fromEntries(
       ((poData ?? []) as any[]).map(p => [p.id, p.pr2_id])
     );
     for (const d of (deliveryData ?? []) as any[]) {
-      const pr2Id = pr2IdByPoId[d.po_id];
-      const pr1Id = pr2Id ? pr1IdByPr2Id[pr2Id] : undefined;
-      const resolvedType = pr1Id ? pr1TypeById[pr1Id] : undefined;
-      if (resolvedType) typeByDeliveryId[d.id] = resolvedType;
-      priorityByDeliveryId[d.id] = pr1Id ? (pr1PriorityById[pr1Id] ?? 'normal') : 'normal';
+      const pr2 = pr2ById[pr2IdByPoId[d.po_id]];
+      if (!pr2) continue;
+      const pr1 = pr2.pr1_id ? pr1ById[pr2.pr1_id] : null;
+      typeByDeliveryId[d.id] = resolvePR2RequestType(pr2, pr1);
+      priorityByDeliveryId[d.id] = resolvePR2Priority(pr2, pr1);
     }
   }
 

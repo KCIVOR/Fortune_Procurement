@@ -304,6 +304,11 @@ export default function PR2PrintPage() {
                           {item.quantity_override_reason_snapshot ? ` — ${item.quantity_override_reason_snapshot}` : ''}
                         </div>
                       )}
+                    {item?.warehouse_item_notes && (
+                      <div style={{ marginTop: 2, fontSize: 7, color: '#555', fontStyle: 'italic', wordBreak: 'break-word' }}>
+                        Warehouse notes: {item.warehouse_item_notes}
+                      </div>
+                    )}
                   </td>
                   <td style={{ border: '1px solid #000', borderTop: 'none', padding: '2px 5px', fontSize: 8, textAlign: 'center' }}>
                     {item?.unit_of_measure || ''}
@@ -392,15 +397,25 @@ export default function PR2PrintPage() {
         </table>
 
         {/* ── Remarks ── */}
-        {pr2.remarks && (
+        {(pr2.warehouse_notes || pr2.remarks) && (
           <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: 'none', marginTop: 0 }}>
             <tbody>
-              <tr>
-                <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', fontSize: 9 }}>
-                  <span style={{ fontWeight: 'bold' }}>Remarks:</span>{' '}
-                  {pr2.remarks}
-                </td>
-              </tr>
+              {pr2.warehouse_notes && (
+                <tr>
+                  <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', fontSize: 9 }}>
+                    <span style={{ fontWeight: 'bold' }}>Warehouse Notes:</span>{' '}
+                    {pr2.warehouse_notes}
+                  </td>
+                </tr>
+              )}
+              {pr2.remarks && (
+                <tr>
+                  <td style={{ border: '1px solid #000', borderTop: 'none', padding: '4px 8px', fontSize: 9 }}>
+                    <span style={{ fontWeight: 'bold' }}>Remarks:</span>{' '}
+                    {pr2.remarks}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         )}

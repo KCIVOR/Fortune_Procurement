@@ -12,7 +12,11 @@ import { fetchRfqQuoteAttachmentsByRfq } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { fetchPR1Attachments } from '@/lib/pr1';
 import type { PR1Attachment } from '@/types/pr1';
+import { fetchPR2ItemAttachments } from '@/lib/pr2-planning';
+import type { PR2ItemAttachment } from '@/types/pr2';
 import { resolvePR2RequestType, resolvePR2Priority } from '@/lib/pr2-classification';
+import { fetchWarehouseRemarksForPr1 } from '@/lib/pr2';
+import { EMPTY_WAREHOUSE_REMARKS, mergeWarehouseRemarksIntoPr2Items, type WarehouseRemarksForPr1 } from '@/lib/warehouse-pr2-remarks';
 
 const db = supabase as any;
 
@@ -411,7 +415,7 @@ export async function fetchPR2ApprovalDetail(
 
   // Batch-fetch quote attachments by RFQ id (pr2.rfq_id is on the pr2_requests row)
   const rfqId: string | null = (pr2 as any).rfq_id ?? null;
-  const [quoteAttachmentsByQuote, pr1AttachmentsByItem] = await Promise.all([
+  const [quoteAttachmentsByQuote, pr1AttachmentsByItem, warehouseRemarks, pr2AttachmentsByItem] = await Promise.all([
     rfqId ? fetchRfqQuoteAttachmentsByRfq(rfqId).catch(() => ({})) : Promise.resolve({}),
     pr2.pr1_id
       ? fetchPR1Attachments(pr2.pr1_id).then((atts: PR1Attachment[]) => {
@@ -423,7 +427,22 @@ export async function fetchPR2ApprovalDetail(
           return map;
         }).catch(() => ({}))
       : Promise.resolve({}),
-  ]) as [Record<string, RfqQuoteAttachment[]>, Record<string, PR1Attachment[]>];
+    pr2.pr1_id
+      ? fetchWarehouseRemarksForPr1(pr2.pr1_id).catch(() => EMPTY_WAREHOUSE_REMARKS)
+      : Promise.resolve(EMPTY_WAREHOUSE_REMARKS),
+    // PR2-native items (raw material / Planning-direct services, no pr1_item_id)
+    // carry their own pr2_item_attachments instead of pr1_attachments.
+    !pr2.pr1_id
+      ? fetchPR2ItemAttachments(pr2.id).then((atts: PR2ItemAttachment[]) => {
+          const map: Record<string, PR2ItemAttachment[]> = {};
+          for (const att of atts) {
+            if (!map[att.pr2_item_id]) map[att.pr2_item_id] = [];
+            map[att.pr2_item_id].push(att);
+          }
+          return map;
+        }).catch(() => ({}))
+      : Promise.resolve({}),
+  ]) as [Record<string, RfqQuoteAttachment[]>, Record<string, PR1Attachment[]>, WarehouseRemarksForPr1, Record<string, PR2ItemAttachment[]>];
 
   const priority = resolvePR2Priority(pr2 as any, (pr1Res.data as any) ?? null);
   const requestType = resolvePR2RequestType(pr2 as any, (pr1Res.data as any) ?? null);
@@ -470,10 +489,11 @@ export async function fetchPR2ApprovalDetail(
     pr2_status:                  pr2.status,
     generated_at:                pr2.generated_at,
     remarks:                     pr2.remarks,
+    warehouse_notes:             warehouseRemarks.notes,
     pr1_priority:                priority,
     request_type:                requestType,
     pr1_id:                      pr2.pr1_id ?? null,
-    items:                       (itemRows as any[]).map((i: any) => ({
+    items:                       mergeWarehouseRemarksIntoPr2Items((itemRows as any[]).map((i: any) => ({
       id:                   i.id,
       item_order:           i.item_order,
       item_code:            i.item_code,
@@ -496,8 +516,8 @@ export async function fetchPR2ApprovalDetail(
       quantity_override_reason_snapshot:    i.quantity_override_reason_snapshot ?? null,
       quantity_overridden_by_name_snapshot: i.quantity_overridden_by_name_snapshot ?? null,
       quote_attachments:    i.rfq_item_quote_id ? (quoteAttachmentsByQuote[i.rfq_item_quote_id] ?? []) : [],
-      attachments:          i.pr1_item_id ? (pr1AttachmentsByItem[i.pr1_item_id] ?? []) : [],
-    })),
+      attachments:          i.pr1_item_id ? (pr1AttachmentsByItem[i.pr1_item_id] ?? []) : (pr2AttachmentsByItem[i.id] ?? []),
+    })), warehouseRemarks),
     phase1_instance_id:     phase1Inst?.id ?? inst.id,
     phase1_workflow_id:     phase1Inst?.workflow_id ?? inst.workflow_id,
     phase1_current_step:    phase1Inst?.current_step ?? inst.current_step,

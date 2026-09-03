@@ -8,7 +8,7 @@ import AppShell from '@/components/layout/AppShell';
 import LoadingState from '@/components/shared/LoadingState';
 import { DetailPageSkeleton } from '@/components/shared/structural-skeletons';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPR2ById, savePR2Items, calcPR2VatBreakdown, updatePR2ItemRawMaterial } from '@/lib/pr2';
+import { fetchPR2ById, savePR2Items, calcPR2VatBreakdown, updatePR2ItemRawMaterial, updatePr2Priority } from '@/lib/pr2';
 import { getPr2PrintUrl } from '@/lib/pr2-classification';
 import { computeLineVat } from '@/lib/vat';
 import { submitPR2ForApproval, canActOnPR2Step, fetchPR2ApprovalDetail } from '@/lib/pr2-approvals';
@@ -88,6 +88,7 @@ interface EditableItem {
   pr1_quantity_requested_snapshot?: number | null;
   quantity_override_reason_snapshot?: string | null;
   quantity_overridden_by_name_snapshot?: string | null;
+  warehouse_item_notes?: string | null;
 }
 
 function toEditableItem(item: PR2Item): EditableItem {
@@ -120,6 +121,7 @@ function toEditableItem(item: PR2Item): EditableItem {
     pr1_quantity_requested_snapshot: item.pr1_quantity_requested_snapshot ?? null,
     quantity_override_reason_snapshot: item.quantity_override_reason_snapshot ?? null,
     quantity_overridden_by_name_snapshot: item.quantity_overridden_by_name_snapshot ?? null,
+    warehouse_item_notes: item.warehouse_item_notes ?? null,
   };
 }
 
@@ -395,11 +397,17 @@ export default function PR2DetailPage() {
 
   const canUpdatePriority = profile && canUpdatePR1Priority(profile, pr2.requisitioner_id);
   const handlePriorityChange = async (newPriority: 'normal' | 'medium' | 'high') => {
-    if (!pr2.pr1_id || !profile || newPriority === pr2.pr1_priority) return;
+    if (!profile || newPriority === pr2.pr1_priority) return;
     setPriorityUpdating(true);
     setPriorityError('');
     try {
-      await updatePR1Priority(pr2.pr1_id, newPriority, profile);
+      if (pr2.pr1_id) {
+        await updatePR1Priority(pr2.pr1_id, newPriority, profile);
+      } else {
+        // PR2-native (raw material / Planning-direct services) — no pr1_requests
+        // row to write onto; priority lives on pr2_requests directly.
+        await updatePr2Priority(pr2.id, newPriority, profile);
+      }
       setPR2({ ...pr2, pr1_priority: newPriority });
     } catch (err) {
       setPriorityError(err instanceof Error ? err.message : 'Failed to update priority.');
@@ -671,6 +679,13 @@ export default function PR2DetailPage() {
             )}
           </div>
 
+          {pr2.warehouse_notes && (
+            <div className="bg-white rounded-md border border-pq-neutral-200 p-5">
+              <h2 className="text-xs font-bold text-pq-neutral-500 uppercase tracking-wide mb-3">Warehouse Notes</h2>
+              <p className="text-sm text-pq-neutral-900 italic">{pr2.warehouse_notes}</p>
+            </div>
+          )}
+
           {/* Grand total */}
           <div className="bg-pq-neutral-900 rounded-md p-5">
             {vatBreakdown && vatBreakdown.vatAmount > 0 ? (
@@ -799,11 +814,15 @@ export default function PR2DetailPage() {
                               overriddenBy={item.quantity_overridden_by_name_snapshot}
                             />
                           )}
+                        {item.warehouse_item_notes && (
+                          <RequestorRemarks text={item.warehouse_item_notes} label="Warehouse notes" />
+                        )}
                         {item.lead_time_days && (
                           <p className="text-xs text-pq-neutral-400 mt-0.5">Lead: {item.lead_time_days}</p>
                         )}
                         {!(item.pr1_quantity_requested_snapshot != null &&
                           item.pr1_quantity_requested_snapshot !== item.quantity_requested) &&
+                          !item.warehouse_item_notes &&
                           !item.lead_time_days && (
                             <span className="text-xs text-pq-neutral-300">—</span>
                           )}

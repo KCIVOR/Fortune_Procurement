@@ -18,8 +18,8 @@ import PriorityChip from '@/components/shared/PriorityChip';
 import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import { useAuth } from '@/context/AuthContext';
 import { canRequestRawMaterials } from '@/lib/raw-material-access';
-import { fetchMyRawMaterialPR2s } from '@/lib/pr2-planning';
-import type { PR2Request, PR2Status } from '@/types/pr2';
+import { fetchMyRawMaterialPR2s, PR2_LIFECYCLE_FILTER_OPTIONS } from '@/lib/pr2-planning';
+import type { PR2Request } from '@/types/pr2';
 import { PR2_STATUS_LABELS } from '@/types/pr2';
 
 const STATUS_MAP: Record<string, StatusVariant> = {
@@ -33,10 +33,7 @@ const STATUS_MAP: Record<string, StatusVariant> = {
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'all', label: 'All statuses' },
-  ...(Object.keys(PR2_STATUS_LABELS) as PR2Status[]).map((s) => ({
-    value: s,
-    label: PR2_STATUS_LABELS[s],
-  })),
+  ...PR2_LIFECYCLE_FILTER_OPTIONS,
 ];
 
 export default function RawMaterialPR2ListPage() {
@@ -218,8 +215,8 @@ export default function RawMaterialPR2ListPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <StatusChip
-                          status={STATUS_MAP[r.status] || 'pending'}
-                          label={PR2_STATUS_LABELS[r.status]}
+                          status={(r.lifecycle_display_chip ?? STATUS_MAP[r.status]) || 'pending'}
+                          label={r.lifecycle_display_label ?? PR2_STATUS_LABELS[r.status]}
                           size="sm"
                         />
                       </td>

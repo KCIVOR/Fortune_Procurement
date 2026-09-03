@@ -1,11 +1,60 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ImageIcon, Paperclip, X, ZoomIn } from 'lucide-react';
+import { FileText, ImageIcon, Paperclip, X, ZoomIn } from 'lucide-react';
 import type { PR2ItemAttachment } from '@/types/pr2';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+
+const ACCEPTED_MIME = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+const ACCEPTED_ACCEPT_ATTR = 'image/jpeg,image/png,image/gif,image/webp,application/pdf';
+
+const isPdfMime = (mime?: string | null) => mime === 'application/pdf';
+
+/** Thumbnail: PDF icon, image preview, or placeholder — used across every attachment surface below. */
+function AttachmentThumb({
+  url,
+  name,
+  mimeType,
+  iconClassName = 'w-5 h-5',
+}: {
+  url?: string | null;
+  name: string;
+  mimeType?: string | null;
+  iconClassName?: string;
+}) {
+  if (isPdfMime(mimeType)) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full h-full gap-0.5">
+        <FileText className={`${iconClassName} text-pq-danger-500`} />
+        <span className="text-[8px] font-bold text-pq-neutral-400 uppercase tracking-wide">PDF</span>
+      </div>
+    );
+  }
+  if (url) {
+    return <img src={url} alt={name} className="w-full h-full object-cover" />;
+  }
+  return (
+    <div className="flex items-center justify-center w-full h-full">
+      <ImageIcon className={`${iconClassName} text-pq-neutral-300`} />
+    </div>
+  );
+}
+
+/** PDFs open in a new tab (native browser viewer); images open in the in-app lightbox. */
+function openAttachmentPreview(
+  url: string | null | undefined,
+  mimeType: string | null | undefined,
+  setLightbox: (url: string) => void,
+) {
+  if (!url) return;
+  if (isPdfMime(mimeType)) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } else {
+    setLightbox(url);
+  }
+}
 
 // ─── Shared lightbox ──────────────────────────────────────────────────────────
 
@@ -69,17 +118,11 @@ export function PR2AttachmentsGallery({ attachments }: PR2AttachmentsGalleryProp
             <button
               key={att.id}
               type="button"
-              onClick={() => att.signed_url && setLightbox(att.signed_url)}
+              onClick={() => openAttachmentPreview(att.signed_url, att.mime_type, setLightbox)}
               className="group relative w-20 h-20 rounded-md border border-pq-neutral-200 overflow-hidden bg-pq-neutral-50 hover:border-pq-primary-400 transition focus:outline-none focus:ring-2 focus:ring-pq-primary-500"
               title={att.file_name}
             >
-              {att.signed_url ? (
-                <img src={att.signed_url} alt={att.file_name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="flex items-center justify-center w-full h-full">
-                  <ImageIcon className="w-5 h-5 text-pq-neutral-300" />
-                </div>
-              )}
+              <AttachmentThumb url={att.signed_url} name={att.file_name} mimeType={att.mime_type} />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
                 <ZoomIn className="w-3.5 h-3.5 text-white opacity-0 group-hover:opacity-100 transition" />
               </div>
@@ -130,11 +173,11 @@ function PendingFilePreview({
     <div className="relative group w-12 h-12">
       <button
         type="button"
-        onClick={() => onPreview(url)}
+        onClick={() => openAttachmentPreview(url, file.type, onPreview)}
         className="w-full h-full rounded border border-pq-neutral-200 overflow-hidden bg-pq-neutral-50 hover:border-pq-primary-400 transition focus:outline-none"
         title={`${file.name} (pending upload)`}
       >
-        <img src={url} alt={file.name} className="w-full h-full object-cover" />
+        <AttachmentThumb url={url} name={file.name} mimeType={file.type} iconClassName="w-4 h-4" />
       </button>
       <button
         type="button"
@@ -159,7 +202,6 @@ export function PR2ItemAttachmentButton({
   const [lightbox, setLightbox] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const ACCEPTED_MIME = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   const MAX_SIZE = 10 * 1024 * 1024;
   const MAX_ATTACHMENTS = 3;
 
@@ -195,7 +237,7 @@ export function PR2ItemAttachmentButton({
         <PopoverTrigger asChild>
           <button
             type="button"
-            title="Attach images to this item"
+            title="Attach images or PDFs to this item"
             className={`
               relative inline-flex items-center justify-center w-7 h-7 rounded-md border transition
               border-pq-neutral-200 text-pq-neutral-400 hover:border-pq-primary-400 hover:text-pq-primary-600 bg-white
@@ -234,17 +276,11 @@ export function PR2ItemAttachmentButton({
                 <div key={att.id} className="relative group w-12 h-12">
                   <button
                     type="button"
-                    onClick={() => att.signed_url && setLightbox(att.signed_url)}
+                    onClick={() => openAttachmentPreview(att.signed_url, att.mime_type, setLightbox)}
                     className="w-full h-full rounded border border-pq-neutral-200 overflow-hidden bg-pq-neutral-50 hover:border-pq-primary-400 transition focus:outline-none"
                     title={att.file_name}
                   >
-                    {att.signed_url ? (
-                      <img src={att.signed_url} alt={att.file_name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="flex items-center justify-center w-full h-full">
-                        <ImageIcon className="w-4 h-4 text-pq-neutral-300" />
-                      </div>
-                    )}
+                    <AttachmentThumb url={att.signed_url} name={att.file_name} mimeType={att.mime_type} iconClassName="w-4 h-4" />
                   </button>
                   <button
                     type="button"
@@ -282,7 +318,7 @@ export function PR2ItemAttachmentButton({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
+        accept={ACCEPTED_ACCEPT_ATTR}
         multiple
         disabled={atLimit}
         className="hidden"

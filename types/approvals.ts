@@ -49,6 +49,8 @@ export interface PR2ApprovalDetail {
   pr2_status: string;
   generated_at: string;
   remarks: string | null;
+  /** Read-only, live warehouse_validations.notes for the source PR1. */
+  warehouse_notes?: string | null;
   pr1_priority?: 'normal' | 'medium' | 'high';
   request_type?: 'goods' | 'services' | 'raw_material';
   /** Rev #9: needed to edit priority from the approval detail page. */
@@ -109,10 +111,16 @@ export interface PR2ApprovalItem {
   quantity_override_reason_snapshot?: string | null;
   /** Read-only, forwarded from `pr2_items.quantity_overridden_by_name_snapshot`. */
   quantity_overridden_by_name_snapshot?: string | null;
+  /** Read-only, live warehouse_validation_items.item_notes for this PR1 line. */
+  warehouse_item_notes?: string | null;
   /** Supplier quote attachments loaded at read time via rfq_item_quote_id. */
   quote_attachments?: import('./canvassing').RfqQuoteAttachment[];
-  /** Requestor PR1 item attachments, forwarded via pr1_item_id at read time. */
-  attachments?: PR1Attachment[];
+  /**
+   * Requestor item attachments. Goods/Services items (pr1_item_id set) load
+   * PR1Attachment via pr1_item_id; PR2-native items (raw material / Planning-
+   * direct services, no pr1_item_id) load PR2ItemAttachment instead.
+   */
+  attachments?: Array<PR1Attachment | import('./pr2').PR2ItemAttachment>;
 }
 
 // Must match approval_instances_status_check constraint: active | approved | rejected | cancelled

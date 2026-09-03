@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import { submitPR2ForApproval } from '@/lib/pr2-approvals';
+import { applyWarehouseSohToPr2Item } from '@/lib/warehouse-pr2-remarks';
 
 const db = supabase as any;
 
@@ -66,7 +67,7 @@ export async function createPR2FromWarehouseValidation(
 
   const { data: valItems, error: itemsErr } = await db
     .from('warehouse_validation_items')
-    .select('pr1_item_id, procurement_qty, quantity_requested')
+    .select('pr1_item_id, procurement_qty, quantity_requested, quantity_override_reason, quantity_overridden_by_name_snapshot, validated_soh')
     .eq('validation_id', validationId);
   if (itemsErr) throw itemsErr;
 
@@ -143,7 +144,10 @@ export async function createPR2FromWarehouseValidation(
         unit_of_measure:                     item.unit_of_measure,
         pr1_item_id:                         item.id,
         quantity_requested:                  qty,
-        qty_on_hand:                         0,
+        qty_on_hand: applyWarehouseSohToPr2Item(
+          { qty_on_hand: 0 },
+          { validatedSoh: line.validated_soh == null ? null : Number(line.validated_soh) },
+        ).qty_on_hand,
         qty_incoming:                        0,
         quantity_to_purchase:                qty,
         selected_rfq_supplier_id:            null,
@@ -160,8 +164,8 @@ export async function createPR2FromWarehouseValidation(
         quote_justification:                 null,
         pr1_remarks_snapshot:                item.remarks ?? null,
         pr1_quantity_requested_snapshot:     Number(item.quantity_requested),
-        quantity_override_reason_snapshot:   null,
-        quantity_overridden_by_name_snapshot: null,
+        quantity_override_reason_snapshot:   (line.quantity_override_reason as string | null)?.trim() || null,
+        quantity_overridden_by_name_snapshot: (line.quantity_overridden_by_name_snapshot as string | null)?.trim() || null,
         rfq_item_quote_id:                   null,
       };
     })

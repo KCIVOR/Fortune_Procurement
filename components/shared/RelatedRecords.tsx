@@ -50,7 +50,7 @@ const TYPE_ICONS: Record<ChainDocType, React.ElementType> = {
 const TYPE_LABELS: Record<ChainDocType, string> = {
   PR1:      'Purchase Request',
   RFQ:      'Request for Quotation',
-  PR2:      'Purchase Memo',
+  PR2:      'PR2',
   PO:       'Purchase Order',
   Delivery: 'Delivery',
   GRN:      'Goods Receipt',
