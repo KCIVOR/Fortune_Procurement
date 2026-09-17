@@ -436,7 +436,7 @@ export default function RfqDetailPage() {
     setWorking(true);
     setActionError('');
     try {
-      await removeExternalVendorFromRfq(rfqSupplierId);
+      await removeExternalVendorFromRfq(rfqSupplierId, profile);
       setLoading(true);
       load();
     } catch (e: any) {

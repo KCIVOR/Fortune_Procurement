@@ -145,6 +145,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const { error: auditErr } = await admin.from('audit_logs').insert({
+      actor_id: auth.userId,
+      action: 'SUPPLIER_PRODUCT_CREATED',
+      document_type: 'SUPPLIER_PRODUCT',
+      document_id: product.id,
+      payload: {
+        supplier_id: supplierId,
+        product_name: productName,
+        product_code: product.product_code,
+        item_type: 'goods',
+      },
+    });
+    if (auditErr) {
+      console.error('[procurement/products/create] Audit log failed:', auditErr);
+    }
+
     return NextResponse.json({ success: true, product });
   } catch (err) {
     console.error('[procurement/products/create] Unexpected error:', err);

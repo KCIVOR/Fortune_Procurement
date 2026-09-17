@@ -128,7 +128,7 @@ export async function getDepartmentsWithUserCountsAndTotal(filters: { limit?: nu
 
   const countQuery = supabase
     .from('departments')
-    .select('id');
+    .select('id', { count: 'exact', head: true });
 
   const [dataResult, countResult] = await Promise.all([dataQuery, countQuery]);
 
@@ -146,7 +146,7 @@ export async function getDepartmentsWithUserCountsAndTotal(filters: { limit?: nu
     user_count: (dept.profiles || []).length,
   }));
 
-  const totalCount = (countResult.data || []).length;
+  const totalCount = countResult.count ?? 0;
 
   return { departments, total_count: totalCount };
 }
@@ -255,15 +255,13 @@ export async function deactivateDepartment(
     return { success: false, error: updateError.message };
   }
 
-  if (adminId) {
-    await logDepartmentAudit('DEPARTMENT_DEACTIVATED', departmentId, adminId, {
-      name: currentData.name,
-      code: currentData.code,
-      old_active: true,
-      new_active: false,
-      user_count: userCount,
-    });
-  }
+  await logDepartmentAudit('DEPARTMENT_DEACTIVATED', departmentId, adminId, {
+    name: currentData.name,
+    code: currentData.code,
+    old_active: true,
+    new_active: false,
+    user_count: userCount,
+  });
 
   return { success: true, error: null };
 }
@@ -302,15 +300,13 @@ export async function reactivateDepartment(
     return { success: false, error: updateError.message };
   }
 
-  if (adminId) {
-    await logDepartmentAudit('DEPARTMENT_REACTIVATED', departmentId, adminId, {
-      name: currentData.name,
-      code: currentData.code,
-      old_active: false,
-      new_active: true,
-      user_count: userCount,
-    });
-  }
+  await logDepartmentAudit('DEPARTMENT_REACTIVATED', departmentId, adminId, {
+    name: currentData.name,
+    code: currentData.code,
+    old_active: false,
+    new_active: true,
+    user_count: userCount,
+  });
 
   return { success: true, error: null };
 }
@@ -484,16 +480,14 @@ export async function deactivatePosition(
     return { success: false, error: updateError.message };
   }
 
-  if (adminId) {
-    await logPositionAudit('POSITION_DEACTIVATED', positionId, adminId, {
-      title: currentData.title,
-      role_id: currentData.role_id,
-      old_active: true,
-      new_active: false,
-      user_count: userCount,
-      workflow_usage_count: workflowUsageCount,
-    });
-  }
+  await logPositionAudit('POSITION_DEACTIVATED', positionId, adminId, {
+    title: currentData.title,
+    role_id: currentData.role_id,
+    old_active: true,
+    new_active: false,
+    user_count: userCount,
+    workflow_usage_count: workflowUsageCount,
+  });
 
   return { success: true, error: null };
 }
@@ -533,16 +527,14 @@ export async function reactivatePosition(
     return { success: false, error: updateError.message };
   }
 
-  if (adminId) {
-    await logPositionAudit('POSITION_REACTIVATED', positionId, adminId, {
-      title: currentData.title,
-      role_id: currentData.role_id,
-      old_active: false,
-      new_active: true,
-      user_count: userCount,
-      workflow_usage_count: workflowUsageCount,
-    });
-  }
+  await logPositionAudit('POSITION_REACTIVATED', positionId, adminId, {
+    title: currentData.title,
+    role_id: currentData.role_id,
+    old_active: false,
+    new_active: true,
+    user_count: userCount,
+    workflow_usage_count: workflowUsageCount,
+  });
 
   return { success: true, error: null };
 }

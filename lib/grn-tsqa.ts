@@ -118,7 +118,9 @@ export async function approveGRNItemQA(
       document_id:   item.grn_id,
       payload:       { grn_item_id: grnItemId, description: item.description, changed_decision: item.qa_status === 'rejected' },
     });
-  } catch {}
+  } catch (err) {
+    console.error('[approveGRNItemQA] audit log failed:', err);
+  }
 }
 
 export async function rejectGRNItemQA(
@@ -175,7 +177,9 @@ export async function rejectGRNItemQA(
       document_id:   item.grn_id,
       payload:       { grn_item_id: grnItemId, description: item.description, reason: reason.trim() },
     });
-  } catch {}
+  } catch (err) {
+    console.error('[rejectGRNItemQA] audit log failed:', err);
+  }
 
   try {
     await notifyByRole('warehouse', {

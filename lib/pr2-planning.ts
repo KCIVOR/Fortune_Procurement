@@ -643,6 +643,22 @@ export async function updateRawMaterialPR2Draft(
     syncedItems = await syncRawMaterialItems(pr2Id, input.items, pr2.request_type as 'raw_material' | 'services');
   }
 
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'PR2_RAW_MATERIAL_DRAFT_UPDATED',
+      document_type: 'PR2',
+      document_id:   pr2Id,
+      payload: {
+        updated_by:     profile.full_name,
+        header_changed: Object.keys(patch).length > 1,
+        item_count:     input.items?.length ?? null,
+      },
+    });
+  } catch (err) {
+    console.error('[updateRawMaterialPR2Draft] audit log failed:', err);
+  }
+
   return { items: syncedItems };
 }
 
@@ -674,7 +690,9 @@ export async function deleteDraftRawMaterialPR2(pr2Id: string, profile: UserProf
       document_id:   pr2Id,
       payload:       { deleted_by: profile.full_name },
     });
-  } catch {}
+  } catch (err) {
+    console.error('[deleteDraftRawMaterialPR2] audit log failed:', err);
+  }
 
   const { error: itemsErr } = await db.from('pr2_items').delete().eq('pr2_id', pr2Id);
   if (itemsErr) throw itemsErr;
@@ -747,7 +765,9 @@ export async function uploadPR2ItemAttachment(
       document_id:   pr2Id,
       payload:       { file_name: file.name, file_size: file.size, pr2_item_id: pr2ItemId },
     });
-  } catch {}
+  } catch (err) {
+    console.error('[uploadPR2ItemAttachment] audit log failed:', err);
+  }
 
   return data as PR2ItemAttachment;
 }
@@ -770,7 +790,9 @@ export async function deletePR2ItemAttachment(attachment: PR2ItemAttachment, act
         document_id:   attachment.pr2_id,
         payload:       { file_name: attachment.file_name, pr2_item_id: attachment.pr2_item_id },
       });
-    } catch {}
+    } catch (err) {
+      console.error('[deletePR2ItemAttachment] audit log failed:', err);
+    }
   }
 }
 

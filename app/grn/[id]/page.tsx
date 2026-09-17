@@ -55,11 +55,11 @@ export default function GRNDetailPage() {
   const [forwardingItemId, setForwardingItemId] = useState<string | null>(null);
 
   const handleForwardItemToQA = async (itemId: string) => {
-    if (!grn) return;
+    if (!grn || !profile) return;
     setForwardingItemId(itemId);
     setFormError('');
     try {
-      await forwardItemToQA(grn.id, itemId);
+      await forwardItemToQA(grn.id, itemId, profile);
       await load();
     } catch (e: any) {
       setFormError(e.message ?? 'Failed to forward item to QA.');

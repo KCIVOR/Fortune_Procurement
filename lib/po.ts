@@ -6,6 +6,7 @@ import { fetchRfqQuoteAttachmentsByQuoteIds } from '@/lib/canvassing';
 import type { RfqQuoteAttachment } from '@/types/canvassing';
 import { computeLineVat, aggregateVat } from '@/lib/vat';
 import { resolvePR2RequestType, resolvePR2Priority } from '@/lib/pr2-classification';
+import { requireAuthUserId } from '@/lib/auth-session';
 
 const db = supabase as any;
 
@@ -874,5 +875,18 @@ export async function updatePODraft(
   if (error) throw error;
   if (!data) {
     throw new Error('PO could not be updated. It may no longer be editable.');
+  }
+
+  try {
+    const actorId = await requireAuthUserId();
+    await db.from('audit_logs').insert({
+      actor_id:      actorId,
+      action:        'PO_DRAFT_UPDATED',
+      document_type: 'PO',
+      document_id:   poId,
+      payload:       { ...values },
+    });
+  } catch {
+    /* best-effort */
   }
 }

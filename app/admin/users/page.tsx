@@ -10,10 +10,11 @@ import FilterBar from '@/components/shared/FilterBar';
 import type { FilterConfig } from '@/components/shared/FilterBar.types';
 import UserTable from '@/components/admin/UserTable';
 import CreateUserModal from '@/components/admin/CreateUserModal';
+import BulkImportUsersModal from '@/components/admin/BulkImportUsersModal';
 import { Button } from '@/components/ui/button';
 import { listAdminUsersWithCount, getAdminUserStats, getAssignmentOptions } from '@/lib/admin-users';
 import type { AdminUser, AdminUserFilters } from '@/lib/admin-users';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 
 export default function UsersPage() {
   const { profile, loading: authLoading } = useAuth();
@@ -30,6 +31,7 @@ export default function UsersPage() {
   const [rowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [positions, setPositions] = useState<Array<{ id: string; title: string; role_id: string | null }>>([]);
 
   useEffect(() => {
@@ -144,13 +146,23 @@ export default function UsersPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <PageHeader title="Users" description="View all system users and their details" />
-          <Button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-medium"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create User
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setIsBulkImportOpen(true)}
+              variant="outline"
+              className="text-xs font-medium"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Bulk Import
+            </Button>
+            <Button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-pq-primary-600 hover:bg-pq-neutral-900 text-white text-xs font-medium"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create User
+            </Button>
+          </div>
         </div>
 
         {/* Filter Panel */}
@@ -223,6 +235,18 @@ export default function UsersPage() {
           departments={departments}
           positions={positions}
           onUserCreated={() => {
+            setCurrentPage(1);
+            loadData();
+          }}
+        />
+
+        <BulkImportUsersModal
+          isOpen={isBulkImportOpen}
+          onClose={() => setIsBulkImportOpen(false)}
+          roles={roles}
+          departments={departments}
+          positions={positions}
+          onImportComplete={() => {
             setCurrentPage(1);
             loadData();
           }}

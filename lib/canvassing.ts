@@ -8,6 +8,7 @@ import { syncPR2ItemsFromRfqSelections, syncRawMaterialPR2ItemsFromRfqSelections
 import { submitRfqForApproval } from '@/lib/rfq-approvals';
 import { isPr2NativeDirectRequest } from '@/lib/pr2-classification';
 import { getVatSettings, computeLineVat } from '@/lib/vat';
+import { requireAuthUserId } from '@/lib/auth-session';
 import type {
   RfqBatch,
   RfqSupplier,
@@ -506,8 +507,8 @@ export async function assignPr1ToBuyer(
         by:               profile.full_name,
       },
     });
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[assignPr1ToBuyer] audit log failed:', err);
   }
 
   try {
@@ -562,8 +563,8 @@ export async function unassignPr1FromBuyer(
         by:                  profile.full_name,
       },
     });
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[unassignPr1FromBuyer] audit log failed:', err);
   }
 }
 
@@ -618,8 +619,8 @@ export async function assignPr2ToBuyer(
         by:               profile.full_name,
       },
     });
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[assignPr2ToBuyer] audit log failed:', err);
   }
 
   try {
@@ -674,8 +675,8 @@ export async function unassignPr2FromBuyer(
         by:                  profile.full_name,
       },
     });
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[unassignPr2FromBuyer] audit log failed:', err);
   }
 }
 
@@ -1622,7 +1623,9 @@ export async function assignSuppliers(
       document_id:   rfqId,
       payload:       { supplier_ids: toInsert, count: toInsert.length },
     });
-  } catch {}
+  } catch (err) {
+    console.error('[assignSuppliers] audit log failed:', err);
+  }
 
   // If the RFQ is already open, notify newly added suppliers immediately.
   // (When the RFQ is still draft, issueRfq handles notifications at issue time.)
@@ -1720,7 +1723,9 @@ export async function addExternalVendorToRfq(
       document_id:   rfqId,
       payload:       { vendor_name: name },
     });
-  } catch {}
+  } catch (err) {
+    console.error('[addExternalVendorToRfq] audit log failed:', err);
+  }
 }
 
 // ─── Fetch quote ID for a specific supplier+item combination ─────────────────
@@ -1745,6 +1750,7 @@ export async function fetchQuoteIdForSupplierItem(
 // the DB would reject the delete anyway; we surface a clear message instead).
 export async function removeExternalVendorFromRfq(
   rfqSupplierId: string,
+  profile: UserProfile,
 ): Promise<void> {
   // Fetch the slot and its RFQ status in one join
   const { data: rs, error: rsErr } = await db
@@ -1774,6 +1780,18 @@ export async function removeExternalVendorFromRfq(
 
   const { error } = await db.from('rfq_suppliers').delete().eq('id', rfqSupplierId);
   if (error) throw error;
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'RFQ_EXTERNAL_VENDOR_REMOVED',
+      document_type: 'RFQ_QUOTE',
+      document_id:   rfqSupplierId,
+      payload:       { removed_by: profile.full_name, vendor_slot_id: rfqSupplierId },
+    });
+  } catch {
+    /* best-effort */
+  }
 }
 
 // ─── Issue RFQ (draft → open) ─────────────────────────────────────────────────
@@ -3631,6 +3649,19 @@ export async function submitSupplierQuotation(
   ).length;
 
   try {
+    const actorId = await requireAuthUserId();
+    await db.from('audit_logs').insert({
+      actor_id:      actorId,
+      action:        'RFQ_QUOTATION_SUBMITTED',
+      document_type: 'RFQ_QUOTE',
+      document_id:   rfqSupplierId,
+      payload:       { item_count: quotes.length, alternative_count: alternativeCount },
+    });
+  } catch {
+    /* best-effort */
+  }
+
+  try {
     const { data: rs } = await db
       .from('rfq_suppliers')
       .select('rfq_id, supplier_name_snapshot')
@@ -3971,7 +4002,9 @@ export async function uploadRfqQuoteAttachment(params: {
         document_id:   rfqId,
         payload:       { rfq_supplier_id: rfqSupplierId, item_id: itemId, file_name: file.name, file_size: file.size },
       });
-    } catch {}
+    } catch (err) {
+      console.error('[uploadRfqQuoteAttachment] audit log failed:', err);
+    }
   }
 
   return data as RfqQuoteAttachment;
@@ -3998,7 +4031,9 @@ export async function deleteRfqQuoteAttachment(
         document_id:   attachmentId,
         payload:       { storage_path: storagePath },
       });
-    } catch {}
+    } catch (err) {
+      console.error('[deleteRfqQuoteAttachment] audit log failed:', err);
+    }
   }
 }
 

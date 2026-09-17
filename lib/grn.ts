@@ -71,7 +71,7 @@ export async function evaluateGRNQAStatus(grnId: string): Promise<'open' | 'pend
   return resolvedStatus === 'pending_qa' ? 'pending_qa' : resolvedStatus === 'open' ? 'open' : null;
 }
 
-export async function forwardItemToQA(grnId: string, itemId: string): Promise<void> {
+export async function forwardItemToQA(grnId: string, itemId: string, profile: UserProfile): Promise<void> {
   const { error } = await db
     .from('grn_items')
     .update({
@@ -85,6 +85,18 @@ export async function forwardItemToQA(grnId: string, itemId: string): Promise<vo
   if (error) throw error;
 
   await evaluateGRNQAStatus(grnId);
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'GRN_ITEM_FORWARDED_TO_QA',
+      document_type: 'GRN',
+      document_id:   grnId,
+      payload:       { item_id: itemId, forwarded_by: profile.full_name },
+    });
+  } catch {
+    /* best-effort */
+  }
 }
 
 // ─── Normalizers ──────────────────────────────────────────────────────────────
@@ -625,7 +637,9 @@ export async function openGRNForDelivery(
       document_id:   grn.id,
       payload:       { delivery_id: deliveryId, po_number: delivery.po_number_snapshot },
     });
-  } catch {}
+  } catch (err) {
+    console.error('[openGRNForDelivery] audit log failed:', err);
+  }
 
   return grn.id;
 }
@@ -701,7 +715,9 @@ export async function saveGRNProgress(
       document_id:   grnId,
       payload:       { item_count: values.items.length },
     });
-  } catch {}
+  } catch (err) {
+    console.error('[saveGRNProgress] audit log failed:', err);
+  }
 }
 
 // ─── Close GRN (save + close transaction) ────────────────────────────────────
@@ -792,7 +808,9 @@ export async function closeGRN(
         closed_by:        profile.full_name,
       },
     });
-  } catch {}
+  } catch (err) {
+    console.error('[closeGRN] audit log failed:', err);
+  }
 
   // Notify requisitioner (best-effort)
   try {
@@ -891,7 +909,9 @@ export async function reopenGRN(grnId: string, profile: UserProfile): Promise<vo
         actor_role:  profile.role,
       },
     });
-  } catch {}
+  } catch (err) {
+    console.error('[reopenGRN] audit log failed:', err);
+  }
 
   // Notify requestor (best-effort) — their receipt is being revised
   try {

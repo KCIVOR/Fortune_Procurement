@@ -160,6 +160,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const { error: auditErr } = await admin.from('audit_logs').insert({
+      actor_id: user.id,
+      action: 'USER_INVITED',
+      document_type: 'PROFILE',
+      document_id: invitedId,
+      payload: {
+        target_user_id: invitedId,
+        target_user_email: normalizedEmail,
+        target_user_name: full_name.trim(),
+        role_id,
+        department_id,
+        position_id,
+      },
+    });
+    if (auditErr) {
+      console.error('[admin/users/invite] Audit log failed:', auditErr);
+    }
+
     return NextResponse.json({
       success: true,
       user_id: invitedId,

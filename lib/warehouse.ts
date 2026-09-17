@@ -317,6 +317,19 @@ export async function openValidation(
 
   const result = await fetchValidationByPR1Id(pr1Id);
   if (!result) throw new Error('Failed to retrieve validation record after creation.');
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'WAREHOUSE_VALIDATION_OPENED',
+      document_type: 'PR1',
+      document_id:   pr1Id,
+      payload:       { validation_id: created.id, opened_by: profile.full_name },
+    });
+  } catch {
+    /* best-effort */
+  }
+
   return result;
 }
 
@@ -346,13 +359,15 @@ export async function saveValidationProgress(
   values: ValidationFormValues,
   profile: UserProfile,
 ): Promise<void> {
-  const { error: hErr } = await db
+  const { data: hData, error: hErr } = await db
     .from('warehouse_validations')
     .update({
       notes:      values.notes,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', validationId);
+    .eq('id', validationId)
+    .select('pr1_id')
+    .maybeSingle();
 
   if (hErr) throw hErr;
 
@@ -397,6 +412,18 @@ export async function saveValidationProgress(
       .eq('validation_id', validationId);
 
     if (iErr) throw iErr;
+  }
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'WAREHOUSE_VALIDATION_PROGRESS_SAVED',
+      document_type: 'PR1',
+      document_id:   (hData as any)?.pr1_id ?? null,
+      payload:       { validation_id: validationId, item_count: values.items.length },
+    });
+  } catch {
+    /* best-effort */
   }
 }
 
@@ -709,8 +736,8 @@ export async function submitValidationDecision(
           })),
         },
       });
-    } catch {
-      // Audit logging is best-effort
+    } catch (err) {
+      console.error('[submitValidationDecision] audit log failed:', err);
     }
 
     try {

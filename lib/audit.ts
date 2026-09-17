@@ -55,11 +55,10 @@ export async function getEnrichedAuditNames(payload: Record<string, any>): Promi
   }
 }
 
-function buildAuditQuery(filters: AuditLogFilters) {
-  let query = supabase
-    .from('audit_logs')
-    .select('id, actor_id, action, document_type, document_id, payload, ip_address, created_at');
-
+function applyAuditFilters<T extends { ilike: any; eq: any; gte: any; lte: any }>(
+  query: T,
+  filters: AuditLogFilters,
+): T {
   if (filters.action && filters.action.trim()) {
     query = query.ilike('action', `%${filters.action}%`);
   }
@@ -81,6 +80,22 @@ function buildAuditQuery(filters: AuditLogFilters) {
   }
 
   return query;
+}
+
+function buildAuditQuery(filters: AuditLogFilters) {
+  const query = supabase
+    .from('audit_logs')
+    .select('id, actor_id, action, document_type, document_id, payload, ip_address, created_at');
+
+  return applyAuditFilters(query, filters);
+}
+
+function buildAuditCountQuery(filters: AuditLogFilters) {
+  const query = supabase
+    .from('audit_logs')
+    .select('id', { count: 'exact', head: true });
+
+  return applyAuditFilters(query, filters);
 }
 
 export async function listAuditLogs(filters: AuditLogFilters = {}): Promise<AuditLog[]> {
@@ -107,7 +122,7 @@ export async function listAuditLogsWithCount(filters: AuditLogFilters = {}): Pro
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
-  const countQuery = buildAuditQuery(filters).select('id');
+  const countQuery = buildAuditCountQuery(filters);
 
   const [logsResult, countResult] = await Promise.all([logsQuery, countQuery]);
 
@@ -121,7 +136,7 @@ export async function listAuditLogsWithCount(filters: AuditLogFilters = {}): Pro
 
   return {
     logs: logsData.data || [],
-    total_count: (countData?.data || countData || []).length || 0,
+    total_count: countData?.count ?? 0,
   };
 }
 
@@ -139,6 +154,10 @@ export async function getAuditLogStats(): Promise<{
     .from('audit_logs')
     .select('action');
 
+  const { count } = await supabase
+    .from('audit_logs')
+    .select('id', { count: 'exact', head: true });
+
   const document_types = Array.from(new Set(
     (doctypes || [])
       .map((r) => (r as { document_type: string }).document_type)
@@ -151,7 +170,7 @@ export async function getAuditLogStats(): Promise<{
   ));
 
   return {
-    total_count: (doctypes || []).length,
+    total_count: count ?? 0,
     document_types,
     actions: action_list,
   };

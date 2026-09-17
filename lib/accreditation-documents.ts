@@ -106,6 +106,23 @@ async function uploadAndRecord(
     .single();
   if (insertErr) throw new Error(insertErr.message || 'Document record insert failed.');
 
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      docFields.uploaded_by,
+      action:        'ACCREDITATION_DOCUMENT_UPLOADED',
+      document_type: 'ACCREDITATION_DOCUMENT',
+      document_id:   (docRow as any).id,
+      payload: {
+        file_name:            file.name,
+        document_type:        docFields.document_type,
+        accreditation_id:     docFields.accreditation_id,
+        supplier_product_id:  docFields.supplier_product_id,
+      },
+    });
+  } catch (err) {
+    console.error('[uploadAndRecord] audit log failed:', err);
+  }
+
   return {
     path:       uploadData.path,
     filename:   file.name,
@@ -329,8 +346,8 @@ export async function verifyAccreditationDocument(
       document_id:   documentId,
       action_url:    '/supplier/accreditation',
     });
-  } catch {
-    /* best-effort */
+  } catch (err) {
+    console.error('[verifyAccreditationDocument] audit log failed:', err);
   }
 }
 
@@ -402,8 +419,8 @@ export async function rejectAccreditationDocument(
       document_id:   documentId,
       action_url:    '/supplier/accreditation',
     });
-  } catch {
-    /* best-effort */
+  } catch (err) {
+    console.error('[rejectAccreditationDocument] audit log failed:', err);
   }
 }
 
@@ -462,8 +479,8 @@ export async function updateAccreditationDocumentExpiry(
         accreditation_id: (row as any).accreditation_id,
       },
     });
-  } catch {
-    /* best-effort */
+  } catch (err) {
+    console.error('[updateAccreditationDocumentExpiry] audit log failed:', err);
   }
 }
 
@@ -535,8 +552,8 @@ export async function requestAccreditationDocumentRevision(
       document_id:   documentId,
       action_url:    '/supplier/accreditation',
     });
-  } catch {
-    /* best-effort */
+  } catch (err) {
+    console.error('[requestDocumentRevision] audit log failed:', err);
   }
 }
 
@@ -645,7 +662,7 @@ export async function resubmitAccreditationDocument(
         new_file_path: uploadData.path,
       },
     });
-  } catch {
-    /* best-effort */
+  } catch (err) {
+    console.error('[resubmitAccreditationDocument] audit log failed:', err);
   }
 }

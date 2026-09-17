@@ -136,6 +136,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const { error: auditErr } = await admin.from('audit_logs').insert({
+      actor_id: user.id,
+      action: 'USER_CREATED',
+      document_type: 'PROFILE',
+      document_id: userId,
+      payload: {
+        target_user_id: userId,
+        target_user_email: email,
+        target_user_name: full_name,
+        role_id,
+        department_id,
+        position_id,
+      },
+    });
+    if (auditErr) {
+      console.error('[admin/users/create] Audit log failed:', auditErr);
+    }
+
     return NextResponse.json({
       success: true,
       user_id: userId,

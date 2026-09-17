@@ -94,6 +94,19 @@ export async function createDraftAccreditation(
     .select('*')
     .single();
   if (error) throw error;
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'ACCREDITATION_DRAFT_CREATED',
+      document_type: 'ACCREDITATION',
+      document_id:   (data as any).id,
+      payload:       { supplier: profile.full_name },
+    });
+  } catch (err) {
+    console.error('[createDraftAccreditation] audit log failed:', err);
+  }
+
   return data as SupplierAccreditation;
 }
 
@@ -131,8 +144,8 @@ export async function submitAccreditation(
       payload:       { supplier: profile.full_name },
     });
     if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[submitAccreditation] audit log failed:', err);
   }
 
   // Notify all procurement users (best-effort)
@@ -192,8 +205,8 @@ export async function withdrawAccreditation(
       payload:       { supplier: profile.full_name, prior_status: st },
     });
     if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[withdrawAccreditation] audit log failed:', err);
   }
 
   if (notifyProcurement) {
@@ -327,6 +340,18 @@ export async function markAccreditationUnderReview(
   if (!updated || updated.length === 0) {
     throw new Error('This application was already updated. Please refresh and try again.');
   }
+
+  try {
+    await db.from('audit_logs').insert({
+      actor_id:      profile.id,
+      action:        'ACCREDITATION_UNDER_REVIEW',
+      document_type: 'ACCREDITATION',
+      document_id:   accreditationId,
+      payload:       { reviewer: profile.full_name },
+    });
+  } catch (err) {
+    console.error('[markAccreditationUnderReview] audit log failed:', err);
+  }
 }
 
 // ─── Procurement: request missing documents from supplier ─────────────────────
@@ -379,8 +404,8 @@ export async function requestMissingDocuments(
       payload:       { reviewer: profile.full_name, note },
     });
     if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[requestMissingDocuments] audit log failed:', err);
   }
 
   // Notify supplier (best-effort)
@@ -449,8 +474,8 @@ export async function approveAccreditation(
       payload:       { reviewer: profile.full_name, review_notes: reviewNotes ?? null, valid_until: null },
     });
     if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[approveAccreditation] audit log failed:', err);
   }
 
   // Notify supplier (best-effort)
@@ -519,8 +544,8 @@ export async function updateAccreditationExpiry(
       payload:       { updated_by: profile.full_name, old_valid_until: oldValidUntil, new_valid_until: validUntilValue },
     });
     if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[updateAccreditationExpiry] audit log failed:', err);
   }
 }
 
@@ -572,8 +597,8 @@ export async function rejectAccreditation(
       payload:       { reviewer: profile.full_name, review_notes: reviewNotes ?? null },
     });
     if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[rejectAccreditation] audit log failed:', err);
   }
 
   // Notify supplier (best-effort)
@@ -637,14 +662,14 @@ export async function revokeAccreditation(
   try {
     const { error: auditErr } = await db.from('audit_logs').insert({
       actor_id:      profile.id,
-      action:        'ACCREDITATION_EXPIRED',
+      action:        'ACCREDITATION_REVOKED',
       document_type: 'ACCREDITATION',
       document_id:   accreditationId,
       payload:       { reviewer: profile.full_name, reason: reason.trim() },
     });
     if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[revokeAccreditation] audit log failed:', err);
   }
 
   try {
@@ -709,8 +734,8 @@ export async function reopenAccreditationForReview(
       payload:       { reviewer: profile.full_name, notes: notes?.trim() || null },
     });
     if (auditErr) console.warn(auditErr);
-  } catch {
-    /* best-effort audit */
+  } catch (err) {
+    console.error('[reopenAccreditationForReview] audit log failed:', err);
   }
 
   try {

@@ -86,6 +86,25 @@ export async function PUT(req: NextRequest) {
     if (error) throw error;
 
     const saved = await loadSmtpSettings();
+
+    const { error: auditErr } = await admin.from('audit_logs').insert({
+      actor_id: auth.userId,
+      action: 'SMTP_SETTINGS_UPDATED',
+      document_type: 'SETTINGS',
+      document_id: null,
+      payload: {
+        host,
+        port,
+        from_email: fromEmail,
+        from_name: fromName,
+        username,
+        password_changed: Boolean(incomingPassword),
+      },
+    });
+    if (auditErr) {
+      console.error('[admin/smtp-settings] Audit log failed:', auditErr);
+    }
+
     return NextResponse.json({ success: true, data: publicSmtpView(saved) });
   } catch (error: unknown) {
     return NextResponse.json(
