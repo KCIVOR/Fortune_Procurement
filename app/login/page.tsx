@@ -304,8 +304,10 @@ function LoginForm() {
           </CardContent>
         </Card>
 
-        {/* Quick-login shortcuts */}
-        <QuickLoginPanel onLogin={quickLogin} />
+        {/* Quick-login shortcuts (dev/staging only) */}
+        {process.env.NODE_ENV !== 'production' && (
+          <QuickLoginPanel onLogin={quickLogin} />
+        )}
 
         {/* Minimal Accessible Footer */}
         <div className="text-center text-xs text-pq-neutral-400 flex items-center justify-center gap-3 py-2">
