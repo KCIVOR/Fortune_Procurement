@@ -35,6 +35,11 @@ function isApproverPrintPath(pathname: string): boolean {
   return /^\/(po|pr2)\/[^/]+\/print$/.test(path);
 }
 
+function isApproverRelatedRecordDetailPath(pathname: string): boolean {
+  const path = normalizePathname(pathname);
+  return /^\/(rfq|delivery|grn)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path);
+}
+
 /** All application roles — any authenticated user on open routes. */
 export const ALL_APP_ROLES: readonly AppRole[] = [
   'employee',
@@ -111,6 +116,7 @@ export const ROUTE_ACCESS_RULES: readonly RouteAccessRule[] = [
 
   { prefix: '/bugtrack', decision: { kind: 'authenticated' } },
   { prefix: '/messages', decision: { kind: 'authenticated' } },
+  { prefix: '/wishlist', decision: { kind: 'authenticated' } },
   { prefix: '/profile', decision: { kind: 'authenticated' } },
   { prefix: '/dashboard', decision: { kind: 'authenticated' } },
 ] as const;
@@ -186,6 +192,13 @@ export function isRoleAllowedForPath(
       }
       if (decision.roles?.includes(role)) return true;
       if (isDirectorApprover(role, position) && isDirectorLogisticsPath(pathname)) {
+        return true;
+      }
+      if (
+        role === 'approver'
+        && (position === 'Supervisor' || position === 'Department Head')
+        && isApproverRelatedRecordDetailPath(pathname)
+      ) {
         return true;
       }
       if (role === 'approver' && isApproverPrintPath(pathname)) {

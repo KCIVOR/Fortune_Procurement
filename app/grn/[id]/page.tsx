@@ -78,6 +78,10 @@ export default function GRNDetailPage() {
     (grn?.request_type === 'goods' && (isWarehouse || isProcurement))
   );
   const isReadOnly  = isClosed || !canHandle;
+  // Supervisor and Department Head approvers can inspect a GRN but do not have
+  // access to the GRN print route. Director approvers retain the logistics
+  // exception, while warehouse/procurement/admin keep their existing access.
+  const canPrintGrn = profile?.role !== 'approver' || profile.position === 'Director';
   const hasPendingQAItems = form.items.some(
     (i) => (i.is_raw_material || i.requires_qa) && i.qa_status !== 'approved'
   );
@@ -297,11 +301,13 @@ export default function GRNDetailPage() {
                 {reopening ? 'Reopening...' : 'Reopen GRN'}
               </button>
             )}
-            <DetailPrintButton
-              href={`/grn/${grn.id}/print`}
-              label="Print GRN"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-pq-neutral-200 text-pq-neutral-900 text-sm font-semibold rounded-md hover:border-pq-primary-600 transition"
-            />
+            {canPrintGrn && (
+              <DetailPrintButton
+                href={`/grn/${grn.id}/print`}
+                label="Print GRN"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-pq-neutral-200 text-pq-neutral-900 text-sm font-semibold rounded-md hover:border-pq-primary-600 transition"
+              />
+            )}
           </div>
         }
       />

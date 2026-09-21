@@ -14,6 +14,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
   fetchPR2ApprovalDetail,
+  fetchPR2ApprovalDetailByPR2Id,
   canActOnPR2Step,
   submitPR2ApprovalAction,
 } from '@/lib/pr2-approvals';
@@ -76,7 +77,7 @@ export default function PR2ApprovalDetailPage() {
     if (!instanceId) return;
     (async () => {
       try {
-        const d = await fetchPR2ApprovalDetail(instanceId);
+        const d = await fetchPR2ApprovalDetail(instanceId) ?? await fetchPR2ApprovalDetailByPR2Id(instanceId);
         setDetail(d);
         if (!d) {
           setError('Approval record not found.');
@@ -119,10 +120,19 @@ export default function PR2ApprovalDetailPage() {
     ? detail.active_steps.find(s => s.step_order === detail.active_current_step) ?? null
     : null;
 
+  const approvalTargetMatchesUrl = !!(
+    detail && (
+      detail.pr2_id === instanceId ||
+      detail.active_instance_id === instanceId ||
+      detail.phase1_instance_id === instanceId ||
+      detail.phase2_instance_id === instanceId
+    )
+  );
+
   const canAct = !!(
     profile &&
     detail &&
-    detail.active_instance_id === instanceId &&
+    approvalTargetMatchesUrl &&
     detail.active_instance_status === 'active' &&
     activeStepDef &&
     canActOnPR2Step(profile, activeStepDef.role_required, activeStepDef.position_required, detail.department_id)
@@ -140,7 +150,7 @@ export default function PR2ApprovalDetailPage() {
     setSubmitError('');
     try {
       await submitPR2ApprovalAction(
-        instanceId,
+        detail.active_instance_id ?? instanceId,
         detail.pr2_id,
         activeStepDef.step_order,
         activeStepDef.is_final,

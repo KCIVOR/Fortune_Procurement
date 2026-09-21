@@ -13,6 +13,7 @@ import WarehouseQtyOverrideNote from '@/components/shared/WarehouseQtyOverrideNo
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchPOApprovalDetail,
+  fetchPOApprovalDetailByPOId,
   canActOnPOStep,
   submitPOApprovalAction,
 } from '@/lib/po-approvals';
@@ -69,6 +70,7 @@ export default function POApprovalDetailPage() {
   useEffect(() => {
     if (!instanceId) return;
     fetchPOApprovalDetail(instanceId)
+      .then(d => d ?? fetchPOApprovalDetailByPOId(instanceId))
       .then(d => {
         setDetail(d);
         if (!d) setError('Approval record not found.');
@@ -106,7 +108,7 @@ export default function POApprovalDetailPage() {
     setSubmitError('');
     try {
       await submitPOApprovalAction(
-        instanceId,
+        detail.instance_id,
         detail.po_id,
         currentStepDef.step_order,
         currentStepDef.is_final,
@@ -124,7 +126,7 @@ export default function POApprovalDetailPage() {
       setSubmitError(err.message ?? 'Failed to submit action.');
       setSubmitting(false);
     }
-  }, [detail, profile, pendingAction, currentStepDef, remarks, router, instanceId]);
+  }, [detail, profile, pendingAction, currentStepDef, remarks, router]);
 
   if (loading) return (
     <AppShell title="PO Approval">

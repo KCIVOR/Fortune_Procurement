@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import Link from 'next/link';
-import { Building2, Briefcase, Menu, Bug } from 'lucide-react';
+import { Building2, Briefcase, Menu, Bug, Heart } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/layout/NotificationBell';
 import MessageIcon from '@/components/messages/MessageIcon';
@@ -54,6 +54,17 @@ export default function TopHeader({ title, onMenuToggle }: TopHeaderProps) {
           <NotificationBell />
           <div className="hidden sm:block w-px h-4 bg-pq-neutral-200" />
           <MessageIcon />
+          <div className="hidden sm:block w-px h-4 bg-pq-neutral-200" />
+          <Link
+            href="/wishlist"
+            className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-pq-neutral-500 hover:text-pq-primary-600 hover:bg-pq-neutral-50 active:bg-pq-neutral-100 transition relative group"
+            aria-label="Wishlist"
+          >
+            <Heart className="w-5 h-5" />
+            <span className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 scale-0 transition-all rounded bg-gray-800 px-2 py-1 text-xs text-white group-hover:scale-100 whitespace-nowrap z-50">
+              Wishlist
+            </span>
+          </Link>
           <div className="hidden sm:block w-px h-4 bg-pq-neutral-200" />
           <Link 
             href="/bugtrack" 

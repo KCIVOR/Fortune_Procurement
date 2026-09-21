@@ -75,6 +75,7 @@ const SUPPLIER_STATUS_COLOR: Record<string, string> = {
 export default function RfqDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { profile } = useAuth();
+  const canManageRfq = profile?.role === 'procurement' || profile?.role === 'admin';
   const router = useRouter();
   const { handleBack } = useBackNavigation();
 
@@ -132,6 +133,7 @@ export default function RfqDetailPage() {
     itemDescription: string;
     existing: { unit_price: number; quoted_description: string; lead_time_days: string; remarks?: string | null; attachments?: RfqQuoteAttachment[]; vat_type?: 'vat_inclusive' | 'vat_exclusive' | null } | null;
   }) => {
+    if (!canManageRfq) return;
     setExtQuoteError('');
     setExtQuote({
       pr1ItemId: args.pr1ItemId,
@@ -168,7 +170,7 @@ export default function RfqDetailPage() {
   };
 
   const handleSaveExternalQuote = async () => {
-    if (!extQuote || !detail) return;
+    if (!canManageRfq || !extQuote || !detail) return;
     const price = Number(extQuote.unitPrice);
     const lead = extQuote.leadTimeDays.trim();
     if (!extQuote.quotedDescription.trim()) { setExtQuoteError('Description is required.'); return; }
@@ -346,6 +348,7 @@ export default function RfqDetailPage() {
   ];
 
   const openAssignModal = () => {
+    if (!canManageRfq) return;
     setSupplierSearch('');
     setAppliedSupplierSearch('');
     setAccreditationFilter('all');
@@ -400,7 +403,7 @@ export default function RfqDetailPage() {
   , 0);
 
   const handleAssign = async () => {
-    if (!profile || selectedIds.size === 0) return;
+    if (!canManageRfq || !profile || selectedIds.size === 0) return;
     setWorking(true);
     setActionError('');
     try {
@@ -416,7 +419,7 @@ export default function RfqDetailPage() {
   };
 
   const handleAddExternalVendor = async (vendorName: string) => {
-    if (!profile) return;
+    if (!canManageRfq || !profile) return;
     setWorking(true);
     setActionError('');
     try {
@@ -432,7 +435,7 @@ export default function RfqDetailPage() {
   };
 
   const handleRemoveExternalVendor = async (rfqSupplierId: string) => {
-    if (!profile) return;
+    if (!canManageRfq || !profile) return;
     setWorking(true);
     setActionError('');
     try {
@@ -447,7 +450,7 @@ export default function RfqDetailPage() {
   };
 
   const handleIssue = async () => {
-    if (!profile) return;
+    if (!canManageRfq || !profile) return;
     setWorking(true);
     setActionError('');
     try {
@@ -462,7 +465,7 @@ export default function RfqDetailPage() {
   };
 
   const handleClose = async () => {
-    if (!profile) return;
+    if (!canManageRfq || !profile) return;
     setWorking(true);
     setActionError('');
     try {
@@ -477,7 +480,7 @@ export default function RfqDetailPage() {
   };
 
   const handleReopen = async () => {
-    if (!profile) return;
+    if (!canManageRfq || !profile) return;
     setWorking(true);
     setActionError('');
     try {
@@ -493,7 +496,7 @@ export default function RfqDetailPage() {
 
   const handleViewPR2 = async () => {
     if (!profile || !existingPR2Id) return;
-    router.push(`/pr2/${existingPR2Id}`);
+    router.push(profile.role === 'approver' ? `/approvals/pr2/${existingPR2Id}` : `/pr2/${existingPR2Id}`);
   };
 
 
@@ -506,7 +509,7 @@ export default function RfqDetailPage() {
     .slice(-1)[0] ?? null;
 
   const handleCopyForViber = (supplierAssignmentId?: string) => {
-    if (!detail) return;
+    if (!canManageRfq || !detail) return;
     const text = formatRfqForViber(detail.rfq, detail.pr1, detail.items, supplierAssignmentId);
     navigator.clipboard.writeText(text)
       .then(() => toast.success('RFQ summary copied for Viber!'))
@@ -514,7 +517,7 @@ export default function RfqDetailPage() {
   };
 
   const handleSendEmail = async (supplierAssignmentId?: string) => {
-    if (!detail) return;
+    if (!canManageRfq || !detail) return;
     setWorking(true);
     try {
       const targets = supplierAssignmentId 
@@ -584,7 +587,7 @@ export default function RfqDetailPage() {
 
 
   const handleSelectWinner = async (pr1ItemId: string, rfqSupplierId: string) => {
-    if (!profile || isClosed) return;
+    if (!canManageRfq || !profile || !isOpen) return;
     setActionError('');
     try {
       const matrixRow = matrix.find(r => r.item.id === pr1ItemId);
@@ -617,7 +620,7 @@ export default function RfqDetailPage() {
 
   // Phase 7 (Raw Mats): re-invoke selection with the typed justification.
   const handleJustificationSubmit = async (justification: string) => {
-    if (!profile || !justificationCtx) return;
+    if (!canManageRfq || !profile || !isOpen || !justificationCtx) return;
     setActionError('');
     setJustificationBusy(true);
     try {
@@ -700,7 +703,7 @@ export default function RfqDetailPage() {
               />
             )}
 
-            {isClosed && !followsApprovalFlow && !existingPR2Id && (
+            {canManageRfq && isClosed && !followsApprovalFlow && !existingPR2Id && (
               <ActionButton
                 icon={RotateCcw}
                 label="Reopen RFQ"
@@ -709,7 +712,7 @@ export default function RfqDetailPage() {
                 disabled={working}
               />
             )}
-            {isClosed && followsApprovalFlow && !rfqApprovalApproved && (
+            {canManageRfq && isClosed && followsApprovalFlow && !rfqApprovalApproved && (
               <ActionButton
                 icon={RotateCcw}
                 label="Reopen RFQ"
@@ -718,7 +721,7 @@ export default function RfqDetailPage() {
                 disabled={working}
               />
             )}
-            {isDraft && suppliers.length >= 1 && (
+            {canManageRfq && isDraft && suppliers.length >= 1 && (
               <ActionButton
                 icon={Send}
                 label="Issue RFQ"
@@ -727,7 +730,7 @@ export default function RfqDetailPage() {
                 disabled={working}
               />
             )}
-            {isOpen && allItemsSelected && (
+            {canManageRfq && isOpen && allItemsSelected && (
               <ActionButton
                 icon={CheckCheck}
                 label={followsApprovalFlow ? 'Close & Submit for Approval' : 'Close & Finalise'}
@@ -736,7 +739,7 @@ export default function RfqDetailPage() {
                 disabled={working}
               />
             )}
-            {(isDraft || isOpen) && (
+            {canManageRfq && (isDraft || isOpen) && (
               <ActionButton
                 icon={Mail}
                 label="Send Email"
@@ -745,7 +748,7 @@ export default function RfqDetailPage() {
                 disabled={working}
               />
             )}
-            {(isDraft || isOpen) && (
+            {canManageRfq && (isDraft || isOpen) && (
               <ActionButton
                 icon={MessageSquare}
                 label="Copy for Viber"
@@ -754,7 +757,7 @@ export default function RfqDetailPage() {
                 disabled={working}
               />
             )}
-            {(isDraft || isOpen) && (
+            {canManageRfq && (isDraft || isOpen) && (
               <ActionButton
                 icon={UserPlus}
                 label="Canvass Supplier"
@@ -796,30 +799,31 @@ export default function RfqDetailPage() {
               </p>
             )}
             <p className="text-xs text-orange-700 mt-1">
-              This RFQ was reopened for canvassing. Update as needed, then close it again to resubmit for approval.
+              This RFQ was reopened for canvassing.
+              {canManageRfq && ' Update as needed, then close it again to resubmit for approval.'}
             </p>
           </div>
         </div>
       )}
-      {isDraft && suppliers.length < 1 && (
+      {canManageRfq && isDraft && suppliers.length < 1 && (
         <div className="flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-6">
           <AlertTriangle className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
           <p className="text-sm text-pq-warning-600">Assign at least 1 supplier before you can issue this RFQ.</p>
         </div>
       )}
-      {isDraft && suppliers.length >= 1 && (
+      {canManageRfq && isDraft && suppliers.length >= 1 && (
         <div className="flex items-start gap-3 bg-pq-primary-50 border border-pq-primary-200 rounded-md px-5 py-4 mb-6">
           <CircleDot className="w-4 h-4 text-pq-primary-600 mt-0.5 shrink-0" />
           <p className="text-sm text-pq-primary-600">Ready to issue. Click &ldquo;Issue RFQ&rdquo; to open it to suppliers.</p>
         </div>
       )}
-      {isOpen && !allItemsSelected && submittedSuppliers > 0 && (
+      {canManageRfq && isOpen && !allItemsSelected && submittedSuppliers > 0 && (
         <div className="flex items-start gap-3 bg-pq-warning-100 border border-pq-warning-100 rounded-md px-5 py-4 mb-6">
           <AlertTriangle className="w-4 h-4 text-pq-warning-600 mt-0.5 shrink-0" />
           <p className="text-sm text-pq-warning-600">Select a winning supplier for each item below, then close the RFQ.</p>
         </div>
       )}
-      {isOpen && pendingSubstitutes > 0 && (
+      {canManageRfq && isOpen && pendingSubstitutes > 0 && (
         <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-md px-5 py-4 mb-6">
           <Replace className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
           <div>
@@ -933,6 +937,7 @@ export default function RfqDetailPage() {
           </div>
 
           {/* Suppliers */}
+          {canViewPrices && (
           <div className="bg-white rounded-md border border-pq-neutral-200 overflow-hidden">
             <div className="flex items-center gap-3 px-5 py-3.5 border-b border-pq-neutral-200">
               <Users className="w-4 h-4 text-pq-neutral-400" />
@@ -959,7 +964,7 @@ export default function RfqDetailPage() {
                       </span>
                     </div>
                     {/* External vendors have no email/portal — Procurement enters the quote directly. */}
-                    {s.is_external ? (
+                    {canManageRfq && (s.is_external ? (
                       rfq.status === 'draft' && (
                         <button
                           onClick={() => handleRemoveExternalVendor(s.id)}
@@ -988,7 +993,7 @@ export default function RfqDetailPage() {
                           <MessageSquare className="w-4 h-4" />
                         </button>
                       </div>
-                    )}
+                    ))}
                   </div>
 
 
@@ -996,6 +1001,7 @@ export default function RfqDetailPage() {
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* Right column: quotation comparison matrix */}
@@ -1005,16 +1011,21 @@ export default function RfqDetailPage() {
               <Trophy className="w-4 h-4 text-pq-neutral-400" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-semibold text-pq-neutral-900">Quotation Comparison</h2>
-                <p className="text-[10px] text-pq-neutral-400 mt-0.5">
+                {canManageRfq && <p className="text-[10px] text-pq-neutral-400 mt-0.5">
                   Verified catalog product on the quote line = Can Award (after substitute approval if applicable). Pending / missing link = not awardable.
-                </p>
+                </p>}
               </div>
-              <span className="text-xs text-pq-neutral-400 ml-auto shrink-0">
+              {canViewPrices && <span className="text-xs text-pq-neutral-400 ml-auto shrink-0">
                 {submittedSuppliers}/{suppliers.length} suppliers responded
-              </span>
+              </span>}
             </div>
 
-            {suppliers.length === 0 ? (
+            {!canViewPrices ? (
+              <div className="px-5 py-10 text-center">
+                <p className="text-sm text-pq-neutral-500">Supplier quotations are restricted for your role.</p>
+                <p className="text-xs text-pq-neutral-400 mt-1">You can review the request details and items on this page.</p>
+              </div>
+            ) : suppliers.length === 0 ? (
               <div className="px-5 py-10 text-center">
                 <p className="text-sm text-pq-neutral-400">Assign suppliers to begin collecting quotations.</p>
               </div>
@@ -1058,7 +1069,7 @@ export default function RfqDetailPage() {
                         key={row.item.id}
                         row={row}
                         suppliers={suppliers}
-                        canSelect={isOpen && !isClosed}
+                        canSelect={canManageRfq && isOpen && !isClosed}
                         canViewPrices={canViewPrices}
                         requestType={pr1.request_type ?? 'goods'}
                         onSelect={handleSelectWinner}
@@ -1073,7 +1084,7 @@ export default function RfqDetailPage() {
         </div>
       </div>
 
-      <AssignSuppliersModal
+      {canManageRfq && <AssignSuppliersModal
         open={assigning}
         working={working}
         actionError={actionError}
@@ -1097,20 +1108,20 @@ export default function RfqDetailPage() {
         onClose={closeAssignModal}
         onAssign={handleAssign}
         onAddExternalVendor={handleAddExternalVendor}
-      />
+      />}
 
       {/* Phase 7 (Raw Mats): justification capture for awarding an
           unverified or manual-entry quote on a raw-mats line. */}
-      <JustificationModal
+      {canManageRfq && <JustificationModal
         open={justificationCtx !== null}
         context={justificationCtx}
         busy={justificationBusy}
         onSubmit={handleJustificationSubmit}
         onCancel={handleJustificationCancel}
-      />
+      />}
 
       {/* External vendor — Procurement-entered quote */}
-      {extQuote && (
+      {canManageRfq && extQuote && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
           role="dialog"
@@ -1224,6 +1235,7 @@ export default function RfqDetailPage() {
                           type="button"
                           disabled={extQuoteBusy}
                           onClick={async () => {
+                            if (!canManageRfq) return;
                             try {
                               await deleteRfqQuoteAttachment(att.id, att.storage_path, profile?.id);
                               setExtQuote(prev => prev && {

@@ -579,7 +579,7 @@ export default function PR2ApprovalsPage() {
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           {row.instance_status === 'revision' ? (
-                            <Link href={`/pr2/${row.pr2_id}`} className="inline-flex items-center gap-1.5 text-pq-warning-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
+                            <Link href={`/approvals/pr2/${row.instance_id}`} className="inline-flex items-center gap-1.5 text-pq-warning-600 hover:text-pq-neutral-900 text-xs font-semibold transition">
                               <ArrowRight className="w-3.5 h-3.5" /> Revise
                             </Link>
                           ) : active ? (

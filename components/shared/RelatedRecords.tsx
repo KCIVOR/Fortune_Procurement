@@ -108,13 +108,14 @@ export default function RelatedRecords({ baseType, baseId, role, currentDocType,
       ) : (
         <div className="divide-y divide-pq-neutral-200">
           {visible.map(doc => (
-            <ChainRow
-              key={doc.type}
-              doc={doc}
-              isCurrent={doc.type === currentDocType}
-              compact={compact}
-              canNavigate={canNavigateRelatedRecords(role)}
-            />
+              <ChainRow
+                key={doc.type}
+                doc={doc}
+                isCurrent={doc.type === currentDocType}
+                compact={compact}
+                canNavigate={canNavigateRelatedRecords(role)}
+                role={role}
+              />
           ))}
         </div>
       )}
@@ -127,11 +128,13 @@ function ChainRow({
   isCurrent,
   compact = false,
   canNavigate = true,
+  role,
 }: {
   doc: ChainDoc;
   isCurrent: boolean;
   compact?: boolean;
   canNavigate?: boolean;
+  role: AppRole;
 }) {
   if (doc.type === 'PO' && doc.linked_pos && doc.linked_pos.length > 1) {
     return (
@@ -140,11 +143,17 @@ function ChainRow({
         isCurrent={isCurrent}
         compact={compact}
         canNavigate={canNavigate}
+        role={role}
       />
     );
   }
 
   const Icon = TYPE_ICONS[doc.type];
+  const route = role === 'approver' && doc.type === 'PR2' && doc.id
+    ? `/approvals/pr2/${doc.id}`
+    : role === 'approver' && doc.type === 'PO' && doc.id
+      ? `/approvals/po/${doc.id}`
+      : doc.route;
 
   const rowBase = compact
     ? `flex items-center gap-2 px-3 py-1.5 text-xs transition ${isCurrent ? 'bg-pq-primary-50' : 'hover:bg-pq-neutral-50'}`
@@ -183,7 +192,7 @@ function ChainRow({
       </div>
 
       {/* Arrow indicator for linked rows — only when navigation is allowed */}
-      {doc.exists && doc.route && !isCurrent && canNavigate && (
+      {doc.exists && route && !isCurrent && canNavigate && (
         <ChevronRight className="w-3 h-3 text-pq-neutral-400 shrink-0" />
       )}
       {isCurrent && (
@@ -192,9 +201,9 @@ function ChainRow({
     </>
   );
 
-  if (doc.exists && doc.route && !isCurrent && canNavigate) {
+  if (doc.exists && route && !isCurrent && canNavigate) {
     return (
-      <Link href={doc.route} className={rowBase}>
+      <Link href={route} className={rowBase}>
         {inner}
       </Link>
     );
@@ -208,11 +217,13 @@ function POChainMultiRow({
   isCurrent,
   compact = false,
   canNavigate = true,
+  role,
 }: {
   doc: ChainDoc;
   isCurrent: boolean;
   compact?: boolean;
   canNavigate?: boolean;
+  role: AppRole;
 }) {
   const [expanded, setExpanded] = useState(false);
   const Icon = TYPE_ICONS.PO;
@@ -277,7 +288,11 @@ function POChainMultiRow({
               </>
             );
             return canNavigate ? (
-              <Link key={p.id} href={p.route} className={rowClass}>{rowInner}</Link>
+              <Link
+                key={p.id}
+                href={role === 'approver' ? `/approvals/po/${p.id}` : p.route}
+                className={rowClass}
+              >{rowInner}</Link>
             ) : (
               <div key={p.id} className={rowClass}>{rowInner}</div>
             );
