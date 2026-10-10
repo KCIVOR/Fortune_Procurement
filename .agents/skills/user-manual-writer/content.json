@@ -1,0 +1,28 @@
+{
+  "app_name": "Sample Desk",
+  "manual_title": "User Manual",
+  "version": "1.0",
+  "date": "September 2026",
+  "introduction": "Sample Desk helps users keep a short list of work items.\n\nThis sample content is used only to validate the manual builder.",
+  "features": [
+    {
+      "title": "Adding a Work Item",
+      "purpose": "Create a work item so it appears in your list.",
+      "location": "Open the Work Items page and click New Item.",
+      "steps": [
+        "Click New Item.",
+        "Enter a name.",
+        "Click Save. The new item appears in the list."
+      ],
+      "tips": [
+        "Names must be entered before you can save the item."
+      ]
+    }
+  ],
+  "needs_clarification": [
+    {
+      "item": "Bulk action button",
+      "reason": "The control is visible in the interface, but its handler does not reveal an observable result. Confirm its behavior before documenting it."
+    }
+  ]
+}

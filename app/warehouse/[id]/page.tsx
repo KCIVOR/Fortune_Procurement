@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
@@ -17,6 +17,8 @@ import {
   fetchPR1RevisionRemarks,
 } from '@/lib/warehouse';
 import { fetchSuggestedPR2Sequence } from '@/lib/pr2';
+import { getWarehouseItemCodes, updateWarehouseItemCode, hasCurrentWarehouseItemCodePR2 } from '@/lib/warehouse-item-code-data';
+import type { WarehouseItemCodeReadResult, WarehouseItemCodeSaveResult } from '@/lib/warehouse-item-code';
 import type { WarehouseTerminalAction } from '@/types/warehouse';
 import type { PR1WithItems } from '@/types/pr1';
 import type {
@@ -45,6 +47,31 @@ import { RequestTypeBadge } from '@/components/shared/RequestTypeBadge';
 import { PR1AttachmentsGallery } from '@/components/pr1/PR1AttachmentsSection';
 import RelatedRecords from '@/components/shared/RelatedRecords';
 
+async function loadItemCodeState(validation: WarehouseValidationWithItems, pr1: PR1WithItems) {
+  const [rows, hasPR2] = await Promise.all([
+    getWarehouseItemCodes(validation.id),
+    hasCurrentWarehouseItemCodePR2(pr1.id),
+  ]);
+  const byLine: Record<string, WarehouseItemCodeReadResult> = {};
+  if (rows.length !== validation.items.length) throw new Error('Item-code response is missing validation lines.');
+  for (const item of validation.items) {
+    const row = rows.find(r => r.validation_item_id === item.id);
+    const pr1Item = pr1.items.find(i => i.id === item.pr1_item_id);
+    // Local copies may predate another user's save. Verify the checked persisted
+    // copies agree, not that they still equal a stale value held in React state.
+    if (!row || !pr1Item || row.validation_id !== validation.id || row.pr1_item_id !== item.pr1_item_id || row.original_pr1_code !== row.effective_code) {
+      throw new Error('Item-code response does not match the current validation.');
+    }
+    byLine[item.id] = row;
+  }
+  return { byLine, hasPR2 };
+}
+
+function itemCodeErrorMessage(error: unknown): string {
+  return error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+    ? error.message : 'Unable to verify item codes. Please reload before continuing.';
+}
+
 export default function WarehouseValidationPage() {
   const { id: pr1Id } = useParams<{ id: string }>();
   const { profile } = useAuth();
@@ -67,28 +94,131 @@ export default function WarehouseValidationPage() {
   const [pendingTerminalAction, setPendingTerminalAction] = useState<WarehouseTerminalAction | null>(null);
   const [terminalRemarks, setTerminalRemarks] = useState('');
   const [revisionRemarks, setRevisionRemarks] = useState<{ remarks: string; actor: string } | null>(null);
+  const [itemCodes, setItemCodes] = useState<Record<string, WarehouseItemCodeReadResult>>({});
+  const [itemCodesReady, setItemCodesReady] = useState(false);
+  const [itemCodeBusy, setItemCodeBusy] = useState(false);
+  const [itemCodeLoadError, setItemCodeLoadError] = useState('');
+  const [itemCodeNotice, setItemCodeNotice] = useState('');
+  const [hasCurrentPR2, setHasCurrentPR2] = useState(false);
+  const [codeEditor, setCodeEditor] = useState<{
+    lineId: string; expected: string; draft: string; needsReload: boolean; error: string;
+  } | null>(null);
+  const itemCodeOperation = useRef(false);
 
   const isReadOnly = Boolean(validation?.decision);
+  const codeEditBlocksWorkflow = itemCodeBusy || Boolean(codeEditor && (codeEditor.draft !== codeEditor.expected || codeEditor.needsReload));
+  const codeBlocksSubmission = codeEditBlocksWorkflow || !itemCodesReady || Boolean(itemCodeLoadError);
+  const canEditItemCode = itemCodesReady && !itemCodeLoadError &&
+    profile?.active === true && profile.role === 'warehouse' && pr1?.status === 'approved_for_warehouse' &&
+    (pr1.request_type === 'goods' || pr1.request_type === 'services') && !isReadOnly && !hasCurrentPR2;
+
+  const mergeItemCodes = useCallback((rows: readonly WarehouseItemCodeSaveResult[]) => {
+    const byItem = new Map(rows.map(row => [row.pr1_item_id, row.effective_code]));
+    const byLine = new Map(rows.map(row => [row.validation_item_id, row]));
+    setPR1(current => current ? { ...current, items: current.items.map(item =>
+      byItem.has(item.id) ? { ...item, item_code: byItem.get(item.id)! } : item) } : current);
+    setValidation(current => current ? { ...current, items: current.items.map(item => {
+      const row = byLine.get(item.id);
+      return row?.validation_id === current.id && row.pr1_item_id === item.pr1_item_id
+        ? { ...item, item_code: row.effective_code } : item;
+    }) } : current);
+    setFormValues(current => ({ ...current, items: current.items.map(item => {
+      const row = byLine.get(item.id);
+      return row?.pr1_item_id === item.pr1_item_id ? { ...item, item_code: row.effective_code } : item;
+    }) }));
+  }, []);
 
   useEffect(() => {
     if (!pr1Id || !profile) return;
+    let cancelled = false;
+    setLoading(true);
+    setItemCodesReady(false);
+    setCodeEditor(null);
+    setItemCodeLoadError('');
+    setItemCodeNotice('');
 
     Promise.all([
       fetchPR1ById(pr1Id),
       openValidation(pr1Id, profile),
       fetchPR1RevisionRemarks(pr1Id),
     ])
-      .then(([pr1Data, valData, remarksData]) => {
+      .then(async ([pr1Data, valData, remarksData]) => {
+        if (cancelled) return;
         setPR1(pr1Data);
         setValidation(valData);
         setFormValues(buildFormValues(valData));
         setRevisionRemarks(remarksData);
+        if (pr1Data) {
+          try {
+            const state = await loadItemCodeState(valData, pr1Data);
+            if (cancelled) return;
+            setItemCodes(state.byLine);
+            mergeItemCodes(Object.values(state.byLine));
+            setHasCurrentPR2(state.hasPR2);
+            setItemCodesReady(true);
+          } catch (err) {
+            if (!cancelled) setItemCodeLoadError(itemCodeErrorMessage(err));
+          }
+        }
       })
       .catch((err: { message?: string }) =>
         setError(err?.message ?? 'Failed to load validation data.'),
       )
-      .finally(() => setLoading(false));
-  }, [pr1Id, profile]);
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [pr1Id, profile, mergeItemCodes]);
+
+  const reloadItemCodes = async () => {
+    if (!validation || !pr1 || itemCodeOperation.current) return;
+    itemCodeOperation.current = true;
+    setItemCodeBusy(true);
+    setItemCodeNotice('');
+    try {
+      const state = await loadItemCodeState(validation, pr1);
+      setItemCodes(state.byLine);
+      mergeItemCodes(Object.values(state.byLine));
+      setHasCurrentPR2(state.hasPR2);
+      setItemCodesReady(true);
+      setItemCodeLoadError('');
+      setCodeEditor(current => current ? { ...current, expected: state.byLine[current.lineId].effective_code, needsReload: false, error: '' } : null);
+    } catch (err) {
+      setItemCodesReady(false);
+      setItemCodeLoadError(itemCodeErrorMessage(err));
+    } finally {
+      itemCodeOperation.current = false;
+      setItemCodeBusy(false);
+    }
+  };
+
+  const saveItemCode = async () => {
+    if (!codeEditor || !canEditItemCode || codeEditor.needsReload || itemCodeOperation.current || saving || submitting) return;
+    const editor = codeEditor;
+    const persisted = itemCodes[editor.lineId];
+    itemCodeOperation.current = true;
+    setItemCodeBusy(true);
+    setItemCodeNotice('');
+    try {
+      const result = await updateWarehouseItemCode(editor.lineId, editor.expected, editor.draft);
+      if (result.validation_item_id !== editor.lineId || result.validation_id !== validation?.id || result.pr1_item_id !== persisted.pr1_item_id) {
+        throw new Error('Saved item code does not match the current validation. Reload before retrying.');
+      }
+      setItemCodes(current => ({ ...current, [editor.lineId]: { ...persisted, ...result, original_pr1_code: result.effective_code } }));
+      mergeItemCodes([result]);
+      setCodeEditor(null);
+      setItemCodeNotice('Item code saved.');
+    } catch (err) {
+      const conflict = err && typeof err === 'object' && 'code' in err && err.code === '40001';
+      // Any failed/ambiguous save must re-read before retrying; an RPC may have committed before a network error.
+      setItemCodesReady(false);
+      setItemCodeLoadError('A code save could not be verified. Reload item codes before submitting.');
+      setCodeEditor({ ...editor, needsReload: true, error: conflict
+        ? 'This item code changed elsewhere. Reload item codes before retrying; your attempted code is preserved.'
+        : `${itemCodeErrorMessage(err)} Reload item codes before retrying.` });
+    } finally {
+      itemCodeOperation.current = false;
+      setItemCodeBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!confirmSubmit || !pr1 || (pr1.request_type !== 'goods' && pr1.request_type !== 'services')) return;
@@ -145,7 +275,7 @@ export default function WarehouseValidationPage() {
   };
 
   const handleSaveProgress = async () => {
-    if (!validation || !profile) return;
+    if (!validation || !profile || codeEditBlocksWorkflow || itemCodeOperation.current) return;
     setSaving(true);
     setGlobalError('');
     try {
@@ -158,7 +288,7 @@ export default function WarehouseValidationPage() {
   };
 
   const handleSubmit = async () => {
-    if (!validation || !pr1 || !profile) return;
+    if (!validation || !pr1 || !profile || codeBlocksSubmission || itemCodeOperation.current) return;
     if (willCreatePR2 && !getPR2Suffix(pr2Number).trim()) {
       setGlobalError('Enter a PR2 number before submitting.');
       return;
@@ -188,7 +318,7 @@ export default function WarehouseValidationPage() {
   };
 
   const handleTerminalAction = async () => {
-    if (!validation || !pr1 || !profile || !pendingTerminalAction) return;
+    if (!validation || !pr1 || !profile || !pendingTerminalAction || codeEditBlocksWorkflow || itemCodeOperation.current) return;
     if (!terminalRemarks.trim()) {
       setGlobalError('Remarks are required when rejecting or requesting revision.');
       return;
@@ -324,7 +454,7 @@ export default function WarehouseValidationPage() {
           <button
             type="button"
             onClick={handleSaveProgress}
-            disabled={saving || submitting}
+            disabled={saving || submitting || codeEditBlocksWorkflow}
             className="inline-flex items-center gap-2 px-4 py-2 bg-pq-white border border-pq-neutral-200 hover:border-pq-neutral-300 text-pq-neutral-900 text-sm font-medium rounded-md transition disabled:opacity-50"
           >
             {saving ? (
@@ -379,10 +509,17 @@ export default function WarehouseValidationPage() {
         {/* Item validation grid */}
         <div className="bg-pq-white rounded-md border border-pq-neutral-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-pq-neutral-200">
-            <h2 className="text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">Item Validation</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold text-pq-neutral-700 uppercase tracking-wide">Item Validation</h2>
+              <button type="button" onClick={reloadItemCodes} disabled={itemCodeBusy || saving || submitting}
+                className="text-xs underline disabled:opacity-50">{itemCodeBusy ? 'Checking item codes...' : 'Reload item codes'}</button>
+            </div>
             <p className="text-xs text-pq-neutral-400 mt-0.5">
               Enter available quantity per line. Lines fully covered internally skip procurement; the rest are routed out.
             </p>
+            {itemCodeLoadError && <p role="alert" className="mt-2 text-xs text-pq-danger-900">Item codes unavailable: {itemCodeLoadError} Submission is blocked until codes are verified.</p>}
+            {itemCodeNotice && <p role="status" className="mt-2 text-xs text-pq-success-900">{itemCodeNotice}</p>}
+            {codeEditBlocksWorkflow && <p className="mt-2 text-xs text-pq-neutral-700">Save or cancel the item-code edit before saving progress or submitting a warehouse action.</p>}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -412,7 +549,42 @@ export default function WarehouseValidationPage() {
                   return (
                     <tr key={item.id} className={`${rowClass} transition-colors`}>
                       <td className="px-4 py-3 text-center text-xs text-pq-neutral-400 font-mono">{item.item_order}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-pq-neutral-700">{item.item_code || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-pq-neutral-700">
+                        {
+                          <div className="space-y-2 min-w-[160px] max-w-[240px]">
+                            <p className="font-mono break-all whitespace-pre-wrap">{itemCodesReady && !itemCodeLoadError
+                              ? item.item_code === '' ? '(blank)' : item.item_code
+                              : 'Unavailable'}</p>
+                            {codeEditor?.lineId === item.id ? (
+                              <div className="space-y-2">
+                                <input type="text" aria-label={`Warehouse item code for line ${item.item_order}`}
+                                  autoFocus value={codeEditor.draft} disabled={itemCodeBusy || saving || submitting || !canEditItemCode}
+                                  onChange={e => setCodeEditor(current => current ? { ...current, draft: e.target.value } : null)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Escape' && !itemCodeOperation.current) { setCodeEditor(null); setItemCodeNotice(''); }
+                                    if (e.key === 'Enter') { e.preventDefault(); void saveItemCode(); }
+                                  }}
+                                  className="w-full min-w-0 px-2 py-1.5 border border-pq-neutral-200 rounded-md font-mono focus:outline-none focus:ring-2 focus:ring-pq-primary-600" />
+                                {codeEditor.error && <p role="alert" className="text-pq-danger-900">{codeEditor.error}</p>}
+                                <div className="flex flex-wrap gap-2">
+                                  <button type="button" onClick={saveItemCode}
+                                    disabled={itemCodeBusy || saving || submitting || codeEditor.needsReload || !canEditItemCode}
+                                    className="underline disabled:opacity-50">{itemCodeBusy ? 'Saving code...' : 'Save code'}</button>
+                                  <button type="button" onClick={() => { setCodeEditor(null); setItemCodeNotice(''); }}
+                                    disabled={itemCodeBusy} className="underline disabled:opacity-50">Cancel code edit</button>
+                                </div>
+                              </div>
+                            ) : canEditItemCode && (
+                              <button type="button" disabled={saving || submitting || itemCodeBusy || Boolean(codeEditor)}
+                                onClick={() => {
+                                  const effective = itemCodes[item.id].effective_code;
+                                  setCodeEditor({ lineId: item.id, expected: effective, draft: effective, needsReload: false, error: '' });
+                                  setItemCodeNotice('');
+                                }} className="underline disabled:opacity-50">Edit code</button>
+                            )}
+                          </div>
+                        }
+                      </td>
                       <td className="px-4 py-3 text-pq-neutral-900 font-medium">
                         {item.description}
                         {(() => {
@@ -599,7 +771,7 @@ export default function WarehouseValidationPage() {
                   <button
                     type="button"
                     onClick={handleTerminalAction}
-                    disabled={submitting}
+                    disabled={submitting || codeEditBlocksWorkflow}
                     className={`px-4 py-2 text-sm font-semibold text-white rounded-md transition disabled:opacity-50 ${
                       pendingTerminalAction === 'rejected'
                         ? 'bg-pq-danger-600 hover:bg-pq-danger-600'
@@ -628,7 +800,7 @@ export default function WarehouseValidationPage() {
                       setConfirmSubmit(false);
                       setPendingTerminalAction('revision_requested');
                     }}
-                    disabled={submitting}
+                    disabled={submitting || codeEditBlocksWorkflow}
                   />
                   <TerminalActionButton
                     icon={XCircle}
@@ -639,7 +811,7 @@ export default function WarehouseValidationPage() {
                       setConfirmSubmit(false);
                       setPendingTerminalAction('rejected');
                     }}
-                    disabled={submitting}
+                    disabled={submitting || codeEditBlocksWorkflow}
                   />
                 </div>
               )}
@@ -739,7 +911,7 @@ export default function WarehouseValidationPage() {
                         <button
                           type="button"
                           onClick={handleSubmit}
-                          disabled={submitting || (willCreatePR2 && !getPR2Suffix(pr2Number).trim())}
+                          disabled={submitting || codeBlocksSubmission || (willCreatePR2 && !getPR2Suffix(pr2Number).trim())}
                           className="px-4 py-2 text-sm font-semibold text-white rounded-md transition disabled:opacity-50 bg-pq-neutral-900 hover:bg-pq-neutral-700"
                         >
                           {submitting ? 'Submitting...' : 'Confirm submit'}
@@ -758,7 +930,7 @@ export default function WarehouseValidationPage() {
                     <button
                       type="button"
                       onClick={() => setConfirmSubmit(true)}
-                      disabled={submitting || !derivedDecision}
+                      disabled={submitting || codeBlocksSubmission || !derivedDecision}
                       className="inline-flex items-center gap-2 px-5 py-2.5 bg-pq-neutral-900 hover:bg-pq-neutral-700 text-white text-sm font-semibold rounded-md transition disabled:opacity-50"
                     >
                       <CheckCircle2 className="w-4 h-4" />

@@ -1,3 +1,5 @@
+import type { WarehouseItemCodeReadResult, WarehouseItemCodeSaveResult } from '../lib/warehouse-item-code';
+
 export type Json =
   | string
   | number
@@ -899,6 +901,18 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      get_rfq_warehouse_item_code_snapshots: {
+        Args: { p_rfq_id: string };
+        Returns: { pr1_item_id: string; item_code: string }[];
+      };
+      get_warehouse_item_codes: {
+        Args: { p_validation_id: string };
+        Returns: WarehouseItemCodeReadResult[];
+      };
+      update_warehouse_item_code: {
+        Args: { p_validation_item_id: string; p_expected_code: string; p_new_code: string };
+        Returns: WarehouseItemCodeSaveResult[];
+      };
       create_or_get_conversation: {
         Args: { other_user_id: string };
         Returns: string;

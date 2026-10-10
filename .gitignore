@@ -37,3 +37,6 @@ next-env.d.ts
 
 # git worktrees
 .worktrees/
+
+# Disposable warehouse item-code database runtimes and synthetic test clusters
+/scratch/warehouse-item-code-db/

@@ -9,6 +9,8 @@ import { submitRfqForApproval } from '@/lib/rfq-approvals';
 import { isPr2NativeDirectRequest } from '@/lib/pr2-classification';
 import { getVatSettings, computeLineVat } from '@/lib/vat';
 import { requireAuthUserId } from '@/lib/auth-session';
+import { getRfqWarehouseItemCodeSnapshots } from './warehouse-item-code-data';
+import { applyRfqWarehouseItemCodeSnapshots } from './warehouse-item-code';
 import type {
   RfqBatch,
   RfqSupplier,
@@ -960,6 +962,7 @@ export async function fetchRfqDetail(rfqId: string): Promise<RfqDetailView | nul
     const warehouse = await fetchWarehouseProcurementByPr1Item(rfq.pr1_id);
     const legacyIds = await collectLegacyPr1ItemIdsForRfq(rfqId);
     items = buildRfqLineItems(pr1Items, warehouse, legacyIds);
+    items = applyRfqWarehouseItemCodeSnapshots(items, await getRfqWarehouseItemCodeSnapshots(rfqId));
 
     pr1Header = {
       ...pr1Res.data,
@@ -2506,6 +2509,9 @@ export async function fetchSubstituteReviewBundles(): Promise<SubstituteReviewBu
       const itemIds  = Array.from(new Set(pr1QuoteArr.map(q => q.pr1_item_id).filter(Boolean)));
       const quoteIds = pr1QuoteArr.map(q => q.id);
       const pr1RfqIds = Array.from(pr1RfqIdSet);
+      // One trusted map per exact RFQ; never overlay the shared PR1 item lookup.
+      const codesByRfq = new Map(await Promise.all(pr1RfqIds.map(async rfqId =>
+        [rfqId, await getRfqWarehouseItemCodeSnapshots(rfqId)] as const)));
 
       const [itemsRes, decisionsRes, attachmentsByQuote, selectionsRes] = await Promise.all([
         itemIds.length > 0
@@ -2558,7 +2564,7 @@ export async function fetchSubstituteReviewBundles(): Promise<SubstituteReviewBu
           supplier_name:        supplier.supplier_name_snapshot,
           pr1_item_id:          item.id,
           item_order:           item.item_order,
-          item_code:            item.item_code,
+          item_code:            applyRfqWarehouseItemCodeSnapshots([item], codesByRfq.get(supplier.rfq_id) ?? new Map())[0].item_code,
           original_description: item.description,
           original_quantity:    rfqQty,
           unit_of_measure:      item.unit_of_measure,
@@ -2812,6 +2818,8 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
   const deciderRoleMap = await buildDeciderRoleMap(decisionRows);
 
   const wh = await fetchWarehouseProcurementByPr1Item(pr1.id);
+  const codesByRfq = new Map(await Promise.all(rfqIds.map(async rfqId =>
+    [rfqId, await getRfqWarehouseItemCodeSnapshots(rfqId)] as const)));
   const rfqQtyForItem = (pr1ItemId: string, pr1LineQty: number) => {
     if (!wh.validated) return pr1LineQty;
     const p = wh.byPr1ItemId[pr1ItemId];
@@ -2833,7 +2841,7 @@ async function loadSubstitutesForPr1(pr1: any): Promise<SubstituteReviewBundle |
         supplier_name:        supplier.supplier_name_snapshot,
         pr1_item_id:          item.id,
         item_order:           item.item_order,
-        item_code:            item.item_code,
+        item_code:            applyRfqWarehouseItemCodeSnapshots([item], codesByRfq.get(supplier.rfq_id) ?? new Map())[0].item_code,
         original_description: item.description,
         original_quantity: rfqQtyForItem(item.id, Number(item.quantity_requested) || 0),
         unit_of_measure:      item.unit_of_measure,
@@ -3457,6 +3465,7 @@ export async function fetchSupplierQuoteDetail(
 
     const warehouse = await fetchWarehouseProcurementByPr1Item(rfq.pr1_id);
     items = buildRfqLineItems(pr1Items, warehouse, legacyIds);
+    items = applyRfqWarehouseItemCodeSnapshots(items, await getRfqWarehouseItemCodeSnapshots(rfq.id));
 
     pr1Header = {
       ...pr1Res.data,

@@ -16,6 +16,7 @@ import sys
 from docx import Document
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Inches
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
@@ -175,6 +176,37 @@ def add_feature_section(doc, feature):
     for step in feature["steps"]:
         p = doc.add_paragraph(style="List Number")
         p.add_run(step)
+
+    sample_data = feature.get("sample_data") or []
+    if sample_data:
+        add_heading(doc, "Safe sample data", SIZE_H2, space_before=Pt(10), style_name="Heading 2")
+        doc.add_paragraph(
+            "Use these example values only in a test or training environment. Replace them with approved business values in production."
+        )
+        table = doc.add_table(rows=1, cols=2)
+        table.style = "Table Grid"
+        header = table.rows[0].cells
+        header[0].text = "Field"
+        header[1].text = "Example"
+        for field, value in sample_data:
+            cells = table.add_row().cells
+            cells[0].text = field
+            cells[1].text = value
+
+    screenshots = []
+    if feature.get("screenshot"):
+        screenshots.append(feature["screenshot"])
+    screenshots.extend(feature.get("screenshots") or [])
+    if screenshots:
+        add_heading(doc, "Screen guide", SIZE_H2, space_before=Pt(10), style_name="Heading 2")
+        for screenshot in screenshots:
+            caption = screenshot.get("caption", "")
+            if caption:
+                p = doc.add_paragraph(caption)
+                p.paragraph_format.space_after = Pt(6)
+            image_p = doc.add_paragraph()
+            image_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            image_p.add_run().add_picture(screenshot["path"], width=Inches(5.9))
 
     tips = feature.get("tips") or []
     if tips:
