@@ -1,0 +1,45 @@
+{
+  "app_name": "Fortune Procurement System",
+  "manual_title": "Warehouse Item Code User Guide",
+  "version": "1.0",
+  "date": "October 10, 2026",
+  "introduction": "Warehouse staff can correct the item code on an existing purchase request during warehouse validation. Saving the code updates that same request item and its warehouse validation line. It does not create another item.\n\nThis guide covers item codes only. Quantity checks, warehouse notes and the final validation decision remain separate actions. The screenshots use Demo Item and Demo Item Code as examples; enter the correct business code for your item.",
+  "features": [
+    {
+      "title": "Open the item code editor",
+      "purpose": "Find the existing request item whose code needs correction.",
+      "location": "Warehouse Queue in the left sidebar, then the request's Validate button and the Item Validation section.",
+      "steps": ["Sign in with your active Warehouse account.", "Open Warehouse Queue and find the purchase request.", "Click Validate and confirm the request number and item description.", "Under CODE, click Edit code on the correct line. A text box opens with the current code."],
+      "tips": ["Editing is available for goods and services requests approved for warehouse review, before a warehouse decision has been recorded and while no current PR2 exists.", "The code must load successfully before editing is available. Only one line can be edited at a time.", "The label (blank) means no code is saved. Do not type the word (blank) as an item code."]
+    },
+    {
+      "title": "Enter and save an item code",
+      "purpose": "Replace the current code, or enter a code for a blank item, on the same existing request line.",
+      "location": "The text box below CODE in Item Validation.",
+      "steps": ["Enter the correct item code in the text box. Review the item description before saving.", "Click Save code, or press Enter while the text box is selected.", "Wait for Item code saved. The text box closes and the saved code appears above Edit code."],
+      "tips": ["Save code saves immediately. Save Progress is not needed to save the item code, and Save code does not submit the warehouse validation.", "Spaces at the beginning and end of the code are removed when saved.", "Saving changes the existing request item's code and its warehouse validation copy together. It does not change the item's description, quantities, unit or notes.", "Finish or cancel a changed code edit before saving progress or submitting a warehouse action. Wait for any code save to finish."]
+    },
+    {
+      "title": "Cancel an unsaved edit",
+      "purpose": "Discard what you typed without changing the saved item code.",
+      "location": "Cancel code edit below the item code text box.",
+      "steps": ["Click Cancel code edit, or press Escape while the text box is selected.", "Check the displayed code. The editor closes and the previously saved value remains."],
+      "tips": ["Cancel only discards an unsaved edit. It does not undo a code that was already saved.", "To correct a saved value, click Edit code again, enter the intended value and click Save code."]
+    },
+    {
+      "title": "Remove a saved item code",
+      "purpose": "Clear the code while keeping the request and its item intact.",
+      "location": "Edit code on the relevant Item Validation line.",
+      "steps": ["Click Edit code on the correct line.", "Delete all text from the code box.", "Click Save code. Wait for Item code saved. The code displays as (blank)."],
+      "tips": ["Clearing the code does not delete the item or request.", "The same editing restrictions apply when clearing a code. You cannot clear it after editing is no longer available."]
+    },
+    {
+      "title": "Reload codes and resolve save errors",
+      "purpose": "Check the latest saved codes after an error or a change made by another user.",
+      "location": "Reload item codes at the top right of Item Validation.",
+      "steps": ["If a save fails, do not assume that the code was saved or lost. Read the message on the page.", "Click Reload item codes and wait for the check to finish.", "Compare the latest displayed code with your intended code. If an editor is open, your typed value is retained; review it before saving again.", "If the request is still editable, save the intended value or cancel the edit. If codes remain unavailable, stop and contact your system support contact with the request number and the displayed error."],
+      "tips": ["A message that the code changed elsewhere means another saved value must be checked before you retry.", "Reload item codes refreshes the saved codes without replacing the quantities and notes currently entered on the form. It does not save your draft code.", "Submission is blocked while codes cannot be verified. A changed edit, a failed edit needing reload, or an in-progress code operation also blocks warehouse workflow actions.", "If Edit code is absent, check your Warehouse account, request status, recorded decision and whether a current PR2 exists. Do not create a replacement item to work around the restriction."]
+    }
+  ],
+  "needs_clarification": []
+}

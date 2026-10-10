@@ -1,0 +1,148 @@
+{
+  "app_name": "Fortune Procurement System",
+  "manual_title": "Superadmin Operations Manual",
+  "version": "1.0",
+  "date": "October 2026",
+  "introduction": "This manual is for the IT team responsible for the Fortune Procurement System. It explains the administrator functions that are available in the live application, using the role name Admin. The term Superadmin in this manual means a user whose assigned application role is admin.\n\nUse these functions carefully. Changes to people, organizational records, approval steps, module visibility, and mail settings can affect other users immediately. The system records many administrative changes in Audit Logs.",
+  "features": [
+    {
+      "title": "Administrator Access and Navigation",
+      "roles": "Admin (called Superadmin in this manual)",
+      "purpose": "Open the administrative area and understand what the administrator account can manage.",
+      "location": "Sign in, then use the left sidebar: Dashboard, User Management, Roles, Positions, Departments, Workflows, Module Visibility, System Settings, and Audit Logs.",
+      "steps": ["Sign in with an active account assigned the admin role.", "Open Dashboard to view the administrator dashboard.", "Use the administrative sidebar links to open the required management screen.", "Use Profile to view your own profile and sign out when administration is finished."],
+      "sample_data": [["Training account", "superadmin.training@company.example"], ["Role", "admin"], ["Position", "System Administrator"]],
+      "tips": ["The implemented application role is named admin. A literal superadmin role is not part of the supported role list.", "Admins bypass most role-protected internal routes, but the supplier portal does not allow the admin bypass."]
+    },
+    {
+      "title": "Create a User Directly",
+      "roles": "Admin",
+      "purpose": "Create an account with a temporary password for a new internal user or supplier representative.",
+      "location": "User Management at /admin/users. Select Create User.",
+      "steps": ["Open User Management and select Create User.", "Enter the person's name, email address, temporary password, role, position, and department.", "For a supplier account, complete the supplier details presented in the form when required.", "Submit the form and confirm that the new user appears in the list."],
+      "sample_data": [["Full Name", "Training Employee"], ["Email", "training.employee@company.example"], ["Role", "employee"], ["Position", "Staff"], ["Department", "Training Department"], ["Temporary password", "Generate with the form, then store using your approved process"]],
+      "screenshot": {"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\13-admin-users.png", "caption": "User Management: click Create User in the upper-right corner. The same screen also provides search, role and department filters, user detail access, and Bulk Import."},
+      "screenshots": [{"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\18-admin-create-user.png", "caption": "Create User: click Create User, enter Full Name and Email, select Role, select the matching Position, select Department, then click Create User."}],
+      "tips": ["The server checks that the selected position belongs to the selected role and that the selected department and position are active.", "The account creation endpoint records a USER_CREATED audit entry. Use a temporary password that follows your organization’s handling policy."]
+    },
+    {
+      "title": "Invite a User by Email",
+      "roles": "Admin",
+      "purpose": "Send a first-time account invitation so the recipient sets their own password through the invitation link.",
+      "location": "User Management at /admin/users. Open Create User and choose the invitation option.",
+      "steps": ["Open User Management and select Create User.", "Choose the invitation method.", "Enter the user details and assign an active role, position, and department.", "Send the invitation.", "Ask the recipient to use the invitation link and set a password on the completion page."],
+      "sample_data": [["Full Name", "Training Approver"], ["Email", "training.approver@company.example"], ["Role", "approver"], ["Position", "Supervisor"], ["Department", "Training Department"]],
+      "tips": ["An invitation is rejected when an existing profile already uses the email address.", "Invitation and password-reset emails are configured separately in Supabase, not in the SMTP card on System Settings."]
+    },
+    {
+      "title": "Bulk Import Users",
+      "roles": "Admin",
+      "purpose": "Create multiple accounts from an uploaded workbook or CSV-style import file.",
+      "location": "User Management at /admin/users. Select Bulk Import.",
+      "steps": ["Open User Management and select Bulk Import.", "Download and use the template offered in the import dialog.", "Populate each row with the required user details and valid role, position, and department values.", "Upload the completed file and review the validation result.", "Start the import and review the row-by-row outcome.", "Download or copy the generated credentials before closing the result window."],
+      "sample_data": [["Full Name", "Training Buyer"], ["Email", "training.buyer@company.example"], ["Department", "Training Department"], ["Position", "Buyer"], ["Role", "Procurement role assigned through the matching position"]],
+      "screenshot": {"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\14-admin-bulk-import.png", "caption": "Bulk Import: click Bulk Import on User Management, then upload the completed template or drag the file into the upload area."},
+      "tips": ["The import validates active departments and positions and validates the position-to-role match.", "Each successful import receives a unique temporary password. The interface states that these passwords are shown only once.", "A partial import can succeed for valid rows while invalid rows are reported as skipped."]
+    },
+    {
+      "title": "Find and Maintain User Accounts",
+      "roles": "Admin",
+      "purpose": "Search user records, correct assignments, reset credentials, and control sign-in access without removing history.",
+      "location": "User Management at /admin/users. Select a user to open the user detail page.",
+      "steps": ["Use Search, Role, and Department filters to find the account.", "Open the user record to review its ID, role, position, department, email, created date, and status.", "Select Edit Assignment to change the role, position, or department, then save.", "Select Reset Password when a new temporary password is required.", "Select Deactivate to block sign-in while retaining the record and history.", "Select Reactivate when the account should be allowed to sign in again."],
+      "sample_data": [["Search", "Training Employee"], ["Role filter", "employee"], ["Department filter", "Training Department"]],
+      "tips": ["The user list displays 20 records per page and supports pagination.", "An administrator cannot deactivate their own account from the user detail screen.", "Assignment changes require a position that belongs to the selected role; inactive positions and departments cannot be selected."]
+    },
+    {
+      "title": "Review System Roles",
+      "roles": "Admin",
+      "purpose": "Review the roles available for account assignment and the number of users assigned to each role.",
+      "location": "Roles at /admin/roles.",
+      "steps": ["Open Roles from the sidebar.", "Review each role and its user count.", "Use pagination when more than 20 roles are displayed.", "Use the Roles list when preparing valid role assignments for users or positions."],
+      "screenshot": {"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\15-admin-roles.png", "caption": "Roles: this is a reference page. Review the role name, user count, and created date before assigning a role to a position or user."},
+      "tips": ["The Roles screen is a review screen in the implemented interface; it does not provide create, edit, deactivate, or delete controls.", "The supported application roles are employee, warehouse, procurement, approver, supplier, admin, and tsqa."]
+    },
+    {
+      "title": "Manage Positions",
+      "roles": "Admin",
+      "purpose": "Create, update, deactivate, or reactivate job positions used for role assignment and approval routing.",
+      "location": "Positions at /admin/positions.",
+      "steps": ["Open Positions and select Create Position to add a title and its role.", "Select Edit for an existing position to update its title or role.", "Select Deactivate to stop using a position for future active assignments.", "Read the dependency information in the confirmation dialog, then confirm the change if appropriate.", "Select Reactivate to return an inactive position to use."],
+      "sample_data": [["Position Title", "Training Coordinator"], ["Role", "employee"]],
+      "screenshot": {"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\19-admin-positions.png", "caption": "Positions: click Create Position to add a title. Use the row action for an existing position when editing, deactivating, or reactivating it."},
+      "tips": ["The system warns when an edited position is used in approval workflows because a title change can affect future approval matching.", "Position deactivation reports the count of assigned users and workflow usage before confirmation."]
+    },
+    {
+      "title": "Manage Departments",
+      "roles": "Admin",
+      "purpose": "Maintain the department list used when assigning users and filtering records.",
+      "location": "Departments at /admin/departments.",
+      "steps": ["Open Departments and select Create Department.", "Enter a department name and a unique department code, then create the record.", "Select Edit to correct the name or code.", "Select Deactivate to stop using a department for future active assignments.", "Use Reactivate to make an inactive department available again."],
+      "sample_data": [["Department Name", "Training Department"], ["Department Code", "TRN"]],
+      "screenshot": {"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\20-admin-departments.png", "caption": "Departments: click Create Department, enter the name and unique code, then save. Use the row action for an existing department."},
+      "tips": ["Department name and code are required in the form, and the code is converted to uppercase while entered.", "Review assigned-user information in the deactivation confirmation before proceeding."]
+    },
+    {
+      "title": "Configure Approval Workflows",
+      "roles": "Admin",
+      "purpose": "Maintain the ordered approval steps used by the system’s existing workflows.",
+      "location": "Workflows at /admin/workflows.",
+      "steps": ["Open Workflows and select a workflow from the list.", "Review the existing ordered steps and any active workflow instances.", "Select Add Approval Step to add a role, position, step number, action label, and final-step setting.", "Edit a step to change its supported settings, or select Delete to remove an unused step.", "Review validation messages and save the configuration."],
+      "sample_data": [["Step Number", "Use the next unused sequential number"], ["Required Role", "approver"], ["Required Position", "Supervisor"], ["Action Label", "Reviewed By"], ["Final Step", "Select only for the final approved step"]],
+      "screenshot": {"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\16-admin-workflows.png", "caption": "Approval Workflows: select the workflow row first. The step editor appears after a workflow is selected."},
+      "tips": ["Step numbers must be sequential and unique within a workflow.", "The selected position must be active and must match the required role; approver and procurement are treated as interchangeable for this validation.", "Only one final step is kept for a workflow. Deletion is blocked when the step has dependencies.", "For PO_APPROVAL step 4, the interface warns that this step triggers delivery-tracking creation and should remain a supplier role."]
+    },
+    {
+      "title": "Control Sidebar Module Visibility",
+      "roles": "Admin",
+      "purpose": "Choose which navigation links appear to a role, with optional position-specific exceptions.",
+      "location": "Module Visibility at /admin/module-visibility.",
+      "steps": ["Open Module Visibility.", "Select a role.", "Choose Role default to set the normal navigation for all positions in that role, or choose a specific position to create an exception.", "Turn each applicable module on or off.", "Select Save changes and confirm the success message."],
+      "sample_data": [["Role", "employee"], ["Position scope", "Role default (all positions)"], ["Training change", "Turn off a nonessential module only in a training environment"]],
+      "screenshot": {"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\21-admin-module-visibility.png", "caption": "Module Visibility: select Role, choose Position scope, change the required switches, then click Save changes."},
+      "tips": ["A position-specific setting overrides the role default. Removing an exception that matches the role default returns the position to the default behavior.", "This feature controls sidebar visibility and related display only. It does not grant access to a route that the user’s role is not allowed to use.", "The dashboard is the essential module retained if visibility rules cannot be loaded."]
+    },
+    {
+      "title": "Maintain System Settings",
+      "roles": "Admin",
+      "purpose": "Manage the system-wide VAT setting and the dropdown values used by application forms.",
+      "location": "System Settings at /admin/settings.",
+      "steps": ["Open System Settings.", "Review and update the VAT setting, then save it.", "In Dropdown Options, select a category to see its active options.", "Add an option, edit an option label, move an option up or down, or remove an option as needed.", "Confirm the success or error message after each change."],
+      "sample_data": [["VAT rate", "Use only the current company-approved rate"], ["Example dropdown option", "Training Warehouse"], ["Document-type key", "training_certificate"], ["Display label", "Training Certificate"]],
+      "screenshots": [{"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\17-admin-settings.png", "caption": "System Settings: VAT is shown in the left card. SMTP appears below it. Dropdown Options is the larger panel on the right."}, {"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\23-admin-dropdown-options.png", "caption": "Dropdown Options: click a category, then use Move up, Move down, Edit label, Remove, or Add Option."}],
+      "tips": ["The VAT rate is applied to VAT-registered supplier quotations and is saved with PR2 and PO generation; changing it does not alter existing PR2 or PO lines.", "The dropdown manager is used across forms; check the affected business process before changing an option.", "The option label Other cannot be edited, reordered, or removed by the displayed controls.", "Document-type categories use a separate value key and display label; other categories use the entered option value as the label."]
+    },
+    {
+      "title": "Configure SMTP and Send a Test Email",
+      "roles": "Admin",
+      "purpose": "Configure the mail server used for bug notifications and RFQ invitation emails, then verify delivery.",
+      "location": "System Settings at /admin/settings, in the SMTP card.",
+      "steps": ["Open System Settings and locate SMTP.", "Enter the mail host, port, security option, username, password, sender email, and sender name.", "Select Save Settings.", "Enter a recipient in the test-email field and select Send Test Email.", "Confirm that the recipient receives the test message."],
+      "sample_data": [["Host", "smtp.company.example"], ["Port", "587 (only if approved by your mail provider)"], ["Secure", "Use the provider-approved setting"], ["From email", "procurement-notices@company.example"], ["Test recipient", "it-test@company.example"]],
+      "tips": ["The password field is blank after saving. Leave it blank to retain the saved password; enter a value only when replacing it.", "A successful save reports that the connection check passed.", "This SMTP configuration is not used for invitation or password-reset emails; those are configured separately in Supabase."]
+    },
+    {
+      "title": "Review Audit Logs",
+      "roles": "Admin",
+      "purpose": "Investigate recorded system activity and administrative changes.",
+      "location": "Audit Logs at /admin/audit.",
+      "steps": ["Open Audit Logs.", "Filter by action text, document type, start date, end date, or rows per page.", "Select Apply Filters to refresh the result list.", "Select a log row to open its detail view.", "Use Clear to remove filters and return to the unfiltered list."],
+      "sample_data": [["Action", "USER_CREATED"], ["Document Type", "WORKFLOW"], ["From", "First day of the review period"], ["To", "Last day of the review period"], ["Rows per page", "50"]],
+      "screenshot": {"path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\22-admin-audit-logs.png", "caption": "Audit Logs: enter or select filters, click Apply Filters, click a result row for details, or click Clear to remove filters."},
+      "tips": ["The available document types and actions are taken from recorded log entries.", "Rows per page can be set to 20, 50, or 100.", "Workflow changes and many user-management actions write audit entries; review the detail view when you need the recorded context."]
+    },
+    {
+      "title": "Operational Checks and Safe Change Practice",
+      "roles": "Admin",
+      "purpose": "Use a repeatable, low-risk sequence for administrative work that can affect users or approval flow.",
+      "location": "Use the relevant administrative screen, then Audit Logs at /admin/audit to review the recorded result.",
+      "steps": ["Confirm the requested change and affected business owner before modifying a workflow, position, department, or form option.", "Check whether the item is used by people or workflows before deactivating or renaming it.", "Make one logical change at a time and confirm the displayed success result.", "Verify the affected user or workflow behavior with an appropriate test account or controlled record.", "Review Audit Logs for the corresponding action and record the outcome in your IT change process."],
+      "tips": ["Do not use Module Visibility as a security-control substitute; it does not change route authorization.", "Do not deactivate accounts to remove history. Deactivation is designed to preserve history while blocking sign-in.", "For access errors, confirm that the account is active and that its role, position, and department assignments are valid before escalating."]
+    }
+  ],
+  "needs_clarification": [
+    {"item": "Superadmin role name", "reason": "The supported role type and administrator route checks use admin. A small BugTrack interface check also recognizes the literal string superadmin, but no supported role record or general authorization path for it was found. IT should provision Admin unless product ownership confirms a separate Superadmin role."},
+    {"item": "SMTP credential storage and rotation procedure", "reason": "The user interface confirms whether a password is set but does not expose its storage, encryption, retention, or rotation policy. IT should confirm those controls with the deployment owner."},
+    {"item": "Backup, restore, and production deployment operations", "reason": "No administrator user interface for backups, restores, releases, or environment configuration was found. These are deployment-level responsibilities and require a separate runbook."}
+  ]
+}

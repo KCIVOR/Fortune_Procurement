@@ -1,0 +1,7 @@
+interface:
+  display_name: "User Manual Writer"
+  short_description: "Create code-grounded user manuals"
+  default_prompt: "Use $user-manual-writer to audit this codebase and create a plain-language user manual."
+
+policy:
+  allow_implicit_invocation: true

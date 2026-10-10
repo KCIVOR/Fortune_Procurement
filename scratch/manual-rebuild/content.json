@@ -1,0 +1,556 @@
+{
+  "app_name": "Fortune Procurement System",
+  "manual_title": "User Manual",
+  "version": "1.4",
+  "date": "September 2026",
+  "introduction": "Fortune Procurement System is the company's online system for the entire purchasing process - from the moment someone needs something, through finding a supplier, placing a formal order, and checking in what arrives. It replaces printed forms, phone calls, and email chains with one place where everyone can see exactly where a request stands.\n\nEvery person who uses the system sees a different set of screens depending on their role: Employee, Planning, Warehouse, Procurement, Approver (Supervisor, Department Head, Operations Manager, Director, or Finance Director), Supplier, TSQA (Quality Assurance), or Admin. This manual is organized by what you can do in the system, and each section notes which role(s) can use that feature. If a feature described here doesn't appear on your screen, your role or position may not have access to it - check with your Admin.\n\nScreenshots in this manual use demonstration accounts and sample records.",
+  "features": [
+    {
+      "title": "Your Dashboard",
+      "purpose": "Who uses this: Everyone (content shown differs by role) Gives you a quick snapshot of what needs your attention right now, tailored to your role for example, requests awaiting your approval, deliveries in progress, or accreditation applications waiting for review.",
+      "location": "This is the first screen you see after logging in. You can also return to it at any time from the top of the left sidebar.",
+      "steps": [
+        "Log in to the system.",
+        "Review the summary cards and lists on your dashboard.",
+        "Click any item shown to go straight to its detail page."
+      ],
+      "tips": [
+        "What appears on your dashboard depends on your role - an Employee sees their own requests, while an Approver sees what's waiting for their decision."
+      ]
+    },
+    {
+      "title": "Creating a Purchase Request (PR1)",
+      "purpose": "Who uses this: Employee Lets any Employee ask for goods or services they need, starting the company's formal request-and-approval process.",
+      "location": "Click \"My Requests\" (or \"PR1\") in the left sidebar, then click \"New Request.\"",
+      "steps": [
+        "Click New Request. Your name, department, and the date are filled in automatically.",
+        "Choose a Purpose from the dropdown list (or choose \"Other\" and type your own).",
+        "Enter the Date Required and choose a Priority: Normal, Medium, or High.",
+        "Add one or more line items: description, unit of measure, and quantity.",
+        "Attach a file to any line item if useful (a photo, spec sheet, or quote).",
+        "Click Save Draft to keep working on it later, or Submit to send it into the approval process.",
+        "Open the request at any time to see its full status timeline and history."
+      ],
+      "tips": [
+        "Once submitted, you can no longer edit or delete the request yourself only an approver's \"Request Revision\" sends it back to you as editable.",
+        "Use the Print button on the request's detail page for a clean, formatted copy."
+      ]
+    },
+    {
+      "title": "Creating a Raw Material or Service Request Directly (PR2)",
+      "purpose": "Who uses this: Employee Planning Staff position only Lets Planning staff request raw materials or certain services directly, skipping the PR1 step and warehouse stock check, since Planning's requests are based on their own production forecasting rather than checking existing stock.",
+      "location": "Planning Staff: click \"My Requests\" in the left sidebar, then click \"New Request\".",
+      "steps": [
+        "Click New Request.",
+        "Choose a Purpose, Date Required, and Priority.",
+        "Click Add Line, then enter each line item's description, unit of measure, and quantity.",
+        "Click Save as Draft or Submit for Approval. A submitted request goes straight into internal certification it does not go through Warehouse."
+      ],
+      "tips": [
+        "Only users in the Planning Staff position can create a PR2 this way; other Employees must use PR1.",
+        "Your \"My Requests\" list shows the full downstream journey of each request you created not just its internal approval status, but whether a Purchase Order has been sent, a delivery is in progress, or the goods receipt is complete."
+      ]
+    },
+    {
+      "title": "Checking Stock and Handing Off to Purchasing (Warehouse Validation)",
+      "purpose": "Who uses this: Warehouse Lets Warehouse confirm whether an approved PR1 can be filled from existing stock, and automatically routes anything that can't be to Procurement for purchasing.",
+      "location": "Warehouse: click \"Validation Queue\" in the left sidebar.",
+      "steps": [
+        "Open a submitted, approved PR1 from the queue.",
+        "For each line item, enter the Verified Stock on Hand. The system marks the line Sufficient or Insufficient automatically.",
+        "If you need to adjust the requested quantity for a partial fulfillment, enter an explanatory note.",
+        "Click Save Progress to continue later, or Submit Warehouse Validation when finished."
+      ],
+      "tips": [
+        "Lines marked Sufficient are filled from stock with nothing purchased. Lines marked Insufficient are automatically bundled into a new PR2 that starts the purchasing process you'll be recorded as the one who prepared it.",
+        "A single PR1 can be split some lines filled from stock, others sent to purchasing in one validation.",
+        "Every validation you complete is saved in Warehouse History, where you can search and filter past validations."
+      ]
+    },
+    {
+      "title": "Reviewing and Approving Requests",
+      "purpose": "Who uses this: Approver Supervisor, Department Head, Operations Manager, Director, or Finance Director positions Lets anyone with an approval responsibility (Supervisor, Department Head, Operations Manager, Director, or Finance Director) review a request and decide whether it moves forward, at the specific checkpoint assigned to their position.",
+      "location": "Click \"Approval Queue\" in the left sidebar to see everything currently waiting on your decision, across purchase requests, internal certifications, canvassing sign-offs, and purchase orders.",
+      "steps": [
+        "Open an item from your Approval Queue.",
+        "Review the details, line items, and any attached files.",
+        "Choose one of three actions: Approve (moves it to the next step), Reject (closes the request and tells the requestor why), or Request Revision (sends it back one step for a fix).",
+        "Add remarks explaining your decision if needed, then confirm."
+      ],
+      "tips": [
+        "Your Approval Queue only ever shows items sitting at your own checkpoint nothing belonging to someone else's step appears there.",
+        "Use \"Approval History\" to see every decision you've personally made, organized by document type, searchable by date range.",
+        "If you're a Supervisor, Department Head, or Operations Manager, you only see requests from your own department. Directors and Finance Directors see requests company-wide.",
+        "Some approval steps only apply above or below a certain purchase amount - if a request doesn't meet that threshold, that step is skipped automatically and won't appear in your queue."
+      ]
+    },
+    {
+      "title": "Sourcing Suppliers with a Request for Quotation (RFQ)",
+      "purpose": "Who uses this: Procurement Lets Procurement invite suppliers to quote on an internally-approved request, then compare their offers side-by-side and pick the best one for each item.",
+      "location": "Procurement: open an approved PR2 and click \"Create RFQ,\" or go to the RFQ list in the left sidebar.",
+      "steps": [
+        "Create the RFQ. Line items and specifications carry over automatically from the PR2.",
+        "Invite suppliers: choose from your accredited suppliers, or add a one-off external vendor by name (for a marketplace or walk-in seller with no account in the system).",
+        "Set a closing date and click Send. Invited suppliers (except external vendors) are notified in-app and by email.",
+        "As quotes come in, review them in the side-by-side comparison table - one column per supplier, showing price, lead time, and any attached files.",
+        "For an external vendor, enter their quote yourself on their behalf.",
+        "Award the winning quote for each line item.",
+        "Once satisfied, click Close, then submit the RFQ for its own sign-off (Procurement Manager, then Director)."
+      ],
+      "tips": [
+        "Removing an external vendor from the RFQ is only possible while it's still in Draft and before you've entered a quote for them.",
+        "If you change the underlying quote after it's been awarded, the award is automatically cleared so a stale decision is never silently kept.",
+        "A Purchase Order can only be created once this canvassing sign-off is fully approved.",
+        "There is no dedicated print view for an RFQ."
+      ]
+    },
+    {
+      "title": "Reviewing a Supplier's Substitute Item",
+      "purpose": "Who uses this: Employee (original requestor) or Procurement Lets the original requestor or Procurement decide whether to accept a substitute a supplier has offered in place of the exact item requested.",
+      "location": "Click \"Substitutes\" in the left sidebar, or open the notification that appears when a supplier offers a substitute during quoting.",
+      "steps": [
+        "Open the substitute item from the list.",
+        "Compare \"You requested\" against \"Supplier is offering,\" including any attached files.",
+        "Add an optional note explaining your reasoning.",
+        "Click Accept or Reject."
+      ],
+      "tips": [
+        "Either the requestor or Procurement deciding is enough the two don't both need to agree.",
+        "Pricing is intentionally hidden from the requestor at this stage; that decision is Procurement's to make.",
+        "If Procurement decides on behalf of a requestor, the requestor is notified that it was decided \"on your behalf,\" and vice versa if the requestor decides.",
+        "You can change your decision only while it's still unlocked it locks automatically once the RFQ closes/cancels, or once that item has already been awarded."
+      ]
+    },
+    {
+      "title": "Creating and Sending a Purchase Order",
+      "purpose": "Who uses this: Procurement Turns an approved, sourced request into a formal order that commits the company to buy from the selected supplier at the agreed price.",
+      "location": "Procurement: open a PR2 whose canvassing sign-off is approved, and click \"Generate PO,\" or go to the Purchase Orders list in the left sidebar.",
+      "steps": [
+        "Click Generate PO. Supplier and line items fill in automatically.",
+        "Review and edit the PO number, payment terms, delivery address/instructions, and remarks as needed.",
+        "Click Save as Draft, or Submit for Approval to send it through internal sign-off (Buyer/Procurement Staff, then Procurement Manager, then Finance Director).",
+        "Once fully approved, click Send to Supplier - for an order to an external vendor, click Mark as Ordered instead, since there's no portal to send it to."
+      ],
+      "tips": [
+        "Each supplier always gets their own separate Purchase Order orders from the same RFQ are never merged across suppliers.",
+        "A Purchase Order is never sent automatically, even after full approval you must click Send to Supplier yourself.",
+        "Use the search, filter, and Print options on the Purchase Order list and detail page."
+      ]
+    },
+    {
+      "title": "Applying for Supplier Accreditation",
+      "purpose": "Who uses this: Supplier Lets a new supplier company submit the documents needed to be approved to do business with the company.",
+      "location": "Supplier: click \"Accreditation\" in the left sidebar.",
+      "steps": [
+        "Click Start Accreditation Application.",
+        "Click Upload Document, choose a document type (Company Profile, Self Assessment, Legal Document, Certification, Technical Data Sheet, MSDS/Safety Data Sheet, Product Specification, or Other), and upload your file.",
+        "Repeat for each required document.",
+        "Click Submit for Procurement Review when ready."
+      ],
+      "tips": [
+        "Files must be PDF, JPG, or PNG, up to 10 MB each, with up to 3 files per document type.",
+        "You can't start a new application while a non-rejected one already exists.",
+        "You can withdraw your application while it's in Draft, Submitted, or Missing Documents status.",
+        "If a document is flagged \"Needs Revision\" or \"Rejected,\" you can replace just that one file you don't need to resubmit everything.",
+        "Each approved document has its own expiry date, and you'll get reminders as it approaches expiry."
+      ]
+    },
+    {
+      "title": "Reviewing Supplier Accreditation Applications",
+      "purpose": "Who uses this: Procurement Lets Procurement review a supplier's submitted documents and decide whether to approve them to transact with the company.",
+      "location": "Procurement: click \"Accreditation\" (or the accreditation queue) in the left sidebar.",
+      "steps": [
+        "Open a submitted application.",
+        "Mark it Under Review while you check the documents.",
+        "For each document, verify it and set its expiry date, or click Request Missing Documents (with a note) if something needs fixing.",
+        "Click Approve or Reject (with notes) for the overall application."
+      ],
+      "tips": [
+        "You can Revoke an already-approved accreditation with a reason - this moves it to Expired.",
+        "You can Reopen a decided application for review if needed.",
+        "The system tracks 60/30/15/0-day reminders per document as each approaches its expiry date."
+      ]
+    },
+    {
+      "title": "Viewing Your Product Catalog (Raw Material Suppliers)",
+      "purpose": "Who uses this: Supplier Raw Material supply type only Lets a Raw Material supplier see the products Procurement has listed for them and each product's verification history.",
+      "location": "Supplier (Raw Material supply type only): click \"Product Catalog\" in the left sidebar.",
+      "steps": [
+        "Browse your listed products: code, category, price, stock, and status.",
+        "Click a product to see its full verification history."
+      ],
+      "tips": [
+        "You cannot add, edit, or submit a product yourself the catalog is maintained by Procurement on your behalf. Contact Procurement if something needs to change.",
+        "Only products marked Verified can be selected when you submit a quote."
+      ]
+    },
+    {
+      "title": "Managing a Supplier's Product Catalog (Procurement)",
+      "purpose": "Who uses this: Procurement Lets Procurement enter and manage raw-material products on behalf of a supplier, and decide which ones are verified for use in quotes.",
+      "location": "Procurement: click \"Product Catalog\" in the left sidebar.",
+      "steps": [
+        "Add a new product on the supplier's behalf, or open a submitted product for review.",
+        "Review the product's details and click Verify or Reject."
+      ],
+      "tips": [
+        "A product can also be marked Pending TSQA in some cases before it can be Verified.",
+        "Products no longer auto-expire on a schedule deactivating or expiring a product is now a manual action you take."
+      ]
+    },
+    {
+      "title": "Submitting a Quotation (Supplier)",
+      "purpose": "Who uses this: Supplier Lets a supplier respond to a Request for Quotation with pricing for each requested item.",
+      "location": "Supplier: click \"Quotations\" in the left sidebar, then open an RFQ from the \"Awaiting Response\" tab.",
+      "steps": [
+        "For each requested line, choose how to respond: select a catalog product (Raw Material suppliers only), enter a manual description/price/lead time, or choose No Quote (with a reason).",
+        "If you can't fulfill the exact item but can offer something close, flag your entry as an Alternative/substitute item.",
+        "If you're registered as VAT-able, choose whether your price is VAT-Inclusive or VAT-Exclusive.",
+        "Attach supporting files if useful.",
+        "Click Submit Quotation."
+      ],
+      "tips": [
+        "Picking an unverified catalog product shows a warning, since Procurement may require justification before it can be awarded.",
+        "You can keep editing your quote (the button then reads Update Quotation) until the RFQ closes but editing an already-awarded quote clears that award.",
+        "No further edits are possible once the RFQ closes."
+      ]
+    },
+    {
+      "title": "Managing Your Purchase Orders (Supplier)",
+      "purpose": "Who uses this: Supplier Lets a supplier see every Purchase Order issued to them and confirm they will fulfill it.",
+      "location": "Supplier: click \"Purchase Orders\" in the left sidebar.",
+      "steps": [
+        "Open a PO showing status Awaiting Acknowledgment.",
+        "Click Acknowledge, and optionally enter a commitment date and delivery remarks.",
+        "Update your acknowledgment again later if your plans change this replaces your earlier answer."
+      ],
+      "tips": [
+        "You can see full item pricing and VAT breakdown here, unlike on the delivery-tracking screen."
+      ]
+    },
+    {
+      "title": "Updating Delivery Status (Supplier)",
+      "purpose": "Who uses this: Supplier Lets a supplier keep everyone informed of where a delivery stands, from preparing the order to it arriving.",
+      "location": "Supplier: click \"Deliveries\" in the left sidebar.",
+      "steps": [
+        "Choose the next status: Scheduled, In Transit, or Delayed.",
+        "When moving to In Transit, you can upload a Delivery Receipt file.",
+        "If marking Delayed, enter a note explaining the delay (required).",
+        "Continue updating status through to Delivered, or mark Cancelled if the delivery won't happen."
+      ],
+      "tips": [
+        "You can only move to the statuses that logically follow your current one - for example, you can't jump straight from Pending to Delivered.",
+        "Delivery Receipt files must be PDF, JPG, or PNG, up to 10 MB.",
+        "Item pricing is intentionally not shown to you on this screen."
+      ]
+    },
+    {
+      "title": "Uploading Compliance Documents (Service Suppliers)",
+      "purpose": "Who uses this: Supplier Service supply type only Lets a Service supplier provide required paperwork (such as a Certificate of Calibration) for a service that's been delivered.",
+      "location": "Supplier (Service supply type only): click \"Compliance Documents\" in the left sidebar, then open the relevant item.",
+      "steps": [
+        "Open the PO item once it has reached the receiving stage.",
+        "Click Upload and choose your file.",
+        "Delete and re-upload if you need to replace it."
+      ],
+      "tips": [
+        "You can't upload until a Goods Receipt (GRN) exists for that item - the system will not accept an upload before then.",
+        "Accepted formats: PDF, JPG, PNG, WEBP, DOC, DOCX, up to 10 MB, up to 3 files per item."
+      ]
+    },
+    {
+      "title": "Tracking Deliveries",
+      "purpose": "Who uses this: Everyone with visibility into the request (Employee, Warehouse, and Procurement see it read-only; Supplier updates it) Lets anyone with a stake in a request see where its delivery currently stands, without needing to ask the supplier or Procurement directly.",
+      "location": "Click \"Delivery Tracking\" in the left sidebar.",
+      "steps": [
+        "Use the All / Pending / Scheduled / In Transit / Delayed / Delivered tabs to filter.",
+        "Search by PO number, supplier, or warehouse.",
+        "Open a delivery to see its full update-history timeline."
+      ],
+      "tips": [
+        "Requestors and Warehouse see this as read-only - only the supplier updates the status.",
+        "Pricing is hidden here for anyone other than Procurement.",
+        "Procurement can see every delivery company-wide, not just their own requests."
+      ]
+    },
+    {
+      "title": "Receiving Goods and Closing the Goods Receipt (GRN)",
+      "purpose": "Who uses this: Warehouse (goods and raw materials) or Procurement (services) Lets Warehouse (for goods and raw materials) or Procurement (for services) record what actually arrived against a Purchase Order, and formally close out the order once everything is checked.",
+      "location": "Warehouse or Procurement: click \"Goods Receipt\" (GRN) in the left sidebar.",
+      "steps": [
+        "Open the relevant Purchase Order's receiving record.",
+        "For each line, enter the quantity actually received. Note any discrepancy, and any rejected quantity with a reason.",
+        "Optionally flag any goods line as \"Forward to QA\" if you want it inspected.",
+        "Click Save Progress to keep the GRN Open for further receiving passes, or Close GRN once everything including QA is resolved.",
+        "Use Print for a finalized, signature-ready copy."
+      ],
+      "tips": [
+        "Every Raw Material line is automatically and mandatorily flagged for QA - this can't be turned off.",
+        "If anything is still pending QA, the GRN status becomes \"Pending QA\" and it cannot be closed until TSQA resolves it.",
+        "A closed GRN can be reopened later by Warehouse or Procurement if a correction is needed.",
+        "For services requiring compliance documentation, receiving can't be finalized until that document is uploaded."
+      ]
+    },
+    {
+      "title": "Approving Quality (TSQA)",
+      "purpose": "Who uses this: TSQA Lets TSQA inspect and sign off on raw materials and any goods flagged for quality checking before they can count as received.",
+      "location": "TSQA: click \"QA Queue\" in the left sidebar.",
+      "steps": [
+        "Open a line item awaiting your decision.",
+        "Click Approve to clear it for receipt, or Reject with a written reason.",
+        "A rejection immediately notifies Warehouse that the item is blocking the GRN from closing."
+      ],
+      "tips": [
+        "You can reverse a decision (Approve after a Reject, or the reverse) as long as the GRN is still open once it's closed, QA decisions are locked permanently.",
+        "There is no supplier-facing \"resubmit after rejection\" flow - a rejected raw material stays blocked until you personally change the decision to Approved."
+      ]
+    },
+    {
+      "title": "Managing Supplier Accounts",
+      "purpose": "Who uses this: Procurement Lets Procurement maintain the full roster of registered supplier companies, including adding new ones individually or in bulk.",
+      "location": "Procurement: click \"Suppliers\" in the left sidebar.",
+      "steps": [
+        "Click Add Supplier to create one account: name, email, and payment terms.",
+        "Or click Bulk Import to add many at once: download the template, fill it in, upload your file, map the columns (Email and Supplier Name are required), preview the results, and set a shared temporary password (or auto-generate one).",
+        "Review the results screen, which reports how many accounts succeeded and why any row failed."
+      ],
+      "tips": [
+        "Bulk Import accepts .csv or Excel files, up to 500 rows at a time.",
+        "Each supplier's VAT-registered status and supply type (Normal / Raw Material / Service) are set here, and control what they're asked for when quoting and which extra screens they see in their portal."
+      ]
+    },
+    {
+      "title": "Tracking Compliance Documents (Procurement)",
+      "purpose": "Who uses this: Procurement Lets Procurement see, at a glance, which service Purchase Order items still need supporting compliance paperwork from the supplier.",
+      "location": "Procurement: click \"Compliance Documents\" in the left sidebar.",
+      "steps": [
+        "Flag any services PO line as requiring a compliance document.",
+        "Watch its status move from Awaiting GRN, to Pending Upload, to Uploaded as the process progresses.",
+        "Use search and filter by PO or supplier, and open a PO to download any uploaded document."
+      ],
+      "tips": [
+        "This screen only tracks whether a document is present - there's no accept/reject decision to make here.",
+        "A PO's overall status shows the \"worst\" status among its flagged items.",
+        "Deleting an uploaded document is only available to the supplier who uploaded it, or an Admin - not to Procurement from this screen."
+      ]
+    },
+    {
+      "title": "Notifications",
+      "purpose": "Who uses this: Everyone Keeps you aware, in real time, of anything that needs your attention - an approval waiting on you, a new quote, a delivery update, and more.",
+      "location": "Click the bell icon at the top of the screen.",
+      "steps": [
+        "Click the bell icon to see your unread notifications.",
+        "Click any notification to jump straight to the relevant record - it's automatically marked read."
+      ],
+      "tips": [
+        "Notifications appear instantly, not just on a periodic refresh.",
+        "An email is sent only for specific events, such as new/resolved bug reports and RFQ invitations - not for every notification."
+      ]
+    },
+    {
+      "title": "Messaging",
+      "purpose": "Who uses this: Everyone (Employees and Suppliers cannot message each other directly - Admin can message anyone) Lets you send direct messages to another person in the system without leaving the app.",
+      "location": "Click \"Messages\" in the left sidebar.",
+      "steps": [
+        "Search for the person you want to message and start a conversation.",
+        "Type your message, attach a file if needed, and send.",
+        "Reply within a thread, or edit/delete your own messages afterward."
+      ],
+      "tips": [
+        "Attachments can be images, PDFs, or Office documents, up to 10 MB each, up to 3 per message.",
+        "A deleted message shows as \"Message deleted\" rather than disappearing entirely.",
+        "An Employee and a Supplier cannot message each other directly that communication must go through Procurement. Admin can message anyone."
+      ]
+    },
+    {
+      "title": "Sharing and Reviewing Wishlist Ideas",
+      "purpose": "Who uses this: Everyone and Admin. Lets users suggest improvements to the procurement system. Admin can review the complete list and record the outcome.",
+      "location": "Click the heart icon labeled \"Wishlist\" in the top header.",
+      "steps": [
+        "Enter a title and description for the improvement you would like to suggest. You can also add an optional category.",
+        "Click Submit idea. Your idea appears in My ideas with its current status.",
+        "While an idea is Open, use Edit or Delete to change or remove your own idea.",
+        "If you are an Admin, search the submitted ideas or filter them by status.",
+        "For an Admin update, choose Open, Planned, In progress, Completed, or Declined, add an optional note, and click Save changes."
+      ],
+      "tips": [
+        "Ideas that are no longer Open cannot be edited or deleted by the person who submitted them.",
+        "An Admin note appears with the submitted idea when one has been saved."
+      ]
+    },
+    {
+      "title": "Reporting a Bug or Issue",
+      "purpose": "Who uses this: Everyone Lets any signed-in user report a problem with the system so Admin can look into it.",
+      "location": "Click \"Bug Track\" (or \"Report an Issue\") in the left sidebar.",
+      "steps": [
+        "Click New Bug Report.",
+        "Enter a summary, where it happened, and severity (Low, Medium, or High).",
+        "Describe what happened and what you expected instead.",
+        "Attach an error message or screenshot if you have one.",
+        "Click Submit."
+      ],
+      "tips": [
+        "Admin is notified automatically, and you'll be notified in-app as your report moves through Open, In Progress, and Resolved/Closed.",
+        "You'll also get an email when your report is marked Resolved."
+      ]
+    },
+    {
+      "title": "Managing Your Profile",
+      "purpose": "Who uses this: Everyone Lets you update your own display name, change your password, and (for suppliers) set your default payment terms.",
+      "location": "Click your name or avatar, then \"Profile.\"",
+      "steps": [
+        "Update your display name if needed.",
+        "To change your password, enter your current password first, then your new one.",
+        "Suppliers: open the Commercial Terms section to set your default payment terms."
+      ],
+      "tips": [
+        "Your role, department, and position are shown but can't be changed here - ask an Admin to update those."
+      ]
+    },
+    {
+      "title": "Printing Documents",
+      "purpose": "Who uses this: Everyone, on documents they're allowed to view Produces a clean, formatted, signature-ready copy of a request or order for physical filing or offline approval.",
+      "location": "Open a PR1, PR2, Purchase Order, or Goods Receipt, and click Print.",
+      "steps": [
+        "Open the document you want to print.",
+        "Click the Print button.",
+        "Use your browser's print dialog to print or save as PDF."
+      ],
+      "tips": [
+        "Print is not currently available for RFQs."
+      ]
+    },
+    {
+      "title": "Logging In and Recovering Your Password",
+      "purpose": "Who uses this: Everyone Lets you sign in to your account, and regain access if you forget your password or receive an invitation to join.",
+      "location": "The login screen, shown when you first open the system.",
+      "steps": [
+        "Enter your email and password, then click Log In.",
+        "Check \"Remember this device\" if you want to stay logged in longer.",
+        "If you forgot your password, click Forgot Password and enter your email you'll get an email with reset instructions if an account matches.",
+        "If you received an invitation email, click the link in it to set your own password."
+      ],
+      "tips": [
+        "If your account has been deactivated, you'll see a clear message even if your password is correct - contact your Admin.",
+        "The Forgot Password screen always shows the same message whether or not the email matches an account, so no one can use it to guess who has an account."
+      ]
+    },
+    {
+      "title": "Managing Users (Admin)",
+      "purpose": "Who uses this: Admin Lets Admin create, edit, and control access for every account in the system.",
+      "location": "Admin: click \"Users\" in the left sidebar.",
+      "steps": [
+        "Click Create User to add someone directly (set a temporary password or auto-generate one), or Invite by Email to let them set their own password.",
+        "Open an existing user to edit their role, department, or position - their menu and access update immediately.",
+        "Click Reset Password to set a new password directly for a locked-out user.",
+        "Click Deactivate to block sign-in (their history is kept), or Reactivate to restore access."
+      ],
+      "tips": [
+        "You cannot deactivate your own account, and the system won't let you deactivate the last remaining active Admin.",
+        "A supplier user's Default Payment Terms field is also editable from their edit page.",
+        "Procurement (not just Admin) can separately toggle a supplier's active status and payment terms."
+      ]
+    },
+    {
+      "title": "Bulk Importing Users (Admin)",
+      "purpose": "Who uses this: Admin. Adds many user accounts from one file and shows a one-time temporary password for each successfully imported user.",
+      "location": "Admin: click \"Users\" in the left sidebar, then click \"Bulk Import\".",
+      "steps": [
+        "Review the Template information, then click or drag and drop to upload a file containing Full Name, Email, Department, and Position. The file can contain up to 500 rows.",
+        "Map the file columns to the required fields, then review the proposed department and position matches.",
+        "Correct any unresolved department or position, then start the import.",
+        "Review the successful and failed rows when the import finishes.",
+        "Download the CSV or copy the credentials before closing the window if any users were imported successfully."
+      ],
+      "tips": [
+        "Each successful import receives a unique temporary password. It is shown only in the results window and cannot be recovered later."
+      ]
+    },
+    {
+      "title": "Viewing System Roles (Admin)",
+      "purpose": "Who uses this: Admin. Shows the system roles, the number of users assigned to each role, and the date each role was created.",
+      "location": "Admin: click \"Roles\" in the left sidebar.",
+      "steps": [
+        "Open the Roles page.",
+        "Review the role name, assigned-user count, and created date.",
+        "Use the page controls to move through the list when there is more than one page."
+      ],
+      "tips": [
+        "Roles are informational and read-only. Create, edit, and deactivate user accounts from Users instead."
+      ]
+    },
+    {
+      "title": "Managing Positions and Departments (Admin)",
+      "purpose": "Who uses this: Admin Lets Admin define the job positions and departments used throughout the system for routing requests and approvals.",
+      "location": "Admin: click \"Positions & Departments\" in the left sidebar.",
+      "steps": [
+        "Click Add Position (or Add Department), enter a name, and save.",
+        "Open an existing one to edit it, or click Deactivate when it's no longer in use."
+      ],
+      "tips": [
+        "Roles themselves are fixed by the system and shown read-only you can't create, edit, or delete a role.",
+        "Deactivating a position that's used in a live approval workflow is blocked, and shows exactly how many workflow steps and users reference it.",
+        "Deactivating a department with active users shows how many people would be affected before you confirm.",
+        "Nothing here can be permanently deleted, only deactivated - all historical data is preserved."
+      ]
+    },
+    {
+      "title": "Configuring Approval Workflows (Admin)",
+      "purpose": "Who uses this: Admin Lets Admin define exactly who must review and approve each type of request, and in what order.",
+      "location": "Admin: click \"Workflows\" in the left sidebar, then select a workflow row (e.g., \"PR1 Approval Routing\").",
+      "steps": [
+        "View the visual diagram of the workflow's steps.",
+        "Click Add Step, and enter the order number, required role, required position, an action label, and whether it's the final step.",
+        "To make a step conditional, add it as a threshold step, active only within a set value range.",
+        "Click Edit on an existing step to change it, or Delete to remove it."
+      ],
+      "tips": [
+        "Deleting a step is blocked if any approval is currently active on that workflow; it's allowed, with a warning, if only historical records reference it.",
+        "A warning banner appears if the workflow has active in-flight approvals, since step changes may affect them.",
+        "A drag handle appears next to each step but doesn't currently work for reordering - change a step's order number directly instead."
+      ]
+    },
+    {
+      "title": "Controlling Menu Visibility (Admin)",
+      "purpose": "Who uses this: Admin Lets Admin decide which menu items appear in each role's or position's sidebar.",
+      "location": "Admin: click \"Module Visibility\" in the left sidebar.",
+      "steps": [
+        "Choose a role or position.",
+        "Toggle each menu item on or off for it.",
+        "To lend a menu item from one role to another as a special case, use the Borrow option, and remove it again later the same way."
+      ],
+      "tips": [
+        "This only controls what's visible in the menu - it doesn't by itself block someone from opening a page directly if they know its address. Actual access control is separate and can't be bypassed here."
+      ]
+    },
+    {
+      "title": "System Settings (Admin)",
+      "purpose": "Who uses this: Admin Lets Admin configure system-wide values used throughout the app: the VAT rate, outgoing email settings, and the shared dropdown lists used on forms.",
+      "location": "Admin: click \"System Settings\" in the left sidebar.",
+      "steps": [
+        "VAT Rate: enter the percentage used in every Subtotal/VAT/Total calculation, and save.",
+        "Email (SMTP) Settings: enter Host, Port, Secure toggle, Username, Password, From address, and From name. Click Send Test Email to confirm it works before saving.",
+        "Dropdown Options: choose a category (e.g., Warehouse locations, Payment Terms, Request Purposes, Units of Measure), then add, edit, reorder, or delete entries."
+      ],
+      "tips": [
+        "Changing the VAT rate only affects new quotations, PR2s, and POs going forward - existing figures keep the rate in effect when they were created.",
+        "These email settings govern bug-report and RFQ-invitation emails specifically - account invitations and password resets are sent separately and aren't controlled here.",
+        "Saving a broken email configuration is rejected outright - the system checks the connection first.",
+        "Duplicate dropdown values are blocked automatically, and the built-in \"Other\" option can't be edited, reordered, or deleted."
+      ]
+    },
+    {
+      "title": "Viewing Audit Logs (Admin)",
+      "purpose": "Who uses this: Admin Lets Admin see a complete, searchable record of significant actions taken across the system, for accountability and troubleshooting.",
+      "location": "Admin: click \"Audit Logs\" in the left sidebar.",
+      "steps": [
+        "Use the filters to narrow by action, document type, or date range.",
+        "Open a log entry to see full detail, including a before/after comparison of what changed."
+      ],
+      "tips": [
+        "User management, position/department changes, and workflow-step changes are all automatically logged.",
+        "Module Visibility changes are the one configuration area that does not currently produce an audit log entry."
+      ]
+    }
+  ],
+  "needs_clarification": []
+}

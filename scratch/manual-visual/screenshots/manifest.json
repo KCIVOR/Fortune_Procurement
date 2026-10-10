@@ -1,0 +1,19 @@
+[
+  {
+    "file": "23-admin-dropdown-options.png",
+    "title": "Admin dropdown options",
+    "role": "admin@fortune.com",
+    "route": "/admin/settings",
+    "click": "Payment Terms",
+    "targets": [
+      "DROPDOWN OPTIONS",
+      "Payment Terms",
+      "Move up",
+      "Edit label",
+      "Remove",
+      "Add Option"
+    ],
+    "ok": true,
+    "path": "C:\\Users\\Rovick\\Desktop\\project\\scratch\\manual-visual\\screenshots\\23-admin-dropdown-options.png"
+  }
+]
