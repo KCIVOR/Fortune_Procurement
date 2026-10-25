@@ -719,6 +719,14 @@ export default function RFQQueuePage() {
               )}
             </div>
             <div className="px-6 pb-5 flex items-center justify-end gap-3">
+              <Link
+                href={`/pr1/${selectedPr1.pr1_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 text-sm text-pq-primary-600 hover:text-pq-neutral-900 transition"
+              >
+                View PR1
+              </Link>
               <button
                 onClick={() => setCreating(false)}
                 disabled={submitting}
@@ -799,6 +807,14 @@ export default function RFQQueuePage() {
               )}
             </div>
             <div className="px-6 pb-5 flex items-center justify-end gap-3">
+              <Link
+                href={`/pr2/${selectedPr2.pr2_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 text-sm text-pq-primary-600 hover:text-pq-neutral-900 transition"
+              >
+                View PR2
+              </Link>
               <button
                 onClick={() => setCreatingRaw(false)}
                 disabled={submitting}
