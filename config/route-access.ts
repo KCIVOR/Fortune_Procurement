@@ -144,6 +144,10 @@ function matchesRule(pathname: string, rule: RouteAccessRule): boolean {
 export function evaluateRouteAccess(pathname: string): RouteAccessDecision {
   const path = normalizePathname(pathname);
 
+  if (/^\/planning\/pr2\/[^/]+\/print$/.test(path)) {
+    return { kind: 'roles', roles: ['employee', 'procurement'] };
+  }
+
   const sorted = [...ROUTE_ACCESS_RULES].sort(
     (a, b) => b.prefix.length - a.prefix.length,
   );
